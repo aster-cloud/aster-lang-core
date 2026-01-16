@@ -1,0 +1,13 @@
+# IDE
+.idea/
+*.iml
+
+# Build
+build/
+.gradle/
+
+# Test artifacts
+.jqwik-database
+
+# Tool cache
+.ace-tool/

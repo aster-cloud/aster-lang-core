@@ -1,0 +1,7 @@
+{
+  "$schema": "../../../manifest.schema.json",
+  "capabilities": {
+    "allow": ["Http", "Sql", "Time"],
+    "deny": ["Secrets"]
+  }
+}
