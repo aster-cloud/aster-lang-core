@@ -1096,7 +1096,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     }
 
     public Expr.Construct.ConstructField visitConstructField(AsterParser.ConstructFieldContext ctx) {
-        String name = ctx.IDENT().getText();
+        // 支持 IDENT 和 TYPE_IDENT（中文字段名以 CJK 字符开头会被识别为 TYPE_IDENT）
+        String name = ctx.IDENT() != null ? ctx.IDENT().getText() : ctx.TYPE_IDENT().getText();
         Expr value = (Expr) visit(ctx.expr());
         return new Expr.Construct.ConstructField(name, value);
     }

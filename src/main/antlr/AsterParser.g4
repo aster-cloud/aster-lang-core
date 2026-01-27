@@ -497,7 +497,7 @@ constructFieldList
     ;
 
 constructField
-    : IDENT EQUALS expr
+    : (IDENT | TYPE_IDENT) EQUALS expr
     ;
 
 operatorCall
