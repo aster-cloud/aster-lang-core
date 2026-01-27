@@ -95,9 +95,10 @@ class LexiconRegistryTest {
         assertEquals("简体中文", zhCn.getName());
         assertEquals(Lexicon.Direction.LTR, zhCn.getDirection());
 
-        // 验证关键词映射
+        // 验证关键词映射（与 TypeScript 前端保持一致）
         var keywords = zhCn.getKeywords();
-        assertEquals("若", keywords.get(SemanticTokenKind.IF));
+        assertEquals("如果", keywords.get(SemanticTokenKind.IF));
+        assertEquals("若", keywords.get(SemanticTokenKind.MATCH));
         assertEquals("返回", keywords.get(SemanticTokenKind.RETURN));
         assertEquals("真", keywords.get(SemanticTokenKind.TRUE));
         assertEquals("【模块】", keywords.get(SemanticTokenKind.MODULE_DECL));

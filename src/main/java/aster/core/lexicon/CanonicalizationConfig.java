@@ -12,6 +12,7 @@ import java.util.Set;
  * @param articles           冠词列表（如果 removeArticles 为 true）
  * @param customRules        自定义规范化规则
  * @param allowedDuplicates  允许共享同一关键字的语义令牌组
+ * @param compoundPatterns   复合关键词模式（如 "若...为"、"令...为"）
  */
 public record CanonicalizationConfig(
     boolean fullWidthToHalf,
@@ -19,7 +20,8 @@ public record CanonicalizationConfig(
     boolean removeArticles,
     List<String> articles,
     List<CanonicalizationRule> customRules,
-    List<Set<SemanticTokenKind>> allowedDuplicates
+    List<Set<SemanticTokenKind>> allowedDuplicates,
+    List<CompoundPattern> compoundPatterns
 ) {
     /**
      * 空格处理模式
@@ -43,12 +45,19 @@ public record CanonicalizationConfig(
             true,                     // removeArticles
             List.of("a", "an", "the"), // articles
             List.of(),                // customRules
-            List.of(Set.of(SemanticTokenKind.FUNC_TO, SemanticTokenKind.TO_WORD)) // allowedDuplicates
+            List.of(Set.of(SemanticTokenKind.FUNC_TO, SemanticTokenKind.TO_WORD)), // allowedDuplicates
+            List.of()                 // compoundPatterns
         );
     }
 
     /**
      * 中文标准规范化配置
+     * <p>
+     * 包含复合关键词模式：
+     * <ul>
+     *   <li>match-when: 若...为（模式匹配）</li>
+     *   <li>let-be: 令...为（变量声明）</li>
+     * </ul>
      */
     public static CanonicalizationConfig chinese() {
         return new CanonicalizationConfig(
@@ -57,7 +66,11 @@ public record CanonicalizationConfig(
             false,                    // removeArticles
             List.of(),                // articles
             List.of(),                // customRules
-            List.of()                 // allowedDuplicates
+            List.of(Set.of(SemanticTokenKind.WHEN, SemanticTokenKind.BE)), // allowedDuplicates: "为" 用于 match/when 和 let/be
+            List.of(                  // compoundPatterns
+                CompoundPattern.matchWhen(),
+                CompoundPattern.letBe()
+            )
         );
     }
 

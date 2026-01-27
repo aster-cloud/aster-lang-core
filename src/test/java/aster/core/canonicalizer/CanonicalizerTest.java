@@ -282,9 +282,10 @@ class CanonicalizerTest {
         var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
 
         // 测试控制流关键词翻译（大小写与 ANTLR 匹配）
-        String input = "若 条件";
+        // 与 TypeScript 前端保持一致：IF = "如果", MATCH = "若"
+        String input = "如果 条件";
         String result = zhCanonicalizer.canonicalize(input);
-        assertTrue(result.contains("If"), "中文'若'应翻译为'If'，实际结果: " + result);
+        assertTrue(result.contains("If"), "中文'如果'应翻译为'If'，实际结果: " + result);
     }
 
     @Test
@@ -378,10 +379,11 @@ class CanonicalizerTest {
     void testChineseIdentifier_KeywordAtBoundary() {
         var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
 
-        // "若" 后面有空格，应该被翻译
-        String input = "若 条件成立";
+        // "如果" 后面有空格，应该被翻译（与 TypeScript 前端保持一致）
+        // "若" 现在是 MATCH 关键字，不是 IF
+        String input = "如果 条件成立";
         String result = zhCanonicalizer.canonicalize(input);
-        assertTrue(result.contains("If"), "独立的'若'关键字应翻译为'If'，实际结果: " + result);
+        assertTrue(result.contains("If"), "独立的'如果'关键字应翻译为'If'，实际结果: " + result);
         assertTrue(result.contains("条件成立"), "'条件成立'标识符应保留");
     }
 
@@ -401,7 +403,8 @@ class CanonicalizerTest {
         var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
 
         // 关键字后面是标点（如冒号），应该被翻译
-        String input = "若:";
+        // 与 TypeScript 前端保持一致："若" 是 MATCH，"如果" 是 IF
+        String input = "如果:";
         String result = zhCanonicalizer.canonicalize(input);
         assertTrue(result.contains("If"), "关键字后面是标点时应翻译，实际结果: " + result);
     }
@@ -465,9 +468,10 @@ class CanonicalizerTest {
         var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
 
         // 独立关键词（前后有空格）
-        String input = "若 条件 返回 值";
+        // 与 TypeScript 前端保持一致："如果" 是 IF，"若" 是 MATCH
+        String input = "如果 条件 返回 值";
         String result = zhCanonicalizer.canonicalize(input);
-        assertTrue(result.contains("If"), "独立的'若'应翻译为'If'");
+        assertTrue(result.contains("If"), "独立的'如果'应翻译为'If'");
         assertTrue(result.contains("Return"), "独立的'返回'应翻译为'Return'");
     }
 
@@ -698,10 +702,11 @@ class CanonicalizerTest {
             );
 
             // 同时包含关键字和领域标识符
-            String input = "若 驾驶员 的 年龄 大于 18，返回 真。";
+            // 与 TypeScript 前端保持一致："如果" 是 IF
+            String input = "如果 驾驶员 的 年龄 大于 18，返回 真。";
             String result = canon.canonicalize(input);
 
-            assertTrue(result.contains("If"), "'若'关键字应翻译为'If'");
+            assertTrue(result.contains("If"), "'如果'关键字应翻译为'If'");
             assertTrue(result.contains("Driver"), "'驾驶员'应翻译为'Driver'");
             assertTrue(result.contains("age"), "'年龄'应翻译为'age'");
             assertTrue(result.contains("Return"), "'返回'应翻译为'Return'");

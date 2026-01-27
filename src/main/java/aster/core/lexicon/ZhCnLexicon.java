@@ -52,16 +52,16 @@ public final class ZhCnLexicon implements Lexicon {
         kw.put(SemanticTokenKind.TYPE_WITH, "包含");
         kw.put(SemanticTokenKind.TYPE_ONE_OF, "为以下之一");
 
-        // 函数定义
-        kw.put(SemanticTokenKind.FUNC_TO, "入参");
+        // 函数定义（与 TypeScript 前端保持一致）
+        kw.put(SemanticTokenKind.FUNC_TO, "【函数】");
         kw.put(SemanticTokenKind.FUNC_PRODUCE, "产出");
         kw.put(SemanticTokenKind.FUNC_PERFORMS, "执行");
 
-        // 控制流
-        kw.put(SemanticTokenKind.IF, "若");
+        // 控制流（与 TypeScript 前端保持一致）
+        kw.put(SemanticTokenKind.IF, "如果");
         kw.put(SemanticTokenKind.OTHERWISE, "否则");
-        kw.put(SemanticTokenKind.MATCH, "把");
-        kw.put(SemanticTokenKind.WHEN, "当");
+        kw.put(SemanticTokenKind.MATCH, "若");
+        kw.put(SemanticTokenKind.WHEN, "为");
         kw.put(SemanticTokenKind.RETURN, "返回");
         kw.put(SemanticTokenKind.FOR_EACH, "对每个");
         kw.put(SemanticTokenKind.IN, "在");
