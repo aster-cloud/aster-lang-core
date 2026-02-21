@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.ServiceLoader;
 import java.util.Set;
 
 /**
@@ -42,10 +43,47 @@ public final class VocabularyRegistry {
 
     /**
      * 初始化内置词汇表。
+     * <p>
+     * 优先通过 SPI 发现 {@link VocabularyPlugin} 插件加载词汇表；
+     * 若 SPI 未发现任何插件，则回退到硬编码的内置词汇表。
      */
     private void initBuiltinVocabularies() {
-        register(BuiltinVocabularies.insuranceAutoZhCn());
-        register(BuiltinVocabularies.financeLoanZhCn());
+        int loaded = discoverVocabularyPlugins();
+        if (loaded == 0) {
+            register(BuiltinVocabularies.insuranceAutoZhCn());
+            register(BuiltinVocabularies.financeLoanZhCn());
+        }
+    }
+
+    /**
+     * 通过 SPI 发现并注册 {@link VocabularyPlugin} 插件提供的领域词汇表。
+     *
+     * @return 成功加载的词汇表数量
+     */
+    public int discoverVocabularyPlugins() {
+        int loaded = 0;
+        for (VocabularyPlugin plugin : ServiceLoader.load(VocabularyPlugin.class)) {
+            try {
+                DomainVocabulary primary = plugin.createVocabulary();
+                String key = makeKey(primary.id(), primary.locale());
+                if (!vocabularies.containsKey(key)) {
+                    register(primary);
+                    loaded++;
+                }
+
+                for (DomainVocabulary extra : plugin.getVocabularies()) {
+                    String extraKey = makeKey(extra.id(), extra.locale());
+                    if (!vocabularies.containsKey(extraKey)) {
+                        register(extra);
+                        loaded++;
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("加载词汇表插件失败: " + plugin.getClass().getName()
+                    + " - " + e.getMessage());
+            }
+        }
+        return loaded;
     }
 
     /**
