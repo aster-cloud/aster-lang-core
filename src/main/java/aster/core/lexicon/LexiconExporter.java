@@ -175,6 +175,21 @@ public final class LexiconExporter {
             }
         }
 
+        if (!config.compoundPatterns().isEmpty()) {
+            ArrayNode patterns = node.putArray("compoundPatterns");
+            for (CompoundPattern cp : config.compoundPatterns()) {
+                ObjectNode cpNode = mapper.createObjectNode();
+                cpNode.put("name", cp.name());
+                cpNode.put("opener", cp.opener().name());
+                ArrayNode ctxKw = cpNode.putArray("contextualKeywords");
+                for (SemanticTokenKind kw : cp.contextualKeywords()) {
+                    ctxKw.add(kw.name());
+                }
+                cpNode.put("closer", cp.closer().name());
+                patterns.add(cpNode);
+            }
+        }
+
         // preTranslationTransformers / postTranslationTransformers:
         // 导出变换器的注册键名，供 DynamicLexicon 加载时通过 TransformerRegistry 查找
         if (!config.preTranslationTransformers().isEmpty()) {
