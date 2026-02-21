@@ -150,7 +150,7 @@ public final class DynamicLexicon implements Lexicon {
 
     private static CanonicalizationConfig parseCanonicalization(JsonNode node) {
         if (node.isMissingNode()) {
-            return CanonicalizationConfig.english();
+            return CanonicalizationConfig.defaults();
         }
 
         boolean fullWidthToHalf = node.path("fullWidthToHalf").asBoolean(false);
@@ -298,7 +298,7 @@ public final class DynamicLexicon implements Lexicon {
 
     private static ErrorMessages parseMessages(JsonNode node) {
         if (node.isMissingNode()) {
-            return ErrorMessages.english();
+            return ErrorMessages.defaults();
         }
         return new ErrorMessages(
                 node.path("unexpectedToken").asText("Unexpected token: {token}"),

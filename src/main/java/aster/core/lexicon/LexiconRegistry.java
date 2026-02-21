@@ -336,7 +336,7 @@ public final class LexiconRegistry {
         for (LexiconPlugin plugin : ServiceLoader.load(LexiconPlugin.class)) {
             try {
                 // 先注册变换器，因为 Lexicon 构造时可能依赖变换器
-                // （例如 ZhCnLexicon 的 CanonicalizationConfig.chinese() 会引用中文变换器）
+                // （例如中文词法表的 JSON 引用中文变换器名称，需要先注册到 TransformerRegistry）
                 var transformers = plugin.getTransformers();
                 if (!transformers.isEmpty()) {
                     TransformerRegistry.registerAll(transformers);

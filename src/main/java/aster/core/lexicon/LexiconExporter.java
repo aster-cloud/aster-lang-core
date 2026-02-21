@@ -1,5 +1,6 @@
 package aster.core.lexicon;
 
+import aster.core.canonicalizer.TransformerRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -175,17 +176,17 @@ public final class LexiconExporter {
         }
 
         // preTranslationTransformers / postTranslationTransformers:
-        // 导出变换器的类名，供下游项目参考（不含实例）
+        // 导出变换器的注册键名，供 DynamicLexicon 加载时通过 TransformerRegistry 查找
         if (!config.preTranslationTransformers().isEmpty()) {
             ArrayNode pre = node.putArray("preTranslationTransformers");
             for (var t : config.preTranslationTransformers()) {
-                pre.add(t.getClass().getSimpleName());
+                pre.add(TransformerRegistry.getKey(t));
             }
         }
         if (!config.postTranslationTransformers().isEmpty()) {
             ArrayNode post = node.putArray("postTranslationTransformers");
             for (var t : config.postTranslationTransformers()) {
-                post.add(t.getClass().getSimpleName());
+                post.add(TransformerRegistry.getKey(t));
             }
         }
 

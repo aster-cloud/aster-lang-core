@@ -3,8 +3,8 @@ package aster.core.canonicalizer;
 import aster.core.identifier.IdentifierIndex;
 import aster.core.identifier.VocabularyRegistry;
 import aster.core.lexicon.CanonicalizationConfig;
-import aster.core.lexicon.EnUsLexicon;
 import aster.core.lexicon.Lexicon;
+import aster.core.lexicon.LexiconRegistry;
 import aster.core.lexicon.SemanticTokenKind;
 
 import java.util.ArrayList;
@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
  * <p>
  * <b>多语言支持</b>：
  * <ul>
- *   <li>通过 Lexicon 指定源语言（如 ZhCnLexicon）</li>
+ *   <li>通过 Lexicon 指定源语言（如 zh-CN 词法表）</li>
  *   <li>自动将源语言关键词翻译为英语（如 "若" → "if"，"模块" → "Module"）</li>
  *   <li>保留字符串字面量内的原始内容不变</li>
  * </ul>
@@ -82,7 +82,7 @@ public final class Canonicalizer {
      * 使用默认词法表（en-US）创建规范化器
      */
     public Canonicalizer() {
-        this(EnUsLexicon.INSTANCE, null);
+        this(LexiconRegistry.getInstance().getDefault(), null);
     }
 
     /**
@@ -213,7 +213,7 @@ public final class Canonicalizer {
      */
     private Map<String, String> buildKeywordTranslationMap(Lexicon sourceLexicon) {
         Map<String, String> translationMap = new HashMap<>();
-        Lexicon targetLexicon = EnUsLexicon.INSTANCE;
+        Lexicon targetLexicon = LexiconRegistry.getInstance().getOrThrow("en-US");
 
         // 1. 首先处理运算符关键词 -> 符号的翻译（适用于所有语言）
         // 例如：中文 "小于" -> "<"，英文 "less than" -> "<"
@@ -229,7 +229,7 @@ public final class Canonicalizer {
 
             // 如果源语言不是英语，也需要添加英语关键词到符号的映射
             // 因为规范化后可能保留英语运算符关键词，需要再翻译为符号
-            if (!EnUsLexicon.ID.equals(sourceLexicon.getId())) {
+            if (!"en-US".equals(sourceLexicon.getId())) {
                 String englishKeyword = targetLexicon.getKeywords().get(kind);
                 if (englishKeyword != null && !englishKeyword.equals(symbol) && !translationMap.containsKey(englishKeyword)) {
                     translationMap.put(englishKeyword, symbol);
@@ -238,7 +238,7 @@ public final class Canonicalizer {
         }
 
         // 2. 如果是英语词法表，只需要运算符符号翻译，不需要关键词翻译
-        if (EnUsLexicon.ID.equals(sourceLexicon.getId())) {
+        if ("en-US".equals(sourceLexicon.getId())) {
             return translationMap;
         }
 

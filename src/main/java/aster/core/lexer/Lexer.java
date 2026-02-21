@@ -1,6 +1,5 @@
 package aster.core.lexer;
 
-import aster.core.lexicon.EnUsLexicon;
 import aster.core.lexicon.Lexicon;
 import aster.core.lexicon.LexiconRegistry;
 import aster.core.lexicon.PunctuationConfig;
@@ -55,7 +54,7 @@ public final class Lexer {
      * @param input 规范化后的 CNL 源代码
      */
     public Lexer(String input) {
-        this(input, EnUsLexicon.INSTANCE);
+        this(input, LexiconRegistry.getInstance().getDefault());
     }
 
     /**
@@ -85,7 +84,7 @@ public final class Lexer {
      * @throws LexerException 当遇到非法字符或缩进错误时抛出
      */
     public static List<Token> lex(String source) {
-        return lex(source, EnUsLexicon.INSTANCE);
+        return lex(source, LexiconRegistry.getInstance().getDefault());
     }
 
     /**

@@ -85,6 +85,24 @@ public final class TransformerRegistry {
     }
 
     /**
+     * 通过实例反查注册键。
+     * <p>
+     * 遍历注册表查找与给定变换器实例匹配的键名。
+     * 如果未找到，回退到类名（兼容未注册的变换器）。
+     *
+     * @param transformer 变换器实例
+     * @return 注册键名
+     */
+    public static String getKey(SyntaxTransformer transformer) {
+        for (var entry : REGISTRY.entrySet()) {
+            if (entry.getValue().get() == transformer) {
+                return entry.getKey();
+            }
+        }
+        return transformer.getClass().getSimpleName();
+    }
+
+    /**
      * 清除所有注册的变换器并重新注册内置变换器（仅用于测试）。
      */
     public static void reset() {

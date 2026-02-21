@@ -375,7 +375,7 @@ class CanonicalizerTest {
 
     @Test
     void testChineseKeywordTranslation_ControlFlow() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         // 测试控制流关键词翻译（大小写与 ANTLR 匹配）
         // 与 TypeScript 前端保持一致：IF = "如果", MATCH = "若"
@@ -386,7 +386,7 @@ class CanonicalizerTest {
 
     @Test
     void testChineseKeywordTranslation_Return() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         String input = "返回 值";
         String result = zhCanonicalizer.canonicalize(input);
@@ -395,7 +395,7 @@ class CanonicalizerTest {
 
     @Test
     void testChineseKeywordTranslation_Boolean() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         String input = "真 且 假 或 非";
         String result = zhCanonicalizer.canonicalize(input);
@@ -408,7 +408,7 @@ class CanonicalizerTest {
 
     @Test
     void testChineseKeywordTranslation_ModuleDecl() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         String input = "模块 测试";
         String result = zhCanonicalizer.canonicalize(input);
@@ -417,7 +417,7 @@ class CanonicalizerTest {
 
     @Test
     void testChineseKeywordTranslation_Variable() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         String input = "令 变量 为 10";
         String result = zhCanonicalizer.canonicalize(input);
@@ -427,7 +427,7 @@ class CanonicalizerTest {
 
     @Test
     void testChineseKeywordTranslation_PreserveIdentifiers() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         // 中文标识符（变量名、函数名）应保留
         String input = "令 中文变量名 为 10";
@@ -437,7 +437,7 @@ class CanonicalizerTest {
 
     @Test
     void testChineseKeywordTranslation_PreserveStrings() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         // 字符串内容应保留
         String input = "返回 \"若 这是字符串\"";
@@ -449,7 +449,7 @@ class CanonicalizerTest {
     @Test
     void testEnglishLexiconNoTranslation() {
         // 英文 Lexicon 不应进行翻译
-        var enCanonicalizer = new Canonicalizer(aster.core.lexicon.EnUsLexicon.INSTANCE);
+        var enCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("en-US"));
 
         String input = "if condition return true";
         String result = enCanonicalizer.canonicalize(input);
@@ -462,7 +462,7 @@ class CanonicalizerTest {
 
     @Test
     void testChineseIdentifier_NotBreakByKeyword() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         // "若何" 是中文标识符，不应被 "若" 关键字替换破坏
         String input = "令 若何 为 10";
@@ -473,7 +473,7 @@ class CanonicalizerTest {
 
     @Test
     void testChineseIdentifier_KeywordAtBoundary() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         // "如果" 后面有空格，应该被翻译（与 TypeScript 前端保持一致）
         // "若" 现在是 MATCH 关键字，不是 IF
@@ -485,7 +485,7 @@ class CanonicalizerTest {
 
     @Test
     void testChineseIdentifier_MultipleKeywordsInIdentifier() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         // 标识符中包含多个关键字字符，都不应被替换
         String input = "令 返回值 为 若干";
@@ -496,7 +496,7 @@ class CanonicalizerTest {
 
     @Test
     void testChineseIdentifier_KeywordFollowedByPunctuation() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         // 关键字后面是标点（如冒号），应该被翻译
         // 与 TypeScript 前端保持一致："若" 是 MATCH，"如果" 是 IF
@@ -520,7 +520,7 @@ class CanonicalizerTest {
 
     @Test
     void testMixedScript_ChineseAndAscii() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         // 混合脚本标识符：中文 + ASCII
         String input = "令 变量若value 为 10";
@@ -531,7 +531,7 @@ class CanonicalizerTest {
 
     @Test
     void testMixedScript_UnderscoreIdentifier() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         // 下划线标识符
         String input = "令 若_identifier 为 10";
@@ -541,7 +541,7 @@ class CanonicalizerTest {
 
     @Test
     void testMixedScript_AsciiSurrounding() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         // ASCII 字符包围的中文关键词
         String input = "令 A若B 为 10";
@@ -551,7 +551,7 @@ class CanonicalizerTest {
 
     @Test
     void testMixedScript_NumberSuffix() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         // 数字后缀标识符
         String input = "令 若123 为 10";
@@ -561,7 +561,7 @@ class CanonicalizerTest {
 
     @Test
     void testKeyword_StandaloneWithSpace() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         // 独立关键词（前后有空格）
         // 与 TypeScript 前端保持一致："如果" 是 IF，"若" 是 MATCH
@@ -577,7 +577,7 @@ class CanonicalizerTest {
 
     @Test
     void testChineseReturn_WithFunctionCallAndChineseString() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         // 返回语句中包含函数调用，函数参数为中文字符串字面量
         // 此测试验证不会在函数调用括号内错误添加句号
@@ -610,7 +610,7 @@ class CanonicalizerTest {
 
     @Test
     void testChineseReturn_WithNestedFunctionCall() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         // 嵌套函数调用
         String input = "返回 upper(trim(「 hello 」))。";
@@ -626,7 +626,7 @@ class CanonicalizerTest {
 
     @Test
     void testChineseReturn_WithMultipleStringArgs() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         // 多个字符串参数的函数调用
         String input = "返回 concat(「hello」, 「world」)。";
@@ -660,7 +660,7 @@ class CanonicalizerTest {
         @DisplayName("使用单领域词汇表构造")
         void constructWithSingleDomain() {
             var canon = new Canonicalizer(
-                aster.core.lexicon.ZhCnLexicon.INSTANCE,
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
                 "insurance.auto",
                 "zh-CN"
             );
@@ -673,7 +673,7 @@ class CanonicalizerTest {
         @DisplayName("使用多领域词汇表构造")
         void constructWithMultipleDomains() {
             var canon = new Canonicalizer(
-                aster.core.lexicon.ZhCnLexicon.INSTANCE,
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
                 List.of("insurance.auto", "finance.loan"),
                 "zh-CN"
             );
@@ -685,7 +685,7 @@ class CanonicalizerTest {
         @DisplayName("无效领域返回无索引")
         void constructWithInvalidDomain() {
             var canon = new Canonicalizer(
-                aster.core.lexicon.ZhCnLexicon.INSTANCE,
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
                 "nonexistent.domain",
                 "zh-CN"
             );
@@ -698,7 +698,7 @@ class CanonicalizerTest {
         @DisplayName("基本结构体标识符翻译")
         void translateStructIdentifier() {
             var canon = new Canonicalizer(
-                aster.core.lexicon.ZhCnLexicon.INSTANCE,
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
                 "insurance.auto",
                 "zh-CN"
             );
@@ -713,7 +713,7 @@ class CanonicalizerTest {
         @DisplayName("字段标识符翻译")
         void translateFieldIdentifier() {
             var canon = new Canonicalizer(
-                aster.core.lexicon.ZhCnLexicon.INSTANCE,
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
                 "insurance.auto",
                 "zh-CN"
             );
@@ -729,7 +729,7 @@ class CanonicalizerTest {
         @DisplayName("函数标识符翻译")
         void translateFunctionIdentifier() {
             var canon = new Canonicalizer(
-                aster.core.lexicon.ZhCnLexicon.INSTANCE,
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
                 "insurance.auto",
                 "zh-CN"
             );
@@ -745,7 +745,7 @@ class CanonicalizerTest {
         @DisplayName("别名标识符翻译")
         void translateAliasIdentifier() {
             var canon = new Canonicalizer(
-                aster.core.lexicon.ZhCnLexicon.INSTANCE,
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
                 "insurance.auto",
                 "zh-CN"
             );
@@ -762,7 +762,7 @@ class CanonicalizerTest {
         @DisplayName("保留字符串内的标识符")
         void preserveIdentifiersInStrings() {
             var canon = new Canonicalizer(
-                aster.core.lexicon.ZhCnLexicon.INSTANCE,
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
                 "insurance.auto",
                 "zh-CN"
             );
@@ -777,7 +777,7 @@ class CanonicalizerTest {
         @DisplayName("未映射标识符保持原样")
         void preserveUnmappedIdentifiers() {
             var canon = new Canonicalizer(
-                aster.core.lexicon.ZhCnLexicon.INSTANCE,
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
                 "insurance.auto",
                 "zh-CN"
             );
@@ -792,7 +792,7 @@ class CanonicalizerTest {
         @DisplayName("关键字与标识符翻译组合")
         void combineKeywordAndIdentifierTranslation() {
             var canon = new Canonicalizer(
-                aster.core.lexicon.ZhCnLexicon.INSTANCE,
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
                 "insurance.auto",
                 "zh-CN"
             );
@@ -813,7 +813,7 @@ class CanonicalizerTest {
         @DisplayName("多领域词汇表标识符翻译")
         void translateMultiDomainIdentifiers() {
             var canon = new Canonicalizer(
-                aster.core.lexicon.ZhCnLexicon.INSTANCE,
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
                 List.of("insurance.auto", "finance.loan"),
                 "zh-CN"
             );
@@ -830,7 +830,7 @@ class CanonicalizerTest {
         @DisplayName("完整 CNL 语句翻译")
         void translateCompleteCnlStatement() {
             var canon = new Canonicalizer(
-                aster.core.lexicon.ZhCnLexicon.INSTANCE,
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
                 "insurance.auto",
                 "zh-CN"
             );
@@ -871,7 +871,7 @@ class CanonicalizerTest {
             IdentifierIndex customIndex = IdentifierIndex.build(customVocab);
 
             var canon = new Canonicalizer(
-                aster.core.lexicon.ZhCnLexicon.INSTANCE,
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
                 customIndex
             );
 
@@ -885,7 +885,7 @@ class CanonicalizerTest {
         @DisplayName("标识符翻译幂等性")
         void identifierTranslationIdempotency() {
             var canon = new Canonicalizer(
-                aster.core.lexicon.ZhCnLexicon.INSTANCE,
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
                 "insurance.auto",
                 "zh-CN"
             );
@@ -901,7 +901,7 @@ class CanonicalizerTest {
         @DisplayName("贷款金融领域标识符翻译")
         void translateFinanceLoanIdentifiers() {
             var canon = new Canonicalizer(
-                aster.core.lexicon.ZhCnLexicon.INSTANCE,
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
                 "finance.loan",
                 "zh-CN"
             );
@@ -927,7 +927,7 @@ class CanonicalizerTest {
 
         @BeforeEach
         void setUp() {
-            deCanonicalizer = new Canonicalizer(aster.core.lexicon.DeDeLexicon.INSTANCE);
+            deCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("de-DE"));
         }
 
         @Test
@@ -1023,7 +1023,7 @@ class CanonicalizerTest {
     @Test
     @DisplayName("中文'的'无空格模式：用户的名字 → 用户.名字")
     void testChinesePossessive_NoSpace() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         String input = "用户的名字";
         String result = zhCanonicalizer.canonicalize(input);
@@ -1034,7 +1034,7 @@ class CanonicalizerTest {
     @Test
     @DisplayName("中文'的'无空格模式：单字前缀不触发（保护复合标识符）")
     void testChinesePossessive_NoSpace_SingleCharPrefix() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         // 单字 "我" + "的" + "结构体" 不应被分割（可能是复合标识符）
         String input = "我的结构体";
@@ -1046,7 +1046,7 @@ class CanonicalizerTest {
     @Test
     @DisplayName("中文'的'无空格模式：保护字符串字面量")
     void testChinesePossessive_NoSpace_PreserveStrings() {
-        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"));
 
         String input = "返回 \"用户的名字\"";
         String result = zhCanonicalizer.canonicalize(input);

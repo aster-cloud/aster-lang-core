@@ -27,14 +27,14 @@ class LexiconRegistryTest {
     void testBuiltinEnUsLexiconRegistered() {
         assertTrue(registry.has("en-US"), "英文词法表应已注册");
         assertNotNull(registry.get("en-US").orElse(null));
-        assertSame(EnUsLexicon.INSTANCE, registry.getOrThrow("en-US"));
+        assertEquals("en-US", registry.getOrThrow("en-US").getId());
     }
 
     @Test
     void testBuiltinZhCnLexiconRegistered() {
         assertTrue(registry.has("zh-CN"), "中文词法表应已注册");
         assertNotNull(registry.get("zh-CN").orElse(null));
-        assertSame(ZhCnLexicon.INSTANCE, registry.getOrThrow("zh-CN"));
+        assertEquals("zh-CN", registry.getOrThrow("zh-CN").getId());
     }
 
     @Test

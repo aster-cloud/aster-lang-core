@@ -1,7 +1,6 @@
 package aster.core.lexicon;
 
 import aster.core.canonicalizer.SyntaxTransformer;
-import aster.core.canonicalizer.TransformerRegistry;
 
 import java.util.List;
 import java.util.Set;
@@ -43,115 +42,22 @@ public record CanonicalizationConfig(
     }
 
     /**
-     * 英文标准规范化配置
+     * 默认规范化配置（纯数据默认值，不引用任何变换器）。
+     * <p>
+     * 仅作为 {@link DynamicLexicon} 在 JSON 缺少 canonicalization 节点时的 fallback。
+     * 实际的语言特定配置由各语言包的 JSON 文件定义。
      */
-    public static CanonicalizationConfig english() {
+    public static CanonicalizationConfig defaults() {
         return new CanonicalizationConfig(
             false,                    // fullWidthToHalf
             WhitespaceMode.ENGLISH,   // whitespaceMode
-            true,                     // removeArticles
-            List.of("a", "an", "the"), // articles
-            List.of(),                // customRules
-            List.of(
-                Set.of(SemanticTokenKind.FUNC_TO, SemanticTokenKind.TO_WORD),
-                Set.of(SemanticTokenKind.UNDER, SemanticTokenKind.LESS_THAN),  // 均映射为 "<" 符号
-                Set.of(SemanticTokenKind.OVER, SemanticTokenKind.GREATER_THAN, SemanticTokenKind.MORE_THAN)  // 均映射为 ">" 符号
-            ),
-            List.of(),                // compoundPatterns
-            List.of(                  // preTranslationTransformers
-                TransformerRegistry.get("english-possessive")
-            ),
-            List.of(                  // postTranslationTransformers
-                TransformerRegistry.get("result-is"),
-                TransformerRegistry.get("set-to")
-            )
-        );
-    }
-
-    /**
-     * 中文标准规范化配置
-     * <p>
-     * 包含复合关键词模式：
-     * <ul>
-     *   <li>match-when: 若...为（模式匹配）</li>
-     *   <li>let-be: 令...为（变量声明）</li>
-     * </ul>
-     * <p>
-     * 中文变换器通过 {@link TransformerRegistry} 按名称解析，
-     * 由 aster-lang-zh 语言包在 SPI 发现阶段注册。
-     */
-    public static CanonicalizationConfig chinese() {
-        return new CanonicalizationConfig(
-            true,                     // fullWidthToHalf
-            WhitespaceMode.CHINESE,   // whitespaceMode
             false,                    // removeArticles
             List.of(),                // articles
             List.of(),                // customRules
-            List.of(
-                Set.of(SemanticTokenKind.WHEN, SemanticTokenKind.BE),        // "为" 用于 match/when 和 let/be
-                Set.of(SemanticTokenKind.TYPE_WITH, SemanticTokenKind.TYPE_HAS), // "包含" 用于旧/新类型字段语法
-                Set.of(SemanticTokenKind.UNDER, SemanticTokenKind.LESS_THAN),   // 均映射为 "<" 符号
-                Set.of(SemanticTokenKind.OVER, SemanticTokenKind.GREATER_THAN, SemanticTokenKind.MORE_THAN)  // 均映射为 ">" 符号
-            ),
-            List.of(                  // compoundPatterns
-                CompoundPattern.matchWhen(),
-                CompoundPattern.letBe()
-            ),
-            List.of(                  // preTranslationTransformers
-                TransformerRegistry.get("english-possessive"),
-                TransformerRegistry.get("chinese-punctuation"),
-                TransformerRegistry.get("chinese-possessive"),
-                TransformerRegistry.get("chinese-operator"),
-                TransformerRegistry.get("chinese-function-syntax")
-            ),
-            List.of(                  // postTranslationTransformers
-                TransformerRegistry.get("result-is"),
-                TransformerRegistry.get("set-to"),
-                TransformerRegistry.get("chinese-set-to"),
-                TransformerRegistry.get("chinese-result-is")
-            )
-        );
-    }
-
-    /**
-     * 德语标准规范化配置
-     * <p>
-     * 支持 ASCII 替代 umlaut：
-     * <ul>
-     *   <li>oe → ö (groesser → größer)</li>
-     *   <li>ue → ü (zurueck → zurück)</li>
-     *   <li>ae → ä (Minderjaehriger → Minderjähriger)</li>
-     * </ul>
-     */
-    public static CanonicalizationConfig german() {
-        return new CanonicalizationConfig(
-            false,                    // fullWidthToHalf
-            WhitespaceMode.ENGLISH,   // whitespaceMode (德语以空格分词)
-            true,                     // removeArticles
-            List.of("der", "die", "das", "ein", "eine", "einen", "einem", "einer", "eines"), // articles
-            List.of(                  // customRules: ASCII umlaut normalization
-                // Step 1: Handle oe -> ö
-                new CanonicalizationRule("oe-to-ö", "oe", "ö"),
-                // Step 2: Handle ue -> ü
-                new CanonicalizationRule("ue-to-ü", "ue", "ü"),
-                // Step 3: Handle ae -> ä
-                new CanonicalizationRule("ae-to-ä", "ae", "ä"),
-                // Step 4: Handle ss -> ß in specific keyword contexts
-                new CanonicalizationRule("ss-to-ß-grösser", "\\bgrösser\\b", "größer"),
-                new CanonicalizationRule("ss-to-ß-gross", "\\bgross\\b", "groß")
-            ),
-            List.of(                  // allowedDuplicates
-                Set.of(SemanticTokenKind.UNDER, SemanticTokenKind.LESS_THAN),  // unter / kleiner als → "<"
-                Set.of(SemanticTokenKind.OVER, SemanticTokenKind.GREATER_THAN, SemanticTokenKind.MORE_THAN)  // ueber / groesser als / mehr als → ">"
-            ),
+            List.of(),                // allowedDuplicates
             List.of(),                // compoundPatterns
-            List.of(                  // preTranslationTransformers
-                TransformerRegistry.get("english-possessive")
-            ),
-            List.of(                  // postTranslationTransformers
-                TransformerRegistry.get("result-is"),
-                TransformerRegistry.get("set-to")
-            )
+            List.of(),                // preTranslationTransformers
+            List.of()                 // postTranslationTransformers
         );
     }
 

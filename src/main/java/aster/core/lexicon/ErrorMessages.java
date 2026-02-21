@@ -21,9 +21,12 @@ public record ErrorMessages(
     String invalidIndentation
 ) {
     /**
-     * 英文错误消息
+     * 默认错误消息（英文）
+     * <p>
+     * 仅作为 {@link DynamicLexicon} 在 JSON 缺少 messages 节点时的 fallback。
+     * 实际的语言特定消息由各语言包的 JSON 文件定义。
      */
-    public static ErrorMessages english() {
+    public static ErrorMessages defaults() {
         return new ErrorMessages(
             "Unexpected token: {token}",
             "Expected keyword: {keyword}",
@@ -31,34 +34,6 @@ public record ErrorMessages(
             "Type mismatch: expected {expected}, got {actual}",
             "Unterminated string literal",
             "Invalid indentation: must be multiples of 2 spaces"
-        );
-    }
-
-    /**
-     * 中文错误消息
-     */
-    public static ErrorMessages chinese() {
-        return new ErrorMessages(
-            "意外的符号：{token}",
-            "期望关键词：{keyword}",
-            "未定义的变量：{name}",
-            "类型不匹配：期望 {expected}，实际 {actual}",
-            "未终止的字符串字面量",
-            "无效的缩进：必须是 2 个空格的倍数"
-        );
-    }
-
-    /**
-     * 德语错误消息（使用 ASCII 兼容字符）
-     */
-    public static ErrorMessages german() {
-        return new ErrorMessages(
-            "Unerwartetes Symbol: {token}",
-            "Erwartetes Schluesselwort: {keyword}",
-            "Nicht definierte Variable: {name}",
-            "Typkonflikt: erwartet {expected}, erhalten {actual}",
-            "Nicht abgeschlossenes Zeichenkettenliteral",
-            "Ungueltige Einrueckung: muss ein Vielfaches von 2 Leerzeichen sein"
         );
     }
 
