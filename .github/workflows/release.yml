@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: aster-cloud/aster-lang-en
+          path: aster-lang-en
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+
+      - uses: actions/checkout@v4
+        with:
+          repository: aster-cloud/aster-lang-zh
+          path: aster-lang-zh
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+
+      - uses: actions/checkout@v4
+        with:
+          repository: aster-cloud/aster-lang-de
+          path: aster-lang-de
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      # 编译 core 并发布到 Maven Local（供 lang packs 依赖）
+      - name: Compile & publish core locally
+        run: ./gradlew compileJava publishToMavenLocal -x test
+
+      # 构建 lang packs（core 测试需要 SPI 发现它们）
+      - name: Build lang packs
+        run: |
+          cd aster-lang-en && ./gradlew publishToMavenLocal -x test
+          cd ../aster-lang-zh && ./gradlew publishToMavenLocal -x test
+          cd ../aster-lang-de && ./gradlew publishToMavenLocal -x test
+
+      - name: Build & Test
+        run: ./gradlew build
+
+      - name: Publish to GitHub Packages
+        run: ./gradlew publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

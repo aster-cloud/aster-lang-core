@@ -17,6 +17,16 @@ publishing {
             artifactId = "aster-lang-core"
         }
     }
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/aster-cloud/${rootProject.name}")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR") ?: ""
+                password = System.getenv("GITHUB_TOKEN") ?: ""
+            }
+        }
+    }
 }
 
 repositories {

@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: aster-cloud/aster-lang-en
+          path: aster-lang-en
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+
+      - uses: actions/checkout@v4
+        with:
+          repository: aster-cloud/aster-lang-zh
+          path: aster-lang-zh
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+
+      - uses: actions/checkout@v4
+        with:
+          repository: aster-cloud/aster-lang-de
+          path: aster-lang-de
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      # Phase 1: 编译 core 并发布到 Maven Local（供 lang packs 依赖）
+      - name: Compile & publish core
+        run: ./gradlew compileJava publishToMavenLocal -x test
+
+      # Phase 2: 构建 lang packs（core 测试需要 SPI 发现它们）
+      - name: Build lang packs
+        run: |
+          cd aster-lang-en && ./gradlew publishToMavenLocal -x test
+          cd ../aster-lang-zh && ./gradlew publishToMavenLocal -x test
+          cd ../aster-lang-de && ./gradlew publishToMavenLocal -x test
+
+      # Phase 3: 运行 core 完整构建（含测试）
+      - name: Test
+        run: ./gradlew test
