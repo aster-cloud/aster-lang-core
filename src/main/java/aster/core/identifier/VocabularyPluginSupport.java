@@ -25,6 +25,9 @@ public final class VocabularyPluginSupport {
     public static DomainVocabulary loadVocabulary(Class<?> clazz, String path) {
         ClassLoader cl = clazz.getClassLoader();
         if (cl == null) {
+            cl = Thread.currentThread().getContextClassLoader();
+        }
+        if (cl == null) {
             cl = ClassLoader.getSystemClassLoader();
         }
         try (var is = cl.getResourceAsStream(path)) {
