@@ -1,7 +1,6 @@
 package aster.core.identifier;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -9,6 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 词汇表注册中心。
@@ -24,10 +24,10 @@ public final class VocabularyRegistry {
     private static final VocabularyRegistry INSTANCE = new VocabularyRegistry();
 
     /** 词汇表存储：key = "${domain}:${locale}" */
-    private final Map<String, VocabularyEntry> vocabularies = new HashMap<>();
+    private final Map<String, VocabularyEntry> vocabularies = new ConcurrentHashMap<>();
 
     /** 自定义词汇表：key = "${tenantId}:${domain}:${locale}" */
-    private final Map<String, VocabularyEntry> customVocabularies = new HashMap<>();
+    private final Map<String, VocabularyEntry> customVocabularies = new ConcurrentHashMap<>();
 
     private VocabularyRegistry() {
         // 默认注册内置词汇表

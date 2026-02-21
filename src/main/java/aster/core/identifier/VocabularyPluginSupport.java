@@ -23,7 +23,11 @@ public final class VocabularyPluginSupport {
      * @throws UncheckedIOException  如果读取失败
      */
     public static DomainVocabulary loadVocabulary(Class<?> clazz, String path) {
-        try (var is = clazz.getClassLoader().getResourceAsStream(path)) {
+        ClassLoader cl = clazz.getClassLoader();
+        if (cl == null) {
+            cl = ClassLoader.getSystemClassLoader();
+        }
+        try (var is = cl.getResourceAsStream(path)) {
             if (is == null) {
                 throw new IllegalStateException("Resource not found: " + path);
             }
