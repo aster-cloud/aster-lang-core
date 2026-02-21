@@ -68,6 +68,7 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    dependsOn(tasks.jar)
 }
 
 // ANTLR4 生成配置
