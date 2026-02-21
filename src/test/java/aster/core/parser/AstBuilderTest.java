@@ -50,9 +50,9 @@ class AstBuilderTest {
     @Test
     void testSimpleModule() {
         String input = """
-            This module is app.
+            Module app.
 
-            To helloMessage produce Text:
+            Rule helloMessage produce Text:
               Return "Hello, world!".
             """;
 
@@ -79,7 +79,7 @@ class AstBuilderTest {
     @Test
     void testFunctionWithParameters() {
         String input = """
-            To add with x: Int and y: Int, produce Int:
+            Rule add given x: Int and y: Int, produce Int:
               Return x + y.
             """;
 
@@ -104,7 +104,7 @@ class AstBuilderTest {
     @Test
     void testDataDeclaration() {
         String input = """
-            Define User with name: Text and age: Int.
+            Define User has name: Text and age: Int.
             """;
 
         aster.core.ast.Module module = parseAndBuild(input);
@@ -160,7 +160,7 @@ class AstBuilderTest {
     @Test
     void testFieldWithAnnotation() {
         String input = """
-            Define User with @pii email: Text and age: Int.
+            Define User has @pii email: Text and age: Int.
             """;
 
         aster.core.ast.Module module = parseAndBuild(input);
@@ -178,7 +178,7 @@ class AstBuilderTest {
     @Test
     void testParamWithAnnotation() {
         String input = """
-            To send with @pii email: Text, produce Text:
+            Rule send given @pii email: Text:
               Return email.
             """;
 
@@ -214,7 +214,7 @@ class AstBuilderTest {
     @Test
     void testLetStatement() {
         String input = """
-            To test produce Int:
+            Rule test:
               Let x be 42.
               Return x.
             """;
@@ -234,7 +234,7 @@ class AstBuilderTest {
     @Test
     void testIfStatement() {
         String input = """
-            To check with x: Int, produce Text:
+            Rule check given x: Int:
               If x > 0:
                 Return "positive".
               Else:
@@ -266,7 +266,7 @@ class AstBuilderTest {
     @Test
     void testStringLiteralEscapesInAst() {
         String input = """
-            To sample produce Text:
+            Rule sample produce Text:
               Return "line1\\nline2\\t\\u0041".
             """;
 
@@ -281,7 +281,7 @@ class AstBuilderTest {
     @Test
     void testBinaryExpression() {
         String input = """
-            To calc produce Int:
+            Rule calc:
               Return 1 + 2 * 3.
             """;
 
@@ -299,7 +299,7 @@ class AstBuilderTest {
     @Test
     void parsePrefixLessThan() {
         String input = """
-            To compare with x: Int and y: Int, produce Bool:
+            Rule compare given x: Int and y: Int:
               Return <(x, y).
             """;
 
@@ -318,7 +318,7 @@ class AstBuilderTest {
     @Test
     void parsePrefixPlus() {
         String input = """
-            To sum with a: Int and b: Int, produce Int:
+            Rule sum given a: Int and b: Int:
               Return +(a, b).
             """;
 
@@ -337,7 +337,7 @@ class AstBuilderTest {
     @Test
     void parsePrefixGreaterEqual() {
         String input = """
-            To ge with m: Int and n: Int, produce Bool:
+            Rule ge given m: Int and n: Int:
               Return >=(m, n).
             """;
 
@@ -356,7 +356,7 @@ class AstBuilderTest {
     @Test
     void parsePrefixInvalidArity() {
         String input = """
-            To invalid with x: Int, produce Int:
+            Rule invalid given x: Int:
               Return +(x).
             """;
 
@@ -366,7 +366,7 @@ class AstBuilderTest {
     @Test
     void testCallExpression() {
         String input = """
-            To main produce Int:
+            Rule main:
               Return add(1, 2).
             """;
 
@@ -385,7 +385,7 @@ class AstBuilderTest {
     @Test
     void testQualifiedCallWithParentheses() {
         String input = """
-            To fetch produce Text:
+            Rule fetch produce Text:
               Return Http.get("https://api.example.com").
             """;
 
@@ -403,7 +403,7 @@ class AstBuilderTest {
     @Test
     void testResultConstructors() {
         String input = """
-            To wrap produce Result:
+            Rule wrap produce Result:
               Return Ok(42).
             """;
 
@@ -419,7 +419,7 @@ class AstBuilderTest {
     @Test
     void testErrConstructor() {
         String input = """
-            To fail produce Result:
+            Rule fail produce Result:
               Return Err("oops").
             """;
 
@@ -435,7 +435,7 @@ class AstBuilderTest {
     @Test
     void testOptionConstructors() {
         String input = """
-            To optionize produce Option<Int>:
+            Rule optionize produce Option<Int>:
               Return Some(7).
             """;
 
@@ -451,7 +451,7 @@ class AstBuilderTest {
     @Test
     void testNoneConstructor() {
         String input = """
-            To getNone produce Option<Int>:
+            Rule getNone produce Option<Int>:
               Return None().
             """;
 
@@ -465,7 +465,7 @@ class AstBuilderTest {
     @Test
     void testMethodCallTransformsReceiver() {
         String input = """
-            To compute produce Int:
+            Rule compute:
               Return value.sum(1, 2).
             """;
 
@@ -485,7 +485,7 @@ class AstBuilderTest {
     @Test
     void testChainedMethodCall() {
         String input = """
-            To load produce Text:
+            Rule load produce Text:
               Return Http.get("https://example.com").then(handle).
             """;
 
@@ -508,7 +508,7 @@ class AstBuilderTest {
     @Test
     void testGenericType() {
         String input = """
-            To getList produce List<Int>.
+            Rule getList produce List<Int>.
             """;
 
         aster.core.ast.Module module = parseAndBuild(input);
@@ -579,7 +579,7 @@ class AstBuilderTest {
     @Test
     void parseStartAndWaitStatements() {
         String input = """
-            To run produce Text:
+            Rule run produce Text:
               Start task as async load().
               Wait for task.
               Return "done".
@@ -603,7 +603,7 @@ class AstBuilderTest {
     @Test
     void parseListLiteralAndNotExpression() {
         String input = """
-            To example produce Bool:
+            Rule example produce Bool:
               Define values as [1, 2].
               Return not Bool.equals(values, values).
             """;
@@ -626,7 +626,7 @@ class AstBuilderTest {
     @Test
     void testSpanInformation() {
         String input = """
-            To test produce Int:
+            Rule test:
               Return 42.
             """;
 
@@ -643,7 +643,7 @@ class AstBuilderTest {
     @Test
     void testLiteralTypes() {
         String input = """
-            To literals produce Int:
+            Rule literals:
               Let b be true.
               Let i be 42.
               Let l be 100L.
@@ -685,7 +685,7 @@ class AstBuilderTest {
     @Test
     void testMaybeType() {
         String input = """
-            To fromMaybe with x: Text? and d: Text, produce Text:
+            Rule fromMaybe given x: Text? and d: Text:
               Return d.
             """;
 
@@ -713,7 +713,7 @@ class AstBuilderTest {
     @Test
     void testFuncType() {
         String input = """
-            To apply with f: (Int, Int) -> Int and x: Int, produce Int:
+            Rule apply given f: (Int, Int) -> Int and x: Int:
               Return x.
             """;
 
@@ -741,7 +741,7 @@ class AstBuilderTest {
     @Test
     void testMatchStatement() {
         String input = """
-            To check with x: Text?, produce Text:
+            Rule check given x: Text?:
               Match x:
                 When null, Return "empty".
                 When v, Return v.
@@ -780,8 +780,8 @@ class AstBuilderTest {
     @Test
     void testLambdaExpression() {
         String input = """
-            To fromMaybe with x: Text? and d: Text, produce Text:
-              Let f be function with x: Text?, produce Text:
+            Rule fromMaybe given x: Text? and d: Text:
+              Let f be function given x: Text?, produce Text:
                 Match x:
                   When null, Return d.
                   When v, Return v.
@@ -818,7 +818,7 @@ class AstBuilderTest {
     @Test
     void testCapabilityAnnotation() {
         String input = """
-            To ping, produce Text. It performs io [Http, Sql, Time]:
+            Rule ping, produce Text. It performs io [Http, Sql, Time]:
               Return "ok".
             """;
 
@@ -849,7 +849,7 @@ class AstBuilderTest {
     @Test
     void testFunctionWithoutCapability() {
         String input = """
-            To add with x: Int and y: Int, produce Int:
+            Rule add given x: Int and y: Int:
               Return x.
             """;
 
@@ -870,10 +870,10 @@ class AstBuilderTest {
     @Test
     void testComprehensiveFeatures() {
         String input = """
-            This module is demo.lambdamatchmaybe.
+            Module demo.lambdamatchmaybe.
 
-            To fromMaybe with x: Text? and d: Text, produce Text:
-              Let f be function with x: Text?, produce Text:
+            Rule fromMaybe given x: Text? and d: Text:
+              Let f be function given x: Text?, produce Text:
                 Match x:
                   When null, Return d.
                   When v, Return v.

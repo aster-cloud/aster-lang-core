@@ -10,7 +10,7 @@ class Phase35DebugTest {
     @Test
     void debugMaybeType() {
         String input = """
-            To fromMaybe with x: Text?, d: Text, produce Text:
+            Rule fromMaybe given x: Text?, d: Text:
               Return d.
             """;
 
@@ -61,7 +61,7 @@ class Phase35DebugTest {
     @Test
     void debugMatchStatement() {
         String input = """
-            To check with x: Text?, produce Text:
+            Rule check given x: Text?:
               Match x:
                 When null, Return "empty".
                 When v, Return v.

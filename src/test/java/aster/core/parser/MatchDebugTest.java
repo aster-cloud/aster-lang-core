@@ -11,7 +11,7 @@ class MatchDebugTest {
     @Test
     void debugMatchCases() {
         String input = """
-            To check with x: Text?, produce Text:
+            Rule check given x: Text?:
               Match x:
                 When null, Return "empty".
                 When v, Return v.

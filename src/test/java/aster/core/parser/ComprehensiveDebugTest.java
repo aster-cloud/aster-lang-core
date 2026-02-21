@@ -11,10 +11,10 @@ class ComprehensiveDebugTest {
     @Test
     void debugComprehensive() {
         String input = """
-            This module is demo.lambdamatchmaybe.
+            Module demo.lambdamatchmaybe.
 
-            To fromMaybe with x: Text? and d: Text, produce Text:
-              Let f be function with x: Text?, produce Text:
+            Rule fromMaybe given x: Text? and d: Text:
+              Let f be function given x: Text?, produce Text:
                 Match x:
                   When null, Return d.
                   When v, Return v.

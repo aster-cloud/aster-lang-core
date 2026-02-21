@@ -46,9 +46,9 @@ class NaturalLanguageCnlTest {
     @Test
     void testNaturalLanguageOperators() {
         String source = """
-            This module is test.
+            Module test.
 
-            To testLessThan with x, produce:
+            Rule testLessThan given x:
               If x less than 10:
                 Return true.
               Return false.
@@ -76,9 +76,9 @@ class NaturalLanguageCnlTest {
     @Test
     void testGreaterThanOperator() {
         String source = """
-            This module is test.
+            Module test.
 
-            To checkValue with count, produce:
+            Rule checkValue given count:
               If count greater than 5:
                 Return true.
               Return false.
@@ -99,9 +99,9 @@ class NaturalLanguageCnlTest {
     @Test
     void testArithmeticOperators() {
         String source = """
-            This module is test.
+            Module test.
 
-            To calculateTotal with price, quantity, produce:
+            Rule calculateTotal given price, quantity:
               Let subtotal be price times quantity.
               Let tax be subtotal divided by 10.
               Let total be subtotal plus tax.
@@ -123,12 +123,12 @@ class NaturalLanguageCnlTest {
     @Test
     void testWithCallSyntax() {
         String source = """
-            This module is test.
+            Module test.
 
-            To computeSum with a, b, produce:
+            Rule computeSum given a, b:
               Return a plus b.
 
-            To main produce:
+            Rule main:
               Let result be computeSum with 10, 20.
               Return result.
             """;
@@ -147,9 +147,9 @@ class NaturalLanguageCnlTest {
     @Test
     void testImplicitParameterTypes() {
         String source = """
-            This module is test.
+            Module test.
 
-            Define User with userId, age, isActive, createdAt, totalAmount.
+            Define User has userId, age, isActive, createdAt, totalAmount.
             """;
 
         aster.core.ast.Module module = parseAndBuild(source);
@@ -174,11 +174,11 @@ class NaturalLanguageCnlTest {
     @Test
     void testGenerateReturnTypeInference() {
         String source = """
-            This module is test.
+            Module test.
 
-            Define Quote with premium.
+            Define Quote has premium.
 
-            To generateQuote with amount, produce:
+            Rule generateQuote given amount:
               Return Quote with premium = amount.
             """;
 
@@ -197,15 +197,15 @@ class NaturalLanguageCnlTest {
     @Test
     void testFullAutoInsuranceExample() {
         String source = """
-            This module is insurance.auto.
+            Module insurance.auto.
 
-            Define Driver with id, age, yearsLicensed, accidents, violations.
+            Define Driver has id, age, yearsLicensed, accidents, violations.
 
-            Define Vehicle with vin, year, value, safetyRating.
+            Define Vehicle has vin, year, value, safetyRating.
 
-            Define Quote with approved, premium, deductible, reason.
+            Define Quote has approved, premium, deductible, reason.
 
-            To generateQuote with driver, vehicle, produce:
+            Rule generateQuote given driver, vehicle:
               If driver.age less than 18:
                 Return Quote with approved = false, premium = 0, deductible = 0, reason = "Driver under 18".
               If driver.accidents greater than 3:
@@ -215,14 +215,14 @@ class NaturalLanguageCnlTest {
               Let finalPremium be basePremium times riskFactor divided by 100.
               Return Quote with approved = true, premium = finalPremium, deductible = 500, reason = "Approved".
 
-            To calculateBase with driver, vehicle, produce:
+            Rule calculateBase given driver, vehicle:
               If driver.age less than 25:
                 Return 300.
               If driver.age less than 65:
                 Return 200.
               Return 250.
 
-            To calculateRisk with driver, produce:
+            Rule calculateRisk given driver:
               Let base be 100.
               If driver.accidents greater than 0:
                 Let base be base plus driver.accidents times 20.
@@ -235,7 +235,7 @@ class NaturalLanguageCnlTest {
         assertNotNull(module);
         assertEquals("insurance.auto", module.name());
 
-        // 3 个 Define + 3 个 To = 6 个声明
+        // 3 个 Define + 3 个 Rule = 6 个声明
         assertEquals(6, module.decls().size());
 
         // 验证数据类型定义

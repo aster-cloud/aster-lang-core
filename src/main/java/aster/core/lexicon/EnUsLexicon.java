@@ -29,17 +29,19 @@ public final class EnUsLexicon implements Lexicon {
         Map<SemanticTokenKind, String> kw = new EnumMap<>(SemanticTokenKind.class);
 
         // 模块声明
-        kw.put(SemanticTokenKind.MODULE_DECL, "this module is");
+        kw.put(SemanticTokenKind.MODULE_DECL, "Module");
         kw.put(SemanticTokenKind.IMPORT, "use");
         kw.put(SemanticTokenKind.IMPORT_ALIAS, "as");
 
         // 类型定义（注意：大小写必须与 ANTLR 词法器匹配）
         kw.put(SemanticTokenKind.TYPE_DEF, "Define");
         kw.put(SemanticTokenKind.TYPE_WITH, "with");
+        kw.put(SemanticTokenKind.TYPE_HAS, "has");
         kw.put(SemanticTokenKind.TYPE_ONE_OF, "as one of");
 
         // 函数定义
-        kw.put(SemanticTokenKind.FUNC_TO, "to");
+        kw.put(SemanticTokenKind.FUNC_TO, "Rule");
+        kw.put(SemanticTokenKind.FUNC_GIVEN, "given");
         kw.put(SemanticTokenKind.FUNC_PRODUCE, "produce");
         kw.put(SemanticTokenKind.FUNC_PERFORMS, "it performs");
 
@@ -49,6 +51,7 @@ public final class EnUsLexicon implements Lexicon {
         kw.put(SemanticTokenKind.MATCH, "Match");
         kw.put(SemanticTokenKind.WHEN, "When");
         kw.put(SemanticTokenKind.RETURN, "Return");
+        kw.put(SemanticTokenKind.RESULT_IS, "the result is");
         kw.put(SemanticTokenKind.FOR_EACH, "for each");
         kw.put(SemanticTokenKind.IN, "in");
 
@@ -74,6 +77,9 @@ public final class EnUsLexicon implements Lexicon {
         kw.put(SemanticTokenKind.GREATER_THAN, "greater than");
         kw.put(SemanticTokenKind.EQUALS_TO, "equals to");
         kw.put(SemanticTokenKind.IS, "is");
+        kw.put(SemanticTokenKind.UNDER, "under");
+        kw.put(SemanticTokenKind.OVER, "over");
+        kw.put(SemanticTokenKind.MORE_THAN, "more than");
 
         // 类型构造
         kw.put(SemanticTokenKind.MAYBE, "maybe");
@@ -117,6 +123,14 @@ public final class EnUsLexicon implements Lexicon {
         kw.put(SemanticTokenKind.ASYNC, "async");
         kw.put(SemanticTokenKind.AWAIT, "await");
         kw.put(SemanticTokenKind.WAIT_FOR, "wait for");
+
+        // 约束声明
+        kw.put(SemanticTokenKind.REQUIRED, "required");
+        kw.put(SemanticTokenKind.BETWEEN, "between");
+        kw.put(SemanticTokenKind.AT_LEAST, "at least");
+        kw.put(SemanticTokenKind.AT_MOST, "at most");
+        kw.put(SemanticTokenKind.MATCHING, "matching");
+        kw.put(SemanticTokenKind.PATTERN, "pattern");
 
         return kw;
     }

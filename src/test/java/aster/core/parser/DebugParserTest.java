@@ -12,9 +12,9 @@ class DebugParserTest {
     @Test
     void debugSimpleModule() {
         String input = """
-            This module is app.
+            Module app.
 
-            To helloMessage produce Text:
+            Rule helloMessage produce Text:
               Return "Hello, world!".
             """;
 

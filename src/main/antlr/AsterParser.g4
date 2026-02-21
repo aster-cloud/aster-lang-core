@@ -24,8 +24,8 @@ tokens { INDENT, DEDENT }
 /**
  * 模块入口规则
  * 语法示例:
- *   This module is app.
- *   To helloMessage produce Text:
+ *   Module app.
+ *   Rule helloMessage:
  *     Return "Hello, world!".
  */
 module
@@ -33,10 +33,11 @@ module
     ;
 
 /**
- * 模块头: This module is app.
+ * 模块头:
+ *   Module app.
  */
 moduleHeader
-    : THIS MODULE IS qualifiedName DOT
+    : MODULE_KW qualifiedName DOT
     ;
 
 /**
@@ -72,20 +73,17 @@ topLevelDecl
 /**
  * 函数声明
  * 语法示例:
- *   To greet produce Text:
+ *   Rule greet:
  *     Return "Hello".
  *
- *   To add with x: Int and y: Int, produce Int:
+ *   Rule add given x: Int and y: Int:
  *     Return x + y.
  *
- *   To generateQuote with driver, vehicle, produce:
- *     ...（隐式返回类型，基于函数名推断）
- *
- *   To ping, produce Text. It performs io [Http, Sql]:
- *     Return "ok".
+ *   Rule generateQuote given driver, vehicle:
+ *     ...
  */
 funcDecl
-    : TO (IDENT | TYPE_IDENT) typeParamList? paramList? COMMA? PRODUCE annotatedType? (DOT capabilityAnnotation? COLON NEWLINE block | COLON NEWLINE block | DOT)
+    : RULE (IDENT | TYPE_IDENT) typeParamList? givenParamList? COMMA? (PRODUCE annotatedType?)? (DOT capabilityAnnotation? COLON NEWLINE block | COLON NEWLINE block | DOT)
     ;
 
 /**
@@ -106,11 +104,11 @@ typeParam
 
 /**
  * 参数列表
- * 语法: with x: Int and y: Text (推荐)
- *       with x: Int, y: Text (兼容)
+ * 语法: given x: Int and y: Text
+ *       given x: Int, y: Text
  */
-paramList
-    : WITH param ((AND | COMMA) param)*
+givenParamList
+    : GIVEN param ((AND | COMMA) param)*
     ;
 
 /**
@@ -132,14 +130,17 @@ capabilityAnnotation
 
 /**
  * 数据类型定义
- * 语法: Define User with name: Text and age: Int.
+ * 语法: Define User has name: Text and age: Int.
+ *       A User has name: Text and age: Int.
+ *       User has name, age.
  * 多行格式:
- * Define User with
+ * Define User has
  *   name: Text,
  *   age: Int.
  */
 dataDecl
-    : DEFINE article? TYPE_IDENT WITH fieldList DOT (NEWLINE* DEDENT)?
+    : DEFINE article? TYPE_IDENT HAS fieldList DOT (NEWLINE* DEDENT)?
+    | article? TYPE_IDENT HAS fieldList DOT (NEWLINE* DEDENT)?
     ;
 
 /**
@@ -515,10 +516,10 @@ listLiteral
 
 /**
  * Lambda 表达式
- * 语法: function with x: Text, produce Text: Return x.
+ * 语法: function given x: Text, produce Text: Return x.
  */
 lambdaExpr
-    : FUNCTION paramList? COMMA? PRODUCE annotatedType COLON (returnStmt | (NEWLINE block))
+    : FUNCTION givenParamList? COMMA? PRODUCE annotatedType COLON (returnStmt | (NEWLINE block))
     ;
 
 // ============================================================
@@ -529,5 +530,5 @@ lambdaExpr
 // Parser 中通过语义检查区分。ANTLR4 不强制关键字保留。
 
 // 关键字列表（参考）:
-// - THIS, MODULE, IS, TO, WITH, AND, PRODUCE, DEFINE, AS, ONE, OF
+// - MODULE, RULE, GIVEN, WITH, AND, PRODUCE, DEFINE, HAS, AS, ONE, OF
 // - USE, LET, BE, RETURN, IF, ELSE

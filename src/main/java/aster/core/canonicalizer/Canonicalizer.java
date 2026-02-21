@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  *   <li>将制表符转换为 2 个空格（Aster 使用 2 空格缩进）</li>
  *   <li>移除行注释（{@code //} 和 {@code #}）</li>
  *   <li>规范化引号（智能引号 → 直引号）</li>
- *   <li>规范化多词关键字大小写（如 "This Module Is" → "this module is"）</li>
+ *   <li>规范化多词关键字大小写</li>
  *   <li><b>翻译关键词</b>：将非英语关键词翻译为英语关键词，以便 ANTLR 解析器处理</li>
  *   <li>去除冠词（根据词法表配置），但保留字符串字面量内的冠词</li>
  *   <li>规范化空白符（折叠多余空格，保持缩进）</li>
@@ -34,7 +34,7 @@ import java.util.regex.Pattern;
  * <b>多语言支持</b>：
  * <ul>
  *   <li>通过 Lexicon 指定源语言（如 ZhCnLexicon）</li>
- *   <li>自动将源语言关键词翻译为英语（如 "若" → "if"，"【模块】" → "this module is"）</li>
+ *   <li>自动将源语言关键词翻译为英语（如 "若" → "if"，"模块" → "Module"）</li>
  *   <li>保留字符串字面量内的原始内容不变</li>
  * </ul>
  * <p>
@@ -63,6 +63,8 @@ public final class Canonicalizer {
     private final String stringQuoteOpen;
     /** 字符串结束引号（从词法表配置获取） */
     private final String stringQuoteClose;
+    /** 字符串分段器（供 SyntaxTransformer 使用） */
+    private final StringSegmenter stringSegmenter;
     /** 预编译的多词关键字 Pattern 缓存（避免每次规范化时重新编译） */
     private final List<Map.Entry<String, Pattern>> multiWordKeywordPatterns;
     /** 标识符索引（用于领域词汇翻译，如 "驾驶员" → "Driver"） */
@@ -146,6 +148,7 @@ public final class Canonicalizer {
         var punctuation = lexicon.getPunctuation();
         this.stringQuoteOpen = punctuation.stringQuoteOpen();
         this.stringQuoteClose = punctuation.stringQuoteClose();
+        this.stringSegmenter = new StringSegmenter(stringQuoteOpen, stringQuoteClose);
         // 预编译多词关键字的 Pattern（大小写不敏感，支持 Unicode）
         List<Map.Entry<String, Pattern>> mwkPatterns = new ArrayList<>();
         for (String keyword : multiWordKeywords) {
@@ -183,14 +186,17 @@ public final class Canonicalizer {
      * ANTLR 解析器只支持符号运算符（如 {@code <}, {@code >}），不支持关键词形式（如 "less than", "小于"）。
      * 这些关键词需要直接翻译为符号，而非翻译为英语关键词。
      */
-    private static final Map<SemanticTokenKind, String> OPERATOR_SYMBOL_MAP = Map.of(
-        SemanticTokenKind.LESS_THAN, "<",
-        SemanticTokenKind.GREATER_THAN, ">",
-        SemanticTokenKind.EQUALS_TO, "==",
-        SemanticTokenKind.PLUS, "+",
-        SemanticTokenKind.MINUS_WORD, "-",
-        SemanticTokenKind.TIMES, "*",
-        SemanticTokenKind.DIVIDED_BY, "/"
+    private static final Map<SemanticTokenKind, String> OPERATOR_SYMBOL_MAP = Map.ofEntries(
+        Map.entry(SemanticTokenKind.LESS_THAN, "<"),
+        Map.entry(SemanticTokenKind.GREATER_THAN, ">"),
+        Map.entry(SemanticTokenKind.EQUALS_TO, "=="),
+        Map.entry(SemanticTokenKind.PLUS, "+"),
+        Map.entry(SemanticTokenKind.MINUS_WORD, "-"),
+        Map.entry(SemanticTokenKind.TIMES, "*"),
+        Map.entry(SemanticTokenKind.DIVIDED_BY, "/"),
+        Map.entry(SemanticTokenKind.UNDER, "<"),
+        Map.entry(SemanticTokenKind.OVER, ">"),
+        Map.entry(SemanticTokenKind.MORE_THAN, ">")
     );
 
     /**
@@ -199,7 +205,7 @@ public final class Canonicalizer {
      * 用于将 CNL 关键词翻译为 ANTLR 解析器可识别的形式：
      * <ul>
      *   <li>运算符关键词（如 "小于", "less than"）翻译为符号（如 {@code <}）</li>
-     *   <li>非英语关键词（如 "若", "【模块】"）翻译为英语关键词（如 "if", "this module is"）</li>
+     *   <li>非英语关键词（如 "若", "模块"）翻译为英语关键词（如 "if", "Module"）</li>
      * </ul>
      *
      * @param sourceLexicon 源语言词法表
@@ -218,7 +224,7 @@ public final class Canonicalizer {
             // 添加源语言关键词到符号的映射
             String sourceKeyword = sourceLexicon.getKeywords().get(kind);
             if (sourceKeyword != null && !sourceKeyword.equals(symbol)) {
-                translationMap.put(sourceKeyword, symbol);
+                translationMap.put(applyCustomRulesToKey(sourceKeyword), symbol);
             }
 
             // 如果源语言不是英语，也需要添加英语关键词到符号的映射
@@ -248,11 +254,30 @@ public final class Canonicalizer {
 
             String targetKeyword = targetLexicon.getKeywords().get(kind);
             if (targetKeyword != null && !sourceKeyword.equals(targetKeyword)) {
-                translationMap.put(sourceKeyword, targetKeyword);
+                // 对关键词应用 customRules 变换，使翻译表匹配 customRules 处理后的文本
+                // 例如：德语 "gib zurueck" 经 customRules 后变为 "gib zurück"
+                translationMap.put(applyCustomRulesToKey(sourceKeyword), targetKeyword);
             }
         }
 
         return translationMap;
+    }
+
+    /**
+     * 对关键词应用 customRules 变换
+     * <p>
+     * 确保翻译表中的关键词与 customRules 处理后的源码文本匹配。
+     * 例如：德语 {@code "gib zurueck"} 经 umlaut 规则后变为 {@code "gib zurück"}。
+     */
+    private String applyCustomRulesToKey(String keyword) {
+        if (config.customRules().isEmpty()) {
+            return keyword;
+        }
+        String result = keyword;
+        for (CanonicalizationConfig.CanonicalizationRule rule : config.customRules()) {
+            result = result.replaceAll(rule.pattern(), rule.replacement());
+        }
+        return result;
     }
 
     /**
@@ -328,17 +353,11 @@ public final class Canonicalizer {
              .replace("\u2018", "'")   // 左单引号 '
              .replace("\u2019", "'");  // 右单引号 '
 
-        // 4.5 中文标点转英文标点（ANTLR 词法器只识别英文标点）
-        // 需要在字符串字面量外进行转换，保护字符串内容
-        s = translateChinesePunctuation(s);
-
-        // 4.6 中文结构助词 "的" 转成员访问符号 "."
-        // 例如：用户 的 名字 → 用户.名字
-        s = translateChinesePossessive(s);
-
-        // 4.7 中文运算符和控制流关键词翻译
-        // 例如：大于等于 → >=，则 → : (在行尾)
-        s = translateChineseOperators(s);
+        // 4.5-4.8 执行关键词翻译前的语法变换器链
+        // （包括属格转换、标点翻译、运算符翻译、函数语法重排等）
+        for (SyntaxTransformer transformer : config.preTranslationTransformers()) {
+            s = transformer.transform(s, config, stringSegmenter);
+        }
 
         // 5. 全角转半角（如果配置启用）
         if (config.fullWidthToHalf()) {
@@ -351,9 +370,11 @@ public final class Canonicalizer {
         // 7. 规范化多词关键字大小写
         s = normalizeMultiWordKeywords(s);
 
-        // 7.5 重排中文函数语法（在关键词翻译之前）
-        // 将 "<funcName> 入参 <params>" 重排为 "To <funcName> with <params>"
-        s = reorderChineseFunctionSyntax(s);
+        // 7.8 执行自定义规范化规则（如德语 umlaut 替换：oe → ö）
+        // 必须在关键词翻译之前执行，确保翻译表中的关键词能匹配规范化后的文本
+        if (!config.customRules().isEmpty()) {
+            s = applyCustomRules(s);
+        }
 
         // 8. 翻译关键词（非英语 → 英语，用于 ANTLR 解析）
         if (!keywordTranslationMap.isEmpty()) {
@@ -364,6 +385,12 @@ public final class Canonicalizer {
         // 必须在关键词翻译之后执行，确保关键词不会被误识别为标识符
         if (identifierIndex != null) {
             s = translateIdentifiers(s);
+        }
+
+        // 8.6-8.9 执行关键词翻译后的语法变换器链
+        // （包括 "The result is" → "Return"、"Set X to" → "Let X be" 等句式重写）
+        for (SyntaxTransformer transformer : config.postTranslationTransformers()) {
+            s = transformer.transform(s, config, stringSegmenter);
         }
 
         // 9. 去除冠词（保留字符串字面量内的冠词，根据词法表配置）
@@ -382,101 +409,34 @@ public final class Canonicalizer {
         return s;
     }
 
-    /**
-     * 中文函数定义语法预编译 Pattern（带参数）
-     * <p>
-     * 匹配中文函数定义语法：{@code [功能] <funcName> 入参 <params>}
-     * <p>
-     * 模式说明：
-     * <ul>
-     *   <li>{@code ^} - 行首</li>
-     *   <li>{@code (\s*)} - 捕获组1：缩进空白</li>
-     *   <li>{@code (?:功能\s+)?} - 可选的"功能"关键词（非捕获组）</li>
-     *   <li>{@code ([\p{L}][\p{L}0-9_]*)} - 捕获组2：函数名（Unicode字母开头，后跟字母/数字/下划线）</li>
-     *   <li>{@code \s+入参\s+} - 关键词"入参"及其前后空白</li>
-     *   <li>{@code (.+)} - 捕获组3：参数列表及后续内容</li>
-     * </ul>
-     */
-    private static final Pattern CHINESE_FUNC_WITH_PARAMS_PATTERN = Pattern.compile(
-            "^(\\s*)(?:功能\\s+)?([\\p{L}][\\p{L}0-9_]*)\\s+入参\\s+(.+)$",
-            Pattern.MULTILINE | Pattern.UNICODE_CHARACTER_CLASS
-    );
+    // ============================================================
+    // 自定义规范化规则执行
+    // ============================================================
 
     /**
-     * 中文函数定义语法预编译 Pattern（无参数）
+     * 执行自定义规范化规则
      * <p>
-     * 匹配中文函数定义语法：{@code [功能] <funcName> 产出 <type>}
+     * 遍历 {@link CanonicalizationConfig#customRules()} 中定义的规则，
+     * 对字符串字面量外的代码段执行正则替换。
      * <p>
-     * 模式说明：
-     * <ul>
-     *   <li>{@code ^} - 行首</li>
-     *   <li>{@code (\s*)} - 捕获组1：缩进空白</li>
-     *   <li>{@code (?!To\s)} - 负向前瞻：排除已经转换过的行（以 "To " 开头）</li>
-     *   <li>{@code (?:功能\s+)?} - 可选的"功能"关键词（非捕获组）</li>
-     *   <li>{@code ([\p{L}][\p{L}0-9_]*)} - 捕获组2：函数名（Unicode字母开头，后跟字母/数字/下划线）</li>
-     *   <li>{@code \s+产出\s+} - 关键词"产出"及其前后空白</li>
-     *   <li>{@code (.+)} - 捕获组3：返回类型及后续内容</li>
-     * </ul>
+     * 典型用例：德语 ASCII umlaut 替换（oe → ö, ue → ü, ae → ä）
      */
-    private static final Pattern CHINESE_FUNC_NO_PARAMS_PATTERN = Pattern.compile(
-            "^(\\s*)(?!To\\s)(?:功能\\s+)?([\\p{L}][\\p{L}0-9_]*)\\s+产出\\s+(.+)$",
-            Pattern.MULTILINE | Pattern.UNICODE_CHARACTER_CLASS
-    );
+    private String applyCustomRules(String s) {
+        for (CanonicalizationConfig.CanonicalizationRule rule : config.customRules()) {
+            Pattern pattern = Pattern.compile(rule.pattern());
+            List<Segment> segments = segmentString(s);
+            StringBuilder result = new StringBuilder(s.length());
 
-    /**
-     * 重排中文函数语法
-     * <p>
-     * 将中文函数定义语法重排为英文语法：
-     * <ul>
-     *   <li>带参数：{@code <funcName> 入参 <params>} → {@code To <funcName> with <params>}</li>
-     *   <li>无参数：{@code <funcName> 产出 <type>} → {@code To <funcName>, produce <type>}</li>
-     * </ul>
-     * <p>
-     * 示例：
-     * <pre>
-     * 输入：评估贷款 入参 申请人：申请人，产出 文本：
-     * 输出：To 评估贷款 with 申请人：申请人，产出 文本：
-     *
-     * 输入：问好 产出 文本：
-     * 输出：To 问好, produce 文本：
-     * </pre>
-     *
-     * @param s 输入字符串
-     * @return 重排后的字符串
-     */
-    private String reorderChineseFunctionSyntax(String s) {
-        // 1. 先处理带参数的函数定义
-        java.util.regex.Matcher matcherWithParams = CHINESE_FUNC_WITH_PARAMS_PATTERN.matcher(s);
-        StringBuffer result1 = new StringBuffer();
-
-        while (matcherWithParams.find()) {
-            String indent = matcherWithParams.group(1);      // 缩进
-            String funcName = matcherWithParams.group(2);    // 函数名
-            String rest = matcherWithParams.group(3);        // 参数及后续内容
-
-            // 重排为英文语法：To <funcName> with <params>
-            String replacement = indent + "To " + funcName + " with " + rest;
-            matcherWithParams.appendReplacement(result1, java.util.regex.Matcher.quoteReplacement(replacement));
+            for (Segment segment : segments) {
+                if (segment.inString()) {
+                    result.append(segment.text());
+                } else {
+                    result.append(pattern.matcher(segment.text()).replaceAll(rule.replacement()));
+                }
+            }
+            s = result.toString();
         }
-        matcherWithParams.appendTail(result1);
-        s = result1.toString();
-
-        // 2. 再处理无参数的函数定义（Pattern 中已用负向前瞻排除 "To " 开头的行）
-        java.util.regex.Matcher matcherNoParams = CHINESE_FUNC_NO_PARAMS_PATTERN.matcher(s);
-        StringBuffer result2 = new StringBuffer();
-
-        while (matcherNoParams.find()) {
-            String indent = matcherNoParams.group(1);      // 缩进
-            String funcName = matcherNoParams.group(2);    // 函数名
-            String rest = matcherNoParams.group(3);        // 返回类型及后续内容
-
-            // 重排为英文语法：To <funcName>, produce <type>
-            String replacement = indent + "To " + funcName + ", produce " + rest;
-            matcherNoParams.appendReplacement(result2, java.util.regex.Matcher.quoteReplacement(replacement));
-        }
-        matcherNoParams.appendTail(result2);
-
-        return result2.toString();
+        return s;
     }
 
     /**
@@ -620,7 +580,7 @@ public final class Canonicalizer {
      * <ul>
      *   <li>中文关键词（如 "若"）前必须是行首、空格、标点或非中文字符</li>
      *   <li>中文关键词后必须是空格、标点、字符串结尾或非中文字符</li>
-     *   <li>特殊标记关键词（如 "【模块】"）可以直接匹配</li>
+     *   <li>英文关键词的前后必须是非标识符字符</li>
      * </ul>
      * <p>
      * <b>Unicode 安全</b>：使用 {@code Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE}
@@ -692,7 +652,6 @@ public final class Canonicalizer {
      * <p>
      * 词边界规则：
      * <ul>
-     *   <li>特殊标记关键词（如 【模块】）总是在词边界上</li>
      *   <li>关键词前后不能是标识符字符（保护标识符完整性）</li>
      *   <li>例如：「若何」是一个词（意为"如何"），不应将「若」翻译为 if</li>
      * </ul>
@@ -704,11 +663,6 @@ public final class Canonicalizer {
      * @return 如果在词边界上返回 true
      */
     private boolean isWordBoundaryForMatch(String text, int start, int end, String sourceKeyword) {
-        // 特殊标记关键词（如 【模块】）总是在词边界上
-        if (sourceKeyword.startsWith("\u3010") || sourceKeyword.startsWith("[")) {
-            return true;
-        }
-
         boolean isChineseMode = config.whitespaceMode() == CanonicalizationConfig.WhitespaceMode.CHINESE;
         // 检测关键词是否属于无空格书写系统（中文/日文/韩文）
         boolean isSpacelessKeyword = !sourceKeyword.isEmpty() && isSpacelessScript(sourceKeyword.charAt(0));
@@ -869,161 +823,6 @@ public final class Canonicalizer {
             }
         }
         return result.toString();
-    }
-
-    /**
-     * 中文标点符号翻译为英文标点符号（ANTLR 词法器只识别英文标点）
-     * <p>
-     * 转换规则：
-     * <ul>
-     *   <li>。(U+3002) → . (句号)</li>
-     *   <li>， (U+FF0C) → , (全角逗号)</li>
-     *   <li>： (U+FF1A) → : (全角冒号)</li>
-     *   <li>、 (U+3001) → , (顿号，用作枚举分隔)</li>
-     * </ul>
-     * <p>
-     * 注意：字符串字面量内的标点保持不变。
-     */
-    private String translateChinesePunctuation(String s) {
-        // 使用 segmentString 保护字符串字面量
-        List<Segment> segments = segmentString(s);
-        StringBuilder result = new StringBuilder(s.length());
-
-        for (Segment segment : segments) {
-            if (segment.inString) {
-                // 字符串内，保持原样
-                result.append(segment.text);
-            } else {
-                // 字符串外，翻译中文标点
-                result.append(translateChinesePunctuationImpl(segment.text));
-            }
-        }
-        return result.toString();
-    }
-
-    /**
-     * 中文标点翻译的实际实现
-     */
-    private String translateChinesePunctuationImpl(String s) {
-        StringBuilder result = new StringBuilder(s.length());
-        for (int i = 0; i < s.length(); i++) {
-            char ch = s.charAt(i);
-            switch (ch) {
-                case '\u3002':  // 。(中文句号)
-                    result.append('.');
-                    break;
-                case '\uFF0C':  // ， (全角逗号)
-                    result.append(',');
-                    break;
-                case '\uFF1A':  // ： (全角冒号)
-                    result.append(':');
-                    break;
-                case '\u3001':  // 、 (顿号)
-                    result.append(',');
-                    break;
-                default:
-                    result.append(ch);
-            }
-        }
-        return result.toString();
-    }
-
-    /**
-     * 中文结构助词 "的" 转换为成员访问符号 "."
-     * <p>
-     * 例如：{@code 用户 的 名字} → {@code 用户.名字}
-     * <p>
-     * 注意：字符串字面量内的内容保持不变。
-     */
-    private String translateChinesePossessive(String s) {
-        // 使用 segmentString 保护字符串字面量
-        List<Segment> segments = segmentString(s);
-        StringBuilder result = new StringBuilder(s.length());
-
-        for (Segment segment : segments) {
-            if (segment.inString()) {
-                // 字符串内，保持原样
-                result.append(segment.text());
-            } else {
-                // 字符串外，翻译中文结构助词 "的"
-                // 模式：标识符 + 空格 + "的" + 空格 + 标识符 → 标识符.标识符
-                result.append(translateChinesePossessiveImpl(segment.text()));
-            }
-        }
-        return result.toString();
-    }
-
-    /**
-     * 中文结构助词 "的" 翻译的实际实现
-     */
-    private String translateChinesePossessiveImpl(String s) {
-        // 将 " 的 " 替换为 "."（注意两侧的空格）
-        return s.replace(" 的 ", ".");
-    }
-
-    /**
-     * 中文运算符和控制流关键词翻译
-     * <p>
-     * 翻译中文比较运算符和控制流关键词：
-     * <ul>
-     *   <li>大于等于 → {@code >=}</li>
-     *   <li>小于等于 → {@code <=}</li>
-     *   <li>不等于 → {@code !=}</li>
-     *   <li>则 (行尾) → {@code :}</li>
-     *   <li>设置 → set</li>
-     * </ul>
-     * <p>
-     * 注意：字符串字面量内的内容保持不变。
-     */
-    private String translateChineseOperators(String s) {
-        // 使用 segmentString 保护字符串字面量
-        List<Segment> segments = segmentString(s);
-        StringBuilder result = new StringBuilder(s.length());
-
-        for (Segment segment : segments) {
-            if (segment.inString()) {
-                // 字符串内，保持原样
-                result.append(segment.text());
-            } else {
-                // 字符串外，翻译中文运算符
-                result.append(translateChineseOperatorsImpl(segment.text()));
-            }
-        }
-        return result.toString();
-    }
-
-    /**
-     * 中文运算符翻译的实际实现
-     */
-    private String translateChineseOperatorsImpl(String s) {
-        // 比较运算符翻译（必须先翻译较长的模式，避免部分匹配）
-        s = s.replace("大于等于", " >= ")
-             .replace("小于等于", " <= ")
-             .replace("不等于", " != ")
-             .replace("等于", " == ");
-
-        // 控制流关键词翻译
-        // "则" 在行尾表示 if 条件结束，翻译为 ":"
-        s = s.replaceAll("\\s+则\\s*$", ":");
-        s = s.replaceAll("\\s+则\\s*\\n", ":\n");
-
-        // "设置 X 为 Y" 翻译为 "令 X 为 Y." (Let 语句形式，带句号)
-        // 注意：CNL 语法没有 set 语句，使用 Let 语句代替
-        s = s.replaceAll("设置\\s+([^为]+)\\s+为\\s+(.+?)(?=\\n|$)", "令 $1 为 $2.");
-
-        // 为没有句号的 "令 X 为 Y" 语句添加句号（CNL 语法要求）
-        // 匹配 "令 X 为 Y" 但后面不是句号，添加句号
-        // 注意：需排除以下结尾的不完整语句（可能被字符串分段截断）：
-        //   - ( [ { 等开括号
-        //   - = , 等运算符（表示表达式未结束，如 "msg = " 后跟字符串字面量）
-        //   - 空白字符（表示表达式在字符串字面量前被截断）
-        s = s.replaceAll("令\\s+(\\S+)\\s+为\\s+(.+?)(?<![.\\(\\[\\{=,\\s])(?=\\s*(?:\\n|$))", "令 $1 为 $2.");
-
-        // 为没有句号的 "返回 X" 语句添加句号
-        // 注意：同上，排除不完整语句的结尾字符
-        s = s.replaceAll("返回\\s+(.+?)(?<![.\\(\\[\\{=,\\s])(?=\\s*(?:\\n|$))", "返回 $1.");
-
-        return s;
     }
 
     /**

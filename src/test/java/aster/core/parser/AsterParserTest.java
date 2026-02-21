@@ -41,9 +41,9 @@ class AsterParserTest {
     @Test
     void testSimpleModule() {
         String input = """
-            This module is app.
+            Module app.
 
-            To helloMessage produce Text:
+            Rule helloMessage:
               Return "Hello, world!".
             """;
 
@@ -54,7 +54,7 @@ class AsterParserTest {
     @Test
     void testFunctionWithParameters() {
         String input = """
-            To add with x: Int and y: Int, produce Int:
+            Rule add given x: Int and y: Int:
               Return x + y.
             """;
 
@@ -65,7 +65,7 @@ class AsterParserTest {
     @Test
     void testDataDeclaration() {
         String input = """
-            Define User with name: Text and age: Int.
+            Define User has name: Text and age: Int.
             """;
 
         ParseTree tree = parse(input);
@@ -85,7 +85,7 @@ class AsterParserTest {
     @Test
     void testLetStatement() {
         String input = """
-            To test produce Int:
+            Rule test:
               Let x be 42.
               Return x.
             """;
@@ -97,7 +97,7 @@ class AsterParserTest {
     @Test
     void testIfStatement() {
         String input = """
-            To check with x: Int, produce Text:
+            Rule check given x: Int:
               If x > 0:
                 Return "positive".
               Else:
@@ -111,7 +111,7 @@ class AsterParserTest {
     @Test
     void testCallExpression() {
         String input = """
-            To main produce Int:
+            Rule main:
               Return add 1 2.
             """;
 
@@ -122,7 +122,7 @@ class AsterParserTest {
     @Test
     void testBinaryExpression() {
         String input = """
-            To calc produce Int:
+            Rule calc:
               Return 1 + 2 * 3.
             """;
 
@@ -133,7 +133,7 @@ class AsterParserTest {
     @Test
     void testComparisonExpression() {
         String input = """
-            To compare with x: Int, produce Bool:
+            Rule compare given x: Int:
               Return x > 5.
             """;
 
@@ -144,7 +144,7 @@ class AsterParserTest {
     @Test
     void testGenericType() {
         String input = """
-            To getList produce List<Int>.
+            Rule getList produce List<Int>.
             """;
 
         ParseTree tree = parse(input);
@@ -174,16 +174,100 @@ class AsterParserTest {
     @Test
     void testCompleteExample() {
         String input = """
-            This module is app.
+            Module app.
 
-            Define User with name: Text and age: Int.
+            Define User has name: Text and age: Int.
 
-            To greet with user: User, produce Text:
+            Rule greet given user: User:
               Return "Hello, " + user.name.
             """;
 
         ParseTree tree = parse(input);
         assertNotNull(tree);
+    }
+
+    // ============================================================
+    // 新语法测试（Module/Rule/given/has）
+    // ============================================================
+
+    @Test
+    void testNewModuleSyntax() {
+        String input = """
+            Module app.
+
+            Rule helloMessage:
+              Return "Hello, world!".
+            """;
+
+        ParseTree tree = parse(input);
+        assertNotNull(tree, "应该成功解析新模块语法");
+    }
+
+    @Test
+    void testRuleWithGivenParameters() {
+        String input = """
+            Rule add given x: Int and y: Int:
+              Return x + y.
+            """;
+
+        ParseTree tree = parse(input);
+        assertNotNull(tree);
+    }
+
+    @Test
+    void testRuleWithImplicitReturnType() {
+        String input = """
+            Rule generateQuote given driver, vehicle:
+              Return 42.
+            """;
+
+        ParseTree tree = parse(input);
+        assertNotNull(tree);
+    }
+
+    @Test
+    void testDataDeclWithHas() {
+        String input = """
+            Driver has id, age, yearsLicensed, accidents.
+            """;
+
+        ParseTree tree = parse(input);
+        assertNotNull(tree);
+    }
+
+    @Test
+    void testArticleDataDeclWithHas() {
+        String input = """
+            a Driver has id, age, yearsLicensed.
+            """;
+
+        ParseTree tree = parse(input);
+        assertNotNull(tree);
+    }
+
+    @Test
+    void testCompleteNewSyntaxExample() {
+        String input = """
+            Module insurance.auto.
+
+            a Driver has id, age, yearsLicensed, accidents, violations.
+            a Vehicle has vin, year, value, safetyRating.
+            a Quote has approved, premium, deductible, reason.
+
+            Rule generateQuote given driver, vehicle:
+              If driver.age < 18:
+                Return Quote with approved = false, premium = 0, deductible = 0, reason = "Driver under 18".
+              Let basePremium be calculateBase with driver, vehicle.
+              Return Quote with approved = true, premium = basePremium, deductible = 500, reason = "Approved".
+
+            Rule calculateBase given driver, vehicle:
+              If driver.age < 25:
+                Return 300.
+              Return 200.
+            """;
+
+        ParseTree tree = parse(input);
+        assertNotNull(tree, "完整的新语法示例应该能成功解析");
     }
 
     // TODO: testSyntaxError - 需要实现错误处理策略

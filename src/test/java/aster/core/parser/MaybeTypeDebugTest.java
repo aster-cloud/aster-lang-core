@@ -11,7 +11,7 @@ class MaybeTypeDebugTest {
     @Test
     void testWithSpaces() {
         String input = """
-            To fromMaybe with x: Text ? , d: Text, produce Text:
+            Rule fromMaybe given x: Text ? , d: Text:
               Return d.
             """;
 
@@ -48,7 +48,7 @@ class MaybeTypeDebugTest {
     @Test
     void testWithoutSpaces() {
         String input = """
-            To fromMaybe with x: Text?, d: Text, produce Text:
+            Rule fromMaybe given x: Text?, d: Text:
               Return d.
             """;
 

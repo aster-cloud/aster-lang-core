@@ -20,6 +20,7 @@ publishing {
 }
 
 repositories {
+    mavenLocal()
     mavenCentral()
 }
 
@@ -48,6 +49,11 @@ dependencies {
     testImplementation("net.jqwik:jqwik:1.8.2")
     // JSON 对比库（用于黄金测试）
     testImplementation("org.skyscreamer:jsonassert:1.5.1")
+
+    // 语言包（测试和 exportLexicons 任务需要通过 SPI 发现语言包）
+    testRuntimeOnly("cloud.aster-lang:aster-lang-en:0.0.1")
+    testRuntimeOnly("cloud.aster-lang:aster-lang-zh:0.0.1")
+    testRuntimeOnly("cloud.aster-lang:aster-lang-de:0.0.1")
 }
 
 tasks.test {
@@ -128,4 +134,28 @@ tasks.jacocoTestReport {
 
 application {
     mainClass.set("aster.core.typecheck.cli.TypeCheckCli")
+}
+
+// 语言包配置（exportLexicons 任务需要通过 SPI 发现语言包）
+val langPacks: Configuration by configurations.creating
+
+dependencies {
+    langPacks("cloud.aster-lang:aster-lang-en:0.0.1")
+    langPacks("cloud.aster-lang:aster-lang-zh:0.0.1")
+    langPacks("cloud.aster-lang:aster-lang-de:0.0.1")
+}
+
+// Lexicon JSON 导出任务（供 aster-lang-ts / aster-cloud 代码生成消费）
+tasks.register<JavaExec>("exportLexicons") {
+    group = "codegen"
+    description = "Export all Lexicon definitions to JSON for cross-project codegen"
+
+    classpath = sourceSets.main.get().runtimeClasspath + langPacks
+    mainClass.set("aster.core.lexicon.LexiconExporterCli")
+
+    val outputDir = layout.buildDirectory.dir("generated/lexicons")
+    outputs.dir(outputDir)
+    args(version.toString(), outputDir.get().asFile.absolutePath)
+
+    dependsOn("classes")
 }

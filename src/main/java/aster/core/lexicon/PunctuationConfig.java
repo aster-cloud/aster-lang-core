@@ -74,8 +74,24 @@ public record PunctuationConfig(
             "：",  // blockStart
             "「",  // stringQuoteOpen
             "」",  // stringQuoteClose
-            "【",  // markerOpen
-            "】"   // markerClose
+            null,  // markerOpen
+            null   // markerClose
+        );
+    }
+
+    /**
+     * 德语标准标点符号配置（使用英文标点）
+     */
+    public static PunctuationConfig german() {
+        return new PunctuationConfig(
+            ".",   // statementEnd
+            ",",   // listSeparator
+            ",",   // enumSeparator
+            ":",   // blockStart
+            "\"",  // stringQuoteOpen
+            "\"",  // stringQuoteClose
+            null,  // markerOpen
+            null   // markerClose
         );
     }
 }

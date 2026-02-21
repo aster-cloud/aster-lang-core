@@ -1,6 +1,13 @@
 package aster.core.lexicon;
 
+import aster.core.canonicalizer.TransformerRegistry;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -8,7 +15,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * 词法表注册中心 - 管理所有已注册的 Lexicon 实现。
@@ -23,9 +32,9 @@ public final class LexiconRegistry {
     private String defaultLexiconId = "en-US";
 
     private LexiconRegistry() {
-        // 注册内置词法表
-        registerBuiltin(EnUsLexicon.INSTANCE);
-        registerBuiltin(ZhCnLexicon.INSTANCE);
+        // 内置词法表通过 SPI 机制注册（各语言包 jar 中的 META-INF/services 配置）
+        // 启动时自动发现所有 classpath 上的语言包插件
+        discoverPlugins();
     }
 
     /**
@@ -130,6 +139,15 @@ public final class LexiconRegistry {
             originalIds.add(lexicon.getId());
         }
         return originalIds;
+    }
+
+    /**
+     * 获取所有已注册的 Lexicon 实例。
+     *
+     * @return 所有 Lexicon 的集合
+     */
+    public Collection<Lexicon> getAll() {
+        return lexicons.values();
     }
 
     /**
@@ -265,6 +283,88 @@ public final class LexiconRegistry {
         Locale locale = Locale.forLanguageTag(id);
         // 有效的 BCP 47 标签至少有一个非空的语言代码
         return !locale.getLanguage().isEmpty();
+    }
+
+    /**
+     * 从目录加载 JSON 语言包。
+     * <p>
+     * 扫描指定目录下的 {@code *.json} 文件（最深 2 层），
+     * 将每个文件作为 {@link DynamicLexicon} 加载并注册。
+     * 已存在的 ID 会被跳过（内置词法表优先）。
+     *
+     * @param lexiconsDir 语言包目录（如 {@code ~/.aster/lexicons/}）
+     * @return 成功加载的语言包数量
+     */
+    public int loadFromDirectory(Path lexiconsDir) {
+        if (!Files.isDirectory(lexiconsDir)) {
+            return 0;
+        }
+        int loaded = 0;
+        try (Stream<Path> stream = Files.walk(lexiconsDir, 2)) {
+            List<Path> jsonFiles = stream
+                    .filter(p -> p.getFileName().toString().endsWith(".json"))
+                    .toList();
+            for (Path jsonFile : jsonFiles) {
+                try {
+                    DynamicLexicon lexicon = DynamicLexicon.fromJson(jsonFile);
+                    String normalizedId = normalizeId(lexicon.getId());
+                    if (lexicons.containsKey(normalizedId)) {
+                        continue; // 内置词法表优先，跳过重复
+                    }
+                    register(lexicon);
+                    loaded++;
+                } catch (Exception e) {
+                    // 单个文件加载失败不影响其他文件
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to scan lexicons directory: " + lexiconsDir, e);
+        }
+        return loaded;
+    }
+
+    /**
+     * 通过 Java SPI 机制发现并注册语言包插件。
+     * <p>
+     * 扫描 classpath 中的 {@code META-INF/services/aster.core.lexicon.LexiconPlugin} 文件，
+     * 加载所有 {@link LexiconPlugin} 实现，同时注册插件提供的变换器。
+     *
+     * @return 成功加载的插件数量
+     */
+    public int discoverPlugins() {
+        int loaded = 0;
+        for (LexiconPlugin plugin : ServiceLoader.load(LexiconPlugin.class)) {
+            try {
+                // 先注册变换器，因为 Lexicon 构造时可能依赖变换器
+                // （例如 ZhCnLexicon 的 CanonicalizationConfig.chinese() 会引用中文变换器）
+                var transformers = plugin.getTransformers();
+                if (!transformers.isEmpty()) {
+                    TransformerRegistry.registerAll(transformers);
+                }
+
+                Lexicon lexicon = plugin.createLexicon();
+                String normalizedId = normalizeId(lexicon.getId());
+                if (lexicons.containsKey(normalizedId)) {
+                    continue;
+                }
+                // SPI 插件使用 registerBuiltin 跳过验证（内置插件已在代码中保证正确性）
+                registerBuiltin(lexicon);
+
+                loaded++;
+            } catch (Exception e) {
+                // 单个插件加载失败不影响其他插件
+            }
+        }
+        return loaded;
+    }
+
+    /**
+     * 获取默认语言包目录路径。
+     *
+     * @return {@code ~/.aster/lexicons/}
+     */
+    public static Path getDefaultLexiconsDir() {
+        return Path.of(System.getProperty("user.home"), ".aster", "lexicons");
     }
 
     /**

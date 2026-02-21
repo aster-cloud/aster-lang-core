@@ -42,6 +42,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     public aster.core.ast.Module visitModule(AsterParser.ModuleContext ctx) {
         String name = null;
         if (ctx.moduleHeader() != null) {
+            // 新旧语法均通过 qualifiedName 提取模块名
             name = visitQualifiedName(ctx.moduleHeader().qualifiedName());
         }
 
@@ -129,8 +130,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
         // 参数列表
         List<Decl.Parameter> params = new ArrayList<>();
-        if (ctx.paramList() != null) {
-            params = ctx.paramList().param().stream()
+        if (ctx.givenParamList() != null) {
+            params = ctx.givenParamList().param().stream()
                 .map(this::visitParam)
                 .collect(Collectors.toList());
         }
@@ -1185,8 +1186,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     public Expr visitLambdaExpr(AsterParser.LambdaExprContext ctx) {
         // 提取参数列表
         List<Decl.Parameter> params = new ArrayList<>();
-        if (ctx.paramList() != null) {
-            params = ctx.paramList().param().stream()
+        if (ctx.givenParamList() != null) {
+            params = ctx.givenParamList().param().stream()
                 .map(this::visitParam)
                 .collect(Collectors.toList());
         }

@@ -101,7 +101,7 @@ class LexiconRegistryTest {
         assertEquals("若", keywords.get(SemanticTokenKind.MATCH));
         assertEquals("返回", keywords.get(SemanticTokenKind.RETURN));
         assertEquals("真", keywords.get(SemanticTokenKind.TRUE));
-        assertEquals("【模块】", keywords.get(SemanticTokenKind.MODULE_DECL));
+        assertEquals("模块", keywords.get(SemanticTokenKind.MODULE_DECL));
     }
 
     // ============================================================

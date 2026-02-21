@@ -8,9 +8,9 @@ import java.util.Map;
  * <p>
  * 定义 Aster CNL 的中文关键词映射。
  * <p>
- * <b>设计策略</b>：混合策略
+ * <b>设计策略</b>：自然中文风格
  * <ul>
- *   <li>法律文书风格：声明类关键词使用【】标记，如【模块】【定义】</li>
+ *   <li>声明类关键词使用纯文本，如"模块"、"定义"、"规则"</li>
  *   <li>把字句结构：模式匹配使用"把 X 分为"结构</li>
  *   <li>直觉自然：控制流关键词使用日常中文，如"若"、"否则"、"返回"</li>
  * </ul>
@@ -19,7 +19,6 @@ import java.util.Map;
  * <ul>
  *   <li>使用中文标点：。，、：</li>
  *   <li>字符串使用直角引号：「」</li>
- *   <li>标记使用方括号：【】</li>
  * </ul>
  */
 public final class ZhCnLexicon implements Lexicon {
@@ -29,40 +28,43 @@ public final class ZhCnLexicon implements Lexicon {
 
     private final Map<SemanticTokenKind, String> keywords;
     private final PunctuationConfig punctuation;
-    private final CanonicalizationConfig canonicalization;
     private final ErrorMessages messages;
+    private volatile CanonicalizationConfig canonicalization;
 
     private ZhCnLexicon() {
         this.keywords = buildKeywords();
         this.punctuation = PunctuationConfig.chinese();
-        this.canonicalization = CanonicalizationConfig.chinese();
         this.messages = ErrorMessages.chinese();
+        // canonicalization 延迟初始化，因为依赖中文变换器（由 aster-lang-zh SPI 插件注册）
     }
 
     private Map<SemanticTokenKind, String> buildKeywords() {
         Map<SemanticTokenKind, String> kw = new EnumMap<>(SemanticTokenKind.class);
 
-        // 模块声明（使用【】标记增强辨识度）
-        kw.put(SemanticTokenKind.MODULE_DECL, "【模块】");
+        // 模块声明
+        kw.put(SemanticTokenKind.MODULE_DECL, "模块");
         kw.put(SemanticTokenKind.IMPORT, "引用");
         kw.put(SemanticTokenKind.IMPORT_ALIAS, "作为");
 
-        // 类型定义（使用【】标记）
-        kw.put(SemanticTokenKind.TYPE_DEF, "【定义】");
+        // 类型定义
+        kw.put(SemanticTokenKind.TYPE_DEF, "定义");
         kw.put(SemanticTokenKind.TYPE_WITH, "包含");
+        kw.put(SemanticTokenKind.TYPE_HAS, "包含");
         kw.put(SemanticTokenKind.TYPE_ONE_OF, "为以下之一");
 
-        // 函数定义（与 TypeScript 前端保持一致）
-        kw.put(SemanticTokenKind.FUNC_TO, "【函数】");
+        // 函数定义
+        kw.put(SemanticTokenKind.FUNC_TO, "规则");
+        kw.put(SemanticTokenKind.FUNC_GIVEN, "给定");
         kw.put(SemanticTokenKind.FUNC_PRODUCE, "产出");
         kw.put(SemanticTokenKind.FUNC_PERFORMS, "执行");
 
-        // 控制流（与 TypeScript 前端保持一致）
+        // 控制流
         kw.put(SemanticTokenKind.IF, "如果");
         kw.put(SemanticTokenKind.OTHERWISE, "否则");
         kw.put(SemanticTokenKind.MATCH, "若");
         kw.put(SemanticTokenKind.WHEN, "为");
         kw.put(SemanticTokenKind.RETURN, "返回");
+        kw.put(SemanticTokenKind.RESULT_IS, "结果为");
         kw.put(SemanticTokenKind.FOR_EACH, "对每个");
         kw.put(SemanticTokenKind.IN, "在");
 
@@ -88,6 +90,9 @@ public final class ZhCnLexicon implements Lexicon {
         kw.put(SemanticTokenKind.GREATER_THAN, "大于");
         kw.put(SemanticTokenKind.EQUALS_TO, "等于");
         kw.put(SemanticTokenKind.IS, "是");
+        kw.put(SemanticTokenKind.UNDER, "不足");
+        kw.put(SemanticTokenKind.OVER, "超过");
+        kw.put(SemanticTokenKind.MORE_THAN, "多于");
 
         // 类型构造
         kw.put(SemanticTokenKind.MAYBE, "可选");
@@ -113,9 +118,9 @@ public final class ZhCnLexicon implements Lexicon {
         kw.put(SemanticTokenKind.IO, "输入输出");
         kw.put(SemanticTokenKind.CPU, "计算");
 
-        // 工作流（使用【】标记）
-        kw.put(SemanticTokenKind.WORKFLOW, "【流程】");
-        kw.put(SemanticTokenKind.STEP, "【步骤】");
+        // 工作流
+        kw.put(SemanticTokenKind.WORKFLOW, "流程");
+        kw.put(SemanticTokenKind.STEP, "步骤");
         kw.put(SemanticTokenKind.DEPENDS, "依赖");
         kw.put(SemanticTokenKind.ON, "于");
         kw.put(SemanticTokenKind.COMPENSATE, "补偿");
@@ -131,6 +136,14 @@ public final class ZhCnLexicon implements Lexicon {
         kw.put(SemanticTokenKind.ASYNC, "异步");
         kw.put(SemanticTokenKind.AWAIT, "等待");
         kw.put(SemanticTokenKind.WAIT_FOR, "等候");
+
+        // 约束声明
+        kw.put(SemanticTokenKind.REQUIRED, "必填");
+        kw.put(SemanticTokenKind.BETWEEN, "介于");
+        kw.put(SemanticTokenKind.AT_LEAST, "至少");
+        kw.put(SemanticTokenKind.AT_MOST, "至多");
+        kw.put(SemanticTokenKind.MATCHING, "匹配");
+        kw.put(SemanticTokenKind.PATTERN, "模式");
 
         return kw;
     }
@@ -162,6 +175,17 @@ public final class ZhCnLexicon implements Lexicon {
 
     @Override
     public CanonicalizationConfig getCanonicalization() {
+        // 延迟初始化：中文变换器由 aster-lang-zh 的 SPI 插件注册。
+        // 触发 LexiconRegistry 初始化以确保 SPI 插件已发现并注册变换器。
+        if (canonicalization == null) {
+            synchronized (this) {
+                if (canonicalization == null) {
+                    // 确保 SPI 发现已执行（LexiconRegistry 构造器调用 discoverPlugins）
+                    LexiconRegistry.getInstance();
+                    canonicalization = CanonicalizationConfig.chinese();
+                }
+            }
+        }
         return canonicalization;
     }
 

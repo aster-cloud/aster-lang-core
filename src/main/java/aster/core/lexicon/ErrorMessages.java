@@ -49,6 +49,20 @@ public record ErrorMessages(
     }
 
     /**
+     * 德语错误消息（使用 ASCII 兼容字符）
+     */
+    public static ErrorMessages german() {
+        return new ErrorMessages(
+            "Unerwartetes Symbol: {token}",
+            "Erwartetes Schluesselwort: {keyword}",
+            "Nicht definierte Variable: {name}",
+            "Typkonflikt: erwartet {expected}, erhalten {actual}",
+            "Nicht abgeschlossenes Zeichenkettenliteral",
+            "Ungueltige Einrueckung: muss ein Vielfaches von 2 Leerzeichen sein"
+        );
+    }
+
+    /**
      * 格式化错误消息，替换占位符
      *
      * @param template 消息模板

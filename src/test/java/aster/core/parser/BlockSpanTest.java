@@ -38,7 +38,7 @@ class BlockSpanTest {
     @Test
     void blockSpanMatchesSingleStatement() {
         String input = """
-            To single produce Int:
+            Rule single:
               Return 1.
             """;
 
@@ -60,7 +60,7 @@ class BlockSpanTest {
     @Test
     void blockSpanCoversFirstAndLastStatement() {
         String input = """
-            To multi produce Int:
+            Rule multi:
               Let x be 1.
               Return x.
             """;
@@ -82,7 +82,7 @@ class BlockSpanTest {
     @Test
     void nestedBlockSpanIgnoresIndentTokens() {
         String input = """
-            To nested produce Int:
+            Rule nested:
               Let flag be 1.
               If flag > 0:
                 Return flag.

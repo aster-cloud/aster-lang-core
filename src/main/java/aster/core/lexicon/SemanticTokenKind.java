@@ -45,6 +45,9 @@ public enum SemanticTokenKind {
     /** 类型字段 - "with" / "包含" */
     TYPE_WITH,
 
+    /** 类型包含（新语法） - "has" / "包含" */
+    TYPE_HAS,
+
     /** 枚举类型 - "as one of" / "为以下之一" */
     TYPE_ONE_OF,
 
@@ -54,6 +57,9 @@ public enum SemanticTokenKind {
 
     /** 函数入参 - "to" / "入参" */
     FUNC_TO,
+
+    /** 函数参数（新语法） - "given" / "给定" */
+    FUNC_GIVEN,
 
     /** 函数产出 - "produce" / "产出" */
     FUNC_PRODUCE,
@@ -79,6 +85,9 @@ public enum SemanticTokenKind {
 
     /** 返回语句 - "return" / "返回" */
     RETURN,
+
+    /** 结果是（同义词） - "the result is" / "结果为" */
+    RESULT_IS,
 
     /** 循环遍历 - "for each" / "对每个" */
     FOR_EACH,
@@ -146,6 +155,15 @@ public enum SemanticTokenKind {
 
     /** 判断 - "is" / "是" */
     IS,
+
+    /** 低于（同义词） - "under" / "不足" */
+    UNDER,
+
+    /** 超过（同义词） - "over" / "超过" */
+    OVER,
+
+    /** 多于（同义词） - "more than" / "多于" */
+    MORE_THAN,
 
     // ============================================================
     // 类型构造
@@ -262,25 +280,48 @@ public enum SemanticTokenKind {
     AWAIT,
 
     /** 等待完成 - "wait for" / "等候" */
-    WAIT_FOR;
+    WAIT_FOR,
+
+    // ============================================================
+    // 约束声明
+    // ============================================================
+
+    /** 必填约束 - "required" / "必填" */
+    REQUIRED,
+
+    /** 范围约束 - "between" / "介于" */
+    BETWEEN,
+
+    /** 最小约束 - "at least" / "至少" */
+    AT_LEAST,
+
+    /** 最大约束 - "at most" / "至多" */
+    AT_MOST,
+
+    /** 匹配约束 - "matching" / "匹配" */
+    MATCHING,
+
+    /** 模式约束 - "pattern" / "模式" */
+    PATTERN;
 
     /**
      * SemanticTokenKind 分类映射，用于文档和验证。
      */
     public static final Map<String, List<SemanticTokenKind>> CATEGORIES = Map.ofEntries(
         Map.entry("module", Arrays.asList(MODULE_DECL, IMPORT, IMPORT_ALIAS)),
-        Map.entry("type", Arrays.asList(TYPE_DEF, TYPE_WITH, TYPE_ONE_OF)),
-        Map.entry("function", Arrays.asList(FUNC_TO, FUNC_PRODUCE, FUNC_PERFORMS)),
-        Map.entry("control", Arrays.asList(IF, OTHERWISE, MATCH, WHEN, RETURN, FOR_EACH, IN)),
+        Map.entry("type", Arrays.asList(TYPE_DEF, TYPE_WITH, TYPE_HAS, TYPE_ONE_OF)),
+        Map.entry("function", Arrays.asList(FUNC_TO, FUNC_GIVEN, FUNC_PRODUCE, FUNC_PERFORMS)),
+        Map.entry("control", Arrays.asList(IF, OTHERWISE, MATCH, WHEN, RETURN, RESULT_IS, FOR_EACH, IN)),
         Map.entry("variable", Arrays.asList(LET, BE, SET, TO_WORD)),
         Map.entry("boolean", Arrays.asList(OR, AND, NOT)),
         Map.entry("arithmetic", Arrays.asList(PLUS, MINUS_WORD, TIMES, DIVIDED_BY)),
-        Map.entry("comparison", Arrays.asList(LESS_THAN, GREATER_THAN, EQUALS_TO, IS)),
+        Map.entry("comparison", Arrays.asList(LESS_THAN, GREATER_THAN, EQUALS_TO, IS, UNDER, OVER, MORE_THAN)),
         Map.entry("typeConstruct", Arrays.asList(MAYBE, OPTION_OF, RESULT_OF, OK_OF, ERR_OF, SOME_OF, NONE)),
         Map.entry("literal", Arrays.asList(TRUE, FALSE, NULL)),
         Map.entry("primitiveType", Arrays.asList(TEXT, INT_TYPE, FLOAT_TYPE, BOOL_TYPE)),
         Map.entry("effect", Arrays.asList(IO, CPU)),
         Map.entry("workflow", Arrays.asList(WORKFLOW, STEP, DEPENDS, ON, COMPENSATE, RETRY, TIMEOUT, MAX_ATTEMPTS, BACKOFF)),
-        Map.entry("async", Arrays.asList(WITHIN, SCOPE, START, ASYNC, AWAIT, WAIT_FOR))
+        Map.entry("async", Arrays.asList(WITHIN, SCOPE, START, ASYNC, AWAIT, WAIT_FOR)),
+        Map.entry("constraint", Arrays.asList(REQUIRED, BETWEEN, AT_LEAST, AT_MOST, MATCHING, PATTERN))
     );
 }

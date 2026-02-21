@@ -11,7 +11,7 @@ class AstBuilderDebugTest {
     @Test
     void debugLetStatement() {
         String input = """
-            To test produce Int:
+            Rule test:
               Let x be 42.
               Return x.
             """;
@@ -59,7 +59,7 @@ class AstBuilderDebugTest {
     @Test
     void debugBinaryExpression() {
         String input = """
-            To calc produce Int:
+            Rule calc:
               Return 1 + 2 * 3.
             """;
 

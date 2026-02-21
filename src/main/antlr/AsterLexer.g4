@@ -81,16 +81,20 @@ INT_LITERAL: [0-9]+;
 // 注意：关键字必须在 IDENT 之前定义，确保优先匹配
 
 // 模块相关
+MODULE_KW: 'Module';
 THIS: 'This' | 'this';
 MODULE: 'module';
 IS: 'is';
 
 // 函数相关
+RULE: 'Rule';
+GIVEN: 'given';
 TO: 'To' | 'to';
 WITH: 'with';
 AND: 'and';
 OR: 'or';
 PRODUCE: 'produce';
+HAS: 'has';
 
 // 类型定义相关
 DEFINE: 'Define';
@@ -141,17 +145,35 @@ PERFORMS: 'performs';
 // 标识符（Identifiers）
 // ============================================================
 
-// 类型标识符（Uppercase 开头，支持中文等 Unicode 字符）
-// CJK 字符视为类型标识符的一部分
+// 类型标识符（Uppercase 开头，支持 Latin Extended 和 CJK 等 Unicode 字符）
 TYPE_IDENT: [A-Z] IdentContinue*
+          | LatinExtUpperChar IdentContinue*
           | CjkChar IdentContinue*
           ;
 
-// 普通标识符（lowercase 或 _ 开头，支持中文等 Unicode 字符）
-IDENT: [a-z_] IdentContinue*;
+// 普通标识符（lowercase 或 _ 开头，支持 Latin Extended 和 CJK 等 Unicode 字符）
+IDENT: [a-z_] IdentContinue*
+     | LatinExtLowerChar IdentContinue*
+     ;
 
-// 标识符续字符片段（字母、数字、下划线、CJK 字符）
-fragment IdentContinue: [a-zA-Z0-9_] | CjkChar;
+// 标识符续字符片段（字母、数字、下划线、Latin Extended、CJK 字符）
+fragment IdentContinue: [a-zA-Z0-9_] | LatinExtChar | CjkChar;
+
+// Latin Extended 字符（德语 ü/ö/ä/ß、法语 é/è/ê 等）
+fragment LatinExtChar: [\u00C0-\u00FF]     // Latin-1 Supplement (À-ÿ)
+                     | [\u0100-\u024F]     // Latin Extended-A/B
+                     ;
+
+// Latin Extended 大写字符（À-Ö, Ø-Þ, 及 Extended-A/B 中的大写）
+fragment LatinExtUpperChar: [\u00C0-\u00D6]  // À-Ö
+                          | [\u00D8-\u00DE]  // Ø-Þ
+                          | [\u0100-\u024F]  // Extended-A/B（混合大小写，ANTLR 无法区分，Canonicalizer 保证输入正确性）
+                          ;
+
+// Latin Extended 小写字符（ß-ö, ø-ÿ, 及 Extended-A/B 中的小写）
+fragment LatinExtLowerChar: [\u00DF-\u00F6]  // ß-ö
+                          | [\u00F8-\u00FF]  // ø-ÿ
+                          ;
 
 // CJK 字符（中文、日文汉字、韩文）
 fragment CjkChar: [\u4E00-\u9FFF]    // CJK 统一汉字

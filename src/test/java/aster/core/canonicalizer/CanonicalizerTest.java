@@ -143,8 +143,9 @@ class CanonicalizerTest {
 
     @Test
     void testNormalizeMultiWordKeywords_ModuleIs() {
-        String input = "This Module Is app.";
-        String expected = "this module is app.";
+        // 新语法使用 "Module" 作为单词关键字，大小写不敏感
+        String input = "Module app.";
+        String expected = "Module app.";
         assertEquals(expected, canonicalizer.canonicalize(input));
     }
 
@@ -234,16 +235,16 @@ class CanonicalizerTest {
     @Test
     void testCompleteExample() {
         String input = """
-            This Module Is\tapp.
+            Module\tapp.
             // Comment line
-            To greet,  produce   Text  :
+            Rule greet:
               Return   "Hello,  the world"  .
             """;
 
         String expected = """
-            this module is app.
+            Module app.
 
-            To greet, produce Text:
+            Rule greet:
               Return "Hello,  the world".
             """;
 
@@ -271,6 +272,101 @@ class CanonicalizerTest {
         String input = "line1\n   \nline2";
         String expected = "line1\n\nline2";
         assertEquals(expected, canonicalizer.canonicalize(input));
+    }
+
+    // ============================================================
+    // 英语属格 's → . 转换测试
+    // ============================================================
+
+    @Test
+    void testEnglishPossessive_Basic() {
+        String input = "driver's age";
+        String result = canonicalizer.canonicalize(input);
+        assertTrue(result.contains("driver.age"), "driver's age 应转换为 driver.age，实际结果: " + result);
+    }
+
+    @Test
+    void testEnglishPossessive_Multiple() {
+        String input = "driver's accidents";
+        String result = canonicalizer.canonicalize(input);
+        assertTrue(result.contains("driver.accidents"), "driver's accidents 应转换为 driver.accidents");
+    }
+
+    @Test
+    void testEnglishPossessive_PreserveInStrings() {
+        String input = "Return \"driver's license\".";
+        String result = canonicalizer.canonicalize(input);
+        assertTrue(result.contains("\"driver's license\""), "字符串内的 's 不应转换");
+    }
+
+    // ============================================================
+    // "The result is X" → "Return X" 重写测试
+    // ============================================================
+
+    @Test
+    void testResultIs_Basic() {
+        String input = "The result is 42.";
+        String result = canonicalizer.canonicalize(input);
+        assertTrue(result.contains("Return 42."), "The result is 42 应重写为 Return 42，实际结果: " + result);
+    }
+
+    @Test
+    void testResultIs_WithExpression() {
+        String input = "  The result is Quote with approved = true.";
+        String result = canonicalizer.canonicalize(input);
+        assertTrue(result.contains("Return Quote with approved = true."),
+            "'The result is' 应重写为 'Return'，实际结果: " + result);
+    }
+
+    @Test
+    void testResultIs_CaseInsensitive() {
+        String input = "the result is 42.";
+        String result = canonicalizer.canonicalize(input);
+        assertTrue(result.contains("Return 42."), "小写 'the result is' 也应重写");
+    }
+
+    // ============================================================
+    // "Set X to Y" → "Let X be Y" 重写测试
+    // ============================================================
+
+    @Test
+    void testSetTo_Basic() {
+        String input = "Set x to 42.";
+        String result = canonicalizer.canonicalize(input);
+        assertTrue(result.contains("Let x be 42."), "Set x to 42 应重写为 Let x be 42，实际结果: " + result);
+    }
+
+    @Test
+    void testSetTo_WithExpression() {
+        String input = "  Set basePremium to calculateBase with driver, vehicle.";
+        String result = canonicalizer.canonicalize(input);
+        assertTrue(result.contains("Let basePremium be calculateBase with driver, vehicle."),
+            "'Set X to Y' 应重写为 'Let X be Y'，实际结果: " + result);
+    }
+
+    // ============================================================
+    // 比较运算同义词测试（under/over/more than）
+    // ============================================================
+
+    @Test
+    void testComparisonSynonym_Under() {
+        String input = "x under 18";
+        String result = canonicalizer.canonicalize(input);
+        assertTrue(result.contains("<"), "'under' 应翻译为 '<'，实际结果: " + result);
+    }
+
+    @Test
+    void testComparisonSynonym_Over() {
+        String input = "x over 3";
+        String result = canonicalizer.canonicalize(input);
+        assertTrue(result.contains(">"), "'over' 应翻译为 '>'，实际结果: " + result);
+    }
+
+    @Test
+    void testComparisonSynonym_MoreThan() {
+        String input = "x more than 3";
+        String result = canonicalizer.canonicalize(input);
+        assertTrue(result.contains(">"), "'more than' 应翻译为 '>'，实际结果: " + result);
     }
 
     // ============================================================
@@ -314,9 +410,9 @@ class CanonicalizerTest {
     void testChineseKeywordTranslation_ModuleDecl() {
         var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
 
-        String input = "【模块】测试";
+        String input = "模块 测试";
         String result = zhCanonicalizer.canonicalize(input);
-        assertTrue(result.contains("this module is"), "中文'【模块】'应翻译为'this module is'，实际结果: " + result);
+        assertTrue(result.contains("Module"), "中文'模块'应翻译为'Module'，实际结果: " + result);
     }
 
     @Test
@@ -492,7 +588,7 @@ class CanonicalizerTest {
         System.out.println("输出: " + result);
 
         // 测试完整源代码（包含模块声明和函数定义）
-        String fullSource = "【模块】测试。\n\nmain 入参 值：整数，产出 文本：\n  返回 len(「hello」)。";
+        String fullSource = "模块 测试。\n\n规则 main 给定 值：整数：\n  返回 len(「hello」)。";
         String fullResult = zhCanonicalizer.canonicalize(fullSource);
         System.out.println("\n完整源代码:");
         System.out.println(fullSource);
@@ -740,7 +836,7 @@ class CanonicalizerTest {
             );
 
             String input = """
-                【模块】汽车保险报价。
+                模块 汽车保险报价。
 
                 生成报价 入参 驾驶员：驾驶员，车辆：车辆，产出 报价结果：
                   令 年龄因子 为 计算年龄因子 以 驾驶员 的 年龄。
@@ -751,7 +847,7 @@ class CanonicalizerTest {
             String result = canon.canonicalize(input);
 
             // 验证关键词翻译
-            assertTrue(result.contains("this module is"), "'【模块】'应翻译为'this module is'");
+            assertTrue(result.contains("Module"), "'模块'应翻译为'Module'");
 
             // 验证领域标识符翻译
             assertTrue(result.contains("generateQuote") || result.contains("生成报价"),
@@ -817,5 +913,157 @@ class CanonicalizerTest {
             assertTrue(result.contains("creditScore"), "'信用评分'应翻译为'creditScore'，实际结果: " + result);
             assertTrue(result.contains("ApprovalResult"), "'审批结果'应翻译为'ApprovalResult'，实际结果: " + result);
         }
+    }
+
+    // ============================================================
+    // 德语规范化测试
+    // ============================================================
+
+    @Nested
+    @DisplayName("德语规范化测试")
+    class GermanCanonicalizationTests {
+
+        private Canonicalizer deCanonicalizer;
+
+        @BeforeEach
+        void setUp() {
+            deCanonicalizer = new Canonicalizer(aster.core.lexicon.DeDeLexicon.INSTANCE);
+        }
+
+        @Test
+        @DisplayName("customRules 执行：ASCII umlaut → Unicode umlaut")
+        void customRules_UmlautNormalization() {
+            String input = "groesser als 10";
+            String result = deCanonicalizer.canonicalize(input);
+            // oe → ö, 然后 grösser 中的 ss → ß 产生 größer
+            assertTrue(result.contains("größer") || result.contains(">"),
+                "groesser 应规范化为 größer（然后翻译为 >），实际结果: " + result);
+        }
+
+        @Test
+        @DisplayName("customRules 执行：ue → ü")
+        void customRules_UeToUe() {
+            // "gib zurueck" 是 RETURN 关键词
+            String input = "gib zurueck 42.";
+            String result = deCanonicalizer.canonicalize(input);
+            assertTrue(result.contains("Return"),
+                "德语 'gib zurück'（经 umlaut 规范化后）应翻译为 'Return'，实际结果: " + result);
+        }
+
+        @Test
+        @DisplayName("德语关键词翻译：Modul → Module")
+        void keywordTranslation_Module() {
+            String input = "Modul test.simple.";
+            String result = deCanonicalizer.canonicalize(input);
+            assertTrue(result.contains("Module"),
+                "德语 'Modul' 应翻译为 'Module'，实际结果: " + result);
+        }
+
+        @Test
+        @DisplayName("德语关键词翻译：Regel → Rule")
+        void keywordTranslation_Rule() {
+            String input = "Regel main:";
+            String result = deCanonicalizer.canonicalize(input);
+            assertTrue(result.contains("Rule"),
+                "德语 'Regel' 应翻译为 'Rule'，实际结果: " + result);
+        }
+
+        @Test
+        @DisplayName("德语关键词翻译：Ergebnis ist → the result is → Return")
+        void keywordTranslation_ResultIs() {
+            String input = "Ergebnis ist 42.";
+            String result = deCanonicalizer.canonicalize(input);
+            assertTrue(result.contains("Return"),
+                "德语 'Ergebnis ist' 应最终转换为 'Return'，实际结果: " + result);
+        }
+
+        @Test
+        @DisplayName("德语冠词移除")
+        void articleRemoval() {
+            String input = "der Wert ist ein Text";
+            String result = deCanonicalizer.canonicalize(input);
+            assertFalse(result.contains(" der "), "冠词 'der' 应被移除");
+            assertFalse(result.contains(" ein "), "冠词 'ein' 应被移除");
+        }
+
+        @Test
+        @DisplayName("德语 customRules 保护字符串字面量")
+        void customRules_PreserveStrings() {
+            String input = "Return \"groesser Fehler\".";
+            String result = deCanonicalizer.canonicalize(input);
+            assertTrue(result.contains("\"groesser Fehler\""),
+                "字符串内的文本不应被 customRules 修改，实际结果: " + result);
+        }
+
+        @Test
+        @DisplayName("德语完整示例")
+        void completeExample() {
+            String input = """
+                Modul test.deutsch.
+                Regel bewerten gegeben alter: Int:
+                  wenn alter unter 18:
+                    gib zurueck "minderjaehrig".
+                  sonst:
+                    gib zurueck "erwachsen".
+                """;
+            String result = deCanonicalizer.canonicalize(input);
+            assertTrue(result.contains("Module"), "Modul → Module");
+            assertTrue(result.contains("Rule"), "Regel → Rule");
+            assertTrue(result.contains("given"), "gegeben → given");
+            assertTrue(result.contains("If"), "wenn → If");
+            assertTrue(result.contains("Return"), "gib zurück → Return");
+            assertTrue(result.contains("Otherwise"), "sonst → Otherwise");
+        }
+    }
+
+    // ============================================================
+    // 中文"的"无空格模式测试
+    // ============================================================
+
+    @Test
+    @DisplayName("中文'的'无空格模式：用户的名字 → 用户.名字")
+    void testChinesePossessive_NoSpace() {
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+
+        String input = "用户的名字";
+        String result = zhCanonicalizer.canonicalize(input);
+        assertTrue(result.contains("用户.名字"),
+            "无空格模式 '用户的名字' 应转换为 '用户.名字'，实际结果: " + result);
+    }
+
+    @Test
+    @DisplayName("中文'的'无空格模式：单字前缀不触发（保护复合标识符）")
+    void testChinesePossessive_NoSpace_SingleCharPrefix() {
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+
+        // 单字 "我" + "的" + "结构体" 不应被分割（可能是复合标识符）
+        String input = "我的结构体";
+        String result = zhCanonicalizer.canonicalize(input);
+        assertTrue(result.contains("我的结构体"),
+            "单字前缀的'的'不应触发成员访问转换，实际结果: " + result);
+    }
+
+    @Test
+    @DisplayName("中文'的'无空格模式：保护字符串字面量")
+    void testChinesePossessive_NoSpace_PreserveStrings() {
+        var zhCanonicalizer = new Canonicalizer(aster.core.lexicon.ZhCnLexicon.INSTANCE);
+
+        String input = "返回 \"用户的名字\"";
+        String result = zhCanonicalizer.canonicalize(input);
+        assertTrue(result.contains("\"用户的名字\""),
+            "字符串内的'的'不应转换，实际结果: " + result);
+    }
+
+    // ============================================================
+    // Unicode 正则测试
+    // ============================================================
+
+    @Test
+    @DisplayName("Unicode 属格：Unicode 标识符的 's 也能正确转换")
+    void testEnglishPossessive_Unicode() {
+        String input = "Müller's score";
+        String result = canonicalizer.canonicalize(input);
+        assertTrue(result.contains("Müller.score"),
+            "Unicode 标识符 Müller's score 应转换为 Müller.score，实际结果: " + result);
     }
 }
