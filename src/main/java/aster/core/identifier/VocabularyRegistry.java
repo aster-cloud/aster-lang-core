@@ -44,43 +44,37 @@ public final class VocabularyRegistry {
     /**
      * 初始化内置词汇表。
      * <p>
-     * 优先通过 SPI 发现 {@link VocabularyPlugin} 插件加载词汇表；
-     * 若 SPI 未发现任何插件，则回退到硬编码的内置词汇表。
+     * 先注册硬编码的内置词汇表作为基线，再通过 SPI 发现插件词汇表。
+     * SPI 插件可覆盖同 (domain, locale) 的内置词汇表。
      */
-    private void initBuiltinVocabularies() {
-        int loaded = discoverVocabularyPlugins();
-        if (loaded == 0) {
-            register(BuiltinVocabularies.insuranceAutoZhCn());
-            register(BuiltinVocabularies.financeLoanZhCn());
-        }
+    private synchronized void initBuiltinVocabularies() {
+        register(BuiltinVocabularies.insuranceAutoZhCn());
+        register(BuiltinVocabularies.financeLoanZhCn());
+        discoverVocabularyPlugins();
     }
 
     /**
      * 通过 SPI 发现并注册 {@link VocabularyPlugin} 插件提供的领域词汇表。
+     * <p>
+     * SPI 插件可覆盖同 (domain, locale) 的内置词汇表，也可注册全新的领域/语言组合。
      *
      * @return 成功加载的词汇表数量
      */
-    public int discoverVocabularyPlugins() {
+    public synchronized int discoverVocabularyPlugins() {
         int loaded = 0;
         for (VocabularyPlugin plugin : ServiceLoader.load(VocabularyPlugin.class)) {
             try {
                 DomainVocabulary primary = plugin.createVocabulary();
-                String key = makeKey(primary.id(), primary.locale());
-                if (!vocabularies.containsKey(key)) {
-                    register(primary);
-                    loaded++;
-                }
+                register(primary);
+                loaded++;
 
                 for (DomainVocabulary extra : plugin.getVocabularies()) {
-                    String extraKey = makeKey(extra.id(), extra.locale());
-                    if (!vocabularies.containsKey(extraKey)) {
-                        register(extra);
-                        loaded++;
-                    }
+                    register(extra);
+                    loaded++;
                 }
             } catch (Exception e) {
-                System.err.println("加载词汇表插件失败: " + plugin.getClass().getName()
-                    + " - " + e.getMessage());
+                System.err.printf("加载词汇表插件失败: %s%n", plugin.getClass().getName());
+                e.printStackTrace(System.err);
             }
         }
         return loaded;
@@ -281,7 +275,7 @@ public final class VocabularyRegistry {
     /**
      * 重置为初始状态（清除后重新加载内置）。
      */
-    public void reset() {
+    public synchronized void reset() {
         clear();
         initBuiltinVocabularies();
     }
