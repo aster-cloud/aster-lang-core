@@ -44,12 +44,9 @@ public final class VocabularyRegistry {
     /**
      * 初始化内置词汇表。
      * <p>
-     * 先注册硬编码的内置词汇表作为基线，再通过 SPI 发现插件词汇表。
-     * SPI 插件可覆盖同 (domain, locale) 的内置词汇表。
+     * 完全依赖 SPI 插件发现领域词汇表，不再硬编码。
      */
     private synchronized void initBuiltinVocabularies() {
-        register(BuiltinVocabularies.insuranceAutoZhCn());
-        register(BuiltinVocabularies.financeLoanZhCn());
         discoverVocabularyPlugins();
     }
 
@@ -262,6 +259,17 @@ public final class VocabularyRegistry {
             }
         }
         return result;
+    }
+
+    /**
+     * 获取所有已注册的词汇表。
+     *
+     * @return 所有词汇表列表（不含租户自定义）
+     */
+    public List<DomainVocabulary> listAll() {
+        return vocabularies.values().stream()
+            .map(VocabularyEntry::vocabulary)
+            .toList();
     }
 
     /**

@@ -264,8 +264,11 @@ class VocabularyRegistryTest {
         @Test
         @DisplayName("验证内置词汇表")
         void validateBuiltinVocabularies() {
-            DomainVocabulary.ValidationResult result =
-                BuiltinVocabularies.insuranceAutoZhCn().validate();
+            // 通过 SPI 注册的词汇表应通过验证
+            DomainVocabulary vocab = registry.get("insurance.auto", "zh-CN")
+                .orElseThrow()
+                .vocabulary();
+            DomainVocabulary.ValidationResult result = vocab.validate();
 
             assertTrue(result.valid(), "汽车保险词汇表应通过验证");
             assertTrue(result.errors().isEmpty());

@@ -159,3 +159,21 @@ tasks.register<JavaExec>("exportLexicons") {
 
     dependsOn("classes")
 }
+
+// 领域词汇表 JSON 导出任务（供 aster-lang-ts 代码生成消费）
+tasks.register<JavaExec>("exportVocabularies") {
+    group = "codegen"
+    description = "Export all domain vocabularies to JSON for cross-project codegen"
+
+    classpath = sourceSets.main.get().runtimeClasspath + langPacks
+    mainClass.set("aster.core.identifier.VocabularyExporterCli")
+
+    inputs.property("version", version.toString())
+    inputs.files(sourceSets.main.get().runtimeClasspath + langPacks)
+
+    val outputDir = layout.buildDirectory.dir("generated/vocabularies")
+    outputs.dir(outputDir)
+    args(version.toString(), outputDir.get().asFile.absolutePath)
+
+    dependsOn("classes")
+}
