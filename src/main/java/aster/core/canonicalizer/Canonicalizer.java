@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -77,6 +78,20 @@ public final class Canonicalizer {
     private static final Pattern PUNCT_NORMAL_RE = Pattern.compile("\\s+([.,:。：，])");
     private static final Pattern PUNCT_FINAL_RE = Pattern.compile("\\s+([.,:!;?。：，！；？])");
     private static final Pattern TRAILING_SPACE_RE = Pattern.compile("\\s+$");
+
+    /**
+     * ANTLR 保留词（字面量和关键字），不受 customRules 影响。
+     * 防止德语 umlaut 规则将 {@code true} 错误转换为 {@code trü}。
+     */
+    private static final Set<String> PROTECTED_TOKENS = Set.of(
+        "true", "false", "null",
+        "Module", "Rule", "with", "has", "and", "or", "not",
+        "given", "produce", "Define", "Return", "If", "Else",
+        "Otherwise", "Let", "be", "Use", "as", "one", "of",
+        "is", "To", "to", "function", "Match", "When",
+        "For", "each", "in", "Set", "This", "module", "type"
+    );
+    private static final Pattern WORD_PATTERN = Pattern.compile("\\b[a-zA-Z]+\\b");
 
     /**
      * 使用默认词法表（en-US）创建规范化器
@@ -420,6 +435,9 @@ public final class Canonicalizer {
      * 对字符串字面量外的代码段执行正则替换。
      * <p>
      * 典型用例：德语 ASCII umlaut 替换（oe → ö, ue → ü, ae → ä）
+     * <p>
+     * <b>保护机制</b>：ANTLR 保留词（如 {@code true}、{@code false}）不受规则影响，
+     * 避免德语 umlaut 规则将 {@code true} 错误转换为 {@code trü}。
      */
     private String applyCustomRules(String s) {
         for (CanonicalizationConfig.CanonicalizationRule rule : config.customRules()) {
@@ -431,12 +449,54 @@ public final class Canonicalizer {
                 if (segment.inString()) {
                     result.append(segment.text());
                 } else {
-                    result.append(pattern.matcher(segment.text()).replaceAll(rule.replacement()));
+                    result.append(applyRuleWithProtection(segment.text(), pattern, rule.replacement()));
                 }
             }
             s = result.toString();
         }
         return s;
+    }
+
+    /**
+     * 应用自定义规则，但保护 ANTLR 保留词不被修改
+     * <p>
+     * 算法：先标记所有保留词的位置范围，然后仅对非保留词区域执行正则替换。
+     */
+    private String applyRuleWithProtection(String text, Pattern rulePattern, String replacement) {
+        // 找出所有保留词的位置范围
+        java.util.regex.Matcher wordMatcher = WORD_PATTERN.matcher(text);
+        // 记录受保护的字符位置范围 [start, end)
+        List<int[]> protectedRanges = new ArrayList<>();
+        while (wordMatcher.find()) {
+            if (PROTECTED_TOKENS.contains(wordMatcher.group())) {
+                protectedRanges.add(new int[]{wordMatcher.start(), wordMatcher.end()});
+            }
+        }
+
+        if (protectedRanges.isEmpty()) {
+            // 无保留词，直接替换
+            return rulePattern.matcher(text).replaceAll(replacement);
+        }
+
+        // 对非保留区域执行替换
+        StringBuilder result = new StringBuilder(text.length());
+        int pos = 0;
+        for (int[] range : protectedRanges) {
+            // 替换保留词前的片段
+            if (pos < range[0]) {
+                String segment = text.substring(pos, range[0]);
+                result.append(rulePattern.matcher(segment).replaceAll(replacement));
+            }
+            // 保留词原样保留
+            result.append(text, range[0], range[1]);
+            pos = range[1];
+        }
+        // 替换最后一个保留词后的片段
+        if (pos < text.length()) {
+            String segment = text.substring(pos);
+            result.append(rulePattern.matcher(segment).replaceAll(replacement));
+        }
+        return result.toString();
     }
 
     /**
