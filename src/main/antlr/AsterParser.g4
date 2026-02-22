@@ -139,8 +139,8 @@ capabilityAnnotation
  *   age: Int.
  */
 dataDecl
-    : DEFINE article? TYPE_IDENT HAS fieldList DOT (NEWLINE* DEDENT)?
-    | article? TYPE_IDENT HAS fieldList DOT (NEWLINE* DEDENT)?
+    : DEFINE article? TYPE_IDENT (HAS | WITH) fieldList DOT (NEWLINE* DEDENT)?
+    | article? TYPE_IDENT (HAS | WITH) fieldList DOT (NEWLINE* DEDENT)?
     ;
 
 /**
@@ -458,7 +458,7 @@ postfixExpr
 
 postfixSuffix
     : LPAREN argumentList? RPAREN          # CallSuffix
-    | WITH argumentList                    # WithCallSuffix
+    | (WITH | HAS) argumentList             # WithCallSuffix
     | DOT (IDENT | TYPE_IDENT)             # MemberSuffix
     ;
 
@@ -490,7 +490,7 @@ primaryExpr
     ;
 
 constructExpr
-    : TYPE_IDENT WITH constructFieldList
+    : TYPE_IDENT (WITH | HAS) constructFieldList
     ;
 
 constructFieldList
