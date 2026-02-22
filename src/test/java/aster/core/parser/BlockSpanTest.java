@@ -84,7 +84,7 @@ class BlockSpanTest {
         String input = """
             Rule nested:
               Let flag be 1.
-              If flag > 0:
+              If flag > 0
                 Return flag.
               Return 0.
             """;

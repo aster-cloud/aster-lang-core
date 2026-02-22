@@ -79,7 +79,7 @@ class AstBuilderTest {
     @Test
     void testFunctionWithParameters() {
         String input = """
-            Rule add given x: Int and y: Int, produce Int:
+            Rule add given x as Int and y as Int, produce Int:
               Return x + y.
             """;
 
@@ -104,7 +104,7 @@ class AstBuilderTest {
     @Test
     void testDataDeclaration() {
         String input = """
-            Define User has name: Text and age: Int.
+            Define User has name as Text and age as Int.
             """;
 
         aster.core.ast.Module module = parseAndBuild(input);
@@ -160,7 +160,7 @@ class AstBuilderTest {
     @Test
     void testFieldWithAnnotation() {
         String input = """
-            Define User has @pii email: Text and age: Int.
+            Define User has @pii email as Text and age as Int.
             """;
 
         aster.core.ast.Module module = parseAndBuild(input);
@@ -178,7 +178,7 @@ class AstBuilderTest {
     @Test
     void testParamWithAnnotation() {
         String input = """
-            Rule send given @pii email: Text:
+            Rule send given @pii email as Text:
               Return email.
             """;
 
@@ -234,10 +234,10 @@ class AstBuilderTest {
     @Test
     void testIfStatement() {
         String input = """
-            Rule check given x: Int:
-              If x > 0:
+            Rule check given x as Int:
+              If x > 0
                 Return "positive".
-              Else:
+              Else
                 Return "non-positive".
             """;
 
@@ -299,7 +299,7 @@ class AstBuilderTest {
     @Test
     void parsePrefixLessThan() {
         String input = """
-            Rule compare given x: Int and y: Int:
+            Rule compare given x as Int and y as Int:
               Return <(x, y).
             """;
 
@@ -318,7 +318,7 @@ class AstBuilderTest {
     @Test
     void parsePrefixPlus() {
         String input = """
-            Rule sum given a: Int and b: Int:
+            Rule sum given a as Int and b as Int:
               Return +(a, b).
             """;
 
@@ -337,7 +337,7 @@ class AstBuilderTest {
     @Test
     void parsePrefixGreaterEqual() {
         String input = """
-            Rule ge given m: Int and n: Int:
+            Rule ge given m as Int and n as Int:
               Return >=(m, n).
             """;
 
@@ -356,7 +356,7 @@ class AstBuilderTest {
     @Test
     void parsePrefixInvalidArity() {
         String input = """
-            Rule invalid given x: Int:
+            Rule invalid given x as Int:
               Return +(x).
             """;
 
@@ -685,7 +685,7 @@ class AstBuilderTest {
     @Test
     void testMaybeType() {
         String input = """
-            Rule fromMaybe given x: Text? and d: Text:
+            Rule fromMaybe given x as Text? and d as Text:
               Return d.
             """;
 
@@ -713,7 +713,7 @@ class AstBuilderTest {
     @Test
     void testFuncType() {
         String input = """
-            Rule apply given f: (Int, Int) -> Int and x: Int:
+            Rule apply given f as (Int, Int) -> Int and x as Int:
               Return x.
             """;
 
@@ -741,7 +741,7 @@ class AstBuilderTest {
     @Test
     void testMatchStatement() {
         String input = """
-            Rule check given x: Text?:
+            Rule check given x as Text?:
               Match x:
                 When null, Return "empty".
                 When v, Return v.
@@ -780,8 +780,8 @@ class AstBuilderTest {
     @Test
     void testLambdaExpression() {
         String input = """
-            Rule fromMaybe given x: Text? and d: Text:
-              Let f be function given x: Text?, produce Text:
+            Rule fromMaybe given x as Text? and d as Text:
+              Let f be function given x as Text?, produce Text:
                 Match x:
                   When null, Return d.
                   When v, Return v.
@@ -849,7 +849,7 @@ class AstBuilderTest {
     @Test
     void testFunctionWithoutCapability() {
         String input = """
-            Rule add given x: Int and y: Int:
+            Rule add given x as Int and y as Int:
               Return x.
             """;
 
@@ -872,8 +872,8 @@ class AstBuilderTest {
         String input = """
             Module demo.lambdamatchmaybe.
 
-            Rule fromMaybe given x: Text? and d: Text:
-              Let f be function given x: Text?, produce Text:
+            Rule fromMaybe given x as Text? and d as Text:
+              Let f be function given x as Text?, produce Text:
                 Match x:
                   When null, Return d.
                   When v, Return v.

@@ -89,12 +89,14 @@ IS: 'is';
 // 函数相关
 RULE: 'Rule';
 GIVEN: 'given';
-TO: 'To' | 'to';
+TO: 'To';
+TO_WORD: 'to';
 WITH: 'with';
 AND: 'and';
 OR: 'or';
 PRODUCE: 'produce';
 HAS: 'has';
+SET: 'Set' | 'set';
 
 // 类型定义相关
 DEFINE: 'Define';

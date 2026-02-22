@@ -54,7 +54,7 @@ class AsterParserTest {
     @Test
     void testFunctionWithParameters() {
         String input = """
-            Rule add given x: Int and y: Int:
+            Rule add given x as Int and y as Int:
               Return x + y.
             """;
 
@@ -65,7 +65,7 @@ class AsterParserTest {
     @Test
     void testDataDeclaration() {
         String input = """
-            Define User has name: Text and age: Int.
+            Define User has name as Text and age as Int.
             """;
 
         ParseTree tree = parse(input);
@@ -97,10 +97,10 @@ class AsterParserTest {
     @Test
     void testIfStatement() {
         String input = """
-            Rule check given x: Int:
-              If x > 0:
+            Rule check given x as Int:
+              If x > 0
                 Return "positive".
-              Else:
+              Else
                 Return "non-positive".
             """;
 
@@ -133,7 +133,7 @@ class AsterParserTest {
     @Test
     void testComparisonExpression() {
         String input = """
-            Rule compare given x: Int:
+            Rule compare given x as Int:
               Return x > 5.
             """;
 
@@ -176,9 +176,9 @@ class AsterParserTest {
         String input = """
             Module app.
 
-            Define User has name: Text and age: Int.
+            Define User has name as Text and age as Int.
 
-            Rule greet given user: User:
+            Rule greet given user as User:
               Return "Hello, " + user.name.
             """;
 
@@ -206,7 +206,7 @@ class AsterParserTest {
     @Test
     void testRuleWithGivenParameters() {
         String input = """
-            Rule add given x: Int and y: Int:
+            Rule add given x as Int and y as Int:
               Return x + y.
             """;
 
@@ -255,13 +255,13 @@ class AsterParserTest {
             a Quote has approved, premium, deductible, reason.
 
             Rule generateQuote given driver, vehicle:
-              If driver.age < 18:
-                Return Quote with approved = false, premium = 0, deductible = 0, reason = "Driver under 18".
+              If driver.age < 18
+                Return Quote with approved set to false, premium set to 0, deductible set to 0, reason set to "Driver under 18".
               Let basePremium be calculateBase with driver, vehicle.
-              Return Quote with approved = true, premium = basePremium, deductible = 500, reason = "Approved".
+              Return Quote with approved set to true, premium set to basePremium, deductible set to 500, reason set to "Approved".
 
             Rule calculateBase given driver, vehicle:
-              If driver.age < 25:
+              If driver.age < 25
                 Return 300.
               Return 200.
             """;

@@ -13,8 +13,8 @@ class ComprehensiveDebugTest {
         String input = """
             Module demo.lambdamatchmaybe.
 
-            Rule fromMaybe given x: Text? and d: Text:
-              Let f be function given x: Text?, produce Text:
+            Rule fromMaybe given x as Text? and d as Text:
+              Let f be function given x as Text?, produce Text:
                 Match x:
                   When null, Return d.
                   When v, Return v.

@@ -117,7 +117,7 @@ givenParamList
  *       x（隐式类型，基于参数名推断）
  */
 param
-    : annotation* nameIdent (COLON annotatedType)?
+    : annotation* nameIdent (AS annotatedType)?
     ;
 
 /**
@@ -160,7 +160,7 @@ fieldList
  *       name（隐式类型，基于字段名推断）
  */
 field
-    : annotation* nameIdent (COLON annotatedType)?
+    : annotation* nameIdent (AS annotatedType)?
     ;
 
 nameIdent
@@ -257,7 +257,7 @@ annotatedType
 type
     : type QUESTION                       # MaybeType
     | LPAREN typeList RPAREN ARROW type   # FuncType
-    | MAP annotatedType TO annotatedType  # MapType
+    | MAP annotatedType TO_WORD annotatedType  # MapType
     | (TYPE_IDENT | IDENT) OF annotatedType ((AND | COMMA) annotatedType)*  # OfGenericType
     | TYPE_IDENT LT typeList GT           # GenericType
     | TYPE_IDENT                          # TypeName
@@ -380,7 +380,7 @@ returnStmt
  *     Return "yes".
  */
 ifStmt
-    : IF expr COMMA? COLON NEWLINE block (NEWLINE? ELSE COMMA? COLON NEWLINE block)?
+    : IF expr COMMA? NEWLINE block (NEWLINE? ELSE COMMA? NEWLINE block)?
     ;
 
 /**
@@ -498,7 +498,7 @@ constructFieldList
     ;
 
 constructField
-    : (IDENT | TYPE_IDENT) EQUALS expr
+    : (IDENT | TYPE_IDENT) SET TO_WORD expr
     ;
 
 operatorCall
