@@ -1,12 +1,14 @@
 package aster.core.lexicon;
 
 import aster.core.canonicalizer.TransformerRegistry;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -14,10 +16,12 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.Set;
 
 /**
@@ -39,28 +43,43 @@ public final class LexiconExporter {
     }
 
     /**
-     * 导出所有已注册的 Lexicon 到 JSON。
+     * 导出所有已注册的 Lexicon 到 JSON（包含 overlay 数据）。
      * <p>
-     * 通过 {@link LexiconRegistry} 动态获取所有已注册的语言包。
+     * 通过 {@link LexiconRegistry} 动态获取所有已注册的语言包，
+     * 并通过 SPI 发现 {@link LexiconPlugin} 以提取 overlay 资源。
      *
      * @param version 版本号（如 "0.0.1"）
      * @param writer  输出目标
      */
     public void export(String version, Writer writer) throws IOException {
         List<Lexicon> lexicons = new ArrayList<>(LexiconRegistry.getInstance().getAll());
-        // 按 ID 排序确保输出稳定
         lexicons.sort((a, b) -> a.getId().compareTo(b.getId()));
-        export(version, lexicons, writer);
+
+        Map<String, LexiconPlugin> pluginsByLexiconId = discoverPluginMap();
+        export(version, lexicons, pluginsByLexiconId, writer);
     }
 
     /**
-     * 导出指定 Lexicon 列表到 JSON。
+     * 导出指定 Lexicon 列表到 JSON（不含 overlay）。
      *
      * @param version  版本号
      * @param lexicons 要导出的 Lexicon 列表
      * @param writer   输出目标
      */
     public void export(String version, List<Lexicon> lexicons, Writer writer) throws IOException {
+        export(version, lexicons, Map.of(), writer);
+    }
+
+    /**
+     * 导出指定 Lexicon 列表到 JSON，附带 overlay 资源。
+     *
+     * @param version            版本号
+     * @param lexicons           要导出的 Lexicon 列表
+     * @param pluginsByLexiconId lexicon ID 到 LexiconPlugin 的映射
+     * @param writer             输出目标
+     */
+    public void export(String version, List<Lexicon> lexicons,
+                       Map<String, LexiconPlugin> pluginsByLexiconId, Writer writer) throws IOException {
         ObjectNode root = mapper.createObjectNode();
 
         root.put("version", version);
@@ -84,7 +103,8 @@ public final class LexiconExporter {
         // lexicons
         ObjectNode lexiconsNode = root.putObject("lexicons");
         for (Lexicon lexicon : lexicons) {
-            lexiconsNode.set(lexicon.getId(), serializeLexicon(lexicon));
+            LexiconPlugin plugin = pluginsByLexiconId.get(lexicon.getId());
+            lexiconsNode.set(lexicon.getId(), serializeLexicon(lexicon, plugin));
         }
 
         // checksum: 对 lexicons 内容的 SHA-256
@@ -94,7 +114,7 @@ public final class LexiconExporter {
         mapper.writeValue(writer, root);
     }
 
-    private ObjectNode serializeLexicon(Lexicon lexicon) {
+    private ObjectNode serializeLexicon(Lexicon lexicon, LexiconPlugin plugin) {
         ObjectNode node = mapper.createObjectNode();
 
         node.put("id", lexicon.getId());
@@ -119,6 +139,11 @@ public final class LexiconExporter {
 
         // messages
         node.set("messages", serializeMessages(lexicon.getMessages()));
+
+        // overlays: 从 LexiconPlugin 的 classpath 资源嵌入
+        if (plugin != null) {
+            embedOverlays(node, plugin);
+        }
 
         return node;
     }
@@ -217,6 +242,44 @@ public final class LexiconExporter {
         node.put("unterminatedString", messages.unterminatedString());
         node.put("invalidIndentation", messages.invalidIndentation());
         return node;
+    }
+
+    private void embedOverlays(ObjectNode lexiconNode, LexiconPlugin plugin) {
+        Map<String, String> overlays = plugin.getOverlayResources();
+        if (overlays.isEmpty()) return;
+
+        ObjectNode overlaysNode = lexiconNode.putObject("overlays");
+        for (Map.Entry<String, String> entry : overlays.entrySet()) {
+            String key = entry.getKey();
+            String resourcePath = entry.getValue();
+            try (InputStream is = plugin.getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+                if (is == null) {
+                    System.err.printf("Overlay resource not found: %s (plugin: %s)%n",
+                            resourcePath, plugin.getClass().getName());
+                    continue;
+                }
+                String json = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                JsonNode parsed = mapper.readTree(json);
+                overlaysNode.set(key, parsed);
+            } catch (IOException e) {
+                System.err.printf("Failed to read overlay resource: %s (%s)%n",
+                        resourcePath, e.getMessage());
+            }
+        }
+    }
+
+    private static Map<String, LexiconPlugin> discoverPluginMap() {
+        Map<String, LexiconPlugin> map = new HashMap<>();
+        for (LexiconPlugin plugin : ServiceLoader.load(LexiconPlugin.class)) {
+            try {
+                Lexicon lexicon = plugin.createLexicon();
+                map.put(lexicon.getId(), plugin);
+            } catch (Exception e) {
+                System.err.printf("Failed to load plugin for overlay discovery: %s%n",
+                        plugin.getClass().getName());
+            }
+        }
+        return map;
     }
 
     private static String sha256(String input) {

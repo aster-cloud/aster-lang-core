@@ -32,4 +32,26 @@ public interface LexiconPlugin {
     default Map<String, Supplier<SyntaxTransformer>> getTransformers() {
         return Map.of();
     }
+
+    /**
+     * 返回该语言包提供的 overlay 资源路径。
+     * <p>
+     * Overlay 资源是 JSON 文件，包含语言特定的类型推断规则、输入生成规则、
+     * 诊断消息翻译和 LSP UI 文本等扩展数据。这些资源在 lexicon 导出时嵌入到
+     * 生成的 JSON 中，供 TypeScript 端消费。
+     * <p>
+     * 支持的 overlay 类型：
+     * <ul>
+     *   <li>{@code typeInferenceRules} — 类型推断命名规则</li>
+     *   <li>{@code inputGenerationRules} — 输入值生成规则</li>
+     *   <li>{@code diagnosticMessages} — 诊断消息翻译</li>
+     *   <li>{@code diagnosticHelp} — 诊断帮助文本翻译</li>
+     *   <li>{@code lspUiTexts} — LSP 界面文本</li>
+     * </ul>
+     *
+     * @return overlay 类型名称到 classpath 资源路径的映射，默认为空
+     */
+    default Map<String, String> getOverlayResources() {
+        return Map.of();
+    }
 }
