@@ -1,6 +1,7 @@
 name: Cross-Language Codegen
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
