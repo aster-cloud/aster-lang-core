@@ -153,11 +153,11 @@ public class TypeCheckerBenchmark {
                 func.body = createBlock(createReturn(createName("x")));
             } else if (i % 3 == 1) {
                 // 条件分支
-                CoreModel.If ifExpr = new CoreModel.If();
-                ifExpr.cond = createBool(true);
-                ifExpr.then_ = createInt(1);
-                ifExpr.else_ = createInt(0);
-                func.body = createBlock(createReturn(ifExpr));
+                CoreModel.If ifStmt = new CoreModel.If();
+                ifStmt.cond = createBool(true);
+                ifStmt.thenBlock = createBlock(createReturn(createInt(1)));
+                ifStmt.elseBlock = createBlock(createReturn(createInt(0)));
+                func.body = createBlock(ifStmt);
             } else {
                 // 递归调用（调用前一个函数）
                 int targetFunc = i > 0 ? i - 1 : 0;
@@ -198,11 +198,7 @@ public class TypeCheckerBenchmark {
         // 添加枚举类型
         CoreModel.Enum statusEnum = new CoreModel.Enum();
         statusEnum.name = "Status";
-        CoreModel.EnumCase activeCase = new CoreModel.EnumCase();
-        activeCase.name = "Active";
-        CoreModel.EnumCase inactiveCase = new CoreModel.EnumCase();
-        inactiveCase.name = "Inactive";
-        statusEnum.cases = List.of(activeCase, inactiveCase);
+        statusEnum.variants = List.of("Active", "Inactive");
         decls.add(statusEnum);
 
         // 添加 100 个函数

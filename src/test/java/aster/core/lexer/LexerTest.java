@@ -307,13 +307,13 @@ class LexerTest {
 
     @Test
     void testFunctionDefinition() {
-        String input = "To greet:\n  Return \"Hello\".";
+        String input = "Rule greet:\n  Return \"Hello\".";
         List<Token> tokens = Lexer.lex(input);
 
         assertTrue(tokens.size() > 0);
-        // "To" 和 "Return" 都是大写开头，会被识别为 TYPE_IDENT
-        assertEquals(TokenKind.TYPE_IDENT, tokens.get(0).kind()); // To
-        assertEquals("To", tokens.get(0).value());
+        // "Rule" 和 "Return" 都是大写开头，会被识别为 TYPE_IDENT
+        assertEquals(TokenKind.TYPE_IDENT, tokens.get(0).kind()); // Rule
+        assertEquals("Rule", tokens.get(0).value());
     }
 
     @Test
