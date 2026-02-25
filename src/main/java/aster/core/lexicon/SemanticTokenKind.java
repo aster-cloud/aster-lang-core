@@ -26,7 +26,7 @@ public enum SemanticTokenKind {
     // 模块声明
     // ============================================================
 
-    /** 模块声明 - "this module is" / "【模块】" */
+    /** 模块声明 - "Module" / "【模块】" */
     MODULE_DECL,
 
     /** 导入声明 - "use" / "引用" */
@@ -42,10 +42,10 @@ public enum SemanticTokenKind {
     /** 类型定义 - "define" / "【定义】" */
     TYPE_DEF,
 
-    /** 类型字段 - "with" / "包含" */
+    /** 类型字段（旧语法，已由 TYPE_HAS 替代） - "with" / "包含" */
     TYPE_WITH,
 
-    /** 类型包含（新语法） - "has" / "包含" */
+    /** 类型包含 - "has" / "包含" */
     TYPE_HAS,
 
     /** 枚举类型 - "as one of" / "为以下之一" */
@@ -55,10 +55,10 @@ public enum SemanticTokenKind {
     // 函数定义
     // ============================================================
 
-    /** 函数入参 - "to" / "入参" */
+    /** 函数入参（旧语法，已由 FUNC_GIVEN 替代） - "to" / "入参" */
     FUNC_TO,
 
-    /** 函数参数（新语法） - "given" / "给定" */
+    /** 函数参数 - "given" / "给定" */
     FUNC_GIVEN,
 
     /** 函数产出 - "produce" / "产出" */

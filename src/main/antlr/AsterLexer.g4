@@ -82,14 +82,14 @@ INT_LITERAL: [0-9]+;
 
 // 模块相关
 MODULE_KW: 'Module';
-THIS: 'This' | 'this';
+THIS: '\u0000THIS' ;     // 已废弃，占位保持 token ID 稳定
 MODULE: 'module';
-IS: 'is';
+IS: '\u0000IS' ;         // 已废弃，占位保持 token ID 稳定
 
 // 函数相关
 RULE: 'Rule';
 GIVEN: 'given';
-TO: 'To';
+TO: '\u0000TO' ;         // 已废弃，占位保持 token ID 稳定
 TO_WORD: 'to';
 WITH: 'with';
 AND: 'and';

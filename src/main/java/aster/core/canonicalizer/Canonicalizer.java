@@ -88,8 +88,8 @@ public final class Canonicalizer {
         "Module", "Rule", "with", "has", "and", "or", "not",
         "given", "produce", "Define", "Return", "If", "Else",
         "Otherwise", "Let", "be", "Use", "as", "one", "of",
-        "is", "To", "to", "function", "Match", "When",
-        "For", "each", "in", "Set", "This", "module", "type"
+        "is", "to", "function", "Match", "When",
+        "For", "each", "in", "Set", "module", "type"
     );
     private static final Pattern WORD_PATTERN = Pattern.compile("\\b[a-zA-Z]+\\b");
 
@@ -1131,7 +1131,7 @@ public final class Canonicalizer {
     /**
      * 规范化多词关键字大小写
      * <p>
-     * 将多词关键字（如 "This Module Is"）转换为小写（"this module is"），
+     * 将多词关键字（如 "Wait For"）转换为小写（"wait for"），
      * 以便词法分析器正确识别。
      * <p>
      * 使用词法表中定义的多词关键字列表。
