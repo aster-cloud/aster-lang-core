@@ -98,6 +98,9 @@ tasks.register<Test>("goldenTest") {
     description = "运行黄金测试，对比 TypeScript 和 Java 编译器输出"
     group = "verification"
 
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+
     useJUnitPlatform {
         includeTags("golden")
     }
@@ -106,6 +109,8 @@ tasks.register<Test>("goldenTest") {
         events("passed", "skipped", "failed")
         showStandardStreams = true
     }
+
+    dependsOn(tasks.testClasses)
 }
 
 // JMH 性能测试配置

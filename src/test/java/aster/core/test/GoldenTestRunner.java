@@ -1,7 +1,18 @@
 package aster.core.test;
 
+import aster.core.canonicalizer.Canonicalizer;
+import aster.core.ir.CoreModel;
+import aster.core.lowering.CoreLowering;
+import aster.core.parser.AstBuilder;
+import aster.core.parser.AsterCustomLexer;
+import aster.core.parser.AsterParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.antlr.v4.runtime.BaseErrorListener;
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.RecognitionException;
+import org.antlr.v4.runtime.Recognizer;
 import org.json.JSONException;
 import org.skyscreamer.jsonassert.JSONAssert;
 import org.skyscreamer.jsonassert.JSONCompareMode;
@@ -97,24 +108,48 @@ public class GoldenTestRunner {
      * @throws IOException 如果文件读取失败
      */
     public JsonNode runJava(String stage, Path inputFile) throws IOException {
-        // TODO: 实现 Java 编译器调用
-        // 各编译阶段迁移完成后，将通过 Java API 直接调用
-        // 例如：
-        // switch (stage) {
-        //     case "canonicalize":
-        //         var ast = Parser.parse(inputFile);
-        //         var canonicalized = Canonicalizer.canonicalize(ast);
-        //         return mapper.valueToTree(canonicalized);
-        //     case "parse":
-        //         var ast = Parser.parse(inputFile);
-        //         return mapper.valueToTree(ast);
-        //     // ...
-        // }
+        String source = Files.readString(inputFile);
 
-        throw new UnsupportedOperationException(
-            "Java 编译器尚未实现阶段：" + stage +
-            "。请在迁移对应编译阶段后实现此方法。"
-        );
+        return switch (stage) {
+            case "canonicalize" -> {
+                var canonicalizer = new Canonicalizer();
+                String canonicalized = canonicalizer.canonicalize(source);
+                yield mapper.valueToTree(canonicalized);
+            }
+            case "core-ir" -> {
+                // 完整管线：Canonicalize → ANTLR Parse → AstBuilder → CoreLowering → JSON
+                var canonicalizer = new Canonicalizer();
+                String canonicalized = canonicalizer.canonicalize(source);
+
+                var charStream = CharStreams.fromString(canonicalized);
+                var lexer = new AsterCustomLexer(charStream);
+                var errorCollector = new FailFastErrorListener();
+                lexer.removeErrorListeners();
+                lexer.addErrorListener(errorCollector);
+
+                var tokens = new CommonTokenStream(lexer);
+                tokens.fill();
+                tokens.seek(0);
+
+                var parser = new AsterParser(tokens);
+                parser.removeErrorListeners();
+                parser.addErrorListener(errorCollector);
+                AsterParser.ModuleContext moduleCtx = parser.module();
+                errorCollector.throwIfErrors();
+
+                var builder = new AstBuilder();
+                aster.core.ast.Module ast = builder.visitModule(moduleCtx);
+
+                var lowering = new CoreLowering();
+                CoreModel.Module coreModule = lowering.lowerModule(ast);
+
+                yield mapper.valueToTree(coreModule);
+            }
+            default -> throw new UnsupportedOperationException(
+                "Java 编译器尚未实现阶段：" + stage +
+                "。请在迁移对应编译阶段后实现此方法。"
+            );
+        };
     }
 
     /**
@@ -163,5 +198,27 @@ public class GoldenTestRunner {
      */
     public Path getProjectRoot() {
         return projectRoot;
+    }
+
+    /**
+     * ANTLR 错误监听器：收集所有语法错误，解析结束后抛出 IOException
+     */
+    private static final class FailFastErrorListener extends BaseErrorListener {
+        private final StringBuilder errors = new StringBuilder();
+        private int count = 0;
+
+        @Override
+        public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol,
+                                int line, int charPositionInLine,
+                                String msg, RecognitionException e) {
+            count++;
+            errors.append(String.format("  第 %d 行第 %d 列: %s%n", line, charPositionInLine, msg));
+        }
+
+        void throwIfErrors() throws IOException {
+            if (count > 0) {
+                throw new IOException("ANTLR 解析器发现 " + count + " 个语法错误：\n" + errors);
+            }
+        }
     }
 }
