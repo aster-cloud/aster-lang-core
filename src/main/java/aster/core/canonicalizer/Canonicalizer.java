@@ -205,6 +205,8 @@ public final class Canonicalizer {
         Map.entry(SemanticTokenKind.LESS_THAN, "<"),
         Map.entry(SemanticTokenKind.GREATER_THAN, ">"),
         Map.entry(SemanticTokenKind.EQUALS_TO, "=="),
+        Map.entry(SemanticTokenKind.AT_LEAST, ">="),
+        Map.entry(SemanticTokenKind.AT_MOST, "<="),
         Map.entry(SemanticTokenKind.PLUS, "+"),
         Map.entry(SemanticTokenKind.MINUS_WORD, "-"),
         Map.entry(SemanticTokenKind.TIMES, "*"),

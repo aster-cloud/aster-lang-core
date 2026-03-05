@@ -937,6 +937,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             case "greater than or equal to" -> ">=";
             case "equals to" -> "==";
             case "not equal to" -> "!=";
+            case "=" -> "==";
             case "plus" -> "+";
             case "minus" -> "-";
             case "times" -> "*";

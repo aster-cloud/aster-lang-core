@@ -433,7 +433,7 @@ expr
     ;
 
 comparisonExpr
-    : additiveExpr (op=(LT | GT | LTE | GTE | NEQ | LESS_THAN_WORD | GREATER_THAN_WORD | LESS_THAN_OR_EQUAL_WORD | GREATER_THAN_OR_EQUAL_WORD | EQUALS_TO_WORD | NOT_EQUAL_TO_WORD) additiveExpr)?
+    : additiveExpr (op=(LT | GT | LTE | GTE | NEQ | EQ | EQUALS | LESS_THAN_WORD | GREATER_THAN_WORD | LESS_THAN_OR_EQUAL_WORD | GREATER_THAN_OR_EQUAL_WORD | EQUALS_TO_WORD | NOT_EQUAL_TO_WORD) additiveExpr)?
     ;
 
 additiveExpr
@@ -502,7 +502,7 @@ constructField
     ;
 
 operatorCall
-    : op=(LT | GT | LTE | GTE | NEQ | EQUALS | PLUS | MINUS | STAR | SLASH)
+    : op=(LT | GT | LTE | GTE | NEQ | EQ | EQUALS | PLUS | MINUS | STAR | SLASH)
       LPAREN argumentList RPAREN
     ;
 
