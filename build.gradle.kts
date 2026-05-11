@@ -32,6 +32,17 @@ publishing {
 repositories {
     mavenLocal()
     mavenCentral()
+    // Shared test corpus (cloud.aster-lang:aster-lang-test) lives on GitHub
+    // Packages. Provide GITHUB_ACTOR/GITHUB_TOKEN in CI to authenticate;
+    // local dev falls back to mavenLocal published from aster-lang-test.
+    maven {
+        name = "GitHubPackagesAsterLangTest"
+        url = uri("https://maven.pkg.github.com/aster-cloud/aster-lang-test")
+        credentials {
+            username = System.getenv("GITHUB_ACTOR") ?: ""
+            password = System.getenv("GITHUB_TOKEN") ?: ""
+        }
+    }
 }
 
 java {
