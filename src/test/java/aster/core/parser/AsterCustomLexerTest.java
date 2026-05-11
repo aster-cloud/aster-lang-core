@@ -133,19 +133,33 @@ class AsterCustomLexerTest {
     @Test
     void testInvalidIndentation_OddSpaces() {
         String input = "a\n b"; // 1 space (奇数)
+        List<Token> tokens = lex(input);
 
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> lex(input));
-        assertTrue(exception.getMessage().contains("Invalid indentation"),
-            "应该抛出 Invalid indentation 错误");
+        // 不再抛出异常，而是生成 INVALID_TYPE 错误 token（文本格式: <ERROR: ...>）
+        boolean hasErrorToken = tokens.stream()
+            .anyMatch(t -> t.getType() == Token.INVALID_TYPE
+                && t.getText().contains("Invalid indentation"));
+        assertTrue(hasErrorToken, "应该包含 Invalid indentation 错误 token");
     }
 
     @Test
     void testInvalidIndentation_InconsistentDedent() {
         String input = "a\n  b\n c"; // dedent 到 1 space（不匹配之前的 0 或 2）
 
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> lex(input));
-        assertTrue(exception.getMessage().contains("Inconsistent dedent"),
-            "应该抛出 Inconsistent dedent 错误");
+        // 收集所有 token（包括默认通道外的）以便检查错误 token
+        CharStream charStream = CharStreams.fromString(input);
+        AsterCustomLexer lexer = new AsterCustomLexer(charStream);
+        List<Token> allTokens = new ArrayList<>();
+        Token token;
+        while ((token = lexer.nextToken()).getType() != Token.EOF) {
+            allTokens.add(token);
+        }
+
+        // 不再抛出异常，而是生成 INVALID_TYPE 错误 token（文本格式: <ERROR: ...>）
+        boolean hasErrorToken = allTokens.stream()
+            .anyMatch(t -> t.getType() == Token.INVALID_TYPE
+                && t.getText().contains("Inconsistent dedent"));
+        assertTrue(hasErrorToken, "应该包含 Inconsistent dedent 错误 token");
     }
 
     @Test

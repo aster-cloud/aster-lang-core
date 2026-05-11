@@ -68,33 +68,40 @@ public final class TypeChecker {
    * @return 诊断结果列表（错误、警告、提示）
    */
   public List<Diagnostic> typecheckModule(CoreModel.Module module) {
+    if (module == null) {
+      return List.of();
+    }
     diagnostics.clear();
     symbolTable.enterScope(SymbolTable.ScopeType.MODULE);
 
-    // 定义内置类型别名（向后兼容）
-    defineBuiltinTypeAliases();
+    try {
+      // 定义内置类型别名（向后兼容）
+      defineBuiltinTypeAliases();
 
-    // 第一遍：收集类型定义
-    collectTypeDefinitions(module);
+      // 第一遍：收集类型定义
+      collectTypeDefinitions(module);
 
-    // 【修复】注入类型别名映射，使下游检查器可以展开别名
-    var typeAliases = symbolTable.getTypeAliases();
+      // 【修复】注入类型别名映射，使下游检查器可以展开别名
+      var typeAliases = symbolTable.getTypeAliases();
 
-    // 创建访问上下文
-    var ctx = new VisitorContext(
-      symbolTable,
-      diagnostics,
-      typeAliases, // 传入实际的类型别名映射
-      TypeSystem.unknown(),
-      VisitorContext.Effect.PURE
-    );
+      // 创建访问上下文
+      var ctx = new VisitorContext(
+        symbolTable,
+        diagnostics,
+        typeAliases, // 传入实际的类型别名映射
+        TypeSystem.unknown(),
+        VisitorContext.Effect.PURE
+      );
 
-    // 第二遍：检查所有声明
-    for (var decl : module.decls) {
-      checkDeclaration(decl, ctx);
+      // 第二遍：检查所有声明
+      if (module.decls != null) {
+        for (var decl : module.decls) {
+          checkDeclaration(decl, ctx);
+        }
+      }
+    } finally {
+      symbolTable.exitScope();
     }
-
-    symbolTable.exitScope();
 
     var baseDiagnostics = new ArrayList<>(diagnostics.getDiagnostics());
     if (module != null && module.decls != null) {
@@ -117,6 +124,7 @@ public final class TypeChecker {
    * 收集模块中的所有类型定义（Data、Enum）
    */
   private void collectTypeDefinitions(CoreModel.Module module) {
+    if (module == null || module.decls == null) return;
     for (var decl : module.decls) {
       switch (decl) {
         case CoreModel.Data data -> defineDataType(data);

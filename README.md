@@ -1,5 +1,7 @@
 # aster-lang-core
 
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+
 Aster CNL 的 Java 核心编译器，提供 ANTLR4 语法定义和 5 阶段编译管线。
 
 ## 概述

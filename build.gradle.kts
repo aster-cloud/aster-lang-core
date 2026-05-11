@@ -64,11 +64,38 @@ dependencies {
     testRuntimeOnly("cloud.aster-lang:aster-lang-en:0.0.1")
     testRuntimeOnly("cloud.aster-lang:aster-lang-zh:0.0.1")
     testRuntimeOnly("cloud.aster-lang:aster-lang-de:0.0.1")
+
+    // 共享测试 corpus：双引擎等价 + 单端 fixture
+    testImplementation("cloud.aster-lang:aster-lang-test:0.0.1")
 }
 
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        // 排除需要外部依赖（如 node + aster-lang-ts 构建产物）的 tag
+        excludeTags("crosslang")
+    }
     dependsOn(tasks.jar)
+}
+
+// Phase 3A-2: 跨语言双引擎测试，需要 aster-lang-ts 已 build + node 可用
+// 用法：cd aster-lang-ts && pnpm build && cd ../aster-lang-core && ./gradlew crosslangTest
+tasks.register<Test>("crosslangTest") {
+    description = "Run @Tag(crosslang) tests bridging Java + TypeScript engines"
+    group = "verification"
+
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+
+    useJUnitPlatform {
+        includeTags("crosslang")
+    }
+
+    testLogging {
+        events("passed", "skipped", "failed")
+        showStandardStreams = true
+    }
+
+    dependsOn(tasks.testClasses)
 }
 
 // ANTLR4 生成配置

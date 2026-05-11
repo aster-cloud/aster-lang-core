@@ -128,7 +128,10 @@ public class AsterCustomLexer extends AsterLexer {
                 continue;
             }
             if (la == '\t') {
-                throw new RuntimeException("Tabs are not allowed for indentation at line " + getLine());
+                // 将 tab 诊断为错误 token，而非崩溃解析器
+                Token errToken = createErrorToken("Tab indentation is not allowed (use spaces) at line " + getLine());
+                pending.add(errToken);
+                return;
             }
             break;
         }
@@ -150,7 +153,11 @@ public class AsterCustomLexer extends AsterLexer {
         } else if (spaces > currentIndent) {
             // 缩进增加，生成 INDENT token
             if ((spaces - currentIndent) % 2 != 0) {
-                throw new RuntimeException("Invalid indentation: must be incremented by even number of spaces at line " + getLine());
+                // 报告诊断错误 token，而非崩溃解析器
+                pending.add(createErrorToken("Invalid indentation at line " + getLine() + ": must be even spaces"));
+                indentStack.push(spaces); // 继续解析，将此缩进压栈以维持状态
+                pending.add(createIndent());
+                return;
             }
             indentStack.push(spaces);
             pending.add(createIndent());
@@ -163,7 +170,10 @@ public class AsterCustomLexer extends AsterLexer {
 
             // 验证 dedent 对齐
             if (indentStack.isEmpty() || indentStack.peek() != spaces) {
-                throw new RuntimeException("Inconsistent dedent: does not match any previous indentation level at line " + getLine());
+                // 报告诊断错误 token，而非崩溃解析器
+                pending.add(createErrorToken("Inconsistent dedent at line " + getLine() + ": does not match any previous indentation level"));
+                // 将当前空格数压栈，维持解析器继续运行
+                indentStack.push(spaces);
             }
         }
     }
@@ -173,6 +183,16 @@ public class AsterCustomLexer extends AsterLexer {
      */
     private Token createIndent() {
         CommonToken t = new CommonToken(AsterParser.INDENT, "<INDENT>");
+        t.setLine(getLine());
+        t.setCharPositionInLine(getCharPositionInLine());
+        return t;
+    }
+
+    /**
+     * 创建错误 token（替代 RuntimeException，维持解析器继续运行）
+     */
+    private Token createErrorToken(String message) {
+        CommonToken t = new CommonToken(Token.INVALID_TYPE, "<ERROR: " + message + ">");
         t.setLine(getLine());
         t.setCharPositionInLine(getCharPositionInLine());
         return t;

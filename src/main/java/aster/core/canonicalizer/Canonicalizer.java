@@ -3,6 +3,7 @@ package aster.core.canonicalizer;
 import aster.core.identifier.IdentifierIndex;
 import aster.core.identifier.VocabularyRegistry;
 import aster.core.lexicon.CanonicalizationConfig;
+import aster.core.lexicon.CompoundPattern;
 import aster.core.lexicon.Lexicon;
 import aster.core.lexicon.LexiconRegistry;
 import aster.core.lexicon.SemanticTokenKind;
@@ -259,13 +260,41 @@ public final class Canonicalizer {
             return translationMap;
         }
 
-        // 3. 遍历其他关键词，建立到英语关键词的映射（排除已处理的运算符）
+        // 3. 收集由预翻译变换器处理的 contextualKeywords，从全局翻译表中排除
+        //    仅对有对应预翻译变换器的复合模式生效，避免误跳过无变换器处理的关键词。
+        //    例如：中文 "令...为" 模式有 chinese-let-be 变换器 → BE="为" 从翻译表排除，
+        //    而 "若...为" 模式无对应变换器 → WHEN="为" 保留在翻译表中
+        Set<SemanticTokenKind> contextualTokens = new java.util.HashSet<>();
+        if (config.compoundPatterns() != null) {
+            // 收集预翻译变换器名称集合
+            Set<String> preTransformerNames = new java.util.HashSet<>();
+            for (SyntaxTransformer t : config.preTranslationTransformers()) {
+                preTransformerNames.add(TransformerRegistry.getKey(t));
+            }
+            for (CompoundPattern cp : config.compoundPatterns()) {
+                // 仅当复合模式有对应的预翻译变换器时，才排除其 contextualKeywords
+                // 变换器命名约定：chinese-let-be 对应 let-be 模式
+                String patternName = cp.name();
+                boolean hasTransformer = preTransformerNames.stream()
+                        .anyMatch(name -> name.endsWith(patternName));
+                if (hasTransformer) {
+                    contextualTokens.addAll(cp.contextualKeywords());
+                }
+            }
+        }
+
+        // 4. 遍历其他关键词，建立到英语关键词的映射（排除已处理的运算符和上下文关键词）
         for (Map.Entry<SemanticTokenKind, String> entry : sourceLexicon.getKeywords().entrySet()) {
             SemanticTokenKind kind = entry.getKey();
             String sourceKeyword = entry.getValue();
 
             // 跳过已处理的运算符
             if (OPERATOR_SYMBOL_MAP.containsKey(kind)) {
+                continue;
+            }
+
+            // 跳过 compoundPatterns 的 contextualKeywords（由预翻译变换器处理）
+            if (contextualTokens.contains(kind)) {
                 continue;
             }
 

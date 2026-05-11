@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 /**
@@ -25,6 +26,8 @@ import java.util.stream.Stream;
  * 使用单例模式，确保全局唯一的词法表注册表。
  */
 public final class LexiconRegistry {
+
+    private static final Logger LOGGER = Logger.getLogger(LexiconRegistry.class.getName());
 
     private static final LexiconRegistry INSTANCE = new LexiconRegistry();
 
@@ -333,8 +336,20 @@ public final class LexiconRegistry {
      */
     public int discoverPlugins() {
         int loaded = 0;
+        int skipped = 0;
         for (LexiconPlugin plugin : ServiceLoader.load(LexiconPlugin.class)) {
             try {
+                // ABI 兼容性校验：拒绝不兼容的 lexicon，但不影响其他 lexicon 加载
+                String abi = plugin.getAbiVersion();
+                if (!LexiconAbiVersion.isCompatible(abi)) {
+                    LOGGER.warning(() -> "Skipping lexicon plugin "
+                        + plugin.getClass().getName()
+                        + ": ABI version " + abi
+                        + " incompatible with core " + LexiconAbiVersion.V1.version);
+                    skipped++;
+                    continue;
+                }
+
                 // 先注册变换器，因为 Lexicon 构造时可能依赖变换器
                 // （例如中文词法表的 JSON 引用中文变换器名称，需要先注册到 TransformerRegistry）
                 var transformers = plugin.getTransformers();
@@ -354,6 +369,12 @@ public final class LexiconRegistry {
             } catch (Exception e) {
                 // 单个插件加载失败不影响其他插件
             }
+        }
+        if (skipped > 0) {
+            int finalLoaded = loaded;
+            int finalSkipped = skipped;
+            LOGGER.info(() -> "Lexicon ABI summary: loaded=" + finalLoaded
+                + " skipped=" + finalSkipped + " (incompatible)");
         }
         return loaded;
     }

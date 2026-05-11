@@ -50,7 +50,19 @@ class CrossCompilerCoreIRTest {
      */
     private static final Path TS_PROJECT_ROOT = resolveTsRoot();
 
-    private static final Path FIXTURES_DIR = TS_PROJECT_ROOT.resolve("test/cnl/programs/operators");
+    // Fixtures now come from the shared corpus (cloud.aster-lang:aster-lang-test).
+    // Both files (cross_compiler_ops.aster, arith_compare.aster) are tier1 (双引擎等价).
+    private static final Path FIXTURES_DIR = resolveCorpusFixturesDir();
+
+    private static Path resolveCorpusFixturesDir() {
+        // The corpus is shipped as a jar resource by CorpusLoader, but this test
+        // currently needs a real filesystem path to pass to the TS runner.
+        // Resolve via the aster-lang-test repo sibling layout.
+        Path cwd = Paths.get(System.getProperty("user.dir"));
+        Path parent = cwd.getParent();
+        if (parent == null) return cwd.resolve("aster-lang-test/corpus/tier1-equivalence/policies");
+        return parent.resolve("aster-lang-test/corpus/tier1-equivalence/policies");
+    }
 
     /**
      * 需要从 Core IR JSON 中剪除的字段（两个编译器间自然不同）：

@@ -54,4 +54,18 @@ public interface LexiconPlugin {
     default Map<String, String> getOverlayResources() {
         return Map.of();
     }
+
+    /**
+     * 该 lexicon 实现的 SPI ABI 版本（默认 {@code "1.0"}）。
+     *
+     * <p>核心运行时启动加载时会用 {@link LexiconAbiVersion#isCompatible(String)} 校验。
+     * 不兼容的 lexicon 会被 skip + 告警，但不影响其他 lexicon 加载。
+     *
+     * <p>承诺：ABI v1 至少保证 18 个月不变更（详见 {@link LexiconAbiVersion#V1}）。
+     *
+     * @return SPI ABI 版本字符串，例如 {@code "1.0"}
+     */
+    default String getAbiVersion() {
+        return LexiconAbiVersion.V1.version;
+    }
 }
