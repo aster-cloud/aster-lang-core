@@ -40,13 +40,15 @@ ARROW: '->';
 // ============================================================
 // 自然语言运算符关键词（Natural Language Operators）
 // ============================================================
-// 比较运算符
+// 比较运算符（与 TS 引擎对齐：接受多种自然语言别名）
 LESS_THAN_WORD: 'less' [ \t]+ 'than';
-GREATER_THAN_WORD: 'greater' [ \t]+ 'than';
-LESS_THAN_OR_EQUAL_WORD: 'less' [ \t]+ 'than' [ \t]+ 'or' [ \t]+ 'equal' [ \t]+ 'to';
-GREATER_THAN_OR_EQUAL_WORD: 'greater' [ \t]+ 'than' [ \t]+ 'or' [ \t]+ 'equal' [ \t]+ 'to';
-EQUALS_TO_WORD: 'equals' [ \t]+ 'to';
-NOT_EQUAL_TO_WORD: 'not' [ \t]+ 'equal' [ \t]+ 'to';
+GREATER_THAN_WORD: 'greater' [ \t]+ 'than' | 'more' [ \t]+ 'than';
+// 'at most' 是 ≤ 的自然别名
+LESS_THAN_OR_EQUAL_WORD: 'less' [ \t]+ 'than' [ \t]+ 'or' [ \t]+ 'equal' [ \t]+ 'to' | 'at' [ \t]+ 'most';
+// 'at least' 是 ≥ 的自然别名
+GREATER_THAN_OR_EQUAL_WORD: 'greater' [ \t]+ 'than' [ \t]+ 'or' [ \t]+ 'equal' [ \t]+ 'to' | 'at' [ \t]+ 'least';
+EQUALS_TO_WORD: 'equals' [ \t]+ 'to' | 'is' [ \t]+ 'equal' [ \t]+ 'to';
+NOT_EQUAL_TO_WORD: 'not' [ \t]+ 'equal' [ \t]+ 'to' | 'is' [ \t]+ 'not' [ \t]+ 'equal' [ \t]+ 'to';
 
 // 算术运算符
 TIMES_WORD: 'times';
