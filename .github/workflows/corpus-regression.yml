@@ -1,0 +1,51 @@
+name: Corpus regression (dispatched)
+
+# P0-5: 当 aster-lang-test 的 corpus 改动时由 repository_dispatch 触发
+# 拉指定 sha 的 corpus + sibling lexicon 仓库，跑 TsSampleParseInventoryTest
+
+on:
+  repository_dispatch:
+    types: [corpus-changed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_ACTOR: ${{ github.actor }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: aster-lang-core
+
+      - uses: actions/checkout@v4
+        with:
+          repository: aster-cloud/aster-lang-test
+          path: aster-lang-test
+          ref: ${{ github.event.client_payload.sha || 'main' }}
+
+      # Lexicon siblings（与 ci.yml 一致）
+      - uses: actions/checkout@v4
+        with: { repository: aster-cloud/aster-lang-en, path: aster-lang-en, token: '${{ secrets.CROSS_REPO_TOKEN }}' }
+      - uses: actions/checkout@v4
+        with: { repository: aster-cloud/aster-lang-zh, path: aster-lang-zh, token: '${{ secrets.CROSS_REPO_TOKEN }}' }
+      - uses: actions/checkout@v4
+        with: { repository: aster-cloud/aster-lang-de, path: aster-lang-de, token: '${{ secrets.CROSS_REPO_TOKEN }}' }
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Run corpus regression tests
+        working-directory: aster-lang-core
+        env:
+          ASTER_LANG_TEST_PATH: ${{ github.workspace }}/aster-lang-test
+        run: |
+          ./gradlew test --tests '*Corpus*' --tests '*TsSampleParseInventory*' --no-daemon
