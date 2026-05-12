@@ -380,7 +380,7 @@ returnStmt
  *     Return "yes".
  */
 ifStmt
-    : IF expr COMMA? NEWLINE block (NEWLINE? ELSE COMMA? NEWLINE block)?
+    : IF expr (COMMA | COLON)? NEWLINE block (NEWLINE? ELSE (COMMA | COLON)? NEWLINE block)?
     ;
 
 /**
