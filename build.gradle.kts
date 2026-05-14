@@ -190,6 +190,14 @@ application {
     mainClass.set("aster.core.typecheck.cli.TypeCheckCli")
 }
 
+// resources/ 下的内嵌 lexicon (builtin/*.json) 在 IntelliJ 同步过程中
+// 可能被同时 copy 到 build/classes/java/main/ 和 build/resources/main/，
+// jar 任务会因双重 entry 失败。EXCLUDE 让 jar 仅取第一个，副作用安全
+// （两份 source 内容一致：都从 src/main/resources/ 复制而来）。
+tasks.jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 // 语言包配置（exportLexicons 任务需要通过 SPI 发现语言包）
 val langPacks: Configuration by configurations.creating
 

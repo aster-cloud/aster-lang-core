@@ -3,6 +3,7 @@ package aster.core.lexicon;
 import aster.core.canonicalizer.SyntaxTransformer;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -53,6 +54,36 @@ public interface LexiconPlugin {
      */
     default Map<String, String> getOverlayResources() {
         return Map.of();
+    }
+
+    /**
+     * R6-M1 + R7-3：返回该语言包**声明**会提供的 lexicon ID 集合。
+     *
+     * <p>用于 {@code LexiconRegistry.previewPluginIds(loader)} —— 在不创建
+     * Lexicon 实例的前提下预先知道 jar 会提供什么。这让 hot-plug 的"事务式替换"
+     * 真正零副作用。
+     *
+     * <p>R7-3 关键决定：**默认返回空集合**（不再 fallback 到 createLexicon），
+     * 让"preview 零副作用"成为真契约。未 override 此方法的 plugin 在 preview
+     * 阶段表现为"没有声明任何 ID" —— hot-plug 替换路径会认为它是 ghost-jar，
+     * 拒绝加载。这强制 plugin 作者显式声明自己提供的 ID。
+     *
+     * <p>如果你的 plugin 想被 hot-plug 路径接受，请 override 此方法返回静态常量集合，
+     * 例如：
+     * <pre>{@code
+     *   @Override
+     *   public Set<String> providedLexiconIds() {
+     *       return Set.of("zh-CN");
+     *   }
+     * }</pre>
+     *
+     * <p>(原始 SPI 加载路径不依赖此方法，仍调 createLexicon 注册 lexicon —— 兼容
+     * 旧 plugin。仅 hot-plug 替换路径需要此声明。)
+     *
+     * @return plugin 承诺提供的 lexicon ID 集合
+     */
+    default Set<String> providedLexiconIds() {
+        return Set.of();
     }
 
     /**
