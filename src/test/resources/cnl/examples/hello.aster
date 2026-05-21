@@ -1,0 +1,4 @@
+Module greet.
+
+Rule hello given name as Text, produce Text:
+  Return name.

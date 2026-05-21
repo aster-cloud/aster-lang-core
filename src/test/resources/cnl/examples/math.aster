@@ -1,0 +1,4 @@
+Module math.
+
+Rule add given a as Int, b as Int, produce Int:
+  Return a plus b.

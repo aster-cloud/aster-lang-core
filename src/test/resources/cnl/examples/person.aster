@@ -1,0 +1,6 @@
+Module people.
+
+Define Person has name as Text, age as Int.
+
+Rule greet given p as Person, produce Text:
+  Return p.name.
