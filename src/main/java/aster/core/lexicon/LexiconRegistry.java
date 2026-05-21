@@ -633,6 +633,18 @@ public final class LexiconRegistry {
                 }
 
                 Lexicon lexicon = plugin.createLexicon();
+                // 关键：SPI 注册路径必须复用与 register(Lexicon) 相同的 validate 契约，
+                // 否则任何外部 jar 都能绕过验证污染 registry（缺关键字、id 冲突格式错、
+                // 必需角色未覆盖等）。validate 失败的 plugin 计入 discoveryFailures
+                // 让 admin diag 端点能看到原因。
+                ValidationResult validation = validate(lexicon);
+                if (!validation.isValid()) {
+                    String msg = "validation failed: " + String.join("; ", validation.errors());
+                    discoveryFailures.put(providerClass, msg);
+                    LOGGER.warning(() -> "Skipping lexicon plugin "
+                        + providerClass + " (" + lexicon.getId() + "): " + msg);
+                    continue;
+                }
                 String normalizedId = normalizeId(lexicon.getId());
                 // R6-C1：单步原子 putIfAbsent —— lex + owner 在同一 Entry 中原子写
                 LexiconEntry prev = entries.putIfAbsent(

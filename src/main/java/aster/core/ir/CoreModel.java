@@ -103,6 +103,7 @@ public final class CoreModel {
     public List<String> typeParams;        // 类型参数列表（泛型，如 <T, U>）
     public List<Param> params;             // 形参列表
     public Type ret;                       // 返回类型
+    public List<Annotation> retAnnotations = Collections.emptyList(); // 返回类型上的注解（@pii 等）
     public List<String> effects;           // 效果声明列表（IO、CPU、Secrets 等）
     public List<String> effectCaps = Collections.emptyList(); // 能力列表（Http、Sql 等）
     public boolean effectCapsExplicit;     // 是否显式声明能力
