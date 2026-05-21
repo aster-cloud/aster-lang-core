@@ -64,8 +64,16 @@ public final class OverlayValidator {
             return new LexiconValidationReport(candidateLocaleId, issues);
         }
 
-        Set<String> backboneFiles = listJsonFiles(backboneOverlaysDir);
-        Set<String> candidateFiles = listJsonFiles(candidateOverlaysDir);
+        Set<String> backboneFiles, candidateFiles;
+        try {
+            backboneFiles = listJsonFiles(backboneOverlaysDir);
+            candidateFiles = listJsonFiles(candidateOverlaysDir);
+        } catch (IOException ioe) {
+            issues.add(new Issue(Severity.ERROR, "OVERLAY_LIST_FAILED",
+                "Failed to enumerate overlay files: " + ioe.getMessage(),
+                "Check directory permissions and filesystem health"));
+            return new LexiconValidationReport(candidateLocaleId, issues);
+        }
 
         // Rule 1: backbone file presence in candidate.
         Set<String> missingFiles = new TreeSet<>(backboneFiles);
@@ -148,14 +156,17 @@ public final class OverlayValidator {
         }
     }
 
-    private static Set<String> listJsonFiles(Path dir) {
+    /**
+     * List {@code *.json} files in {@code dir}. Propagates IO errors so an
+     * unreadable directory fails loudly (the previous version returned an
+     * empty set and produced a false PASS).
+     */
+    private static Set<String> listJsonFiles(Path dir) throws IOException {
         try (Stream<Path> s = Files.list(dir)) {
             return s
                 .filter(p -> p.getFileName().toString().endsWith(".json"))
                 .map(p -> p.getFileName().toString())
                 .collect(Collectors.toCollection(TreeSet::new));
-        } catch (IOException e) {
-            return new TreeSet<>();
         }
     }
 
@@ -181,11 +192,43 @@ public final class OverlayValidator {
         return out;
     }
 
-    private static JsonNode pathGet(JsonNode root, String dottedPath) {
+    /**
+     * Resolve a {@code flattenKeys}-style path (e.g. {@code "texts.items[0].label"})
+     * back to its {@link JsonNode}.
+     *
+     * <p>The previous implementation used a naive {@code split(".")} which failed
+     * on array indices because {@code node.get("items[0]")} returns null.
+     * That silently dropped every array element from the OVERLAY_VALUE_UNTRANSLATED
+     * check. This walker tokenises on {@code .} and {@code [N]} explicitly so
+     * arrays participate in the parity scan.
+     */
+    static JsonNode pathGet(JsonNode root, String path) {
         JsonNode cur = root;
-        for (String part : dottedPath.split("\\.")) {
-            if (cur == null) return null;
-            cur = cur.get(part);
+        int i = 0;
+        StringBuilder token = new StringBuilder();
+        while (i <= path.length()) {
+            char c = i < path.length() ? path.charAt(i) : '\0';
+            if (c == '.' || c == '[' || c == '\0') {
+                if (token.length() > 0) {
+                    if (cur == null) return null;
+                    cur = cur.get(token.toString());
+                    token.setLength(0);
+                }
+                if (c == '[') {
+                    int end = path.indexOf(']', i);
+                    if (end < 0) return null;
+                    int idx;
+                    try { idx = Integer.parseInt(path.substring(i + 1, end)); }
+                    catch (NumberFormatException nfe) { return null; }
+                    if (cur == null || !cur.isArray() || idx < 0 || idx >= cur.size()) return null;
+                    cur = cur.get(idx);
+                    i = end;
+                }
+                i++;
+            } else {
+                token.append(c);
+                i++;
+            }
         }
         return cur;
     }

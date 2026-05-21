@@ -135,4 +135,50 @@ class OverlayValidatorTest {
             .filteredOn(i -> i.severity() == Severity.ERROR)
             .isEmpty();
     }
+
+    @Test
+    @DisplayName("数组路径 items[0].label 与 backbone 相同时报 OVERLAY_VALUE_UNTRANSLATED (Critical-6 回归)")
+    void detectsUntranslatedArrayElement(@TempDir Path tmp) throws IOException {
+        Path backbone = tmp.resolve("en");
+        Path candidate = tmp.resolve("de");
+        Files.createDirectories(backbone);
+        Files.createDirectories(candidate);
+        Files.writeString(backbone.resolve("lsp-ui-texts.json"),
+            """
+            {"version":1,"items":[{"label":"Function"},{"label":"Module"}]}
+            """);
+        // candidate copies backbone byte-for-byte → both array elements should be flagged.
+        Files.writeString(candidate.resolve("lsp-ui-texts.json"),
+            """
+            {"version":1,"items":[{"label":"Function"},{"label":"Module"}]}
+            """);
+
+        var report = validator.validate(candidate, backbone, "de-DE");
+
+        // Without the pathGet fix, the array-element comparison was silently
+        // returning null and skipping the byte-equality check. Now both
+        // elements must surface as warnings.
+        long untranslated = report.issues().stream()
+            .filter(i -> "OVERLAY_VALUE_UNTRANSLATED".equals(i.code()))
+            .count();
+        assertThat(untranslated).isGreaterThanOrEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("pathGet 直接单元测试 — 支持 dot + [N] 混合路径")
+    void pathGetHandlesArrayIndices() throws Exception {
+        com.fasterxml.jackson.databind.ObjectMapper m = new com.fasterxml.jackson.databind.ObjectMapper();
+        var root = m.readTree(
+            """
+            {"a":{"b":[{"c":"X"},{"c":"Y"}]}}
+            """);
+        var got = OverlayValidator.pathGet(root, "a.b[1].c");
+        assertThat(got).isNotNull();
+        assertThat(got.asText()).isEqualTo("Y");
+
+        // Out-of-range index returns null (defense-in-depth).
+        assertThat(OverlayValidator.pathGet(root, "a.b[99].c")).isNull();
+        // Malformed bracket returns null.
+        assertThat(OverlayValidator.pathGet(root, "a.b[abc].c")).isNull();
+    }
 }
