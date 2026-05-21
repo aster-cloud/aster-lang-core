@@ -12,15 +12,20 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Canonicalizer 阶段黄金测试
- * <p>
- * 对比 TypeScript 和 Java 版本的 Canonicalizer 输出，确保行为一致。
+ * Canonicalizer 阶段双引擎 SMOKE 测试（非 equivalence test）
  * <p>
  * <b>状态变更（2026-05-21）</b>：
- * 之前的 @Disabled 让 4 处 Java vs TS 对比一直处于 TODO。本轮启用单引擎
- * smoke 校验（Java 侧 canonicalize + TS 侧 canonicalize 各自能跑通）。
- * 完整 JSON normalize 对比留待 core-ir 阶段统一处理（已通过
- * DualEngineGoldenTest / DualEngineCrossLangTest 覆盖），不再在此重复。
+ * 之前的 @Disabled 让 4 处 Java vs TS 对比一直处于 TODO。本轮启用的是
+ * <b>smoke 校验</b>：仅断言两侧引擎对同一 fixture 各自不抛异常且返回 non-null。
+ * <b>不</b>做结构化 JSON 对比 —— canonicalize 阶段的两侧输出格式差异较大
+ * （TS 返回 AST 节点 JSON，Java 返回 canonicalized source 字符串），
+ * 需要在 lowered Core IR 那一层才有可比较的 schema。完整 equivalence 校验
+ * 由 {@code DualEngineGoldenTest} 和 {@code DualEngineCrossLangTest} 在
+ * Core IR 阶段负责。
+ * <p>
+ * 这意味着：本测试不会发现 canonicalize 阶段的语义漂移 —— 它只能证明两侧
+ * 实现都能跑通管线。要捕获漂移，需要在 Core IR 阶段加 normalization
+ * + JSON-equal 断言（见 codex Round-3 后续建议）。
  * <p>
  * 测试在 fixture 文件存在时启用；CI 中未挂 fixture 目录时自动跳过。
  */
