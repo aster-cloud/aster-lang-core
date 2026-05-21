@@ -12,20 +12,21 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Canonicalizer 阶段双引擎 SMOKE 测试（非 equivalence test）
+ * Canonicalizer 阶段双引擎 EQUIVALENCE 测试
  * <p>
- * <b>状态变更（2026-05-21）</b>：
- * 之前的 @Disabled 让 4 处 Java vs TS 对比一直处于 TODO。本轮启用的是
- * <b>smoke 校验</b>：仅断言两侧引擎对同一 fixture 各自不抛异常且返回 non-null。
- * <b>不</b>做结构化 JSON 对比 —— canonicalize 阶段的两侧输出格式差异较大
- * （TS 返回 AST 节点 JSON，Java 返回 canonicalized source 字符串），
- * 需要在 lowered Core IR 那一层才有可比较的 schema。完整 equivalence 校验
- * 由 {@code DualEngineGoldenTest} 和 {@code DualEngineCrossLangTest} 在
- * Core IR 阶段负责。
+ * <b>D13 升级（2026-05-21）</b>：从 SMOKE（仅 non-null）升级为真实结构对比。
+ * 两侧 canonicalizer 都产出 canonicalized source 字符串，封装在 JsonNode 中。
+ * 比较时通过 {@link #normalizeCanonicalSource} 抹平已知的格式差异：
+ * <ul>
+ *   <li>trailing whitespace / newlines</li>
+ *   <li>多余空白行（CRLF vs LF）</li>
+ *   <li>UTF-8 BOM</li>
+ * </ul>
+ * 抹平后剩余的差异即为真实语义漂移，会让测试失败并在错误消息中打出 diff。
  * <p>
- * 这意味着：本测试不会发现 canonicalize 阶段的语义漂移 —— 它只能证明两侧
- * 实现都能跑通管线。要捕获漂移，需要在 Core IR 阶段加 normalization
- * + JSON-equal 断言（见 codex Round-3 后续建议）。
+ * 完整 IR 层 equivalence 仍由 {@code DualEngineGoldenTest} 和
+ * {@code DualEngineCrossLangTest} 在 Core IR 阶段补充，覆盖 lowering /
+ * runtime 维度的 divergence（见 aster-lang-test/DIVERGENT-MANIFEST.md）。
  * <p>
  * 测试在 fixture 文件存在时启用；CI 中未挂 fixture 目录时自动跳过。
  */
@@ -79,21 +80,73 @@ public class CanonicalizeGoldenTest {
     }
 
     /**
-     * 双引擎 smoke：要求 TS 和 Java canonicalizer 都对同一 fixture 产出 non-null
-     * 结果，且各自的 stage 不抛异常。完整 JSON 结构对比由 core-ir 阶段的
-     * DualEngineGoldenTest / DualEngineCrossLangTest 负责。
-     *
-     * 之前是 4 个独立测试方法各自只跑 TS 而 Java 比对被注释掉；现在统一通过
-     * 这个 helper，保证 Java 侧也实际执行。
+     * 双引擎 equivalence：要求 TS 和 Java canonicalizer 对同一 fixture
+     * 产出经 {@link #normalizeCanonicalSource} 抹平后相等的 canonical 文本。
+     * 任何残余差异 = 真实语义漂移，必须修复或显式记录到 manifest。
      */
     private void assertBothEnginesCanonicalize(Path input) throws Exception {
         JsonNode tsOutput = runner.runTypeScript("canonicalize", input);
-        assertNotNull(tsOutput, "TypeScript Canonicalizer must return non-null");
+        assertNotNull(tsOutput, "TypeScript Canonicalizer must return non-null for " + input);
 
         JsonNode javaOutput = runner.runJava("canonicalize", input);
         assertNotNull(javaOutput, "Java Canonicalizer must return non-null for " + input);
-        // Java 当前以 JsonNode-wrapped string 形式返回 canonicalized source；
-        // 与 TS 的 AST 结构不直接可比。两边各自不抛异常 + 非空已是合理的
-        // smoke：完整结构对比交给 core-ir 阶段。
+
+        // Both engines wrap the canonicalized source string in a JsonNode.
+        // Extract and normalize before comparing; surface a diff-style error
+        // message so reviewers can see exactly what diverged.
+        String tsText = extractCanonicalText(tsOutput, "TypeScript", input);
+        String javaText = extractCanonicalText(javaOutput, "Java", input);
+        String tsNorm = normalizeCanonicalSource(tsText);
+        String javaNorm = normalizeCanonicalSource(javaText);
+
+        assertEquals(
+            tsNorm,
+            javaNorm,
+            () -> String.format(
+                "Canonicalize divergence for %s%n--- TypeScript ---%n%s%n--- Java ---%n%s%n",
+                input, tsText, javaText
+            )
+        );
+    }
+
+    /**
+     * Both engines historically wrap their canonicalized source string in
+     * a JsonNode. If a node is already textual, return its asText(); if
+     * it's an object/array (future enhancement) we fall back to the raw
+     * JSON serialization so callers can still diff something meaningful.
+     */
+    private static String extractCanonicalText(JsonNode node, String engineName, Path input) {
+        if (node.isTextual()) return node.asText();
+        // Defensive: future versions of either runner may return objects.
+        // Use the JSON form so the diff in assertEquals message remains useful.
+        return node.toString();
+    }
+
+    /**
+     * Normalize canonicalize-stage output so that legitimate engine-side
+     * formatting differences don't flag as divergence. Strips:
+     *   - UTF-8 BOM
+     *   - trailing whitespace on each line
+     *   - leading/trailing blank lines
+     *   - CRLF → LF
+     */
+    static String normalizeCanonicalSource(String s) {
+        if (s == null) return "";
+        String out = s;
+        if (out.startsWith("﻿")) out = out.substring(1);
+        out = out.replace("\r\n", "\n").replace("\r", "\n");
+        // strip trailing whitespace per line
+        StringBuilder sb = new StringBuilder(out.length());
+        for (String line : out.split("\n", -1)) {
+            // remove trailing spaces/tabs only (preserve indentation)
+            int end = line.length();
+            while (end > 0 && (line.charAt(end - 1) == ' ' || line.charAt(end - 1) == '\t')) end--;
+            sb.append(line, 0, end).append('\n');
+        }
+        // collapse trailing blank lines
+        String joined = sb.toString();
+        int j = joined.length();
+        while (j > 0 && joined.charAt(j - 1) == '\n') j--;
+        return joined.substring(0, j);
     }
 }
