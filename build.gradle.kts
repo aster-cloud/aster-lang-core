@@ -82,7 +82,10 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform {
-        // 排除需要外部依赖（如 node + aster-lang-ts 构建产物）的 tag
+        // 排除需要外部依赖（如 node + aster-lang-ts 构建产物）的 tag。
+        // CI 必须在 `./gradlew test` 之外另跑 `./gradlew crosslangTest` 作为
+        // 独立 cross-engine gate，否则 14 个 divergent 用例会回归无声。
+        // 失败清单与根因分类：aster-lang-test/DIVERGENT-MANIFEST.md
         excludeTags("crosslang")
     }
     dependsOn(tasks.jar)
@@ -90,6 +93,9 @@ tasks.test {
 
 // Phase 3A-2: 跨语言双引擎测试，需要 aster-lang-ts 已 build + node 可用
 // 用法：cd aster-lang-ts && pnpm build && cd ../aster-lang-core && ./gradlew crosslangTest
+//
+// 当前 baseline: 184/198 = 92.93% (2026-05-21)。详见
+// aster-lang-test/DIVERGENT-MANIFEST.md 的根因分类清单。
 tasks.register<Test>("crosslangTest") {
     description = "Run @Tag(crosslang) tests bridging Java + TypeScript engines"
     group = "verification"
