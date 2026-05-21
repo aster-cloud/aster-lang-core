@@ -137,7 +137,7 @@ class OverlayValidatorTest {
     }
 
     @Test
-    @DisplayName("数组路径 items[0].label 与 backbone 相同时报 OVERLAY_VALUE_UNTRANSLATED (Critical-6 回归)")
+    @DisplayName("数组路径 items[0].label 与 backbone 相同时精确产 2 条 OVERLAY_VALUE_UNTRANSLATED (Critical-6 回归)")
     void detectsUntranslatedArrayElement(@TempDir Path tmp) throws IOException {
         Path backbone = tmp.resolve("en");
         Path candidate = tmp.resolve("de");
@@ -155,30 +155,194 @@ class OverlayValidatorTest {
 
         var report = validator.validate(candidate, backbone, "de-DE");
 
-        // Without the pathGet fix, the array-element comparison was silently
-        // returning null and skipping the byte-equality check. Now both
-        // elements must surface as warnings.
         long untranslated = report.issues().stream()
             .filter(i -> "OVERLAY_VALUE_UNTRANSLATED".equals(i.code()))
             .count();
-        assertThat(untranslated).isGreaterThanOrEqualTo(2L);
+        // Precise count: items[0].label + items[1].label = 2.
+        // (version is a number, not isTextual(), so it should NOT contribute.)
+        assertThat(untranslated).isEqualTo(2L);
     }
 
     @Test
-    @DisplayName("pathGet 直接单元测试 — 支持 dot + [N] 混合路径")
-    void pathGetHandlesArrayIndices() throws Exception {
+    @DisplayName("collectLeaves: dot + [N] 混合路径正确收集 JsonNode 引用")
+    void collectLeavesArrayIndices() throws Exception {
         com.fasterxml.jackson.databind.ObjectMapper m = new com.fasterxml.jackson.databind.ObjectMapper();
         var root = m.readTree(
             """
             {"a":{"b":[{"c":"X"},{"c":"Y"}]}}
             """);
-        var got = OverlayValidator.pathGet(root, "a.b[1].c");
-        assertThat(got).isNotNull();
-        assertThat(got.asText()).isEqualTo("Y");
+        var leaves = OverlayValidator.collectLeaves(root, "");
+        // Display strings match what consumers see in diagnostics.
+        var displays = leaves.keySet().stream().map(OverlayValidator.LeafPath::display).toList();
+        assertThat(displays).containsExactlyInAnyOrder("a.b[0].c", "a.b[1].c");
+        // Value lookup goes through the structured key, not the display string.
+        var targetKey = leaves.keySet().stream()
+            .filter(k -> k.display().equals("a.b[1].c"))
+            .findFirst().orElseThrow();
+        assertThat(leaves.get(targetKey).asText()).isEqualTo("Y");
+    }
 
-        // Out-of-range index returns null (defense-in-depth).
+    @Test
+    @DisplayName("collectLeaves: 字段名含 '.' 的 key 与等价嵌套结构不碰撞 (R2-M1)")
+    void collectLeavesDoesNotCollideOnDotKey() throws Exception {
+        com.fasterxml.jackson.databind.ObjectMapper m = new com.fasterxml.jackson.databind.ObjectMapper();
+        // Two structurally different JSONs that would have produced the SAME
+        // display string under the previous String-keyed implementation:
+        //   {"a.b":"X"}      → display "a.b"
+        //   {"a":{"b":"Y"}}  → display "a.b"
+        // With LeafPath keys these are distinct.
+        var flat = m.readTree("""
+            {"a.b":"X"}
+            """);
+        var nested = m.readTree("""
+            {"a":{"b":"Y"}}
+            """);
+        var flatLeaves = OverlayValidator.collectLeaves(flat, "");
+        var nestedLeaves = OverlayValidator.collectLeaves(nested, "");
+
+        // Same display string …
+        assertThat(flatLeaves.keySet().iterator().next().display()).isEqualTo("a.b");
+        assertThat(nestedLeaves.keySet().iterator().next().display()).isEqualTo("a.b");
+        // … but different structural keys.
+        assertThat(flatLeaves.keySet()).doesNotContainAnyElementsOf(nestedLeaves.keySet());
+    }
+
+    @Test
+    @DisplayName("comparePerFile: {a.b:X} vs {a:{b:X}} 互为 MISSING + EXTRA，绝不当成同 key")
+    void overlayHonestlyDistinguishesDotKeyFromNested(@TempDir Path tmp) throws IOException {
+        Path backbone = tmp.resolve("en");
+        Path candidate = tmp.resolve("de");
+        Files.createDirectories(backbone);
+        Files.createDirectories(candidate);
+        Files.writeString(backbone.resolve("ambig.json"), "{\"a.b\":\"X\"}");
+        Files.writeString(candidate.resolve("ambig.json"), "{\"a\":{\"b\":\"X\"}}");
+
+        var report = validator.validate(candidate, backbone, "de-DE");
+
+        long missing = report.issues().stream()
+            .filter(i -> "OVERLAY_KEY_MISSING".equals(i.code())).count();
+        long extra = report.issues().stream()
+            .filter(i -> "OVERLAY_KEY_NOT_IN_BACKBONE".equals(i.code())).count();
+        // backbone has a.b but candidate doesn't → MISSING.
+        assertThat(missing).isEqualTo(1L);
+        // candidate has a.b (nested) but backbone doesn't → EXTRA.
+        assertThat(extra).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("collectLeaves: 字段名含 '.' / '[' / ']' / 空字符串也能正确比较")
+    void collectLeavesHandlesSyntaxCharsInKeys(@TempDir Path tmp) throws IOException {
+        Path backbone = tmp.resolve("en");
+        Path candidate = tmp.resolve("de");
+        Files.createDirectories(backbone);
+        Files.createDirectories(candidate);
+        // Field names containing '.', '[', ']' and an empty key.
+        Files.writeString(backbone.resolve("weird.json"),
+            """
+            {"a.b":"X","c[0]":"Y","":"Z"}
+            """);
+        Files.writeString(candidate.resolve("weird.json"),
+            """
+            {"a.b":"X","c[0]":"Y","":"Z"}
+            """);
+
+        var report = validator.validate(candidate, backbone, "de-DE");
+
+        // Each leaf is byte-identical → 3 OVERLAY_VALUE_UNTRANSLATED warnings.
+        long untranslated = report.issues().stream()
+            .filter(i -> "OVERLAY_VALUE_UNTRANSLATED".equals(i.code()))
+            .count();
+        assertThat(untranslated).isEqualTo(3L);
+    }
+
+    @Test
+    @DisplayName("pathGet: 越界、未闭合括号、负数下标、字段名含语法字符全部安全返回 null")
+    void pathGetEdgeCases() throws Exception {
+        com.fasterxml.jackson.databind.ObjectMapper m = new com.fasterxml.jackson.databind.ObjectMapper();
+        var root = m.readTree(
+            """
+            {"a":{"b":[{"c":"X"},{"c":"Y"}]}}
+            """);
+        // happy path still works
+        assertThat(OverlayValidator.pathGet(root, "a.b[1].c").asText()).isEqualTo("Y");
+        // out-of-range index
         assertThat(OverlayValidator.pathGet(root, "a.b[99].c")).isNull();
-        // Malformed bracket returns null.
+        // non-numeric inside brackets
         assertThat(OverlayValidator.pathGet(root, "a.b[abc].c")).isNull();
+        // negative index
+        assertThat(OverlayValidator.pathGet(root, "a.b[-1].c")).isNull();
+        // unclosed bracket
+        assertThat(OverlayValidator.pathGet(root, "a.b[1")).isNull();
+        // empty token (root-level empty key not present)
+        assertThat(OverlayValidator.pathGet(root, ".a.b")).isNull();
+    }
+
+    @Test
+    @DisplayName("backbone 目录不可枚举时报具名 OVERLAY_LIST_FAILED (区分 backbone vs candidate)")
+    @org.junit.jupiter.api.condition.EnabledOnOs({
+        org.junit.jupiter.api.condition.OS.LINUX,
+        org.junit.jupiter.api.condition.OS.MAC,
+    })
+    void listJsonFilesPropagatesIoError(@TempDir Path tmp) throws IOException {
+        Path backbone = tmp.resolve("en");
+        Path candidate = tmp.resolve("de");
+        Files.createDirectories(backbone);
+        Files.createDirectories(candidate);
+        // Drop all permissions on backbone so Files.list() throws
+        // AccessDeniedException — exercises the listJsonFiles try/catch.
+        // isDirectory() still returns true, so we get past the directory check
+        // and into the IOException branch.
+        java.util.Set<java.nio.file.attribute.PosixFilePermission> none =
+            java.util.EnumSet.noneOf(java.nio.file.attribute.PosixFilePermission.class);
+        try {
+            Files.setPosixFilePermissions(backbone, none);
+            var report = validator.validate(candidate, backbone, "de-DE");
+
+            // Specifically OVERLAY_LIST_FAILED with the backbone role named.
+            var listFailed = report.issues().stream()
+                .filter(i -> "OVERLAY_LIST_FAILED".equals(i.code()))
+                .toList();
+            assertThat(listFailed).hasSize(1);
+            assertThat(listFailed.get(0).message()).contains("backbone overlays").contains(backbone.toString());
+        } finally {
+            // Restore permissions so @TempDir can clean up.
+            Files.setPosixFilePermissions(
+                backbone,
+                java.util.EnumSet.of(
+                    java.nio.file.attribute.PosixFilePermission.OWNER_READ,
+                    java.nio.file.attribute.PosixFilePermission.OWNER_WRITE,
+                    java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE));
+        }
+    }
+
+    @Test
+    @DisplayName("candidate 目录不可枚举时 OVERLAY_LIST_FAILED 错误消息标 candidate 角色")
+    @org.junit.jupiter.api.condition.EnabledOnOs({
+        org.junit.jupiter.api.condition.OS.LINUX,
+        org.junit.jupiter.api.condition.OS.MAC,
+    })
+    void listJsonFilesPropagatesIoErrorOnCandidate(@TempDir Path tmp) throws IOException {
+        Path backbone = tmp.resolve("en");
+        Path candidate = tmp.resolve("de");
+        Files.createDirectories(backbone);
+        Files.createDirectories(candidate);
+        java.util.Set<java.nio.file.attribute.PosixFilePermission> none =
+            java.util.EnumSet.noneOf(java.nio.file.attribute.PosixFilePermission.class);
+        try {
+            Files.setPosixFilePermissions(candidate, none);
+            var report = validator.validate(candidate, backbone, "de-DE");
+            var listFailed = report.issues().stream()
+                .filter(i -> "OVERLAY_LIST_FAILED".equals(i.code()))
+                .toList();
+            assertThat(listFailed).hasSize(1);
+            assertThat(listFailed.get(0).message()).contains("candidate overlays").contains(candidate.toString());
+        } finally {
+            Files.setPosixFilePermissions(
+                candidate,
+                java.util.EnumSet.of(
+                    java.nio.file.attribute.PosixFilePermission.OWNER_READ,
+                    java.nio.file.attribute.PosixFilePermission.OWNER_WRITE,
+                    java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE));
+        }
     }
 }

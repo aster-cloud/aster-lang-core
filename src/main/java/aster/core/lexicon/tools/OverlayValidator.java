@@ -11,6 +11,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -64,13 +65,24 @@ public final class OverlayValidator {
             return new LexiconValidationReport(candidateLocaleId, issues);
         }
 
-        Set<String> backboneFiles, candidateFiles;
+        // Enumerate both dirs separately so the diagnostic names the failing
+        // role (backbone vs candidate). The earlier combined try/catch hid
+        // which directory was unreadable.
+        Set<String> backboneFiles;
         try {
             backboneFiles = listJsonFiles(backboneOverlaysDir);
+        } catch (IOException ioe) {
+            issues.add(new Issue(Severity.ERROR, "OVERLAY_LIST_FAILED",
+                "Failed to enumerate backbone overlays at " + backboneOverlaysDir + ": " + ioe.getMessage(),
+                "Check directory permissions and filesystem health"));
+            return new LexiconValidationReport(candidateLocaleId, issues);
+        }
+        Set<String> candidateFiles;
+        try {
             candidateFiles = listJsonFiles(candidateOverlaysDir);
         } catch (IOException ioe) {
             issues.add(new Issue(Severity.ERROR, "OVERLAY_LIST_FAILED",
-                "Failed to enumerate overlay files: " + ioe.getMessage(),
+                "Failed to enumerate candidate overlays for " + candidateLocaleId + " at " + candidateOverlaysDir + ": " + ioe.getMessage(),
                 "Check directory permissions and filesystem health"));
             return new LexiconValidationReport(candidateLocaleId, issues);
         }
@@ -120,38 +132,38 @@ public final class OverlayValidator {
             return;
         }
 
-        // Most overlay files have a top-level "texts" or "rules" object; some are flat maps.
-        // We compare key sets at the first object level. Nested objects are walked.
-        Set<String> backboneKeys = flattenKeys(backbone, "");
-        Set<String> candidateKeys = flattenKeys(candidate, "");
+        // Structured LeafPath keys guarantee no collisions: keys like {"a.b":"X"}
+        // and {"a":{"b":"X"}} hash to distinct paths, so OVERLAY_KEY_MISSING /
+        // OVERLAY_KEY_NOT_IN_BACKBONE are reliable even with adversarial keys.
+        Map<LeafPath, JsonNode> backboneLeaves = collectLeaves(backbone, "");
+        Map<LeafPath, JsonNode> candidateLeaves = collectLeaves(candidate, "");
 
-        Set<String> missing = new TreeSet<>(backboneKeys);
-        missing.removeAll(candidateKeys);
-        for (String k : missing) {
+        Set<LeafPath> missing = new TreeSet<>(backboneLeaves.keySet());
+        missing.removeAll(candidateLeaves.keySet());
+        for (LeafPath k : missing) {
             issues.add(new Issue(Severity.ERROR, "OVERLAY_KEY_MISSING",
-                "Key '" + k + "' from overlay '" + fname + "' is missing in candidate",
+                "Key '" + k.display() + "' from overlay '" + fname + "' is missing in candidate",
                 "Add the key to overlays/" + fname + " with a translation"));
         }
 
         // Value byte-identical to backbone → likely untranslated.
-        for (String k : backboneKeys) {
-            if (!candidateKeys.contains(k)) continue;
-            JsonNode b = pathGet(backbone, k);
-            JsonNode c = pathGet(candidate, k);
-            if (b == null || c == null) continue;
+        for (var entry : backboneLeaves.entrySet()) {
+            JsonNode c = candidateLeaves.get(entry.getKey());
+            if (c == null) continue;
+            JsonNode b = entry.getValue();
             if (b.isTextual() && c.isTextual() && b.asText().equals(c.asText())) {
                 issues.add(new Issue(Severity.WARNING, "OVERLAY_VALUE_UNTRANSLATED",
-                    "Key '" + k + "' in '" + fname + "' has byte-identical value to backbone — likely missed translation",
+                    "Key '" + entry.getKey().display() + "' in '" + fname + "' has byte-identical value to backbone — likely missed translation",
                     "Either translate, or explicitly mark do-not-translate via a sibling .gloss/skip file (future work)"));
             }
         }
 
         // Candidate-only keys.
-        Set<String> extra = new TreeSet<>(candidateKeys);
-        extra.removeAll(backboneKeys);
-        for (String k : extra) {
+        Set<LeafPath> extra = new TreeSet<>(candidateLeaves.keySet());
+        extra.removeAll(backboneLeaves.keySet());
+        for (LeafPath k : extra) {
             issues.add(new Issue(Severity.INFO, "OVERLAY_KEY_NOT_IN_BACKBONE",
-                "Key '" + k + "' in '" + fname + "' exists in candidate but not in backbone",
+                "Key '" + k.display() + "' in '" + fname + "' exists in candidate but not in backbone",
                 "Either propagate to backbone or accept locale-specific extension"));
         }
     }
@@ -170,26 +182,118 @@ public final class OverlayValidator {
         }
     }
 
-    /** Flatten a JSON object's leaves into dotted key paths. Arrays are indexed. */
-    private static Set<String> flattenKeys(JsonNode node, String prefix) {
-        Set<String> out = new TreeSet<>();
+    /**
+     * Structured leaf path. Each element is either a field (object key, with
+     * the original unescaped string) or an index (array position). Using
+     * typed segments instead of a flat display string means that
+     * {@code {"a.b":"X"}} and {@code {"a":{"b":"X"}}} hash and compare as
+     * <em>different</em> paths, which is necessary for honest parity checks
+     * across JSON whose keys may contain '.', '[', ']' or empty strings.
+     */
+    public static final class LeafPath implements Comparable<LeafPath> {
+        public sealed interface Segment permits Field, Index {}
+        public record Field(String name) implements Segment {}
+        public record Index(int position) implements Segment {}
+
+        private final List<Segment> segments;
+        private final String display;
+
+        private LeafPath(List<Segment> segments) {
+            this.segments = List.copyOf(segments);
+            this.display = renderDisplay(this.segments);
+        }
+
+        public static LeafPath root() { return new LeafPath(List.of()); }
+        public LeafPath plus(Segment s) {
+            List<Segment> next = new ArrayList<>(segments.size() + 1);
+            next.addAll(segments); next.add(s);
+            return new LeafPath(next);
+        }
+        public List<Segment> segments() { return segments; }
+        public String display() { return display; }
+
+        @Override public String toString() { return display; }
+        @Override public boolean equals(Object o) {
+            return o instanceof LeafPath p && segments.equals(p.segments);
+        }
+        @Override public int hashCode() { return segments.hashCode(); }
+
+        /**
+         * Sort by structural identity, not just display. Two paths whose
+         * displays collide (e.g. flat "a.b" vs nested ["a","b"]) must compare
+         * NON-EQUAL, otherwise {@link java.util.TreeSet} would treat them as
+         * the same element and silently drop OVERLAY_KEY_MISSING /
+         * OVERLAY_KEY_NOT_IN_BACKBONE diagnostics.
+         */
+        @Override public int compareTo(LeafPath o) {
+            int dc = display.compareTo(o.display);
+            if (dc != 0) return dc;
+            int min = Math.min(segments.size(), o.segments.size());
+            for (int i = 0; i < min; i++) {
+                Segment a = segments.get(i), b = o.segments.get(i);
+                int rank = segmentRank(a) - segmentRank(b);
+                if (rank != 0) return rank;
+                if (a instanceof Field fa && b instanceof Field fb) {
+                    int fc = fa.name().compareTo(fb.name());
+                    if (fc != 0) return fc;
+                } else if (a instanceof Index ia && b instanceof Index ib) {
+                    int ic = Integer.compare(ia.position(), ib.position());
+                    if (ic != 0) return ic;
+                }
+            }
+            return Integer.compare(segments.size(), o.segments.size());
+        }
+
+        private static int segmentRank(Segment s) { return s instanceof Field ? 0 : 1; }
+
+        private static String renderDisplay(List<Segment> segs) {
+            StringBuilder sb = new StringBuilder();
+            for (Segment s : segs) {
+                if (s instanceof Field f) {
+                    if (sb.length() > 0) sb.append('.');
+                    sb.append(f.name());
+                } else if (s instanceof Index ix) {
+                    sb.append('[').append(ix.position()).append(']');
+                }
+            }
+            return sb.toString();
+        }
+    }
+
+    /**
+     * Collect leaves into an ordered map keyed by {@link LeafPath}. The
+     * structured key guarantees injective identity — two semantically
+     * different paths never collide, even when one uses literal '.' / '['
+     * characters in object keys.
+     *
+     * The {@link JsonNode} reference is the source of truth for value
+     * comparison; the display path is only used for diagnostic strings.
+     */
+    static Map<LeafPath, JsonNode> collectLeaves(JsonNode node, String displayPrefix) {
+        Map<LeafPath, JsonNode> out = new TreeMap<>();
+        collectLeavesInto(node, LeafPath.root(), out);
+        return out;
+    }
+
+    private static void collectLeavesInto(JsonNode node, LeafPath path, Map<LeafPath, JsonNode> out) {
         if (node.isObject()) {
             Iterator<Map.Entry<String, JsonNode>> it = node.fields();
             while (it.hasNext()) {
                 Map.Entry<String, JsonNode> e = it.next();
-                String key = prefix.isEmpty() ? e.getKey() : prefix + "." + e.getKey();
+                LeafPath next = path.plus(new LeafPath.Field(e.getKey()));
                 if (e.getValue().isObject() || e.getValue().isArray()) {
-                    out.addAll(flattenKeys(e.getValue(), key));
+                    collectLeavesInto(e.getValue(), next, out);
                 } else {
-                    out.add(key);
+                    out.put(next, e.getValue());
                 }
             }
         } else if (node.isArray()) {
             for (int i = 0; i < node.size(); i++) {
-                out.addAll(flattenKeys(node.get(i), prefix + "[" + i + "]"));
+                collectLeavesInto(node.get(i), path.plus(new LeafPath.Index(i)), out);
             }
+        } else if (path.segments().size() > 0) {
+            out.put(path, node);
         }
-        return out;
     }
 
     /**
@@ -203,9 +307,14 @@ public final class OverlayValidator {
      * arrays participate in the parity scan.
      */
     static JsonNode pathGet(JsonNode root, String path) {
+        if (path.isEmpty()) return null;
+        // Leading separators or consecutive separators mean an empty token,
+        // which is malformed input — fail closed.
+        if (path.charAt(0) == '.' || path.charAt(0) == '[') return null;
         JsonNode cur = root;
         int i = 0;
         StringBuilder token = new StringBuilder();
+        boolean justClosedBracket = false;
         while (i <= path.length()) {
             char c = i < path.length() ? path.charAt(i) : '\0';
             if (c == '.' || c == '[' || c == '\0') {
@@ -213,7 +322,11 @@ public final class OverlayValidator {
                     if (cur == null) return null;
                     cur = cur.get(token.toString());
                     token.setLength(0);
+                } else if (!justClosedBracket && c != '\0') {
+                    // empty token between two separators (e.g. ".." or ".[") → malformed
+                    return null;
                 }
+                justClosedBracket = false;
                 if (c == '[') {
                     int end = path.indexOf(']', i);
                     if (end < 0) return null;
@@ -223,6 +336,7 @@ public final class OverlayValidator {
                     if (cur == null || !cur.isArray() || idx < 0 || idx >= cur.size()) return null;
                     cur = cur.get(idx);
                     i = end;
+                    justClosedBracket = true;
                 }
                 i++;
             } else {
