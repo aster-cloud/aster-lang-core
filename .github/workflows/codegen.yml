@@ -18,45 +18,45 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Checkout 所有仓库到工作区子目录
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: aster-lang-core
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: aster-cloud/aster-lang-en
           path: aster-lang-en
           token: ${{ secrets.CROSS_REPO_TOKEN }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: aster-cloud/aster-lang-zh
           path: aster-lang-zh
           token: ${{ secrets.CROSS_REPO_TOKEN }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: aster-cloud/aster-lang-de
           path: aster-lang-de
           token: ${{ secrets.CROSS_REPO_TOKEN }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: aster-cloud/aster-lang-ts
           path: aster-lang-ts
           token: ${{ secrets.CROSS_REPO_TOKEN }}
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           java-version: '25'
           distribution: 'temurin'
           cache: 'gradle'
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           package_json_file: aster-lang-ts/package.json
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: 'pnpm'
