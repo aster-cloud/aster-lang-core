@@ -410,6 +410,17 @@ public final class Canonicalizer {
             s = fullWidthToHalfWidth(s);
         }
 
+        // 5.5 CJK 标点归一化（v2 软边界）
+        // 把中文标点替换为英文等价物，让后续解析路径完全走英文规则。
+        // 仅对字符串字面量之外的位置生效；字符串内的中文标点 100% 保留。
+        //   。→ .（语句终止符）   ：→ :（块起始符）
+        //   ，→ ,（列表/字段分隔） ；→ ;   、→ ,（枚举分隔，与列表等价）
+        // 与 TS 端 canonicalizer.normalizeCJKPunctuation 保持字节等价。
+        // 设计文档见 ADR-0008。
+        if (config.whitespaceMode() == CanonicalizationConfig.WhitespaceMode.CHINESE) {
+            s = normalizeCJKPunctuation(s);
+        }
+
         // 6. 折叠多余空格，保持缩进
         s = normalizeWhitespace(s);
 
@@ -889,6 +900,105 @@ public final class Canonicalizer {
             } else {
                 // 字符串外，执行全角转半角
                 result.append(fullWidthToHalfWidthImpl(segment.text));
+            }
+        }
+        return result.toString();
+    }
+
+    /**
+     * CJK 标点归一化（v2 软边界）。
+     * <p>
+     * 把中文标点替换为英文等价物，让后续解析路径完全走英文规则。**仅**对
+     * 字符串字面量之外的位置生效；字符串内的中文标点 100% 保留原样。
+     * <p>
+     * 映射：
+     * <ul>
+     *   <li>。→ .（语句终止符）</li>
+     *   <li>：→ :（块起始符）</li>
+     *   <li>，→ ,（列表/字段分隔符）</li>
+     *   <li>；→ ;（块内分隔）</li>
+     *   <li>、→ ,（枚举分隔，与列表分隔语义等价）</li>
+     * </ul>
+     * <p>
+     * 与 TS 端 canonicalizer.normalizeCJKPunctuation 保持字节等价。
+     * 设计文档见 ADR-0008。
+     */
+    /**
+     * 暴露给 conformance test：仅运行 CJK 标点归一化步骤，
+     * 与 TS 端 normalizeCJKPunctuation 字节等价（见 ADR-0008）。
+     * 这是 v2 conformance 的窄目标——不验证整个 canonicalize 端到端
+     * （因为 Java/TS canonicalize 在关键字翻译上的策略不同，这是已知差异，
+     * 见双 parser 议题）。
+     */
+    public static String normalizeCJKPunctuationOnly(String s) {
+        // 用最小依赖构造：默认 lexicon 的 quotes，segmentString 标准实现
+        StringSegmenter seg = new StringSegmenter("「", "」");  // 「」
+        java.util.List<StringSegmenter.Segment> segments = seg.segment(s);
+        StringBuilder result = new StringBuilder(s.length());
+        for (StringSegmenter.Segment segment : segments) {
+            if (segment.inString()) {
+                result.append(segment.text());
+            } else {
+                result.append(normalizeCJKPunctuationImplStatic(segment.text()));
+            }
+        }
+        return result.toString();
+    }
+
+    private static String normalizeCJKPunctuationImplStatic(String s) {
+        StringBuilder result = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            switch (ch) {
+                case '。': result.append('.'); break;
+                case '：': result.append(':'); break;
+                case '，':
+                case '、': result.append(','); break;
+                case '；': result.append(';'); break;
+                default: result.append(ch);
+            }
+        }
+        return result.toString();
+    }
+
+    private String normalizeCJKPunctuation(String s) {
+        List<Segment> segments = segmentString(s);
+        StringBuilder result = new StringBuilder(s.length());
+
+        for (Segment segment : segments) {
+            if (segment.inString) {
+                // 字符串内的中文标点保留原样
+                result.append(segment.text);
+            } else {
+                result.append(normalizeCJKPunctuationImpl(segment.text));
+            }
+        }
+        return result.toString();
+    }
+
+    /**
+     * CJK 标点归一化的实际实现（不感知字符串边界）
+     */
+    private String normalizeCJKPunctuationImpl(String s) {
+        StringBuilder result = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            switch (ch) {
+                case '。':  // 。
+                    result.append('.');
+                    break;
+                case '：':  // ：
+                    result.append(':');
+                    break;
+                case '，':  // ，
+                case '、':  // 、
+                    result.append(',');
+                    break;
+                case '；':  // ；
+                    result.append(';');
+                    break;
+                default:
+                    result.append(ch);
             }
         }
         return result.toString();
