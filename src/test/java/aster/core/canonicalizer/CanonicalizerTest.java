@@ -370,15 +370,16 @@ class CanonicalizerTest {
             );
 
             // 同时包含关键字和领域标识符
-            // 与 TypeScript 前端保持一致："如果" 是 IF
-            String input = "如果 驾驶员 的 年龄 大于 18，返回 真。";
+            // ADR-0008 v2：单字关键字（真/假/或/且）已升级为多字（真值/假值/或者/并且），
+            // 避免与中文常用业务标识符冲突。本测试同步使用 v2 形态。
+            String input = "如果 驾驶员 的 年龄 大于 18，返回 真值。";
             String result = canon.canonicalize(input);
 
             assertTrue(result.contains("If"), "'如果'关键字应翻译为'If'");
             assertTrue(result.contains("Driver"), "'驾驶员'应翻译为'Driver'");
             assertTrue(result.contains("age"), "'年龄'应翻译为'age'");
             assertTrue(result.contains("Return"), "'返回'应翻译为'Return'");
-            assertTrue(result.contains("true"), "'真'应翻译为'true'");
+            assertTrue(result.contains("true"), "'真值'应翻译为'true' (ADR-0008 v2)");
         }
 
         @Test

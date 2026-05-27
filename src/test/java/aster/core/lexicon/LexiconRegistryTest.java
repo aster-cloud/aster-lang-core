@@ -105,11 +105,13 @@ class LexiconRegistryTest {
         assertEquals(Lexicon.Direction.LTR, zhCn.getDirection());
 
         // 验证关键词映射（与 TypeScript 前端保持一致）
+        // ADR-0008 v2：单字关键字（若/真/假/或/且）已升级为多字
+        // （匹配于/真值/假值/或者/并且），避免与中文常用业务标识符冲突。
         var keywords = zhCn.getKeywords();
         assertEquals("如果", keywords.get(SemanticTokenKind.IF));
-        assertEquals("若", keywords.get(SemanticTokenKind.MATCH));
+        assertEquals("匹配于", keywords.get(SemanticTokenKind.MATCH));
         assertEquals("返回", keywords.get(SemanticTokenKind.RETURN));
-        assertEquals("真", keywords.get(SemanticTokenKind.TRUE));
+        assertEquals("真值", keywords.get(SemanticTokenKind.TRUE));
         assertEquals("模块", keywords.get(SemanticTokenKind.MODULE_DECL));
     }
 
