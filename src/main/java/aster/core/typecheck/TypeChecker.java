@@ -110,9 +110,10 @@ public final class TypeChecker {
         .map(CoreModel.Func.class::cast)
         .toList();
       baseDiagnostics.addAll(capabilityChecker.checkModule(funcs));
-      if (shouldEnforcePii()) {
-        baseDiagnostics.addAll(piiChecker.checkModule(funcs));
-      }
+      // P0-1 (ADR-0009): PII flow 分析永远启用，不再依赖 env var。
+      // 与 TypeScript 端 typecheckModule / typecheckBrowser 保持一致语义。
+      // PII flow 分析本身 environment-agnostic（PiiChecker 不读 env / fs）。
+      baseDiagnostics.addAll(piiChecker.checkModule(funcs));
     }
 
     return List.copyOf(baseDiagnostics);
@@ -373,30 +374,18 @@ public final class TypeChecker {
   }
 
   /**
-   * 判断是否启用 PII 检查
+   * @deprecated 自 ADR-0009 (P0-1) 起，PII flow 分析永远启用。本函数仅保留为
+   *   no-op stub，下一个 major release 移除。所有 caller 应当假定 PII 检查
+   *   总是运行。
    *
-   * 采用渐进式启用策略，默认禁用 PII 检查，需显式启用：
-   * - ENFORCE_PII=true 或 ASTER_ENFORCE_PII=true: 启用 PII 检查
-   * - 其他情况: 禁用 PII 检查（默认）
+   *   原渐进式 opt-in 策略（ENFORCE_PII / ASTER_ENFORCE_PII 环境变量）已是
+   *   security hazard：同一策略在不同 runtime 报告不同安全结论，违背 Aster
+   *   "PII as a first-class type" 承诺。
    *
-   * 设计理由：
-   * 1. 兼容性：避免破坏现有项目，给团队时间逐步迁移
-   * 2. 渐进式：允许团队按自己的节奏采纳 PII 检查
-   * 3. 明确性：需要显式声明启用，避免意外启用
-   * 4. 统一性：与 TypeScript 编译器的 shouldEnforcePii() 保持一致
-   *
-   * @return true 表示启用 PII 检查，false 表示禁用
+   * @return always true
    */
+  @Deprecated(since = "ADR-0009 P0-1", forRemoval = true)
   private boolean shouldEnforcePii() {
-    var enforcePii = System.getenv("ENFORCE_PII");
-    var asterEnforcePii = System.getenv("ASTER_ENFORCE_PII");
-
-    // 明确启用的情况（与 TypeScript 一致的渐进式启用策略）
-    if ("true".equalsIgnoreCase(enforcePii) || "true".equalsIgnoreCase(asterEnforcePii)) {
-      return true;
-    }
-
-    // 默认禁用 PII 检查（渐进式启用策略）
-    return false;
+    return true;
   }
 }
