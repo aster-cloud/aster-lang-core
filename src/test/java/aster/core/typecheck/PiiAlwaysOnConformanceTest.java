@@ -131,6 +131,25 @@ class PiiAlwaysOnConformanceTest {
   }
 
   @Test
+  @DisplayName("元测试：5 个核心 PII codes（E070/E072/E073/W071/W074）必须是 Category.PII")
+  void corePiiCodesHaveCorrectCategory() {
+    // P0-R3 (codex review High #3): 跨语言 metadata category 一致性合同。
+    // 这 5 个 codes 在 TS 端 ERROR_METADATA 已修正为 category='pii'；Java
+    // 端必须对齐。任何 ErrorCode 把这些 codes 改回 Category.TYPE 会让此
+    // 测试失败 —— 防止历史 bug 重新出现。
+    assertEquals(ErrorCode.Category.PII, ErrorCode.PII_ASSIGN_DOWNGRADE.category(),
+      "PII_ASSIGN_DOWNGRADE (E070) 必须是 Category.PII（跨语言对齐 TS 端）");
+    assertEquals(ErrorCode.Category.PII, ErrorCode.PII_SINK_UNSANITIZED.category(),
+      "PII_SINK_UNSANITIZED (E072) 必须是 Category.PII");
+    assertEquals(ErrorCode.Category.PII, ErrorCode.PII_ARG_VIOLATION.category(),
+      "PII_ARG_VIOLATION (E073) 必须是 Category.PII");
+    assertEquals(ErrorCode.Category.PII, ErrorCode.PII_IMPLICIT_UPLEVEL.category(),
+      "PII_IMPLICIT_UPLEVEL (W071) 必须是 Category.PII");
+    assertEquals(ErrorCode.Category.PII, ErrorCode.PII_SINK_UNKNOWN.category(),
+      "PII_SINK_UNKNOWN (W074) 必须是 Category.PII");
+  }
+
+  @Test
   @DisplayName("元测试：ErrorCode 必须含 PII_ANALYZER_FAILED (E404)，与 TS 端对齐")
   void piiAnalyzerFailedCodeMirroredFromTs() {
     // P0-R2 (codex review High #2/#7): TS 端 src/diagnostics/error_codes.ts

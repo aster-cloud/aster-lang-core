@@ -39,9 +39,13 @@ public enum ErrorCode {
   COMPENSATE_NEW_CAPABILITY("E028", Category.CAPABILITY, Severity.ERROR, "Compensate block for step '%s' in function '%s' introduces new capability %s that does not appear in the main step body.", "Compensate 只能重复主体已使用的能力；如需额外调用，请将相同行为移至主体或在主体中声明该 capability。"),
   WORKFLOW_UNKNOWN_STEP_DEPENDENCY("E029", Category.SCOPE, Severity.ERROR, "Workflow step '%s' depends on undefined step '%s'.", "仅引用当前 workflow 中已声明的步骤名称，或修正依赖拼写。"),
   WORKFLOW_CIRCULAR_DEPENDENCY("E030", Category.TYPE, Severity.ERROR, "Workflow contains circular step dependency: %s", "移除或重构循环依赖，确保步骤可拓扑排序执行。"),
-  PII_ASSIGN_DOWNGRADE("E070", Category.TYPE, Severity.ERROR, "禁止将 PII 数据赋给较低等级目标: %s -> %s", "使用脱敏函数或为目标变量声明匹配的 @pii 等级。"),
-  PII_SINK_UNSANITIZED("E072", Category.TYPE, Severity.ERROR, "PII 等级 %s 数据未脱敏即输出到 %s", "在输出前调用 redact() 或 tokenize() 以降低敏感度。"),
-  PII_ARG_VIOLATION("E073", Category.TYPE, Severity.ERROR, "PII 参数类型不匹配: 期望 %s, 实际 %s", "检查函数签名，确保 PII 等级与类别一致。"),
+  // P0-R3 (codex review High #3): 与 TS 端 ERROR_METADATA category 对齐——
+  // 5 个核心 PII codes 从 Category.TYPE 改为 Category.PII。之前的 'TYPE'
+  // 分类是历史包袱，让任何按 category 派生 PII 集合的代码（如跨语言
+  // conformance）必然不一致。
+  PII_ASSIGN_DOWNGRADE("E070", Category.PII, Severity.ERROR, "禁止将 PII 数据赋给较低等级目标: %s -> %s", "使用脱敏函数或为目标变量声明匹配的 @pii 等级。"),
+  PII_SINK_UNSANITIZED("E072", Category.PII, Severity.ERROR, "PII 等级 %s 数据未脱敏即输出到 %s", "在输出前调用 redact() 或 tokenize() 以降低敏感度。"),
+  PII_ARG_VIOLATION("E073", Category.PII, Severity.ERROR, "PII 参数类型不匹配: 期望 %s, 实际 %s", "检查函数签名，确保 PII 等级与类别一致。"),
   DUPLICATE_IMPORT_ALIAS("E100", Category.SCOPE, Severity.WARNING, "Duplicate import alias '%s'.", "为不同的导入使用唯一别名，避免覆盖。"),
   UNDEFINED_VARIABLE("E101", Category.SCOPE, Severity.ERROR, "Undefined variable: %s", "在使用变量前先声明并初始化。"),
   EFF_MISSING_IO("E200", Category.EFFECT, Severity.ERROR, "Function '%s' may perform I/O but is missing @io effect.", "为具有 IO 行为的函数声明 @io 效果。"),
@@ -64,17 +68,19 @@ public enum ErrorCode {
   PII_SENSITIVITY_MISMATCH("E402", Category.PII, Severity.WARNING, "PII sensitivity mismatch: required %s, got %s", "调整数据的敏感级别或更新流程要求。"),
   // P0-R2: 与 TS 端 aster-lang-ts ErrorCode.PII_MISSING_CONSENT_CHECK 镜像
   PII_MISSING_CONSENT_CHECK("E403", Category.PII, Severity.WARNING, "Function '%s' processes PII data without consent check (GDPR Art. 6)", "在处理 PII 前调用 checkConsent() 或添加 @consent_required 注解。"),
-  // P0-R2 (codex review High #7): PII analyzer 内部失败的专用 code，
-  // 与 TS 端 aster-lang-ts ErrorCode.PII_ANALYZER_FAILED 镜像，确保跨语言
-  // analyzer failure 语义一致。详见 ADR-0009。
-  PII_ANALYZER_FAILED("E404", Category.PII, Severity.ERROR, "PII flow analysis aborted internally: %s. This is a bug in the type checker; PII safety cannot be guaranteed for this module — please report.", "保存源码、刷新或联系管理员。详细 reason 已记录到日志/telemetry。"),
+  // P0-R2 (codex review High #7): PII analyzer 内部失败的专用 code，与 TS
+  // 端 aster-lang-ts ErrorCode.PII_ANALYZER_FAILED 镜像。
+  // P0-R3 (codex review Medium #5): 文案与 TS 端对齐——业务用户友好语气，
+  // 明确指引"this policy should not be deployed"。
+  PII_ANALYZER_FAILED("E404", Category.PII, Severity.ERROR, "PII safety analysis failed for this module — the editor cannot verify whether sensitive data is correctly handled. This policy should not be deployed until the analysis succeeds. Internal reason: %s", "保存源码并重试。如果错误持续，请联系管理员或附上源码提交 issue。"),
   ASYNC_START_NOT_WAITED("E500", Category.ASYNC, Severity.ERROR, "Started async task '%s' not waited", "对启动的异步任务调用 wait，确保执行完毕。"),
   ASYNC_WAIT_NOT_STARTED("E501", Category.ASYNC, Severity.ERROR, "Waiting for async task '%s' that was never started", "确认 wait 的任务名称在 Start 中正确出现。"),
   ASYNC_DUPLICATE_START("E502", Category.ASYNC, Severity.ERROR, "Async task '%s' started multiple times (%s occurrences)", "避免重复启动同名任务，可复用已有任务或改用新名称。"),
   ASYNC_DUPLICATE_WAIT("E503", Category.ASYNC, Severity.WARNING, "Async task '%s' waited multiple times (%s occurrences)", "确保每个任务仅等待一次，或使用单独的同步机制。"),
   ASYNC_WAIT_BEFORE_START("E504", Category.ASYNC, Severity.ERROR, "Wait for async task '%s' occurs before any matching start", "在 wait for 之前先执行 start，并确保两者位于兼容的控制路径。"),
-  PII_IMPLICIT_UPLEVEL("W071", Category.TYPE, Severity.WARNING, "检测到隐式 PII 等级提升: %s -> %s", "为等级变化添加显式类型注解以便审计。"),
-  PII_SINK_UNKNOWN("W074", Category.TYPE, Severity.WARNING, "可能有 PII 数据流向 %s 但缺少注解", "为数据增加 @pii 注解以追踪敏感数据流。"),
+  // P0-R3 (codex review High #3): 与 TS 端 ERROR_METADATA 对齐
+  PII_IMPLICIT_UPLEVEL("W071", Category.PII, Severity.WARNING, "检测到隐式 PII 等级提升: %s -> %s", "为等级变化添加显式类型注解以便审计。"),
+  PII_SINK_UNKNOWN("W074", Category.PII, Severity.WARNING, "可能有 PII 数据流向 %s 但缺少注解", "为数据增加 @pii 注解以追踪敏感数据流。"),
   WORKFLOW_RETRY_INCONSISTENT("W105", Category.TYPE, Severity.WARNING, "Workflow retry 配置可能不合理: %s", "检查 retry 总等待时间、maxAttempts 与 backoff 策略的组合是否合理。"),
   WORKFLOW_TIMEOUT_UNREASONABLE("W106", Category.TYPE, Severity.WARNING, "Workflow timeout 配置可能不合理: %s", "检查 timeout 值是否过大或过小。"),
   ;
