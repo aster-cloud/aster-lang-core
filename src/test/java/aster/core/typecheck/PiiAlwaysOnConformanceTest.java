@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -112,6 +113,37 @@ class PiiAlwaysOnConformanceTest {
     );
   }
 
+  @Test
+  @DisplayName("元测试：isPiiCode 覆盖 ErrorCode 中所有 Category.PII 成员")
+  void piiCodeSetIsExhaustive() {
+    // P0-R2 (codex review High #7 + Medium #10): 自动派生 PII codes 集合，
+    // 防止未来新增 PII code 时漏加入 isPiiCode()。所有 Category.PII 的
+    // ErrorCode 都必须被识别为 PII code。
+    for (ErrorCode code : ErrorCode.values()) {
+      if (code.category() == ErrorCode.Category.PII) {
+        assertTrue(
+          isPiiCode(code),
+          "新增的 PII code " + code.name() + " (" + code.code() + ") 未加入 isPiiCode() 集合 —— " +
+            "请同步更新 isPiiCode() 和 TS 端 pii-cross-runtime-conformance.test.ts 的 PII_CODES"
+        );
+      }
+    }
+  }
+
+  @Test
+  @DisplayName("元测试：ErrorCode 必须含 PII_ANALYZER_FAILED (E404)，与 TS 端对齐")
+  void piiAnalyzerFailedCodeMirroredFromTs() {
+    // P0-R2 (codex review High #2/#7): TS 端 src/diagnostics/error_codes.ts
+    // 新增了 PII_ANALYZER_FAILED = E404。Java 端必须有对应镜像以保证跨语言
+    // analyzer failure 语义一致。
+    assertEquals("E404", ErrorCode.PII_ANALYZER_FAILED.code(),
+      "PII_ANALYZER_FAILED 必须是 E404 与 TS 端镜像");
+    assertEquals(ErrorCode.Severity.ERROR, ErrorCode.PII_ANALYZER_FAILED.severity(),
+      "PII analyzer failure 必须是 error severity（不能伪装成 warning）");
+    assertEquals(ErrorCode.Category.PII, ErrorCode.PII_ANALYZER_FAILED.category(),
+      "PII_ANALYZER_FAILED 必须归类为 PII");
+  }
+
   // ============================================================
   // Helpers
   // ============================================================
@@ -120,12 +152,22 @@ class PiiAlwaysOnConformanceTest {
     return diagnostics.stream().anyMatch(d -> d.code() == code);
   }
 
+  /**
+   * 所有 PII 相关错误码。P0-R2 (codex review High #7): 与 TS 端
+   * pii-cross-runtime-conformance.test.ts 的 PII_CODES 集合对齐——
+   * 任何遗漏意味着 conformance 在该 code 上 drift 时测试不会捕获。
+   */
   private boolean isPiiCode(ErrorCode code) {
     return code == ErrorCode.PII_ASSIGN_DOWNGRADE
         || code == ErrorCode.PII_SINK_UNSANITIZED
         || code == ErrorCode.PII_ARG_VIOLATION
         || code == ErrorCode.PII_IMPLICIT_UPLEVEL
-        || code == ErrorCode.PII_SINK_UNKNOWN;
+        || code == ErrorCode.PII_SINK_UNKNOWN
+        || code == ErrorCode.PII_HTTP_UNENCRYPTED
+        || code == ErrorCode.PII_ANNOTATION_MISSING
+        || code == ErrorCode.PII_SENSITIVITY_MISMATCH
+        || code == ErrorCode.PII_MISSING_CONSENT_CHECK
+        || code == ErrorCode.PII_ANALYZER_FAILED;
   }
 
   private CoreModel.Module moduleOf(String name, List<? extends CoreModel.Decl> decls) {

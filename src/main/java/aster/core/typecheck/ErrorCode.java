@@ -62,6 +62,12 @@ public enum ErrorCode {
   PII_HTTP_UNENCRYPTED("E400", Category.PII, Severity.ERROR, "PII data transmitted over HTTP without encryption", "使用加密通道（HTTPS）或脱敏处理后再传输 PII 数据。"),
   PII_ANNOTATION_MISSING("E401", Category.PII, Severity.ERROR, "PII annotation missing for value flowing into '%s'", "为敏感数据添加 @pii 标注以便跟踪。"),
   PII_SENSITIVITY_MISMATCH("E402", Category.PII, Severity.WARNING, "PII sensitivity mismatch: required %s, got %s", "调整数据的敏感级别或更新流程要求。"),
+  // P0-R2: 与 TS 端 aster-lang-ts ErrorCode.PII_MISSING_CONSENT_CHECK 镜像
+  PII_MISSING_CONSENT_CHECK("E403", Category.PII, Severity.WARNING, "Function '%s' processes PII data without consent check (GDPR Art. 6)", "在处理 PII 前调用 checkConsent() 或添加 @consent_required 注解。"),
+  // P0-R2 (codex review High #7): PII analyzer 内部失败的专用 code，
+  // 与 TS 端 aster-lang-ts ErrorCode.PII_ANALYZER_FAILED 镜像，确保跨语言
+  // analyzer failure 语义一致。详见 ADR-0009。
+  PII_ANALYZER_FAILED("E404", Category.PII, Severity.ERROR, "PII flow analysis aborted internally: %s. This is a bug in the type checker; PII safety cannot be guaranteed for this module — please report.", "保存源码、刷新或联系管理员。详细 reason 已记录到日志/telemetry。"),
   ASYNC_START_NOT_WAITED("E500", Category.ASYNC, Severity.ERROR, "Started async task '%s' not waited", "对启动的异步任务调用 wait，确保执行完毕。"),
   ASYNC_WAIT_NOT_STARTED("E501", Category.ASYNC, Severity.ERROR, "Waiting for async task '%s' that was never started", "确认 wait 的任务名称在 Start 中正确出现。"),
   ASYNC_DUPLICATE_START("E502", Category.ASYNC, Severity.ERROR, "Async task '%s' started multiple times (%s occurrences)", "避免重复启动同名任务，可复用已有任务或改用新名称。"),

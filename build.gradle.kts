@@ -89,6 +89,16 @@ tasks.test {
         excludeTags("crosslang")
     }
     dependsOn(tasks.jar)
+
+    // P0-R2 (codex review High #2): PiiAlwaysOnConformanceTest 断言"无 env
+    // var 时 PII 仍跑"——必须在 fork JVM 里显式清空可能由开发机/CI 注入
+    // 的 ENFORCE_PII / ASTER_ENFORCE_PII，否则旧 gate 实现在 env=true 时
+    // 也会通过测试，无法证明 P0-1 修复生效。
+    //
+    // Gradle 默认会传递父进程 env 给 fork。我们显式覆盖为空字符串保证
+    // System.getenv 返回 ""（与 unset 在 shouldEnforcePii() 逻辑下等价）。
+    environment("ENFORCE_PII", "")
+    environment("ASTER_ENFORCE_PII", "")
 }
 
 // Phase 3A-2: 跨语言双引擎测试，需要 aster-lang-ts 已 build + node 可用
