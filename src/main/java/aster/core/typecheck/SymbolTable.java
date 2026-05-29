@@ -414,9 +414,24 @@ public final class SymbolTable {
   // ========== 私有辅助方法 ==========
 
   /**
+   * R30+ audit P1：类型别名递归展开的硬上限。
+   *
+   * <p>原来的 {@code stack.contains(name)} 只在同一 alias 名再次入栈时
+   * 触发；但 ANTLR 输入可以通过 {@code TypeApp} / {@code ListT} 链产生
+   * 不重名但深度任意的展开（如 {@code A = List of A1, A1 = List of A2, ...}），
+   * 在到达 cycle 之前先打爆 JVM 栈。给一个 32 层硬上限作为兜底，触发后
+   * 直接返回 empty，等价于 "alias 解析失败"，由 typecheck 调用方处理。
+   */
+  private static final int MAX_ALIAS_DEPTH = 32;
+
+  /**
    * 递归解析类型别名（检测递归）
    */
   private Optional<Type> resolveAliasRecursive(String name, Set<String> stack) {
+    if (stack.size() >= MAX_ALIAS_DEPTH) {
+      // P1 audit: 防止 ANTLR 输入构造 unbounded TypeApp 链打爆 JVM 栈
+      return Optional.empty();
+    }
     var entry = typeAliases.get(name);
     if (entry == null) {
       return Optional.empty();
