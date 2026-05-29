@@ -1,0 +1,4 @@
+Module greeting.
+
+Rule greet given name as Text, title as Text, produce Text:
+  Return "Hello, " plus title plus " " plus name plus "!".

@@ -1,0 +1,7 @@
+Module credit.
+
+Rule riskGrade given score as Int, produce Text:
+  If score is greater than or equal to 720:
+    Return "low".
+  Otherwise:
+    Return "high".

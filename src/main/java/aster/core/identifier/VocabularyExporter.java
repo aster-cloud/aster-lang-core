@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
@@ -24,6 +26,8 @@ import java.util.List;
  * 确保导出格式与加载格式一致。
  */
 public final class VocabularyExporter {
+
+    private static final Logger LOG = System.getLogger(VocabularyExporter.class.getName());
 
     private final ObjectMapper mapper;
 
@@ -59,7 +63,7 @@ public final class VocabularyExporter {
             .toList();
 
         if (vocabularies.isEmpty()) {
-            System.err.println("警告: 未发现任何已注册的领域词汇表，请确认 SPI 插件配置正确");
+            LOG.log(Level.WARNING, "未发现任何已注册的领域词汇表，请确认 SPI 插件配置正确");
         }
 
         ObjectNode root = mapper.createObjectNode();

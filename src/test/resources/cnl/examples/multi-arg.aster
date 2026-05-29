@@ -1,0 +1,6 @@
+Module loan.
+
+Rule monthlyPayment given principal as Double, rate as Double, term as Int, produce Double:
+  Let monthlyRate be rate divided by 12.
+  Let factor be 1 plus monthlyRate.
+  Return principal multiplied by monthlyRate divided by factor.

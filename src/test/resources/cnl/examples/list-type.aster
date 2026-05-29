@@ -1,0 +1,6 @@
+Module scores.
+
+Rule average given values as List of Double, produce Double:
+  Let total be sum of values.
+  Let count be length of values.
+  Return total divided by count.

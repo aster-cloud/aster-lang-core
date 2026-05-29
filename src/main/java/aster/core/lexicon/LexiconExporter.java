@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Writer;
@@ -34,6 +36,8 @@ import java.util.Set;
  * 属于代码逻辑，不会被序列化到 JSON 中。JSON 仅包含声明式配置数据。
  */
 public final class LexiconExporter {
+
+    private static final Logger LOG = System.getLogger(LexiconExporter.class.getName());
 
     private final ObjectMapper mapper;
 
@@ -254,7 +258,7 @@ public final class LexiconExporter {
             String resourcePath = entry.getValue();
             try (InputStream is = plugin.getClass().getClassLoader().getResourceAsStream(resourcePath)) {
                 if (is == null) {
-                    System.err.printf("Overlay resource not found: %s (plugin: %s)%n",
+                    LOG.log(Level.WARNING, "Overlay resource not found: {0} (plugin: {1})",
                             resourcePath, plugin.getClass().getName());
                     continue;
                 }
@@ -262,8 +266,8 @@ public final class LexiconExporter {
                 JsonNode parsed = mapper.readTree(json);
                 overlaysNode.set(key, parsed);
             } catch (IOException e) {
-                System.err.printf("Failed to read overlay resource: %s (%s)%n",
-                        resourcePath, e.getMessage());
+                LOG.log(Level.WARNING,
+                    "Failed to read overlay resource: " + resourcePath, e);
             }
         }
     }
@@ -275,8 +279,8 @@ public final class LexiconExporter {
                 Lexicon lexicon = plugin.createLexicon();
                 map.put(lexicon.getId(), plugin);
             } catch (Exception e) {
-                System.err.printf("Failed to load plugin for overlay discovery: %s%n",
-                        plugin.getClass().getName());
+                LOG.log(Level.WARNING,
+                    "Failed to load plugin for overlay discovery: " + plugin.getClass().getName(), e);
             }
         }
         return map;

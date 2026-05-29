@@ -1,0 +1,4 @@
+Module nesting.
+
+Rule compute given a as Int, b as Int, c as Int, produce Int:
+  Return a plus b multiplied by c minus a divided by 2.

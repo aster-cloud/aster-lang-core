@@ -1,0 +1,9 @@
+Module profile.
+
+Define Profile has bio Maybe of Text.
+
+Rule shortBio given p as Profile, produce Text:
+  If p.bio is not null:
+    Return p.bio.
+  Otherwise:
+    Return "no bio".

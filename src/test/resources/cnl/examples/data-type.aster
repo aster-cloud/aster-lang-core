@@ -1,0 +1,6 @@
+Module customer.
+
+Define Customer has name Text, age Int, email Text.
+
+Rule isAdult given c as Customer, produce Bool:
+  Return c.age is greater than or equal to 18.

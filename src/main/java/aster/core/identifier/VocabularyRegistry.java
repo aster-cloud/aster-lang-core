@@ -1,5 +1,7 @@
 package aster.core.identifier;
 
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -20,6 +22,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * - 动态加载和卸载
  */
 public final class VocabularyRegistry {
+
+    // R30+ audit P2：用 JDK 自带 System.Logger 代替 System.err.println。
+    // 不引入额外依赖；headless CI 也能正确路由到配置好的 handler。
+    private static final Logger LOG = System.getLogger(VocabularyRegistry.class.getName());
 
     private static final VocabularyRegistry INSTANCE = new VocabularyRegistry();
 
@@ -70,8 +76,10 @@ public final class VocabularyRegistry {
                     loaded++;
                 }
             } catch (Exception e) {
-                System.err.printf("加载词汇表插件失败: %s%n", plugin.getClass().getName());
-                e.printStackTrace(System.err);
+                // R30+ audit P3：plugin load 失败用 logger，并保留 stack
+                // trace（System.Logger 的 Throwable overload）。
+                LOG.log(Level.ERROR,
+                    "加载词汇表插件失败: " + plugin.getClass().getName(), e);
             }
         }
         return loaded;
@@ -107,8 +115,8 @@ public final class VocabularyRegistry {
         }
 
         if (!result.warnings().isEmpty()) {
-            System.err.println("词汇表 '" + vocabulary.id() + "' 警告: " +
-                String.join("; ", result.warnings()));
+            LOG.log(Level.WARNING, "词汇表 ''{0}'' 警告: {1}",
+                vocabulary.id(), String.join("; ", result.warnings()));
         }
 
         String key = makeKey(vocabulary.id(), vocabulary.locale());
