@@ -70,22 +70,26 @@ jobs:
     permissions:
       contents: read
     steps:
+      # R-CI-1 fix: paths-filter needs a checkout to diff against. Do
+      # the self-checkout first into a sub-path, then point paths-filter
+      # at it with working-directory.
+      - name: Self checkout
+        uses: actions/checkout@v6
+        with:
+          path: aster-lang-core
+          fetch-depth: 0
+
       - name: Decide whether to run
         id: changed
         uses: dorny/paths-filter@v3
         with:
+          working-directory: aster-lang-core
           filters: |
             parity:
               - 'src/main/**'
               - 'src/test/java/aster/core/dualengine/**'
               - 'build.gradle.kts'
               - '.github/workflows/ci.yml'
-
-      - name: Self checkout
-        if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: actions/checkout@v6
-        with:
-          path: aster-lang-core
 
       - name: Checkout aster-lang-test
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
