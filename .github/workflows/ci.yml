@@ -129,6 +129,23 @@ jobs:
           path: aster-lang-de
           token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
 
+      # aster-lang-runtime + aster-lang-truffle are only needed by the
+      # Phase C evaluator step (CoreIrEvalCli lives in truffle).
+      - name: Checkout aster-lang-runtime
+        if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
+        uses: actions/checkout@v6
+        with:
+          repository: aster-cloud/aster-lang-runtime
+          path: aster-lang-runtime
+          token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
+      - name: Checkout aster-lang-truffle
+        if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
+        uses: actions/checkout@v6
+        with:
+          repository: aster-cloud/aster-lang-truffle
+          path: aster-lang-truffle
+          token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
+
       - name: Setup pnpm
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
         uses: pnpm/action-setup@v6
@@ -174,6 +191,11 @@ jobs:
           cd ../aster-lang-zh && ./gradlew publishToMavenLocal -x test
           cd ../aster-lang-de && ./gradlew publishToMavenLocal -x test
 
+      - name: Publish aster-lang-runtime to Maven Local
+        if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
+        working-directory: aster-lang-runtime
+        run: ./gradlew publishToMavenLocal -x test
+
       - name: Publish corpus to Maven Local
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
         working-directory: aster-lang-test/packages/jvm
@@ -198,6 +220,16 @@ jobs:
           set -o pipefail
           node scripts/parity-tier1.mjs --mode=ir --report-only | tee parity-tier1-ir-report.md
 
+      # Phase C evaluator parity — report-only first cycle.
+      - name: Run tier1-parity (eval, report-only)
+        if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
+        working-directory: aster-lang-test
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/parity-tier1.mjs --mode=eval --report-only | tee parity-tier1-eval-report.md
+
       - name: Upload parity reports
         if: always() && (steps.changed.outputs.parity == 'true' || github.event_name == 'push')
         uses: actions/upload-artifact@v7
@@ -206,4 +238,5 @@ jobs:
           path: |
             aster-lang-test/parity-tier1-report.json
             aster-lang-test/parity-tier1-ir-report.md
+            aster-lang-test/parity-tier1-eval-report.md
           if-no-files-found: warn
