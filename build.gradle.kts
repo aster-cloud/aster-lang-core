@@ -99,6 +99,19 @@ tasks.test {
     // System.getenv 返回 ""（与 unset 在 shouldEnforcePii() 逻辑下等价）。
     environment("ENFORCE_PII", "")
     environment("ASTER_ENFORCE_PII", "")
+
+    // Forward the two `parity.ir.*` system properties used by
+    // CoreIrFingerprintCli to the test JVM. Without this, properties
+    // passed via `./gradlew -Dparity.ir.input=...` stay in the Gradle
+    // daemon and the CLI silently no-ops.
+    //
+    // Codex review R-Phase-B-W3: forward EXACT keys (not a wildcard
+    // `parity.*` prefix) so future tests can't accidentally collide
+    // with the parity runner's property namespace.
+    listOf("parity.ir.input", "parity.ir.output").forEach { key ->
+        val v = System.getProperty(key)
+        if (v != null) systemProperty(key, v)
+    }
 }
 
 // Phase 3A-2: 跨语言双引擎测试，需要 aster-lang-ts 已 build + node 可用

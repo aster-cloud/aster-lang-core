@@ -179,10 +179,31 @@ jobs:
         working-directory: aster-lang-test/packages/jvm
         run: ./gradlew publishToMavenLocal -x test
 
-      - name: Run tier1-parity strict gate
+      - name: Run tier1-parity strict gate (parse, PR-blocking)
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
         working-directory: aster-lang-test
         shell: bash
         run: |
           set -o pipefail
           node scripts/parity-tier1.mjs --mode=parse
+
+      # Phase B IR fingerprint parity — report-only for first cycle.
+      # See aster-lang-test/.github/workflows/ci.yml for full rationale.
+      - name: Run tier1-parity (IR fingerprint, report-only)
+        if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
+        working-directory: aster-lang-test
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/parity-tier1.mjs --mode=ir --report-only | tee parity-tier1-ir-report.md
+
+      - name: Upload parity reports
+        if: always() && (steps.changed.outputs.parity == 'true' || github.event_name == 'push')
+        uses: actions/upload-artifact@v7
+        with:
+          name: parity-tier1-${{ github.run_id }}
+          path: |
+            aster-lang-test/parity-tier1-report.json
+            aster-lang-test/parity-tier1-ir-report.md
+          if-no-files-found: warn
