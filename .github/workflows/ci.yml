@@ -156,10 +156,24 @@ jobs:
         working-directory: aster-lang-ts
         run: pnpm install --frozen-lockfile && pnpm build
 
-      # See aster-lang-test/.github/workflows/ci.yml for the rationale —
-      # publish corpus to Maven Local so this PR's core changes are
-      # evaluated against the corpus the runner expects, not a stale
-      # remote artifact.
+      # See aster-lang-test/.github/workflows/ci.yml for the full
+      # rationale: publish core + locale packs + corpus to Maven Local
+      # before gradle test, otherwise gradle falls back to GitHub
+      # Packages and fails with 401. THIS PR's aster-lang-core is the
+      # one we want under test, so publishing it locally is also what
+      # ensures the gate evaluates the right version.
+      - name: Publish aster-lang-core to Maven Local
+        if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
+        working-directory: aster-lang-core
+        run: ./gradlew compileJava publishToMavenLocal -x test
+
+      - name: Publish locale packs to Maven Local
+        if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
+        run: |
+          cd aster-lang-en && ./gradlew publishToMavenLocal -x test
+          cd ../aster-lang-zh && ./gradlew publishToMavenLocal -x test
+          cd ../aster-lang-de && ./gradlew publishToMavenLocal -x test
+
       - name: Publish corpus to Maven Local
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
         working-directory: aster-lang-test/packages/jvm
@@ -168,4 +182,7 @@ jobs:
       - name: Run tier1-parity strict gate
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
         working-directory: aster-lang-test
-        run: node scripts/parity-tier1.mjs --mode=parse
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/parity-tier1.mjs --mode=parse
