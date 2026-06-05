@@ -13,6 +13,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # 共享版本目录（aster-lang-platform，ADR 0012）—— core settings 依赖它。
+      - uses: actions/checkout@v6
+        with:
+          repository: aster-cloud/aster-lang-platform
+          path: aster-lang-platform
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+
       - uses: actions/checkout@v6
         with:
           repository: aster-cloud/aster-lang-en
@@ -36,6 +43,10 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
           cache: 'gradle'
+
+      # 发布共享版本目录到 Maven Local（core settings 依赖它）
+      - name: Publish version catalog locally
+        run: cd aster-lang-platform && ./gradlew publishToMavenLocal
 
       # 编译 core 并发布到 Maven Local（供 lang packs 依赖）
       - name: Compile & publish core locally

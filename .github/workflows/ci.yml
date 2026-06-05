@@ -18,6 +18,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # 共享版本目录（aster-lang-platform，ADR 0012）。core 的 settings.gradle
+      # 导入它，故必须在任何 core gradle 调用前发布到 Maven Local。
+      - uses: actions/checkout@v6
+        with:
+          repository: aster-cloud/aster-lang-platform
+          path: aster-lang-platform
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+
       - uses: actions/checkout@v6
         with:
           repository: aster-cloud/aster-lang-en
@@ -41,6 +49,10 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
           cache: 'gradle'
+
+      # Phase 0: 发布共享版本目录到 Maven Local（core settings 依赖它）
+      - name: Publish version catalog
+        run: cd aster-lang-platform && ./gradlew publishToMavenLocal
 
       # Phase 1: 编译 core 并发布到 Maven Local（供 lang packs 依赖）
       - name: Compile & publish core
@@ -90,6 +102,14 @@ jobs:
               - 'src/test/java/aster/core/dualengine/**'
               - 'build.gradle.kts'
               - '.github/workflows/ci.yml'
+
+      - name: Checkout aster-lang-platform
+        if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
+        uses: actions/checkout@v6
+        with:
+          repository: aster-cloud/aster-lang-platform
+          path: aster-lang-platform
+          token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
 
       - name: Checkout aster-lang-test
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
@@ -179,6 +199,14 @@ jobs:
       # Packages and fails with 401. THIS PR's aster-lang-core is the
       # one we want under test, so publishing it locally is also what
       # ensures the gate evaluates the right version.
+      # Publish the shared version catalog first — aster-lang-core's
+      # settings.gradle imports it (ADR 0012), so it must be in Maven
+      # Local before any core gradle invocation below.
+      - name: Publish version catalog to Maven Local
+        if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
+        working-directory: aster-lang-platform
+        run: ./gradlew publishToMavenLocal
+
       - name: Publish aster-lang-core to Maven Local
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
         working-directory: aster-lang-core

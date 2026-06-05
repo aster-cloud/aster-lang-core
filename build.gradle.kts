@@ -72,12 +72,13 @@ dependencies {
     testImplementation("org.skyscreamer:jsonassert:1.5.1")
 
     // 语言包（测试和 exportLexicons 任务需要通过 SPI 发现语言包）
-    testRuntimeOnly("cloud.aster-lang:aster-lang-en:0.0.1")
-    testRuntimeOnly("cloud.aster-lang:aster-lang-zh:0.0.1")
-    testRuntimeOnly("cloud.aster-lang:aster-lang-de:0.0.1")
+    // 版本来自共享 catalog（aster-lang-platform，ADR 0012）。
+    testRuntimeOnly(asterLibs.en)
+    testRuntimeOnly(asterLibs.zh)
+    testRuntimeOnly(asterLibs.de)
 
     // 共享测试 corpus：双引擎等价 + 单端 fixture
-    testImplementation("cloud.aster-lang:aster-lang-test:0.0.1")
+    testImplementation(asterLibs.test)
 }
 
 tasks.test {
@@ -231,9 +232,10 @@ tasks.jar {
 val langPacks: Configuration by configurations.creating
 
 dependencies {
-    langPacks("cloud.aster-lang:aster-lang-en:0.0.1")
-    langPacks("cloud.aster-lang:aster-lang-zh:0.0.1")
-    langPacks("cloud.aster-lang:aster-lang-de:0.0.1")
+    // 版本来自共享 catalog（aster-lang-platform，ADR 0012）。
+    langPacks(asterLibs.en)
+    langPacks(asterLibs.zh)
+    langPacks(asterLibs.de)
 }
 
 // Lexicon JSON 导出任务（供 aster-lang-ts / aster-cloud 代码生成消费）
