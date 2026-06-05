@@ -817,11 +817,8 @@ class AstBuilderTest {
      */
     @Test
     void testCapabilityAnnotation() {
-        // parseAndBuild 直接喂 lexer，不走 canonicalizer。真实管线总是先
-        // canonicalize（en-US 词法表 "FUNC_PERFORMS": "it performs" 为小写），
-        // 故这里用 canonical 小写 "it performs"——与 lexer token IT: 'it' 一致。
         String input = """
-            Rule ping, produce Text. it performs io [Http, Sql, Time]:
+            Rule ping, produce Text. It performs io [Http, Sql, Time]:
               Return "ok".
             """;
 

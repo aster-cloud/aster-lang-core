@@ -69,7 +69,7 @@ public class AsterLexer extends Lexer {
 			"'as'", "'one'", "'of'", null, "'Let'", "'be'", "'Return'", "'If'", null, 
 			"'Match'", "'When'", "'not'", "'Start'", "'Wait'", "'for'", "'async'", 
 			null, null, null, null, null, null, null, null, null, null, null, "'function'", 
-			"'Map'", "'it'", "'performs'"
+			"'Map'", "'It'", "'performs'"
 		};
 	}
 	private static final String[] _LITERAL_NAMES = makeLiteralNames();
@@ -724,7 +724,7 @@ public class AsterLexer extends Lexer {
 		"\u0000\u038c\u038d\u0005n\u0000\u0000\u038d\u00a2\u0001\u0000\u0000\u0000"+
 		"\u038e\u038f\u0005M\u0000\u0000\u038f\u0390\u0005a\u0000\u0000\u0390\u0391"+
 		"\u0005p\u0000\u0000\u0391\u00a4\u0001\u0000\u0000\u0000\u0392\u0393\u0005"+
-		"i\u0000\u0000\u0393\u0394\u0005t\u0000\u0000\u0394\u00a6\u0001\u0000\u0000"+
+		"I\u0000\u0000\u0393\u0394\u0005t\u0000\u0000\u0394\u00a6\u0001\u0000\u0000"+
 		"\u0000\u0395\u0396\u0005p\u0000\u0000\u0396\u0397\u0005e\u0000\u0000\u0397"+
 		"\u0398\u0005r\u0000\u0000\u0398\u0399\u0005f\u0000\u0000\u0399\u039a\u0005"+
 		"o\u0000\u0000\u039a\u039b\u0005r\u0000\u0000\u039b\u039c\u0005m\u0000"+

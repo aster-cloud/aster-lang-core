@@ -16,7 +16,7 @@
     "FUNC_TO": "Rule",
     "FUNC_GIVEN": "given",
     "FUNC_PRODUCE": "produce",
-    "FUNC_PERFORMS": "it performs",
+    "FUNC_PERFORMS": "It performs",
     "IF": "If",
     "OTHERWISE": "Otherwise",
     "MATCH": "Match",

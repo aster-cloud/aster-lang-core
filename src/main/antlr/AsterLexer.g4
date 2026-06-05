@@ -142,12 +142,11 @@ FUNCTION: 'function';
 // 集合类型关键字
 MAP: 'Map';
 
-// 能力标注关键字
-// 必须与 en-US 词法表 "FUNC_PERFORMS": "it performs" 的 canonical 文本一致。
-// canonicalizer 按词法表原文输出小写 "it performs"，故 IT 必须是小写 'it'；
-// 旧的 'It' 永远匹配不到 canonical 流，导致 capabilityAnnotation 不可达，
-// 所有带能力标注的 Rule 在 Java 端 parse 失败（TS 端不受影响）。
-IT: 'it';
+// 能力标注关键字。与 en-US 词法表 "FUNC_PERFORMS": "It performs" 一致
+// （Capitalized，与 Module/Rule/If/Let/Return 等句首关键字同约定，也与
+// 语料库 87 处 "It performs" 一致）。真正的 bug 曾在词法表把它误写成
+// 小写 "it performs"，导致 canonicalizer 输出 "it" 匹配不到 IT 'It'。
+IT: 'It';
 PERFORMS: 'performs';
 
 // ============================================================
