@@ -54,9 +54,17 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
         declContexts.forEach(declCtx -> {
             if (declCtx.dataDecl() != null) {
-                declaredTypeNames.add(declCtx.dataDecl().TYPE_IDENT().getText());
+                // 防御性 null-check：正常 dataDecl 一定有 TYPE_IDENT，但若文法
+                // 误路由（历史上 funcDecl 歧义导致过），这里宁可跳过也不 NPE。
+                TerminalNode typeName = declCtx.dataDecl().TYPE_IDENT();
+                if (typeName != null) {
+                    declaredTypeNames.add(typeName.getText());
+                }
             } else if (declCtx.enumDecl() != null) {
-                declaredTypeNames.add(declCtx.enumDecl().TYPE_IDENT().getText());
+                TerminalNode typeName = declCtx.enumDecl().TYPE_IDENT();
+                if (typeName != null) {
+                    declaredTypeNames.add(typeName.getText());
+                }
             } else if (declCtx.typeDecl() != null) {
                 AsterParser.TypeDeclContext typeDeclCtx = declCtx.typeDecl();
                 String aliasName = typeDeclCtx.TYPE_IDENT() != null
