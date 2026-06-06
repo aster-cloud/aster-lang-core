@@ -33,6 +33,7 @@ public final class TransformerRegistry {
         REGISTRY.put("english-possessive", new Entry(() -> EnglishPossessiveTransformer.INSTANCE, null));
         REGISTRY.put("result-is", new Entry(() -> ResultIsTransformer.INSTANCE, null));
         REGISTRY.put("set-to", new Entry(() -> SetToTransformer.INSTANCE, null));
+        REGISTRY.put("is-comparator", new Entry(() -> IsComparatorTransformer.INSTANCE, null));
     }
 
     private TransformerRegistry() {}
@@ -194,5 +195,6 @@ public final class TransformerRegistry {
         REGISTRY.put("english-possessive", new Entry(() -> EnglishPossessiveTransformer.INSTANCE, null));
         REGISTRY.put("result-is", new Entry(() -> ResultIsTransformer.INSTANCE, null));
         REGISTRY.put("set-to", new Entry(() -> SetToTransformer.INSTANCE, null));
+        REGISTRY.put("is-comparator", new Entry(() -> IsComparatorTransformer.INSTANCE, null));
     }
 }

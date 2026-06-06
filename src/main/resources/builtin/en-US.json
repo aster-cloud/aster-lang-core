@@ -99,7 +99,7 @@
       ["LESS_THAN", "UNDER"],
       ["GREATER_THAN", "MORE_THAN", "OVER"]
     ],
-    "preTranslationTransformers": ["english-possessive"],
+    "preTranslationTransformers": ["english-possessive", "is-comparator"],
     "postTranslationTransformers": ["result-is", "set-to"]
   },
   "messages": {
