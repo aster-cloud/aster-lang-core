@@ -926,6 +926,17 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                 spanFrom(ctx)
             );
         }
+        // 软比较词分支：`under` / `over`（前置可选 `is`），ADR 0013 #1b-i 对齐 TS。
+        if (ctx.softComparator() != null && ctx.additiveExpr().size() > 1) {
+            Expr right = (Expr) visit(ctx.additiveExpr(1));
+            String word = ctx.softComparator().word.getText();
+            String op = normalizeOperator(word);  // under → <, over → >
+            return new Expr.Call(
+                new Expr.Name(op, spanFrom(ctx.softComparator().word)),
+                List.of(left, right),
+                spanFrom(ctx)
+            );
+        }
         return left;
     }
 
@@ -938,11 +949,26 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         }
         // 去除多余空白并转小写进行匹配
         String normalized = op.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ").trim();
-        return switch (normalized) {
+        // 剥离可选的 `is ` 连接词前缀（ADR 0013 #1b-i）：lexer 把
+        // `is at least` 整体识别为 GREATER_THAN_OR_EQUAL_WORD 等比较词 token，
+        // token 文本带 is 前缀；这里统一剥离后再映射，使 `is at least` 与
+        // `at least` 归一到同一符号。`is equal to` / `is not equal to` 是
+        // 整体短语（其语义就含 is），不剥离——它们在下面单列分支。
+        String stripped = normalized;
+        if ((normalized.startsWith("is ") && !normalized.equals("is equal to")
+                && !normalized.equals("is not equal to"))) {
+            stripped = normalized.substring(3).trim();
+        }
+        return switch (stripped) {
             case "less than" -> "<";
             case "greater than" -> ">";
+            case "more than" -> ">";
+            case "under" -> "<";
+            case "over" -> ">";
             case "less than or equal to" -> "<=";
+            case "at most" -> "<=";
             case "greater than or equal to" -> ">=";
+            case "at least" -> ">=";
             case "equals to" -> "==";
             case "is equal to" -> "==";
             case "not equal to" -> "!=";
