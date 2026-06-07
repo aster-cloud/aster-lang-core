@@ -1,6 +1,7 @@
 package aster.core.identifier;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
@@ -46,7 +47,13 @@ import java.util.Map;
  */
 public final class VocabularyLoader {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    // 容忍未知字段：调用方（aster-lang-ts / aster-cloud 的 DomainVocabulary
+    // 序列化）会在每个 mapping 上携带 `kind` 等冗余字段，而 Java 侧按所在数组
+    // （structs/fields/functions/enumValues）推断 kind，不读该字段。若严格
+    // FAIL_ON_UNKNOWN，跨引擎传来的词汇 JSON 会整体解析失败 → 静默退化为
+    // 仅内置（不翻译用户词）。本地 E2E 实证此坑（ADR 0014 线C）。
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     private VocabularyLoader() {}
 

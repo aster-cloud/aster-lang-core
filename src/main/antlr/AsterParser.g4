@@ -432,8 +432,26 @@ expr
     : comparisonExpr
     ;
 
+// 比较表达式。除符号/多词比较词 token 外，`under` / `over` 作为**软关键字**
+// 在此上下文匹配（仅比较位置当运算符，其他位置仍是普通标识符，与 TS 一致）。
+// 软关键字前可带一个可选的 `is` 连接词（`is under` / `is over`），由语义谓词
+// 识别 IDENT 文本，避免在 lexer 无条件保留这些常见英文单词。
 comparisonExpr
-    : additiveExpr (op=(LT | GT | LTE | GTE | NEQ | EQ | EQUALS | LESS_THAN_WORD | GREATER_THAN_WORD | LESS_THAN_OR_EQUAL_WORD | GREATER_THAN_OR_EQUAL_WORD | EQUALS_TO_WORD | NOT_EQUAL_TO_WORD) additiveExpr)?
+    : additiveExpr (
+          op=(LT | GT | LTE | GTE | NEQ | EQ | EQUALS
+              | LESS_THAN_WORD | GREATER_THAN_WORD
+              | LESS_THAN_OR_EQUAL_WORD | GREATER_THAN_OR_EQUAL_WORD
+              | EQUALS_TO_WORD | NOT_EQUAL_TO_WORD) additiveExpr
+        | softCmp=softComparator additiveExpr
+      )?
+    ;
+
+// 软比较词：`under` / `over`，前置可选 `is`。用语义谓词匹配 IDENT 文本，使
+// 这些词只在比较位置充当运算符；其余位置（变量名、字段名）仍是普通标识符。
+softComparator
+    : ( {_input.LT(1).getText().equals("is")}? isKw=IDENT )?
+      word=IDENT
+      { $word.getText().equals("under") || $word.getText().equals("over") }?
     ;
 
 additiveExpr

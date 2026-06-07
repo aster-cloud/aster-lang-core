@@ -41,12 +41,25 @@ ARROW: '->';
 // 自然语言运算符关键词（Natural Language Operators）
 // ============================================================
 // 比较运算符（与 TS 引擎对齐：接受多种自然语言别名）
-LESS_THAN_WORD: 'less' [ \t]+ 'than';
-GREATER_THAN_WORD: 'greater' [ \t]+ 'than' | 'more' [ \t]+ 'than';
+//
+// 可选 `is` 连接词（ADR 0013 #1b-i）：`score is at least 700` ≡
+// `score at least 700`。`is` 作为纯自然语言连接词，在多词比较 token 内用
+// 可选前缀 `('is' [ \t]+)?` 吸收。这些是**多词短语**（at least / greater than
+// 等），不会与普通标识符冲突，放在 lexer 安全。
+//
+// 注意：`under` / `over` 是**单词**，可能被用户当普通标识符（变量名 / 字段名）。
+// TS 引擎只在比较位置上下文识别它们（parseComparison），其他位置仍是标识符。
+// 故 Java 侧也把 under/over 作为**软关键字**在 parser 的 comparisonExpr 规则里
+// 上下文匹配（见 AsterParser.g4），而非在 lexer 无条件保留——后者会制造 TS
+// 没有的限制（`x.over` / 参数名 under 在 TS 合法），反而引入新分歧。
+// `is equal to` / `is not equal to` 由 EQUALS_TO_WORD / NOT_EQUAL_TO_WORD 整体
+// 处理（其内部已含 is），不在此重复。bare `is`（≡ ==）刻意不实现（ADR 1b-ii）。
+LESS_THAN_WORD: ('is' [ \t]+)? 'less' [ \t]+ 'than';
+GREATER_THAN_WORD: ('is' [ \t]+)? ('greater' [ \t]+ 'than' | 'more' [ \t]+ 'than');
 // 'at most' 是 ≤ 的自然别名
-LESS_THAN_OR_EQUAL_WORD: 'less' [ \t]+ 'than' [ \t]+ 'or' [ \t]+ 'equal' [ \t]+ 'to' | 'at' [ \t]+ 'most';
+LESS_THAN_OR_EQUAL_WORD: ('is' [ \t]+)? ('less' [ \t]+ 'than' [ \t]+ 'or' [ \t]+ 'equal' [ \t]+ 'to' | 'at' [ \t]+ 'most');
 // 'at least' 是 ≥ 的自然别名
-GREATER_THAN_OR_EQUAL_WORD: 'greater' [ \t]+ 'than' [ \t]+ 'or' [ \t]+ 'equal' [ \t]+ 'to' | 'at' [ \t]+ 'least';
+GREATER_THAN_OR_EQUAL_WORD: ('is' [ \t]+)? ('greater' [ \t]+ 'than' [ \t]+ 'or' [ \t]+ 'equal' [ \t]+ 'to' | 'at' [ \t]+ 'least');
 EQUALS_TO_WORD: 'equals' [ \t]+ 'to' | 'is' [ \t]+ 'equal' [ \t]+ 'to';
 NOT_EQUAL_TO_WORD: 'not' [ \t]+ 'equal' [ \t]+ 'to' | 'is' [ \t]+ 'not' [ \t]+ 'equal' [ \t]+ 'to';
 

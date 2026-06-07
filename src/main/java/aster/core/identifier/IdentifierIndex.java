@@ -64,15 +64,17 @@ public final class IdentifierIndex {
             String canonical = mapping.canonical();
             String localized = mapping.localized();
 
-            // 添加主映射（本地化 → 规范化）
-            toCanonical.put(localized, canonical);
+            // 添加主映射（本地化 → 规范化）。键用小写，与 TS
+            // buildIdentifierIndex 一致，保证两引擎对本地化名查找大小写不敏感
+            // 且等价（拉丁文术语如德语 Fahrer/fahrer 同样命中）。
+            toCanonical.put(localized.toLowerCase(Locale.ROOT), canonical);
             // 添加反向映射（规范化 → 本地化，使用小写键便于大小写不敏感匹配）
             toLocalized.put(canonical.toLowerCase(Locale.ROOT), localized);
 
-            // 添加别名映射
+            // 添加别名映射（同样用小写键）
             if (mapping.aliases() != null) {
                 for (String alias : mapping.aliases()) {
-                    toCanonical.put(alias, canonical);
+                    toCanonical.put(alias.toLowerCase(Locale.ROOT), canonical);
                 }
             }
 
@@ -100,7 +102,8 @@ public final class IdentifierIndex {
         if (localized == null) {
             return null;
         }
-        String result = toCanonical.get(localized);
+        // 查找用小写键（与 build 一致）：大小写不敏感，未命中返回原值。
+        String result = toCanonical.get(localized.toLowerCase(Locale.ROOT));
         return result != null ? result : localized;
     }
 
