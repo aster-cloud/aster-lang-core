@@ -1043,4 +1043,72 @@ class AstBuilderTest {
         assertEquals(1, call.args().size());
         assertEquals("x", ((Expr.Name) call.args().get(0)).name());
     }
+
+    // ===== 逻辑运算符 and / or（低于比较，左结合）=====
+
+    private Expr.Call firstIfCond(String input) {
+        aster.core.ast.Module module = parseAndBuild(input);
+        Decl.Func f = (Decl.Func) module.decls().stream()
+            .filter(d -> d instanceof Decl.Func).findFirst().orElseThrow();
+        Stmt.If iff = (Stmt.If) f.body().statements().get(0);
+        return (Expr.Call) iff.cond();
+    }
+
+    @Test
+    void testLogicalAndLowersToAndCall() {
+        // a.age at least 18 and a.income at least 30000 → Call{Name "and", [cmp, cmp]}
+        Expr.Call cond = firstIfCond("""
+            Module t.
+            Define A has age as Int, income as Int.
+            Rule f given a as A, produce Bool:
+              If a.age at least 18 and a.income at least 30000
+                Return true.
+              Return false.
+            """);
+        assertEquals("and", ((Expr.Name) cond.target()).name());
+        assertEquals(2, cond.args().size());
+    }
+
+    @Test
+    void testLogicalOrLowersToOrCall() {
+        Expr.Call cond = firstIfCond("""
+            Module t.
+            Rule f given tier as Text, produce Bool:
+              If tier equals to "gold" or tier equals to "platinum"
+                Return true.
+              Return false.
+            """);
+        assertEquals("or", ((Expr.Name) cond.target()).name());
+        assertEquals(2, cond.args().size());
+    }
+
+    @Test
+    void testLogicalAndIsLeftAssociative() {
+        // a and b and c → ((a and b) and c)：顶层是 and，左 arg 又是 and
+        Expr.Call cond = firstIfCond("""
+            Module t.
+            Define A has age as Int, score as Int, income as Int.
+            Rule f given a as A, produce Bool:
+              If a.age at least 18 and a.score at least 650 and a.income at least 25000
+                Return true.
+              Return false.
+            """);
+        assertEquals("and", ((Expr.Name) cond.target()).name());
+        assertTrue(cond.args().get(0) instanceof Expr.Call inner
+            && ((Expr.Name) inner.target()).name().equals("and"));
+    }
+
+    @Test
+    void testConstructFieldAndNotConfusedWithLogicalAnd() {
+        // P with a set to 1 and b set to 2 → 2 个字段（and 是分隔符，非逻辑与）
+        aster.core.ast.Module module = parseAndBuild("""
+            Module t.
+            Define P has a as Int, b as Int.
+            Rule f produce P:
+              Return P with a set to 1 and b set to 2.
+            """);
+        Decl.Func f = (Decl.Func) module.decls().get(1);
+        Stmt.Return ret = (Stmt.Return) f.body().statements().get(0);
+        assertEquals(2, ((Expr.Construct) ret.expr()).fields().size());
+    }
 }

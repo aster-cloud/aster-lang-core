@@ -928,6 +928,30 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     // 表达式
     // ============================================================
 
+    // 逻辑或：andExpr (OR andExpr)* → 左结合的 Call{Name "or", [l, r]}
+    @Override
+    public Expr visitOrExpr(AsterParser.OrExprContext ctx) {
+        Expr left = (Expr) visit(ctx.andExpr(0));
+        for (int i = 1; i < ctx.andExpr().size(); i++) {
+            Expr right = (Expr) visit(ctx.andExpr(i));
+            Expr.Name op = new Expr.Name("or", spanFrom(ctx.OR(i - 1).getSymbol()));
+            left = new Expr.Call(op, List.of(left, right), spanFrom(ctx));
+        }
+        return left;
+    }
+
+    // 逻辑与：comparisonExpr (AND comparisonExpr)* → 左结合的 Call{Name "and", [l, r]}
+    @Override
+    public Expr visitAndExpr(AsterParser.AndExprContext ctx) {
+        Expr left = (Expr) visit(ctx.comparisonExpr(0));
+        for (int i = 1; i < ctx.comparisonExpr().size(); i++) {
+            Expr right = (Expr) visit(ctx.comparisonExpr(i));
+            Expr.Name op = new Expr.Name("and", spanFrom(ctx.AND(i - 1).getSymbol()));
+            left = new Expr.Call(op, List.of(left, right), spanFrom(ctx));
+        }
+        return left;
+    }
+
     @Override
     public Expr visitComparisonExpr(AsterParser.ComparisonExprContext ctx) {
         Expr left = (Expr) visit(ctx.additiveExpr(0));
