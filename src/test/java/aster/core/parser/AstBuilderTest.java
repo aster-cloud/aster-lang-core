@@ -1111,4 +1111,31 @@ class AstBuilderTest {
         Stmt.Return ret = (Stmt.Return) f.body().statements().get(0);
         assertEquals(2, ((Expr.Construct) ret.expr()).fields().size());
     }
+
+    @Test
+    void testModuleNameWithAndOrNotSegments() {
+        // 模块名段含软关键字 and/or/not（qualifiedSegment 允许），不被 lexer 当运算符吞掉
+        assertEquals("dual.engine.boolean.and",
+            parseAndBuild("Module dual.engine.boolean.and.\n\nRule f produce Bool:\n  Return true.\n").name());
+        assertEquals("dual.engine.boolean.or",
+            parseAndBuild("Module dual.engine.boolean.or.\n\nRule f produce Bool:\n  Return true.\n").name());
+        assertEquals("logic.not.helper",
+            parseAndBuild("Module logic.not.helper.\n\nRule f produce Bool:\n  Return true.\n").name());
+    }
+
+    @Test
+    void testUsePathWithAndOrSegments() {
+        // Use 路径段同样允许 and/or/not 软关键字（跨模块引用）
+        aster.core.ast.Module module = parseAndBuild("""
+            Module consumer.
+
+            Use risk.and.scoring version 1 as Score.
+
+            Rule f produce Bool:
+              Return true.
+            """);
+        Decl.Import imp = (Decl.Import) module.decls().stream()
+            .filter(d -> d instanceof Decl.Import).findFirst().orElseThrow();
+        assertEquals("risk.and.scoring", imp.path());
+    }
 }
