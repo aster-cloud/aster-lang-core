@@ -118,8 +118,14 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Decl.Func visitFuncDecl(AsterParser.FuncDeclContext ctx) {
+        List<Annotation> annotations = ctx.annotation() == null ? List.of()
+            : ctx.annotation().stream().map(this::visitAnnotation).collect(Collectors.toList());
+
         // 函数名可以是 IDENT 或 TYPE_IDENT（支持 CJK 字符）
-        String name = ctx.IDENT() != null ? ctx.IDENT().getText() : ctx.TYPE_IDENT().getText();
+        if (ctx.nameIdent() == null) {
+            throw new IllegalStateException("Rule 声明缺失名称");
+        }
+        String name = nameIdentText(ctx.nameIdent());
 
         List<String> typeParams = new ArrayList<>();
         if (ctx.typeParamList() != null) {
@@ -198,8 +204,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             body = visitBlock(ctx.block());
         }
 
-        Span nameSpan = ctx.IDENT() != null ? spanFrom(ctx.IDENT()) : spanFrom(ctx.TYPE_IDENT());
+        Span nameSpan = spanFrom(ctx.nameIdent());
 
+        List<Annotation> finalAnnotations = annotations.isEmpty() ? List.of() : List.copyOf(annotations);
         List<Annotation> finalRetAnnotations = retAnnotations.isEmpty() ? List.of() : List.copyOf(retAnnotations);
 
         return new Decl.Func(
@@ -208,6 +215,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             finalTypeParams,
             params,
             retType,
+            finalAnnotations,
             finalRetAnnotations,
             body,
             effects,

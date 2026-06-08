@@ -137,6 +137,7 @@ class AstSerializationTest {
             List.of(),
             List.of(),
             intType,
+            List.of(new Annotation("entry", Map.of())),
             List.of(),
             emptyBody,
             List.of(),
@@ -151,13 +152,18 @@ class AstSerializationTest {
         // 验证 JSON 格式
         assertTrue(json.contains("\"kind\":\"Func\""));
         assertTrue(json.contains("\"name\":\"add\""));
+        assertTrue(json.contains("\"annotations\""));
+        assertTrue(json.contains("\"entry\""));
 
         // 反序列化
         Decl deserialized = mapper.readValue(json, Decl.class);
 
         // 验证
         assertTrue(deserialized instanceof Decl.Func);
-        assertEquals("add", ((Decl.Func) deserialized).name());
+        Decl.Func func = (Decl.Func) deserialized;
+        assertEquals("add", func.name());
+        assertEquals(1, func.annotations().size());
+        assertEquals("entry", func.annotations().get(0).name());
     }
 
     // ============================================================

@@ -124,6 +124,8 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
      * @param typeParams           类型参数列表
      * @param params               参数列表
      * @param retType              返回类型
+     * @param annotations          函数声明注解列表（可能为 null）
+     * @param retAnnotations       返回类型注解列表（可能为 null）
      * @param body                 函数体（可能为 null，表示外部函数）
      * @param effects              效应列表（无副作用时为空列表）
      * @param effectCaps           效应能力列表（未声明时为空列表）
@@ -138,6 +140,7 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
         @JsonProperty("typeParams") List<String> typeParams,
         @JsonProperty("params") List<Parameter> params,
         @JsonProperty("retType") Type retType,
+        @JsonProperty("annotations") List<Annotation> annotations,
         @JsonProperty("retAnnotations") List<Annotation> retAnnotations,
         @JsonProperty("body") Block body,
         @JsonProperty("effects") List<String> effects,
@@ -150,6 +153,7 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
             params = params == null ? List.of() : List.copyOf(params);
             effects = effects == null ? List.of() : List.copyOf(effects);
             effectCaps = effectCaps == null ? List.of() : List.copyOf(effectCaps);
+            annotations = annotations == null ? List.of() : List.copyOf(annotations);
             retAnnotations = retAnnotations == null ? List.of() : List.copyOf(retAnnotations);
         }
 

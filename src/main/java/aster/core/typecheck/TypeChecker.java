@@ -80,6 +80,7 @@ public final class TypeChecker {
 
       // 第一遍：收集类型定义
       collectTypeDefinitions(module);
+      validateEntryAnnotations(module);
 
       // 【修复】注入类型别名映射，使下游检查器可以展开别名
       var typeAliases = symbolTable.getTypeAliases();
@@ -286,6 +287,40 @@ public final class TypeChecker {
   private void checkImport(CoreModel.Import imp) {
     // 导入检查暂时简化：仅记录模块路径
     // 完整实现需要模块解析和符号导入
+  }
+
+  /**
+   * 校验模块级 @entry 唯一性。
+   */
+  private void validateEntryAnnotations(CoreModel.Module module) {
+    if (module == null || module.decls == null) {
+      return;
+    }
+
+    var entryFuncs = module.decls.stream()
+      .filter(CoreModel.Func.class::isInstance)
+      .map(CoreModel.Func.class::cast)
+      .filter(this::hasEntryAnnotation)
+      .toList();
+
+    if (entryFuncs.size() <= 1) {
+      return;
+    }
+
+    var ruleNames = entryFuncs.stream()
+      .map(func -> func.name)
+      .filter(Objects::nonNull)
+      .toList();
+    diagnostics.error(
+      ErrorCode.MULTIPLE_ENTRY_RULES,
+      Optional.ofNullable(entryFuncs.get(0).origin),
+      Map.of("rules", String.join(", ", ruleNames))
+    );
+  }
+
+  private boolean hasEntryAnnotation(CoreModel.Func func) {
+    return func.annotations != null && func.annotations.stream()
+      .anyMatch(annotation -> annotation != null && "entry".equals(annotation.name));
   }
 
   // ========== 内置类型别名 ==========

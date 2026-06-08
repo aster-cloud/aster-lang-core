@@ -195,6 +195,73 @@ class AstBuilderTest {
     }
 
     @Test
+    void testFuncWithEntryAnnotation() {
+        String input = """
+            @entry Rule main produce Text:
+              Return "ok".
+            """;
+
+        aster.core.ast.Module module = parseAndBuild(input);
+
+        Decl.Func func = (Decl.Func) module.decls().get(0);
+        assertEquals("main", func.name());
+        assertEquals(1, func.annotations().size());
+        assertEquals("entry", func.annotations().get(0).name());
+    }
+
+    @Test
+    void testFuncWithMultipleAnnotations() {
+        String input = """
+            @entry @preview(source: "test") Rule main produce Text:
+              Return "ok".
+            """;
+
+        aster.core.ast.Module module = parseAndBuild(input);
+
+        Decl.Func func = (Decl.Func) module.decls().get(0);
+        assertEquals(2, func.annotations().size());
+        assertEquals("entry", func.annotations().get(0).name());
+        assertEquals("preview", func.annotations().get(1).name());
+        assertEquals("test", func.annotations().get(1).params().get("source"));
+    }
+
+    @Test
+    void testMultipleEntryAnnotatedFuncsParse() {
+        // 注：parse 层允许多个 @entry funcDecl，@entry 唯一性由 TypeChecker 校验。
+        // Rule 名避开软关键字（如 second=SECONDS 时间单位）——软关键字做标识符
+        // 是独立的既存限制，不在本特性范围内处理。
+        String input = """
+            @entry Rule alpha produce Text:
+              Return "first".
+
+            @entry Rule beta produce Text:
+              Return "second".
+            """;
+
+        aster.core.ast.Module module = parseAndBuild(input);
+
+        assertEquals(2, module.decls().size());
+        Decl.Func first = (Decl.Func) module.decls().get(0);
+        Decl.Func second = (Decl.Func) module.decls().get(1);
+        assertEquals("entry", first.annotations().get(0).name());
+        assertEquals("entry", second.annotations().get(0).name());
+    }
+
+    @Test
+    void testFuncWithoutAnnotationHasEmptyAnnotations() {
+        String input = """
+            Rule plain produce Text:
+              Return "ok".
+            """;
+
+        aster.core.ast.Module module = parseAndBuild(input);
+
+        Decl.Func func = (Decl.Func) module.decls().get(0);
+        assertNotNull(func.annotations());
+        assertTrue(func.annotations().isEmpty());
+    }
+
+    @Test
     void testEnumDeclaration() {
         String input = """
             Define Status as one of Success, Failure, Pending.
