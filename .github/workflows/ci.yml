@@ -20,25 +20,27 @@ jobs:
 
       # 共享版本目录（aster-lang-platform，ADR 0012）。core 的 settings.gradle
       # 导入它，故必须在任何 core gradle 调用前发布到 Maven Local。
-      - uses: actions/checkout@v6
+      # 兄弟仓用分支匹配 checkout（./.github/actions/checkout-sibling）：存在与本
+      # PR 同名分支则用之，否则回退 main —— 让跨仓 PR 合并前即可联合验证。
+      - uses: ./.github/actions/checkout-sibling
         with:
           repository: aster-cloud/aster-lang-platform
           path: aster-lang-platform
           token: ${{ secrets.CROSS_REPO_TOKEN }}
 
-      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-sibling
         with:
           repository: aster-cloud/aster-lang-en
           path: aster-lang-en
           token: ${{ secrets.CROSS_REPO_TOKEN }}
 
-      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-sibling
         with:
           repository: aster-cloud/aster-lang-zh
           path: aster-lang-zh
           token: ${{ secrets.CROSS_REPO_TOKEN }}
 
-      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-sibling
         with:
           repository: aster-cloud/aster-lang-de
           path: aster-lang-de
@@ -103,9 +105,12 @@ jobs:
               - 'build.gradle.kts'
               - '.github/workflows/ci.yml'
 
+      # 兄弟仓 checkout 走分支匹配（self checkout 进了 aster-lang-core/ 子目录，
+      # 故复合 action 路径带前缀 ./aster-lang-core/...）。匹配同名 PR 分支，
+      # 否则回退 main —— 跨仓 PR 合并前联合验证。
       - name: Checkout aster-lang-platform
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: actions/checkout@v6
+        uses: ./aster-lang-core/.github/actions/checkout-sibling
         with:
           repository: aster-cloud/aster-lang-platform
           path: aster-lang-platform
@@ -113,7 +118,7 @@ jobs:
 
       - name: Checkout aster-lang-test
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: actions/checkout@v6
+        uses: ./aster-lang-core/.github/actions/checkout-sibling
         with:
           repository: aster-cloud/aster-lang-test
           path: aster-lang-test
@@ -121,7 +126,7 @@ jobs:
 
       - name: Checkout aster-lang-ts
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: actions/checkout@v6
+        uses: ./aster-lang-core/.github/actions/checkout-sibling
         with:
           repository: aster-cloud/aster-lang-ts
           path: aster-lang-ts
@@ -129,21 +134,21 @@ jobs:
 
       - name: Checkout aster-lang-en
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: actions/checkout@v6
+        uses: ./aster-lang-core/.github/actions/checkout-sibling
         with:
           repository: aster-cloud/aster-lang-en
           path: aster-lang-en
           token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
       - name: Checkout aster-lang-zh
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: actions/checkout@v6
+        uses: ./aster-lang-core/.github/actions/checkout-sibling
         with:
           repository: aster-cloud/aster-lang-zh
           path: aster-lang-zh
           token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
       - name: Checkout aster-lang-de
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: actions/checkout@v6
+        uses: ./aster-lang-core/.github/actions/checkout-sibling
         with:
           repository: aster-cloud/aster-lang-de
           path: aster-lang-de
@@ -153,14 +158,14 @@ jobs:
       # Phase C evaluator step (CoreIrEvalCli lives in truffle).
       - name: Checkout aster-lang-runtime
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: actions/checkout@v6
+        uses: ./aster-lang-core/.github/actions/checkout-sibling
         with:
           repository: aster-cloud/aster-lang-runtime
           path: aster-lang-runtime
           token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
       - name: Checkout aster-lang-truffle
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: actions/checkout@v6
+        uses: ./aster-lang-core/.github/actions/checkout-sibling
         with:
           repository: aster-cloud/aster-lang-truffle
           path: aster-lang-truffle
