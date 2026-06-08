@@ -149,6 +149,10 @@ MAX: 'Max' | 'max';
 ATTEMPTS: 'Attempts' | 'attempts';
 BACKOFF: 'Backoff' | 'backoff';
 SECONDS: 'seconds' | 'second';
+// 字段/参数约束修饰符（与 TS constraint-parser 对齐）。软关键字：仍可作标识符
+// （已加入 nameIdent/qualifiedSegment），仅在 type 后的约束位置当修饰符。
+REQUIRED: 'required';
+BETWEEN: 'between';
 
 // 表达式关键字
 FUNCTION: 'function';

@@ -50,10 +50,11 @@ qualifiedName
 /**
  * 限定名称片段，允许普通标识符或类型标识符
  * <p>
- * 软关键字：AND/OR/NOT 在限定名（模块名 Module x.y.z. / Use x.y.z.）的段位置
- * 当普通标识符用——段之间由 DOT 分隔，不与表达式里的逻辑运算符或列表分隔符冲突。
- * 沿用 nameIdent 已有的 TYPE/VERSION 软关键字模式，避免改 lexer 引入全局风险。
- * 解决 lexer 把 `boolean.and`/`boolean.or` 段误当 AND/OR token 而拒绝的问题。
+ * 软关键字：AND/OR/NOT/WITH 在限定名（模块名 Module x.y.z. / Use x.y.z.）的段位置
+ * 当普通标识符用——段之间由 DOT 分隔，不与表达式里的逻辑运算符、列表分隔符或
+ * Define/construct 的 WITH 冲突。沿用 nameIdent 已有的 TYPE/VERSION 软关键字模式，
+ * 避免改 lexer 引入全局风险。解决 lexer 把 `boolean.and`/`let.with.call` 等段
+ * 误当 AND/OR/WITH token 而拒绝的问题。
  */
 qualifiedSegment
     : IDENT
@@ -61,6 +62,7 @@ qualifiedSegment
     | AND
     | OR
     | NOT
+    | WITH
     ;
 
 /**
@@ -125,7 +127,7 @@ givenParamList
  *       x（隐式类型，基于参数名推断）
  */
 param
-    : annotation* nameIdent (AS annotatedType)?
+    : annotation* nameIdent (AS annotatedType)? fieldConstraint*
     ;
 
 /**
@@ -168,7 +170,17 @@ fieldList
  *       name（隐式类型，基于字段名推断）
  */
 field
-    : annotation* nameIdent (AS annotatedType)?
+    : annotation* nameIdent (AS annotatedType)? fieldConstraint*
+    ;
+
+/**
+ * 字段/参数约束修饰符（与 TS constraint-parser 对齐）。
+ * required：必填；between X and Y：范围。当前仅 parse 接受以对齐双引擎语法，
+ * 约束语义（校验执行）作为后续阶段，不进 Core IR fingerprint（结构级比较）。
+ */
+fieldConstraint
+    : REQUIRED
+    | BETWEEN expr AND expr
     ;
 
 nameIdent
@@ -176,6 +188,9 @@ nameIdent
     | TYPE_IDENT
     | TYPE
     | VERSION
+    | MAX
+    | REQUIRED
+    | BETWEEN
     ;
 
 /**
@@ -557,9 +572,20 @@ listLiteral
 /**
  * Lambda 表达式
  * 语法: function given x: Text, produce Text: Return x.
+ *       function with x, produce: ...（with 引导参数；produce 类型可省，推断为 Unknown）
+ * <p>
+ * 参数引导词 with/given 同义（与 TS parseParamList 对齐）；produce 后类型可选，
+ * 省略时 lower 为 Type.Name("Unknown")（与 TS Node.TypeName('Unknown') 对齐）。
  */
 lambdaExpr
-    : FUNCTION givenParamList? COMMA? PRODUCE annotatedType COLON (returnStmt | (NEWLINE block))
+    : FUNCTION lambdaParamList? COMMA? PRODUCE annotatedType? COLON (returnStmt | (NEWLINE block))
+    ;
+
+/**
+ * Lambda 参数列表：with 或 given 引导（同义）
+ */
+lambdaParamList
+    : (GIVEN | WITH) param ((AND | COMMA) param)*
     ;
 
 // ============================================================
