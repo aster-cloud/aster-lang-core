@@ -422,19 +422,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         if (ctx == null) {
             throw new IllegalArgumentException("name 标识符上下文不能为空");
         }
-        if (ctx.IDENT() != null) {
-            return ctx.IDENT().getText();
-        }
-        if (ctx.TYPE_IDENT() != null) {
-            return ctx.TYPE_IDENT().getText();
-        }
-        if (ctx.TYPE() != null) {
-            return ctx.TYPE().getText();
-        }
-        if (ctx.VERSION() != null) {
-            return ctx.VERSION().getText();
-        }
-        throw new IllegalStateException("无法解析 name 标识符");
+        // nameIdent 是单 token（IDENT/TYPE_IDENT 或软关键字 TYPE/VERSION/MAX），
+        // 直接取文本，避免按 token 类型逐一判空，新增软关键字时无需同步改这里。
+        return ctx.getText();
     }
 
     private String ofGenericTypeName(AsterParser.OfGenericTypeContext ctx) {
@@ -1257,16 +1247,18 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
      */
     @Override
     public Expr visitLambdaExpr(AsterParser.LambdaExprContext ctx) {
-        // 提取参数列表
+        // 提取参数列表（with 或 given 引导，同义）
         List<Decl.Parameter> params = new ArrayList<>();
-        if (ctx.givenParamList() != null) {
-            params = ctx.givenParamList().param().stream()
+        if (ctx.lambdaParamList() != null) {
+            params = ctx.lambdaParamList().param().stream()
                 .map(this::visitParam)
                 .collect(Collectors.toList());
         }
 
-        // 提取返回类型
-        Type retType = extractAnnotatedType(ctx.annotatedType()).type();
+        // 提取返回类型：produce 后类型可省，省略时推断为 Unknown（与 TS 对齐）
+        Type retType = ctx.annotatedType() != null
+            ? extractAnnotatedType(ctx.annotatedType()).type()
+            : new Type.TypeName("Unknown", List.of(), spanFrom(ctx));
 
         // 提取函数体
         Block body;

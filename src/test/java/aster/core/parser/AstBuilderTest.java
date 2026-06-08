@@ -1138,4 +1138,53 @@ class AstBuilderTest {
             .filter(d -> d instanceof Decl.Import).findFirst().orElseThrow();
         assertEquals("risk.and.scoring", imp.path());
     }
+
+    @Test
+    void testLambdaWithParamAndOmittedReturnType() {
+        // function with x, produce:（with 引导参数 + produce 省略类型 → Unknown）
+        aster.core.ast.Module module = parseAndBuild("""
+            Module t.
+            Rule demo given pfx, produce:
+              Let f be function with x, produce:
+                Return x.
+              Return f(pfx).
+            """);
+        Decl.Func demo = (Decl.Func) module.decls().get(0);
+        Stmt.Let let = (Stmt.Let) demo.body().statements().get(0);
+        Expr.Lambda lambda = (Expr.Lambda) let.expr();
+        assertEquals(1, lambda.params().size());
+        assertEquals("x", lambda.params().get(0).name());
+        // produce 省略类型 → Unknown（与 TS Node.TypeName('Unknown') 对齐）
+        assertEquals("Unknown", ((Type.TypeName) lambda.retType()).name());
+    }
+
+    @Test
+    void testFieldAndParamConstraints() {
+        // 字段约束 required / between X and Y，参数约束 between（仅 parse 接受，对齐双引擎）
+        aster.core.ast.Module module = parseAndBuild("""
+            Module t.
+            Define LoanApplication has applicantId required, amount, termMonths between 0 and 600.
+            Rule rate given creditScore between 300 and 850, produce:
+              Return 350.
+            """);
+        Decl.Data data = (Decl.Data) module.decls().get(0);
+        assertEquals(3, data.fields().size());
+        assertEquals("applicantId", data.fields().get(0).name());
+        assertEquals("termMonths", data.fields().get(2).name());
+        Decl.Func rate = (Decl.Func) module.decls().get(1);
+        assertEquals("creditScore", rate.params().get(0).name());
+    }
+
+    @Test
+    void testMaxAsIdentifier() {
+        // 参数名 max（MAX 软关键字，retry 块外当普通标识符）
+        aster.core.ast.Module module = parseAndBuild("""
+            Module t.
+            Rule inRange given value, min, max, produce:
+              Return 0.
+            """);
+        Decl.Func f = (Decl.Func) module.decls().get(0);
+        assertEquals(3, f.params().size());
+        assertEquals("max", f.params().get(2).name());
+    }
 }
