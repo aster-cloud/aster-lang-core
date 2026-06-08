@@ -34,6 +34,14 @@ public final class LexiconRegistry {
 
     private static final Logger LOGGER = Logger.getLogger(LexiconRegistry.class.getName());
 
+    /**
+     * 可选 keyword（validate 缺失只告警不报错）。用于新引入 keyword 的跨仓 lexicon
+     * 迁移期：core 加 SemanticTokenKind 后，各语言包 lexicon 尚未同步更新时不至于
+     * 全部 lexicon 加载失败（chicken-egg 发布顺序死锁）。迁移完成后可移除。
+     */
+    private static final Set<SemanticTokenKind> OPTIONAL_KINDS =
+        EnumSet.of(SemanticTokenKind.IMPORT_VERSION);
+
     private static final LexiconRegistry INSTANCE = new LexiconRegistry();
 
     /**
@@ -414,15 +422,23 @@ public final class LexiconRegistry {
             errors.add("Invalid ID format: must follow BCP 47 (e.g., 'en-US', 'zh-CN')");
         }
 
-        // 2. 验证所有必需关键词都已定义
+        // 2. 验证所有必需关键词都已定义。
+        //    新引入的 keyword（OPTIONAL_KINDS）在跨仓 lexicon 迁移期内缺失只告警不报错，
+        //    避免 core 加 enum 与各语言包 lexicon 更新之间的发布顺序死锁（chicken-egg）。
         Set<SemanticTokenKind> definedKinds = lexicon.getKeywords().keySet();
-        Set<SemanticTokenKind> allKinds = EnumSet.allOf(SemanticTokenKind.class);
+        Set<SemanticTokenKind> requiredKinds = EnumSet.allOf(SemanticTokenKind.class);
+        requiredKinds.removeAll(OPTIONAL_KINDS);
 
-        Set<SemanticTokenKind> missing = new HashSet<>(allKinds);
+        Set<SemanticTokenKind> missing = new HashSet<>(requiredKinds);
         missing.removeAll(definedKinds);
-
         if (!missing.isEmpty()) {
             errors.add("Missing keywords for: " + missing);
+        }
+
+        Set<SemanticTokenKind> missingOptional = new HashSet<>(OPTIONAL_KINDS);
+        missingOptional.removeAll(definedKinds);
+        if (!missingOptional.isEmpty()) {
+            warnings.add("Missing optional keywords (migration in progress): " + missingOptional);
         }
 
         // 3. 验证关键词值非空，并检查唯一性（考虑 allowedDuplicates）
