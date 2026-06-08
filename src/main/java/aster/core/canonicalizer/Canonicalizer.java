@@ -347,7 +347,10 @@ public final class Canonicalizer {
         // 使用 Unicode 兼容的词边界：
         // (?<!\p{L}) - 前面不是字母（支持 Unicode 字母）
         // (?=\s|$|[\p{Punct}\u3001-\u303F\uFF00-\uFF65]) - 后面是空白、行尾、ASCII 标点或中日韩标点
-        String pattern = "(?<!\\p{L})(" + quotedArticles + ")(?=\\s|$|[\\p{Punct}\\u3001-\\u303F\\uFF00-\\uFF65])\\s?";
+        // (?<![\p{L}.]) - 前面不是字母也不是点（点排除模块路径 risk.A / 成员访问 A.a 里的标识符段，
+        //                 避免单字母大写标识符如 'A' 被 CASE_INSENSITIVE 误判为冠词 'a' 而吞掉）
+        // (?![\p{L}.])   - 后面不紧跟字母或点（同理排除 A.a 中的 A）
+        String pattern = "(?<![\\p{L}.])(" + quotedArticles + ")(?![\\p{L}.])(?=\\s|$|[\\p{Punct}\\u3001-\\u303F\\uFF00-\\uFF65])\\s?";
         return Pattern.compile(pattern,
                 Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE | Pattern.UNICODE_CHARACTER_CLASS);
     }
