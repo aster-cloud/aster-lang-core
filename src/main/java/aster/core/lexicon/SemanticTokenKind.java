@@ -35,6 +35,9 @@ public enum SemanticTokenKind {
     /** 导入别名 - "as" / "作为" */
     IMPORT_ALIAS,
 
+    /** 导入钉版本 - "version" / "版本"（ADR 0015 跨模块钉版本，如 use X version 2 as Y） */
+    IMPORT_VERSION,
+
     // ============================================================
     // 类型定义
     // ============================================================
@@ -308,7 +311,7 @@ public enum SemanticTokenKind {
      * SemanticTokenKind 分类映射，用于文档和验证。
      */
     public static final Map<String, List<SemanticTokenKind>> CATEGORIES = Map.ofEntries(
-        Map.entry("module", Arrays.asList(MODULE_DECL, IMPORT, IMPORT_ALIAS)),
+        Map.entry("module", Arrays.asList(MODULE_DECL, IMPORT, IMPORT_ALIAS, IMPORT_VERSION)),
         Map.entry("type", Arrays.asList(TYPE_DEF, TYPE_WITH, TYPE_HAS, TYPE_ONE_OF)),
         Map.entry("function", Arrays.asList(FUNC_TO, FUNC_GIVEN, FUNC_PRODUCE, FUNC_PERFORMS)),
         Map.entry("control", Arrays.asList(IF, OTHERWISE, MATCH, WHEN, RETURN, RESULT_IS, FOR_EACH, IN)),

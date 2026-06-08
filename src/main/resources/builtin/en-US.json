@@ -9,6 +9,7 @@
     "MODULE_DECL": "Module",
     "IMPORT": "use",
     "IMPORT_ALIAS": "as",
+    "IMPORT_VERSION": "version",
     "TYPE_DEF": "Define",
     "TYPE_WITH": "with",
     "TYPE_HAS": "has",
