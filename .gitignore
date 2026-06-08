@@ -6,6 +6,11 @@
 build/
 .gradle/
 
+# ANTLR 生成产物（由 generateGrammarSource 在 build/generated-src 重新生成；
+# src/main/{gen,antlr/gen} 是历史误提交的陈旧副本，build 不引用，已移除并忽略）
+src/main/gen/
+src/main/antlr/gen/
+
 # Test artifacts
 .jqwik-database
 

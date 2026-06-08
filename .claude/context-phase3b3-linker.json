@@ -1,0 +1,50 @@
+{
+  "meta": {"recorded_at": "2026-06-08", "recorder": "Claude (主AI)", "source": "ADR 0015 阶段3b-3 — ModuleGraphLinker + checkImport"},
+  "objective": "实现 module graph 合并 linker:接收已解析的多模块 Core IR(纯数据,由 aster-api ModuleResolver 从 DB 构建),拓扑序合并成单 CoreModel.Module + 符号前缀重命名避冲突 + 改写所有跨模块引用。checkImport 做跨模块符号校验。产物必须能被 aster-lang-truffle 执行。",
+  "key_facts": {
+    "truffle_consumes_merged": "aster-lang-truffle Loader.java:45 注释:『Import 声明在 Core 阶段已展开依赖，这里直接消费合并后的 Module』。truffle 消费**单个合并 Module**(所有 Func 在 decls)。linker 输出正契合。truffle 有自己的镜像 CoreModel(aster.truffle.core.CoreModel),经 JSON 往返,linker 只需产出合法 aster.core.ir.CoreModel.Module。",
+    "cross_module_call": "`Score.computeScore(x)` → Call{target: Name『Score.computeScore』}(dotted 扁平 Name,alias 前缀)。import alias 来自 `Use mod version N as Score`。AstBuilder MemberSuffix lower 成 baseName+『.』+suffix。",
+    "import": "CoreModel.Import{path, alias, version, origin}(version 阶段3b-1 已加)。",
+    "coremodel_mutable": "CoreModel 全可变类(public fields)——改写直接。",
+    "checkImport_location": "TypeChecker.java:286 空实现。SymbolTable.define(name,type,kind,opts)/defineTypeAlias。",
+    "lowering": "CoreLowering.lowerModule(ast) @ :31。"
+  },
+  "node_enumeration_CRITICAL": {
+    "note": "符号重命名遍历完整性是头号风险——遗漏任一引用节点→执行静默错。逐一改写下列携带符号引用的节点：",
+    "Expr_15": "Name.name(变量/函数引用)、Construct.typeName+fields[].expr、Call.target(Expr)+args[]、Lambda(params+ret(Type)+body(Block)+captures)、Ok/Err/Some/Await.expr。跳过字面量 Bool/IntE/LongE/DoubleE/StringE/NullE/NoneE。",
+    "Stmt_11": "Let/Set/Return/Start.expr、If.cond+thenBlock+elseBlock、Match.expr+cases[](Case.pattern+body)、Scope/Block.statements[]、Workflow.steps[].body+compensate。跳过 Wait.names(局部任务名)。",
+    "Pattern_4": "PatCtor.typeName(构造器名)+args[](递归 Pattern)、PatName.name(绑定,局部不改)、PatNull/PatInt 无引用。",
+    "Type_10": "TypeName.name、TypeApp.base、Result(ok/err)、Maybe(type)、Option(type)、ListT(type)、MapT(key/val)、FuncType(params[]/ret)、PiiType(baseType)。",
+    "Decl_4": "Func(name+params[].type+ret+body+annotations)、Data(name+fields[].type)、Enum(name+variants)。Import 合并时丢弃。"
+  },
+  "design": {
+    "package": "新建 aster.core.module 包。",
+    "ModuleKey": "record(String moduleName, int version)。mangle() → moduleName.replace('.','_')+『_v』+version+『__』(如 risk_Scoring_v2__)。",
+    "ModuleGraph": "持有 root ModuleKey + Map<ModuleKey, CoreModel.Module>(已解析,含 root) + edges：每个模块的 import(fromKey, importAlias, toKey)。aster-api ModuleResolver 构建后传入。提供 topologicalOrder()(含 cycle 防御,虽 aster-api 已检测,linker 也防御抛异常)。",
+    "ModuleGraphLinker": {
+      "link(ModuleGraph graph)": "返回 LinkedProgram(CoreModel.Module merged + Map<String,String> traceNames 原→mangled)。",
+      "step1": "对每个非 root 模块,收集顶层声明名集 S(Func.name/Data.name/Enum.name)。建 rename map：S 中每个名 → mangle 前缀+名。root 不重命名(保持原名)。",
+      "step2_rewrite": "遍历每个模块全部 decls(用上面 node_enumeration 的递归遍历器 SymbolRewriter)：把对『本模块 S 中符号』的引用改写成 mangled 名。对 dotted Name『alias.func』：拆 prefix=alias,查该模块的 import edge 找 toKey,改写成 toKey 的 mangle 前缀+func（即跨模块调用解析）。无 alias 的直接 func 引用：若 func 在某被导入模块的 S 中,也要解析（但优先本模块/builtin）。",
+      "step3_merge": "所有模块(含 mangled)的非 Import decls 合并进单 CoreModel.Module(名=root 模块名)。",
+      "step4_trace": "保留 traceNames(mangled→原 module.func)供诊断/trace 还原。"
+    },
+    "checkImport": "TypeChecker.checkImport 替换空实现：本步可先做轻量——校验 import 的符号能否解析（若 graph/符号表可用），冲突→IMPORT_SYMBOL_CONFLICT diagnostic。注意 TypeChecker 单模块上下文可能没有 graph——若无跨模块符号信息,checkImport 仍可保持宽松（记录待 aster-api 集成时强化）。**重点是 linker,checkImport 次要**。"
+  },
+  "constraints": [
+    "linker 是纯数据(不碰 DB/IO)。",
+    "符号重命名必须覆盖 node_enumeration 全部节点——务必写一个递归 SymbolRewriter visitor 遍历 Expr/Stmt/Pattern/Type,别手列漏。",
+    "局部变量(Let 名/param 名/PatName 绑定)不重命名——只重命名顶层声明名及其引用。区分：Name.name ∈ 模块的 S(顶层名集)才 mangle。",
+    "root 模块保持原名(它是入口)。",
+    "向后兼容：无 import 的单模块,link 应等价 identity（只有 root,无重命名,merged=root）。",
+    "中文注释,遵循现有风格。"
+  ],
+  "tests_CRITICAL": [
+    "单模块(无 import)→ link 是 identity（merged == root，无重命名）。",
+    "两模块：root Use lib version 1 as L; root 调 L.f → 合并后单 Module,L.f 改写成 lib_v1__f,lib 的 f 重命名 lib_v1__f。",
+    "符号冲突：root 和 lib 都有 func helper → 重命名后不冲突(lib 的是 lib_v1__helper)。",
+    "类型跨模块：root Construct lib 的 Data 类型 → typeName 改写。",
+    "**Truffle 执行验证(头号)**：起 truffle 跑 linked program,确认执行结果正确（不是光编译过）。看 truffle 测试如何 invoke（aster-lang-truffle 测试或 core 里的集成）。若 core 无法直接调 truffle,至少 dump linked Core JSON 人工核验所有引用已正确改写 + 留 aster-api 集成时端到端验证。",
+    "嵌套引用：Lambda body 内 / Match case 内 / If 分支内的跨模块调用都改写。"
+  ],
+  "verification": "./gradlew clean compileJava compileTestJava test（672 基线 + 新增,0 回归）。linker 不动 grammar（无 parity 影响）。dump linked Core JSON 验证符号改写完整。"
+}
