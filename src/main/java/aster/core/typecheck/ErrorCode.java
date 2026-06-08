@@ -49,6 +49,7 @@ public enum ErrorCode {
   DUPLICATE_IMPORT_ALIAS("E100", Category.SCOPE, Severity.WARNING, "Duplicate import alias '%s'.", "为不同的导入使用唯一别名，避免覆盖。"),
   UNDEFINED_VARIABLE("E101", Category.SCOPE, Severity.ERROR, "Undefined variable: %s", "在使用变量前先声明并初始化。"),
   MULTIPLE_ENTRY_RULES("E102", Category.SCOPE, Severity.ERROR, "Multiple @entry rules in module: {rules}", "每个模块最多保留一个 @entry Rule。"),
+  IMPORT_SYMBOL_CONFLICT("E103", Category.SCOPE, Severity.WARNING, "Import symbol conflict: {symbol}", "调整 import alias 或本地顶层声明名称，避免导入符号冲突。"),
   EFF_MISSING_IO("E200", Category.EFFECT, Severity.ERROR, "Function '%s' may perform I/O but is missing @io effect.", "为具有 IO 行为的函数声明 @io 效果。"),
   EFF_MISSING_CPU("E201", Category.EFFECT, Severity.ERROR, "Function '%s' may perform CPU-bound work but is missing @cpu (or @io) effect.", "为 CPU 密集型函数声明 @cpu 或 @io 效果。"),
   EFF_SUPERFLUOUS_IO_CPU_ONLY("E202", Category.EFFECT, Severity.INFO, "Function '%s' declares @io but only CPU-like work found; @io subsumes @cpu and may be unnecessary.", "若函数仅执行 CPU 工作，可移除多余的 @io 声明。"),
