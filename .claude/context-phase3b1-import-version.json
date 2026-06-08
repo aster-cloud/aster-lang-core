@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "recorded_at": "2026-06-08",
+    "recorder": "Claude (主AI)",
+    "source": "ADR 0015 阶段3b-1 — Import version 子句 grammar 扩展"
+  },
+  "objective": "扩 grammar 支持 `Use risk.Scoring version 2 as Score.`——版本号与命名别名分离。版本用于跨模块钉版本引用(ModuleResolver 解析),alias 用于调用前缀(Score.computeScore)。",
+  "decision": "用户选「扩 grammar 支持独立版本+别名」。语法: Use <qualifiedName> [version <INT>] [as <alias>].",
+  "grammar_facts": {
+    "importDecl_current": "AsterParser.g4:198 `USE qualifiedName (AS importAlias)? DOT`",
+    "目标": "`USE qualifiedName (VERSION INT_LITERAL)? (AS importAlias)? DOT`",
+    "tokens": "AS: 'as'(L120)、USE: 'Use'|'use'(L125)、INT_LITERAL: [0-9]+(L92)。VERSION token 不存在,需加。",
+    "软关键字教训": "阶段2 踩过:加硬 token 会吞标识符(second=SECONDS bug)。version 作普通标识符无现有 CNL 用法(grep 空),但为安全应让 version 仍可作标识符——加 VERSION token 后,把 VERSION 加进 nameIdent(L166: IDENT|TYPE_IDENT|TYPE → +VERSION),并在 AstBuilder nameIdent 文本提取处理 VERSION。",
+    "nameIdent": "AsterParser.g4:166 `IDENT | TYPE_IDENT | TYPE`——加 | VERSION 让 version 仍可作 Rule/字段名"
+  },
+  "ast": {
+    "Decl_Import": "src/main/java/aster/core/ast/Decl.java:32 record Import(path, alias, span)——加 Integer version(可空)。所有 new Decl.Import 构造点更新。",
+    "CoreModel_Import": "src/main/java/aster/core/ir/CoreModel.java:71 Import{path, alias, origin}——加 Integer version。",
+    "CoreLowering": "CoreLowering.java:70 out.alias=imp.alias()——加 out.version=imp.version() 透传。",
+    "AstBuilder": "visitImportDecl 解析 ctx.VERSION/INT_LITERAL → version。无 version 子句时 null。"
+  },
+  "constraints": [
+    "version 必须仍能作普通标识符(加进 nameIdent)——避免阶段2 软关键字踩坑重演",
+    "向后兼容: `Use x.` / `Use x as Y.` 无 version 子句仍解析,version=null",
+    "所有 new Decl.Import 构造点编译会报漏的,逐一更新",
+    "grammar 改动触发 tier1-parity——下一步 ts 对齐",
+    "中文注释,遵循现有 record/visitor 风格",
+    "不实现 linker/checkImport(那是 PR-3b-3),本步只 grammar+AST+lowering+parse"
+  ],
+  "tests": [
+    "parse: Use x version 2 as Y / Use x version 2 / Use x as Y(无version) / Use x(裸) / version 作 Rule 名(回归软关键字)",
+    "Decl.Import round-trip 含 version",
+    "CoreLowering version 透传"
+  ],
+  "verification": "./gradlew clean generateGrammarSource compileJava compileTestJava test(669 基线 + 新增,0 回归)。tier1-parity 在 CI(本步可能让含 version 的 fixture 失败,但现有 fixture 无 version 应过)。"
+}

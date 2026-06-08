@@ -1,0 +1,53 @@
+{
+  "meta": {
+    "recorded_at": "2026-06-08",
+    "recorder": "Claude (主AI)",
+    "source": "ADR 0015 阶段2 — @entry 注解 aster-lang-core groundwork"
+  },
+  "objective": "让 Rule 支持前置 @entry 注解(标记主入口)。grammar 给 funcDecl 加 annotation* 前缀;Decl.Func 加 annotations 字段;visitFuncDecl 解析;新增 @entry 唯一性 validator(一个模块最多一个 @entry Rule)。这是阶段2 双引擎对齐的 Java 侧 groundwork。",
+  "key_facts": {
+    "grammar_annotation_exists": {
+      "file": "src/main/antlr/AsterParser.g4",
+      "annotation_rule_L222": ": AT (IDENT | TYPE_IDENT) annotationArgs?",
+      "annotationArgs_L226": "LPAREN (annotationArg (COMMA annotationArg)*)? RPAREN",
+      "AT_token": "AsterLexer.g4:37 AT: '@';",
+      "复用位置": "param(L120 annotation* nameIdent)、enumParam(L163)、typeDecl(L215 annotation* TYPE) 都已支持前置 annotation*",
+      "funcDecl_L86_缺注解": "funcDecl 当前: RULE (IDENT|TYPE_IDENT) typeParamList? ... — 开头无 annotation* → 需加",
+      "topLevelDecl_L62": "funcDecl | dataDecl | enumDecl | typeDecl | importDecl"
+    },
+    "ast": {
+      "Annotation_record": "src/main/java/aster/core/ast/Annotation.java:14 record Annotation(...) 已存在",
+      "Decl_Func": "src/main/java/aster/core/ast/Decl.java:135 record Func(name, nameSpan, typeParams, params, retType, retAnnotations, body, effects, effectCaps, effectCapsExplicit, span) — 无顶层 annotations 字段 → 需加",
+      "其它Decl已有annotations": "Data/Enum/TypeAlias 看是否已有 annotations 字段作参考"
+    },
+    "astbuilder": {
+      "file": "src/main/java/aster/core/parser/AstBuilder.java",
+      "visitFuncDecl_L120": "构造 Decl.Func @ L205",
+      "visitAnnotation_L471": "已实现单个 annotation → Annotation",
+      "复用模式": "ctx.annotation()==null ? List.of() : ctx.annotation().stream().map(this::visitAnnotation).collect(toList()) — 见 L240/L406"
+    },
+    "typecheck": {
+      "checkImport_空实现": "TypeChecker.java:286(阶段3 才实现,本阶段不碰)",
+      "validator入口": "看 TypeChecker 或独立 validation 包放 @entry 唯一性检查"
+    }
+  },
+  "implementation": {
+    "step1_grammar": "funcDecl 改为: annotation* RULE (IDENT|TYPE_IDENT) ... (开头加 annotation*)。重新生成 ANTLR。",
+    "step2_ast": "Decl.Func 加 List<Annotation> annotations 字段(放 retAnnotations 之后或合适位置,带 @JsonProperty)。所有 new Decl.Func(...) 构造处更新。",
+    "step3_astbuilder": "visitFuncDecl 解析 ctx.annotation() → annotations,传入 Decl.Func。复用 L240 模式。",
+    "step4_validator": "新增 @entry 唯一性检查:遍历 module funcs,统计 hasAnnotation(annotations, 'entry'),>1 → Diagnostic error MULTIPLE_ENTRY_RULES(列出 Rule 名)。放 TypeChecker 或独立 EntryAnnotationValidator。注解名匹配:Annotation.name() == 'entry'(大小写按现有约定)。",
+    "step5_lowering": "CoreLowering 若把 Func annotations 透传到 Core IR(供 aster-api 读取 @entry),需保留。看 CoreModel.Func/Import 是否有 annotations 承载。最小:至少 @entry 信息能从 Core IR 读到(aster-api 阶段2 接入要用)。"
+  },
+  "tests": [
+    "parse golden: @entry Rule foo / 多 @entry / @entry 带其它注解 / 无注解 Rule(回归)",
+    "validator: 单 @entry OK / 多 @entry → MULTIPLE_ENTRY_RULES",
+    "Decl.Func 序列化/反序列化 round-trip 含 annotations"
+  ],
+  "constraints": [
+    "grammar 改动会触发 tier1-parity PR-blocking gate → aster-lang-ts 必须同步对齐(下一步)",
+    "向后兼容:无注解 Rule 解析不变(annotation* 可为空)",
+    "Decl.Func 加字段:所有构造处 + JSON round-trip 测试更新",
+    "中文注释,遵循现有 record + visitor 风格",
+    "不碰 checkImport(阶段3)"
+  ]
+}
