@@ -124,6 +124,38 @@ class TypeCheckerIntegrationTest {
     assertTrue(diagnostics.isEmpty());
   }
 
+  @Test
+  void testSingleEntryAnnotationPasses() {
+    var main = createValidFunction("main");
+    main.annotations = List.of(createAnnotation("entry"));
+    var helper = createValidFunction("helper");
+
+    var module = new CoreModel.Module();
+    module.decls = List.of(main, helper);
+
+    var diagnostics = checker.typecheckModule(module);
+
+    assertTrue(diagnostics.isEmpty(), "Single @entry rule should be valid");
+  }
+
+  @Test
+  void testMultipleEntryAnnotationsProduceDiagnostic() {
+    var first = createValidFunction("first");
+    first.annotations = List.of(createAnnotation("entry"));
+    var second = createValidFunction("second");
+    second.annotations = List.of(createAnnotation("entry"));
+
+    var module = new CoreModel.Module();
+    module.decls = List.of(first, second);
+
+    var diagnostics = checker.typecheckModule(module);
+
+    assertEquals(1, diagnostics.size());
+    assertEquals(ErrorCode.MULTIPLE_ENTRY_RULES, diagnostics.get(0).code());
+    assertTrue(diagnostics.get(0).message().contains("first"));
+    assertTrue(diagnostics.get(0).message().contains("second"));
+  }
+
   // ========== 复杂场景测试 ==========
 
   @Test
@@ -537,6 +569,25 @@ class TypeCheckerIntegrationTest {
     module.decls = List.of(func);
 
     return module;
+  }
+
+  private CoreModel.Func createValidFunction(String name) {
+    var func = new CoreModel.Func();
+    func.name = name;
+    func.params = List.of();
+    func.ret = createTypeName("Int");
+    func.effects = List.of();
+
+    var body = new CoreModel.Block();
+    body.statements = List.of(createReturnStmt(createIntLiteral(1)));
+    func.body = body;
+    return func;
+  }
+
+  private CoreModel.Annotation createAnnotation(String name) {
+    var annotation = new CoreModel.Annotation();
+    annotation.name = name;
+    return annotation;
   }
 
   private CoreModel.Param createParam(String name, CoreModel.Type type) {

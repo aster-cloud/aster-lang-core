@@ -42,6 +42,7 @@ class CoreLoweringTest {
             List.of(),  // typeParams
             List.of(),  // params
             typeInt(),
+            null,  // annotations
             null,  // retAnnotations
             new Block(List.of(), null),
             List.of(),  // effects
@@ -76,6 +77,7 @@ class CoreLoweringTest {
                 new Decl.Parameter("b", typeInt(), null, null)
             ),
             typeInt(),
+            null,
             null,
             new Block(List.of(), null),
             List.of(),
@@ -177,6 +179,7 @@ class CoreLoweringTest {
             List.of(new Decl.Parameter("path", typeString(), null, null)),
             typeString(),
             null,
+            null,
             new Block(List.of(), null),
             List.of("io"),  // effects
             List.of(),
@@ -219,6 +222,7 @@ class CoreLoweringTest {
             List.of("T"),  // typeParams
             List.of(new Decl.Parameter("x", type("T"), null, null)),
             type("T"),
+            null,
             null,
             new Block(List.of(), null),
             List.of(),
@@ -269,7 +273,7 @@ class CoreLoweringTest {
      */
     @Test
     void testLowerModuleWithMultipleDeclarations() {
-        var func = new Decl.Func("main", null, List.of(), List.of(), typeInt(), null,
+        var func = new Decl.Func("main", null, List.of(), List.of(), typeInt(), null, null,
             new Block(List.of(), null), List.of(), List.of(), false, null);
         var data = new Decl.Data("User", List.of(new Decl.Field("name", typeString(), null)), null);
         var enumDecl = new Decl.Enum("Status", List.of("Active", "Inactive"), null);
@@ -283,5 +287,30 @@ class CoreLoweringTest {
         assertTrue(lowered.decls.get(0) instanceof CoreModel.Func);
         assertTrue(lowered.decls.get(1) instanceof CoreModel.Data);
         assertTrue(lowered.decls.get(2) instanceof CoreModel.Enum);
+    }
+
+    @Test
+    void testLowerFunctionWithAnnotations() {
+        var func = new Decl.Func(
+            "main",
+            null,
+            List.of(),
+            List.of(),
+            typeInt(),
+            List.of(new Annotation("entry", Map.of())),
+            null,
+            new Block(List.of(), null),
+            List.of(),
+            List.of(),
+            false,
+            null
+        );
+
+        var module = new aster.core.ast.Module(null, List.of(func), null);
+        var lowered = lowering.lowerModule(module);
+        var funcLowered = (CoreModel.Func) lowered.decls.get(0);
+
+        assertEquals(1, funcLowered.annotations.size());
+        assertEquals("entry", funcLowered.annotations.get(0).name);
     }
 }

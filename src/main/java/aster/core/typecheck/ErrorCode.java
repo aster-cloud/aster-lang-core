@@ -48,6 +48,7 @@ public enum ErrorCode {
   PII_ARG_VIOLATION("E073", Category.PII, Severity.ERROR, "PII 参数类型不匹配: 期望 %s, 实际 %s", "检查函数签名，确保 PII 等级与类别一致。"),
   DUPLICATE_IMPORT_ALIAS("E100", Category.SCOPE, Severity.WARNING, "Duplicate import alias '%s'.", "为不同的导入使用唯一别名，避免覆盖。"),
   UNDEFINED_VARIABLE("E101", Category.SCOPE, Severity.ERROR, "Undefined variable: %s", "在使用变量前先声明并初始化。"),
+  MULTIPLE_ENTRY_RULES("E102", Category.SCOPE, Severity.ERROR, "Multiple @entry rules in module: {rules}", "每个模块最多保留一个 @entry Rule。"),
   EFF_MISSING_IO("E200", Category.EFFECT, Severity.ERROR, "Function '%s' may perform I/O but is missing @io effect.", "为具有 IO 行为的函数声明 @io 效果。"),
   EFF_MISSING_CPU("E201", Category.EFFECT, Severity.ERROR, "Function '%s' may perform CPU-bound work but is missing @cpu (or @io) effect.", "为 CPU 密集型函数声明 @cpu 或 @io 效果。"),
   EFF_SUPERFLUOUS_IO_CPU_ONLY("E202", Category.EFFECT, Severity.INFO, "Function '%s' declares @io but only CPU-like work found; @io subsumes @cpu and may be unnecessary.", "若函数仅执行 CPU 工作，可移除多余的 @io 声明。"),
