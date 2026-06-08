@@ -154,6 +154,7 @@ class CoreLoweringTest {
     void testLowerImport() {
         var importDecl = new Decl.Import(
             "std.io",
+            2,
             "IO",
             null
         );
@@ -164,6 +165,7 @@ class CoreLoweringTest {
 
         assertNotNull(importLowered);
         assertEquals("std.io", importLowered.path);
+        assertEquals(2, importLowered.version);
         assertEquals("IO", importLowered.alias);
     }
 

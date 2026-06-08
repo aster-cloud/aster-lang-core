@@ -590,29 +590,61 @@ class AstBuilderTest {
     @Test
     void parseImportWithoutAlias() {
         String input = """
-            Use data.List.
+            Use x.
             """;
 
         aster.core.ast.Module module = parseAndBuild(input);
 
         assertEquals(1, module.decls().size());
         Decl.Import importDecl = (Decl.Import) module.decls().get(0);
-        assertEquals("data.List", importDecl.path());
+        assertEquals("x", importDecl.path());
+        assertNull(importDecl.version());
         assertNull(importDecl.alias());
     }
 
     @Test
     void parseImportWithAlias() {
         String input = """
-            Use io.Http as HttpClient.
+            Use x as Y.
             """;
 
         aster.core.ast.Module module = parseAndBuild(input);
 
         assertEquals(1, module.decls().size());
         Decl.Import importDecl = (Decl.Import) module.decls().get(0);
-        assertEquals("io.Http", importDecl.path());
-        assertEquals("HttpClient", importDecl.alias());
+        assertEquals("x", importDecl.path());
+        assertNull(importDecl.version());
+        assertEquals("Y", importDecl.alias());
+    }
+
+    @Test
+    void parseImportWithVersionAndAlias() {
+        String input = """
+            Use x version 2 as Y.
+            """;
+
+        aster.core.ast.Module module = parseAndBuild(input);
+
+        assertEquals(1, module.decls().size());
+        Decl.Import importDecl = (Decl.Import) module.decls().get(0);
+        assertEquals("x", importDecl.path());
+        assertEquals(2, importDecl.version());
+        assertEquals("Y", importDecl.alias());
+    }
+
+    @Test
+    void parseImportWithVersionWithoutAlias() {
+        String input = """
+            Use x version 2.
+            """;
+
+        aster.core.ast.Module module = parseAndBuild(input);
+
+        assertEquals(1, module.decls().size());
+        Decl.Import importDecl = (Decl.Import) module.decls().get(0);
+        assertEquals("x", importDecl.path());
+        assertEquals(2, importDecl.version());
+        assertNull(importDecl.alias());
     }
 
     @Test
@@ -626,7 +658,22 @@ class AstBuilderTest {
         assertEquals(1, module.decls().size());
         Decl.Import importDecl = (Decl.Import) module.decls().get(0);
         assertEquals("a.b.c.D", importDecl.path());
+        assertNull(importDecl.version());
         assertNull(importDecl.alias());
+    }
+
+    @Test
+    void parseVersionAsRuleName() {
+        String input = """
+            Rule version produce Text:
+                Return "ok".
+            """;
+
+        aster.core.ast.Module module = parseAndBuild(input);
+
+        assertEquals(1, module.decls().size());
+        Decl.Func func = (Decl.Func) module.decls().get(0);
+        assertEquals("version", func.name());
     }
 
     @Test

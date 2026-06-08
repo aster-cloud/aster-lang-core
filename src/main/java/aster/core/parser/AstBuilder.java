@@ -433,6 +433,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         if (ctx.TYPE() != null) {
             return ctx.TYPE().getText();
         }
+        if (ctx.VERSION() != null) {
+            return ctx.VERSION().getText();
+        }
         throw new IllegalStateException("无法解析 name 标识符");
     }
 
@@ -543,6 +546,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     @Override
     public Decl.Import visitImportDecl(AsterParser.ImportDeclContext ctx) {
         String path = visitQualifiedName(ctx.qualifiedName());
+        Integer version = ctx.INT_LITERAL() == null
+            ? null
+            : Integer.parseInt(ctx.INT_LITERAL().getText());
         String alias = null;
         if (ctx.importAlias() != null) {
             AsterParser.ImportAliasContext aliasCtx = ctx.importAlias();
@@ -552,7 +558,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                 alias = aliasCtx.IDENT().getText();
             }
         }
-        return new Decl.Import(path, alias, spanFrom(ctx));
+        return new Decl.Import(path, version, alias, spanFrom(ctx));
     }
 
     // ============================================================

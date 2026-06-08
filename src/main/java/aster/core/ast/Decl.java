@@ -26,12 +26,14 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
      * Import 导入声明
      *
      * @param path  模块路径（允许多段）
-     * @param alias 别名（可能为 null）
-     * @param span  源码位置信息
+     * @param version 钉住的模块版本（可能为 null）
+     * @param alias   别名（可能为 null）
+     * @param span    源码位置信息
      */
     @JsonTypeName("Import")
     record Import(
         @JsonProperty("path") String path,
+        @JsonProperty("version") Integer version,
         @JsonProperty("alias") String alias,
         @JsonProperty("span") Span span
     ) implements Decl {
