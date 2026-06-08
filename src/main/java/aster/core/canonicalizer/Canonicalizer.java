@@ -337,13 +337,14 @@ public final class Canonicalizer {
      * 安全处理：使用 Pattern.quote 转义冠词中可能包含的正则元字符
      */
     /**
-     * 冠词后若紧跟这些运算符/连接词，说明该冠词其实是标识符（操作数），不是冠词。
-     * 包含两类形态——冠词移除发生在运算符翻译（step 1，plus→+ 等）之后，所以
-     * 多数中缀运算符此时已是符号；逻辑连接词 and/or 与声明关键字 as 仍是词。
-     * 列出符号形态 + 残留词形态双保险。冠词移除仅对 en-US 启用，故此集与 en-US 对齐。
+     * 冠词后若紧跟这些运算符/连接词/声明关键字，说明该冠词其实是标识符（操作数或被声明者），
+     * 不是冠词——这些词都不是名词，不会被冠词修饰。包含两类形态：冠词移除发生在运算符
+     * 翻译（step 1，plus→+ 等）之后，故多数中缀运算符已是符号；逻辑连接词 and/or、
+     * 声明/连接关键字（as be in of）仍是词。列出符号形态 + 残留词形态双保险。
+     * 冠词移除仅对 en-US 启用，故此集与 en-US 对齐。
      */
     private static final String IDENTIFIER_FOLLOW_WORDS =
-            "as|and|or|equals|is|at|greater|less|more|than|to|plus|minus|times|multiplied|divided|modulo";
+            "as|be|in|of|and|or|equals|is|at|greater|less|more|than|to|plus|minus|times|multiplied|divided|modulo";
     /** 运算符翻译后的符号形态（见 OPERATOR_SYMBOL_MAP）：+ - * / < > = 及其复合。 */
     private static final String IDENTIFIER_FOLLOW_SYMBOLS = "[-+*/<>=%]";
 
@@ -365,14 +366,18 @@ public final class Canonicalizer {
         //   (?!\s+(as|and|...)(?!\p{L})) 后跟声明关键字/运算符词 → 标识符（如 `a as Int`、`a equals to`）
         //   (?!\s+[-+*/<>=%])            后跟翻译后的运算符符号 → 标识符（如 `a + b`、`the == 1`）
         //   (?!\s*[,.:)\]])              紧贴/空格后接逗号·句号·冒号·括号 → 末位标识符（如 `given a, b`、`Return a.`）
-        // 注意：不能用行末/段末 `$` 作豁免——removeArticles 按字符串分段后逐段应用，
-        // 字符串前的冠词（如 `the "first"`）会落在段末，若用 `$` 豁免会漏掉真冠词。
-        // 行末的孤立标识符极罕见且通常有句末 `.` 兜底。
+        //   (?![ \t]*\n)                 行内空白后即换行 → 行末标识符（如 `Return a\n`）。
+        //                                只认行内空白 [ \t]，不认 \s（避免把 `the\n"x"` 这种跨行误判，
+        //                                也确保不与"段末"混淆——真换行字符只在行末出现）。
+        // 注意：不能用 `$` 作豁免——removeArticles 按字符串分段后逐段应用，字符串前的冠词
+        // （如 `the "first"`）会落在段末，`$` 会匹配段末导致漏掉真冠词。改用显式 `\n` 判行末，
+        // 整个输入末尾（EOF 无换行）的尾段由 removeArticles 单独追加 `$` 豁免。
         // 这几道否定 lookahead 必须在尾随空白吞噬 `\s?` 之前判定。
         String identifierGuard =
                 "(?!\\s+(?:" + IDENTIFIER_FOLLOW_WORDS + ")(?![\\p{L}]))"
                 + "(?!\\s+" + IDENTIFIER_FOLLOW_SYMBOLS + ")"
-                + "(?!\\s*[,.:)\\]])";
+                + "(?!\\s*[,.:)\\]])"
+                + "(?![ \\t]*\\n)";
         String pattern = "(?<![\\p{L}.])(" + quotedArticles + ")(?![\\p{L}.])"
                 + identifierGuard
                 + "(?=\\s|$|[\\p{Punct}\\u3001-\\u303F\\uFF00-\\uFF65])\\s?";
@@ -1341,7 +1346,13 @@ public final class Canonicalizer {
             return s;
         }
 
-        List<Segment> segments = segmentString(s);
+        // 行末标识符保护用显式 `\n` 判定（见 buildArticlePattern）。若输入不以换行结尾，
+        // EOF 处的孤立冠词（如末行 `Return a` 无换行）拿不到 `\n` 锚点会被误删。
+        // 临时补一个哨兵换行让尾段也走"行末"豁免，处理后再去掉，保持输出不变。
+        boolean appendedSentinel = !s.isEmpty() && !s.endsWith("\n");
+        String input = appendedSentinel ? s + "\n" : s;
+
+        List<Segment> segments = segmentString(input);
 
         StringBuilder result = new StringBuilder();
         for (Segment segment : segments) {
@@ -1355,7 +1366,11 @@ public final class Canonicalizer {
             }
         }
 
-        return result.toString();
+        String out = result.toString();
+        if (appendedSentinel && out.endsWith("\n")) {
+            out = out.substring(0, out.length() - 1);
+        }
+        return out;
     }
 
     /**
