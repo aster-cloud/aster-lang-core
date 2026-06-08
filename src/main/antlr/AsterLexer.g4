@@ -65,7 +65,12 @@ NOT_EQUAL_TO_WORD: 'not' [ \t]+ 'equal' [ \t]+ 'to' | 'is' [ \t]+ 'not' [ \t]+ '
 
 // 算术运算符
 TIMES_WORD: 'times';
+// 整除（截断取整）。canonicalizer 把 `integer divided by` 翻成符号 `//`（见
+// OPERATOR_SYMBOL_MAP），故主形态是 `//`；同时保留词形以兼容未经 canonicalize 的
+// 直接解析路径。`//` 比 SLASH `/` 长，最长匹配优先，不会被切成两个 SLASH。
+INTEGER_DIVIDED_BY_WORD: '//' | 'integer' [ \t]+ 'divided' [ \t]+ 'by';
 DIVIDED_BY_WORD: 'divided' [ \t]+ 'by';
+MODULO_WORD: 'modulo';
 PLUS_WORD: 'plus';
 MINUS_WORD: 'minus';
 

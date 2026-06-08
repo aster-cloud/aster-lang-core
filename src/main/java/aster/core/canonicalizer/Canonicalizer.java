@@ -212,6 +212,12 @@ public final class Canonicalizer {
         Map.entry(SemanticTokenKind.MINUS_WORD, "-"),
         Map.entry(SemanticTokenKind.TIMES, "*"),
         Map.entry(SemanticTokenKind.DIVIDED_BY, "/"),
+        // 整除翻成 `//`：必须经此符号映射而非纯 lexer 词规则，否则 canonicalizer 会把
+        // `integer divided by` 中的 `divided by` 子串先翻成 `/`，留下游离的 `integer`。
+        // translation 按 key 长度降序（最长优先），`integer divided by`(18) 早于
+        // `divided by`(10)，整体消费。注释（仅 `#`）已在 removeLineComments 阶段移除，
+        // 故此处产出的 `//` 不会被当注释；lexer 的 INTEGER_DIVIDED_BY_WORD 认 `//`。
+        Map.entry(SemanticTokenKind.INTEGER_DIVIDED_BY, "//"),
         Map.entry(SemanticTokenKind.UNDER, "<"),
         Map.entry(SemanticTokenKind.OVER, ">"),
         Map.entry(SemanticTokenKind.MORE_THAN, ">")

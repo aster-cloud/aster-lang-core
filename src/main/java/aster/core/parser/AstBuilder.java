@@ -1004,6 +1004,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             case "minus" -> "-";
             case "times" -> "*";
             case "divided by" -> "/";
+            case "//", "integer divided by" -> "//";  // 整除（截断取整）
+            case "modulo" -> "%";                      // 取模
             default -> op;  // 保持原样（符号运算符或未知运算符）
         };
     }
@@ -1050,6 +1052,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         List<TerminalNode> slashNodes = ctx.SLASH();
         List<TerminalNode> timesWordNodes = ctx.TIMES_WORD();
         List<TerminalNode> dividedByWordNodes = ctx.DIVIDED_BY_WORD();
+        List<TerminalNode> intDividedByWordNodes = ctx.INTEGER_DIVIDED_BY_WORD();
+        List<TerminalNode> moduloWordNodes = ctx.MODULO_WORD();
 
         // 合并所有运算符并按token索引排序
         List<Token> allOperators = new ArrayList<>();
@@ -1057,6 +1061,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         slashNodes.forEach(n -> allOperators.add(n.getSymbol()));
         timesWordNodes.forEach(n -> allOperators.add(n.getSymbol()));
         dividedByWordNodes.forEach(n -> allOperators.add(n.getSymbol()));
+        intDividedByWordNodes.forEach(n -> allOperators.add(n.getSymbol()));
+        moduloWordNodes.forEach(n -> allOperators.add(n.getSymbol()));
         allOperators.sort((a, b) -> Integer.compare(a.getTokenIndex(), b.getTokenIndex()));
 
         for (int i = 1; i < ctx.unaryExpr().size(); i++) {
