@@ -336,6 +336,17 @@ public final class Canonicalizer {
      * <p>
      * 安全处理：使用 Pattern.quote 转义冠词中可能包含的正则元字符
      */
+    /**
+     * 冠词后若紧跟这些运算符/连接词，说明该冠词其实是标识符（操作数），不是冠词。
+     * 包含两类形态——冠词移除发生在运算符翻译（step 1，plus→+ 等）之后，所以
+     * 多数中缀运算符此时已是符号；逻辑连接词 and/or 与声明关键字 as 仍是词。
+     * 列出符号形态 + 残留词形态双保险。冠词移除仅对 en-US 启用，故此集与 en-US 对齐。
+     */
+    private static final String IDENTIFIER_FOLLOW_WORDS =
+            "as|and|or|equals|is|at|greater|less|more|than|to|plus|minus|times|multiplied|divided|modulo";
+    /** 运算符翻译后的符号形态（见 OPERATOR_SYMBOL_MAP）：+ - * / < > = 及其复合。 */
+    private static final String IDENTIFIER_FOLLOW_SYMBOLS = "[-+*/<>=%]";
+
     private Pattern buildArticlePattern() {
         if (!config.removeArticles() || config.articles() == null || config.articles().isEmpty()) {
             return null;
@@ -350,7 +361,21 @@ public final class Canonicalizer {
         // (?<![\p{L}.]) - 前面不是字母也不是点（点排除模块路径 risk.A / 成员访问 A.a 里的标识符段，
         //                 避免单字母大写标识符如 'A' 被 CASE_INSENSITIVE 误判为冠词 'a' 而吞掉）
         // (?![\p{L}.])   - 后面不紧跟字母或点（同理排除 A.a 中的 A）
-        String pattern = "(?<![\\p{L}.])(" + quotedArticles + ")(?![\\p{L}.])(?=\\s|$|[\\p{Punct}\\u3001-\\u303F\\uFF00-\\uFF65])\\s?";
+        // 标识符保护——冠词修饰名词才是冠词，否则它是参数名/变量名（标识符），必须保留：
+        //   (?!\s+(as|and|...)(?!\p{L})) 后跟声明关键字/运算符词 → 标识符（如 `a as Int`、`a equals to`）
+        //   (?!\s+[-+*/<>=%])            后跟翻译后的运算符符号 → 标识符（如 `a + b`、`the == 1`）
+        //   (?!\s*[,.:)\]])              紧贴/空格后接逗号·句号·冒号·括号 → 末位标识符（如 `given a, b`、`Return a.`）
+        // 注意：不能用行末/段末 `$` 作豁免——removeArticles 按字符串分段后逐段应用，
+        // 字符串前的冠词（如 `the "first"`）会落在段末，若用 `$` 豁免会漏掉真冠词。
+        // 行末的孤立标识符极罕见且通常有句末 `.` 兜底。
+        // 这几道否定 lookahead 必须在尾随空白吞噬 `\s?` 之前判定。
+        String identifierGuard =
+                "(?!\\s+(?:" + IDENTIFIER_FOLLOW_WORDS + ")(?![\\p{L}]))"
+                + "(?!\\s+" + IDENTIFIER_FOLLOW_SYMBOLS + ")"
+                + "(?!\\s*[,.:)\\]])";
+        String pattern = "(?<![\\p{L}.])(" + quotedArticles + ")(?![\\p{L}.])"
+                + identifierGuard
+                + "(?=\\s|$|[\\p{Punct}\\u3001-\\u303F\\uFF00-\\uFF65])\\s?";
         return Pattern.compile(pattern,
                 Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE | Pattern.UNICODE_CHARACTER_CLASS);
     }
