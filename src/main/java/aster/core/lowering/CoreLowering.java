@@ -67,6 +67,7 @@ public final class CoreLowering {
   private CoreModel.Import lowerImport(Decl.Import imp) {
     CoreModel.Import out = new CoreModel.Import();
     out.path = imp.path();
+    out.version = imp.version();
     out.alias = imp.alias();
     out.origin = spanToOrigin(imp.span());
     return out;

@@ -167,6 +167,7 @@ nameIdent
     : IDENT
     | TYPE_IDENT
     | TYPE
+    | VERSION
     ;
 
 /**
@@ -194,9 +195,10 @@ variantList
  * 语法:
  *   Use io.Http.
  *   Use io.Http as HttpClient.
+ *   Use io.Http version 2 as HttpClient.
  */
 importDecl
-    : USE qualifiedName (AS importAlias)? DOT
+    : USE qualifiedName (VERSION INT_LITERAL)? (AS importAlias)? DOT
     ;
 
 /**

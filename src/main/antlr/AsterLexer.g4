@@ -123,6 +123,7 @@ OF: 'of';
 
 // 导入相关
 USE: 'Use' | 'use';
+VERSION: 'version';
 
 // 语句关键字
 LET: 'Let';

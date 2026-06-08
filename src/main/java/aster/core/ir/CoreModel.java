@@ -70,6 +70,7 @@ public final class CoreModel {
   @JsonTypeName("Import")
   public static final class Import implements Decl {
     public String path;     // 被导入模块路径
+    public Integer version; // 钉住的模块版本（可选）
     public String alias;    // 别名（可选，为 null 表示使用原名）
     public Origin origin;
   }

@@ -60,7 +60,7 @@ class AstSerializationTest {
     @Test
     void testImportDecl() throws Exception {
         // 创建 Import 声明
-        Decl.Import importDecl = new Decl.Import("std.io", null, createSpan(1, 1, 1, 15));
+        Decl.Import importDecl = new Decl.Import("std.io", 2, null, createSpan(1, 1, 1, 15));
 
         // 序列化
         String json = mapper.writeValueAsString(importDecl);
@@ -68,6 +68,7 @@ class AstSerializationTest {
         // 验证 JSON 格式
         assertTrue(json.contains("\"kind\":\"Import\""));
         assertTrue(json.contains("\"path\":\"std.io\""));
+        assertTrue(json.contains("\"version\":2"));
 
         // 反序列化
         Decl deserialized = mapper.readValue(json, Decl.class);
@@ -75,6 +76,7 @@ class AstSerializationTest {
         // 验证
         assertTrue(deserialized instanceof Decl.Import);
         assertEquals("std.io", ((Decl.Import) deserialized).path());
+        assertEquals(2, ((Decl.Import) deserialized).version());
     }
 
     @Test
