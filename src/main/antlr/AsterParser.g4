@@ -428,10 +428,22 @@ exprStmt
 
 /**
  * 表达式（多级优先级）
- * 使用优先级爬升技术：比较 < 加减 < 乘除 < 函数调用 < 基本表达式
+ * 优先级（低→高）：or < and < not < 比较 < 加减 < 乘除 < 函数调用 < 基本表达式
  */
 expr
-    : comparisonExpr
+    : orExpr
+    ;
+
+// 逻辑或（最低优先级，左结合）。and/or 在表达式上下文是逻辑运算符；
+// 在 givenParamList / fieldList / constructFields / typeList / waitStmt 等
+// 列表上下文，AND 由各自规则显式消费，不进入此表达式链。
+orExpr
+    : andExpr (OR andExpr)*
+    ;
+
+// 逻辑与（高于 or，低于 not / 比较，左结合）
+andExpr
+    : comparisonExpr (AND comparisonExpr)*
     ;
 
 // 比较表达式。除符号/多词比较词 token 外，`under` / `over` 作为**软关键字**
