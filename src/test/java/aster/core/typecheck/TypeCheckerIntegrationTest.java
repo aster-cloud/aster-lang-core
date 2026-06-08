@@ -156,6 +156,43 @@ class TypeCheckerIntegrationTest {
     assertTrue(diagnostics.get(0).message().contains("second"));
   }
 
+  @Test
+  void testImportAliasConflictProducesDiagnostic() {
+    var imp = new CoreModel.Import();
+    imp.path = "lib";
+    imp.version = 1;
+    imp.alias = "helper";
+    var helper = createValidFunction("helper");
+
+    var module = new CoreModel.Module();
+    module.decls = List.of(imp, helper);
+
+    var diagnostics = checker.typecheckModule(module);
+
+    assertTrue(diagnostics.stream()
+      .anyMatch(d -> d.code() == ErrorCode.IMPORT_SYMBOL_CONFLICT));
+  }
+
+  @Test
+  void testDuplicateImportAliasProducesDiagnostic() {
+    var first = new CoreModel.Import();
+    first.path = "lib.one";
+    first.version = 1;
+    first.alias = "Lib";
+    var second = new CoreModel.Import();
+    second.path = "lib.two";
+    second.version = 1;
+    second.alias = "Lib";
+
+    var module = new CoreModel.Module();
+    module.decls = List.of(first, second);
+
+    var diagnostics = checker.typecheckModule(module);
+
+    assertTrue(diagnostics.stream()
+      .anyMatch(d -> d.code() == ErrorCode.IMPORT_SYMBOL_CONFLICT));
+  }
+
   // ========== 复杂场景测试 ==========
 
   @Test

@@ -41,6 +41,8 @@ public final class TypeChecker {
   private final AsyncDisciplineChecker asyncChecker;
   private final PiiTypeChecker piiChecker;
   private final CapabilityChecker capabilityChecker;
+  private final java.util.Set<String> importAliases = new HashSet<>();
+  private final java.util.Set<String> moduleTopLevelNames = new HashSet<>();
 
   // ========== 构造器 ==========
 
@@ -72,6 +74,8 @@ public final class TypeChecker {
       return List.of();
     }
     diagnostics.clear();
+    importAliases.clear();
+    moduleTopLevelNames.clear();
     symbolTable.enterScope(SymbolTable.ScopeType.MODULE);
 
     try {
@@ -80,6 +84,7 @@ public final class TypeChecker {
 
       // 第一遍：收集类型定义
       collectTypeDefinitions(module);
+      collectTopLevelNames(module);
       validateEntryAnnotations(module);
 
       // 【修复】注入类型别名映射，使下游检查器可以展开别名
@@ -285,8 +290,57 @@ public final class TypeChecker {
    * 检查导入声明
    */
   private void checkImport(CoreModel.Import imp) {
-    // 导入检查暂时简化：仅记录模块路径
-    // 完整实现需要模块解析和符号导入
+    // TypeChecker 当前只看到单个 CoreModel.Module，没有 aster-api 解析后的
+    // ModuleGraph，因此不能验证外部模块存在性或导出符号集合。这里先做本模块
+    // 内可确定的轻量冲突检查；跨模块符号解析留给 ModuleResolver/linker 集成强化。
+    var visibleName = importVisibleName(imp);
+    if (visibleName == null || visibleName.isBlank()) {
+      return;
+    }
+    if (!importAliases.add(visibleName)) {
+      diagnostics.warning(
+        ErrorCode.IMPORT_SYMBOL_CONFLICT,
+        Optional.ofNullable(imp.origin),
+        Map.of("symbol", visibleName, "reason", "duplicate import alias")
+      );
+    }
+    if (moduleTopLevelNames.contains(visibleName)) {
+      diagnostics.warning(
+        ErrorCode.IMPORT_SYMBOL_CONFLICT,
+        Optional.ofNullable(imp.origin),
+        Map.of("symbol", visibleName, "reason", "conflicts with local top-level declaration")
+      );
+    }
+  }
+
+  private void collectTopLevelNames(CoreModel.Module module) {
+    if (module == null || module.decls == null) {
+      return;
+    }
+    for (var decl : module.decls) {
+      switch (decl) {
+        case CoreModel.Func func -> moduleTopLevelNames.add(func.name);
+        case CoreModel.Data data -> moduleTopLevelNames.add(data.name);
+        case CoreModel.Enum enumDecl -> moduleTopLevelNames.add(enumDecl.name);
+        case CoreModel.Import ignored -> {
+        }
+      }
+    }
+    moduleTopLevelNames.remove(null);
+  }
+
+  private String importVisibleName(CoreModel.Import imp) {
+    if (imp == null) {
+      return null;
+    }
+    if (imp.alias != null && !imp.alias.isBlank()) {
+      return imp.alias;
+    }
+    if (imp.path == null || imp.path.isBlank()) {
+      return null;
+    }
+    var dot = imp.path.lastIndexOf('.');
+    return dot >= 0 && dot < imp.path.length() - 1 ? imp.path.substring(dot + 1) : imp.path;
   }
 
   /**
