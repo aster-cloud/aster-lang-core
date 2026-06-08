@@ -87,12 +87,10 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     @Override
     public String visitQualifiedName(AsterParser.QualifiedNameContext ctx) {
         return ctx.qualifiedSegment().stream()
-            .map(segment -> {
-                if (segment.IDENT() != null) {
-                    return segment.IDENT().getText();
-                }
-                return segment.TYPE_IDENT().getText();
-            })
+            // 段可能是 IDENT / TYPE_IDENT，也可能是软关键字 AND/OR/NOT
+            // （模块名/Use 路径里这些词当普通标识符用，见 grammar qualifiedSegment）。
+            // 直接取段文本，避免按 token 类型逐一判空导致 NPE。
+            .map(segment -> segment.getText())
             .collect(Collectors.joining("."));
     }
 

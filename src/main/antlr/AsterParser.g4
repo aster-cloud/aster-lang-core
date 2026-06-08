@@ -49,10 +49,18 @@ qualifiedName
 
 /**
  * 限定名称片段，允许普通标识符或类型标识符
+ * <p>
+ * 软关键字：AND/OR/NOT 在限定名（模块名 Module x.y.z. / Use x.y.z.）的段位置
+ * 当普通标识符用——段之间由 DOT 分隔，不与表达式里的逻辑运算符或列表分隔符冲突。
+ * 沿用 nameIdent 已有的 TYPE/VERSION 软关键字模式，避免改 lexer 引入全局风险。
+ * 解决 lexer 把 `boolean.and`/`boolean.or` 段误当 AND/OR token 而拒绝的问题。
  */
 qualifiedSegment
     : IDENT
     | TYPE_IDENT
+    | AND
+    | OR
+    | NOT
     ;
 
 /**
