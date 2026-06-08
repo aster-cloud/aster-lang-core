@@ -210,6 +210,23 @@ class AstBuilderTest {
     }
 
     @Test
+    void testFuncWithStandaloneEntryAnnotationLine() {
+        // @entry 独立成行（注解与 Rule 之间有换行）——grammar (annotation NEWLINE*)* RULE 支持
+        String input = """
+            @entry
+            Rule main produce Text:
+              Return "ok".
+            """;
+
+        aster.core.ast.Module module = parseAndBuild(input);
+
+        Decl.Func func = (Decl.Func) module.decls().get(0);
+        assertEquals("main", func.name());
+        assertEquals(1, func.annotations().size());
+        assertEquals("entry", func.annotations().get(0).name());
+    }
+
+    @Test
     void testFuncWithMultipleAnnotations() {
         String input = """
             @entry @preview(source: "test") Rule main produce Text:

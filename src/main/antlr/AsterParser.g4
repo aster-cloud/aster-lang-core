@@ -83,7 +83,7 @@ topLevelDecl
  *     ...
  */
 funcDecl
-    : annotation* RULE nameIdent typeParamList? givenParamList? COMMA? (PRODUCE annotatedType?)? (DOT capabilityAnnotation? COLON NEWLINE block | COLON NEWLINE block | DOT)
+    : (annotation NEWLINE*)* RULE nameIdent typeParamList? givenParamList? COMMA? (PRODUCE annotatedType?)? (DOT capabilityAnnotation? COLON NEWLINE block | COLON NEWLINE block | DOT)
     ;
 
 /**
