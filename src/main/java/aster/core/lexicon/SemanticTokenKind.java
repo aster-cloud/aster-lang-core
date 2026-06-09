@@ -140,8 +140,14 @@ public enum SemanticTokenKind {
     /** 乘法 - "times" / "乘" */
     TIMES,
 
-    /** 除法 - "divided by" / "除以" */
+    /** 除法（浮点） - "divided by" / "除以" */
     DIVIDED_BY,
+
+    /** 整除（截断取整） - "integer divided by" / "整除" */
+    INTEGER_DIVIDED_BY,
+
+    /** 取模 - "modulo" / "取模" */
+    MODULO,
 
     // ============================================================
     // 比较运算
@@ -317,7 +323,7 @@ public enum SemanticTokenKind {
         Map.entry("control", Arrays.asList(IF, OTHERWISE, MATCH, WHEN, RETURN, RESULT_IS, FOR_EACH, IN)),
         Map.entry("variable", Arrays.asList(LET, BE, SET, TO_WORD)),
         Map.entry("boolean", Arrays.asList(OR, AND, NOT)),
-        Map.entry("arithmetic", Arrays.asList(PLUS, MINUS_WORD, TIMES, DIVIDED_BY)),
+        Map.entry("arithmetic", Arrays.asList(PLUS, MINUS_WORD, TIMES, DIVIDED_BY, INTEGER_DIVIDED_BY, MODULO)),
         Map.entry("comparison", Arrays.asList(LESS_THAN, GREATER_THAN, EQUALS_TO, IS, UNDER, OVER, MORE_THAN)),
         Map.entry("typeConstruct", Arrays.asList(MAYBE, OPTION_OF, RESULT_OF, OK_OF, ERR_OF, SOME_OF, NONE)),
         Map.entry("literal", Arrays.asList(TRUE, FALSE, NULL)),

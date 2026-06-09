@@ -496,7 +496,7 @@ additiveExpr
     ;
 
 multiplicativeExpr
-    : unaryExpr (op=(STAR | SLASH | TIMES_WORD | DIVIDED_BY_WORD) unaryExpr)*
+    : unaryExpr (op=(STAR | SLASH | TIMES_WORD | DIVIDED_BY_WORD | INTEGER_DIVIDED_BY_WORD | MODULO_WORD) unaryExpr)*
     ;
 
 unaryExpr
