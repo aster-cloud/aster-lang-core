@@ -114,6 +114,12 @@ class CoreIrFingerprintCli {
                     JsonNode coreJson = MAPPER.valueToTree(coreModule);
                     record.put("ok", true);
                     record.set("fingerprint", fingerprint(coreJson));
+                    // ADR 0016 阶段1：-Dparity.ir.full=true 时附带完整 Core IR JSON，
+                    // 供 parity-tier1.mjs 的归一化字段级比较器消费（默认仍只发指纹，
+                    // 保持现有 IR-mode 行为不变）。
+                    if (Boolean.getBoolean("parity.ir.full")) {
+                        record.set("ir", coreJson);
+                    }
                 } catch (Throwable t) {
                     // A failure on one sample shouldn't abort the whole batch.
                     // The parity runner needs every sample's verdict so it can
