@@ -1082,7 +1082,13 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     @Override
     public Expr visitPostfixExpr(AsterParser.PostfixExprContext ctx) {
         Expr current = (Expr) visit(ctx.primaryExpr());
-        boolean baseIsTypeIdent = ctx.primaryExpr() instanceof AsterParser.TypeIdentExprContext;
+        // `Map` has its own lexer token (MAP) so it parses as MapIdentExpr, not
+        // TypeIdentExpr — but for qualified stdlib calls like `Map.get(m, k)` it must
+        // behave like a type qualifier (yielding the call target `Map.get`), exactly
+        // as `List.get` does. Without this, the `Map` qualifier is dropped and the
+        // target collapses to a bare `get`, which fails to resolve.
+        boolean baseIsTypeIdent = ctx.primaryExpr() instanceof AsterParser.TypeIdentExprContext
+            || ctx.primaryExpr() instanceof AsterParser.MapIdentExprContext;
         List<MemberSegment> pendingMembers = new ArrayList<>();
 
         for (AsterParser.PostfixSuffixContext suffixCtx : ctx.postfixSuffix()) {
