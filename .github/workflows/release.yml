@@ -38,6 +38,14 @@ jobs:
           path: aster-lang-de
           token: ${{ secrets.CROSS_REPO_TOKEN }}
 
+      # 共享测试语料（cloud.aster-lang:aster-lang-test）—— core 的测试编译/运行
+      # 依赖它。发布到 Maven Local 避免从 GitHub Packages 拉取（跨仓 401）。
+      - uses: actions/checkout@v6
+        with:
+          repository: aster-cloud/aster-lang-test
+          path: aster-lang-test
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+
       - uses: actions/setup-java@v5
         with:
           java-version: '25'
@@ -58,6 +66,10 @@ jobs:
           cd aster-lang-en && ./gradlew publishToMavenLocal -x test
           cd ../aster-lang-zh && ./gradlew publishToMavenLocal -x test
           cd ../aster-lang-de && ./gradlew publishToMavenLocal -x test
+
+      # 发布测试语料 jar 到 Maven Local（core 测试编译/运行依赖它）
+      - name: Publish test corpus locally
+        run: cd aster-lang-test/packages/jvm && ./gradlew publishToMavenLocal
 
       - name: Build & Test
         run: ./gradlew build
