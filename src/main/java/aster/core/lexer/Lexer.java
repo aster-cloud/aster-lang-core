@@ -149,22 +149,24 @@ public final class Lexer {
             }
 
             // Punctuation - 需要先保存位置再调用 next()
-            // 句号（英文或中文）
-            if (ch == '.' || ch == '。') {
+            // 句号（英文 . / 中文 。 / 词法表配置的句末符，如天城文 danda 。）
+            if (ch == '.' || ch == '。' || isPunct(ch, punctuation.statementEnd())) {
                 Position start = new Position(line, col);
                 next();
                 push(TokenKind.DOT, String.valueOf(ch), start, null);
                 continue;
             }
-            // 冒号（英文或中文）
-            if (ch == ':' || ch == '：') {
+            // 冒号（英文 : / 中文 ： / 词法表配置的块引导符）
+            if (ch == ':' || ch == '：' || isPunct(ch, punctuation.blockStart())) {
                 Position start = new Position(line, col);
                 next();
                 push(TokenKind.COLON, String.valueOf(ch), start, null);
                 continue;
             }
-            // 逗号（英文或中文顿号）
-            if (ch == ',' || ch == '，' || ch == '、') {
+            // 逗号（英文 , / 中文 ，、 / 词法表配置的列表·枚举分隔符）
+            if (ch == ',' || ch == '，' || ch == '、'
+                    || isPunct(ch, punctuation.listSeparator())
+                    || isPunct(ch, punctuation.enumSeparator())) {
                 Position start = new Position(line, col);
                 next();
                 push(TokenKind.COMMA, String.valueOf(ch), start, null);
@@ -329,15 +331,36 @@ public final class Lexer {
         if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) {
             return true;
         }
-        // 支持 Unicode 字母（中文、日文等）
+        // 支持 Unicode 字母（中文、日文、天城文等）
         return Character.isLetter(ch);
     }
 
     /**
-     * 判断字符是否为标识符的有效字符（字母、数字、下划线或 Unicode 字母）
+     * 判断字符是否为标识符的有效字符（字母、数字、下划线或天城文组合记号）。
+     *
+     * 天城文 Devanagari 是 abugida：元音符号（matra，如 ◌ॉ ◌ू）与 virama（◌्）是
+     * 组合记号，isLetter 对它们返回 false 会在词中断开（मॉड्यूल → 碎片），但它们是
+     * 标识符/关键词的合法组成。这里用**精确范围** 0x0900–0x097F（排除 danda ।／॥）接受
+     * 这些 Devanagari 记号，与 aster-lang-ts lexer 的 isLetter 范围判定对齐（双引擎 parity）。
+     *
+     * 注意：不用 Character.isUnicodeIdentifierPart——它对 BOM(U+FEFF)/ZWNJ/ZWJ/格式字符
+     * 也返回 true，会让既有测试输入里的零宽/格式字符被吞进标识符，触发词法异常（OOM）。
      */
     private boolean isIdentifierChar(char ch) {
-        return isLetter(ch) || isDigit(ch) || ch == '_';
+        return isLetter(ch) || isDigit(ch) || ch == '_' || isDevanagariMark(ch);
+    }
+
+    /** 天城文组合记号（matra/virama 等），在 0x0900–0x097F 内但排除句末 danda 标点。 */
+    private boolean isDevanagariMark(char ch) {
+        return ch >= 0x0900 && ch <= 0x097F && ch != 0x0964 && ch != 0x0965;
+    }
+
+    /**
+     * 判断当前字符是否匹配词法表配置的单字符标点（如天城文 danda「。」）。
+     * 仅处理单字符标点；多字符或 ASCII「.,:」已由上面的硬编码分支处理，返回 false 避免重复。
+     */
+    private boolean isPunct(char ch, String configured) {
+        return configured != null && configured.length() == 1 && configured.charAt(0) == ch;
     }
 
     private boolean isDigit(char ch) {
