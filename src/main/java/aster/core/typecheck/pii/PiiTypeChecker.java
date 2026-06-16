@@ -329,6 +329,7 @@ public final class PiiTypeChecker {
       }
       return;
     }
+    // L3 在任何 sink 都必须先经 redact/tokenize 脱敏（脱敏会把级别降到 L1），否则报错。
     if (meta.getLevel() == PiiMeta.Level.L3) {
       emitDiagnostic(ErrorCode.PII_SINK_UNSANITIZED, exprOrigin(argExpr), Map.<String, Object>of(
         "level", meta.getLevel().name(),
@@ -336,7 +337,9 @@ public final class PiiTypeChecker {
       ), meta.getLevel().name(), sink.label);
       return;
     }
-    if (sink.kind == SinkKind.CONSOLE && meta.getLevel() == PiiMeta.Level.L2) {
+    // L2 在任何 sink（CONSOLE / NETWORK / DATABASE / EMIT）都同样需要脱敏；
+    // 未脱敏的 L2 抵达 sink 一律按与 L3 相同的诊断风格报错。
+    if (meta.getLevel() == PiiMeta.Level.L2) {
       emitDiagnostic(ErrorCode.PII_SINK_UNSANITIZED, exprOrigin(argExpr), Map.<String, Object>of(
         "level", meta.getLevel().name(),
         "sinkKind", sink.label

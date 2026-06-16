@@ -1,5 +1,7 @@
 package aster.core.canonicalizer;
 
+import aster.core.lexicon.RegexGuard;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -95,11 +97,30 @@ public final class StringSegmenter {
      * @return 替换后的文本（字符串字面量内容不变）
      */
     public String replaceOutsideStrings(String source, Pattern pattern, String replacement) {
+        return replaceOutsideStrings(source, pattern, replacement, false);
+    }
+
+    /**
+     * 便捷方法：对源码的非字符串部分应用正则替换，可选 ReDoS 看门狗。
+     * <p>
+     * 当 {@code guarded} 为 {@code true} 时（用于来自不可信 lexicon 配置的正则），
+     * 每段替换经 {@link RegexGuard#replaceAllWithTimeout} 在看门狗超时内执行，
+     * 灾难性回溯会被中断并抛出 {@link RegexGuard.RegexTimeoutException}。
+     *
+     * @param source      源码文本
+     * @param pattern     正则表达式
+     * @param replacement 替换内容
+     * @param guarded     是否启用看门狗超时
+     * @return 替换后的文本（字符串字面量内容不变）
+     */
+    public String replaceOutsideStrings(String source, Pattern pattern, String replacement, boolean guarded) {
         List<Segment> segments = segment(source);
         StringBuilder result = new StringBuilder(source.length());
         for (Segment seg : segments) {
             if (seg.inString) {
                 result.append(seg.text);
+            } else if (guarded) {
+                result.append(RegexGuard.replaceAllWithTimeout(pattern, seg.text, replacement));
             } else {
                 result.append(pattern.matcher(seg.text).replaceAll(replacement));
             }

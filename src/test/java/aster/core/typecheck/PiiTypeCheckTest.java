@@ -210,6 +210,100 @@ class PiiTypeCheckTest {
     assertTrue(hasCode(diagnostics, ErrorCode.PII_ARG_VIOLATION));
   }
 
+  @Test
+  void testL2ToHttpSink_shouldError() {
+    // Http.* 把 sink 参数定为第 2 个（body），第 1 个是 URL。
+    var fn = func(
+      "post_email",
+      List.of(piiParam("email", "L2", "email")),
+      textType(),
+      List.of(returnStmt(callExpr("Http.post", stringLiteral("https://x"), nameExpr("email")))),
+      List.of("io")
+    );
+    var diagnostics = checker.checkModule(List.of(fn));
+    var diag = findDiagnostic(diagnostics, ErrorCode.PII_SINK_UNSANITIZED);
+    assertNotNull(diag);
+    assertEquals("L2", diag.data().get("level"));
+  }
+
+  @Test
+  void testL2ToSqlSink_shouldError() {
+    var fn = func(
+      "store_email",
+      List.of(piiParam("email", "L2", "email")),
+      textType(),
+      List.of(returnStmt(callExpr("Sql.insert", nameExpr("email")))),
+      List.of("io")
+    );
+    var diagnostics = checker.checkModule(List.of(fn));
+    var diag = findDiagnostic(diagnostics, ErrorCode.PII_SINK_UNSANITIZED);
+    assertNotNull(diag);
+    assertEquals("L2", diag.data().get("level"));
+  }
+
+  @Test
+  void testL2ToEmitSink_shouldError() {
+    var fn = func(
+      "emit_email",
+      List.of(piiParam("email", "L2", "email")),
+      textType(),
+      List.of(returnStmt(callExpr("emit", nameExpr("email")))),
+      List.of("io")
+    );
+    var diagnostics = checker.checkModule(List.of(fn));
+    var diag = findDiagnostic(diagnostics, ErrorCode.PII_SINK_UNSANITIZED);
+    assertNotNull(diag);
+    assertEquals("L2", diag.data().get("level"));
+  }
+
+  @Test
+  void testL2SanitizedToHttpSink_shouldAllow() {
+    // redact 把 L2 降级为 L1，因此抵达 sink 时无需再报错。
+    var fn = func(
+      "post_redacted_email",
+      List.of(piiParam("email", "L2", "email")),
+      textType(),
+      List.of(
+        letStmt("safe", callExpr("redact", nameExpr("email"))),
+        returnStmt(callExpr("Http.post", stringLiteral("https://x"), nameExpr("safe")))
+      ),
+      List.of("io")
+    );
+    var diagnostics = checker.checkModule(List.of(fn));
+    assertFalse(hasCode(diagnostics, ErrorCode.PII_SINK_UNSANITIZED));
+  }
+
+  @Test
+  void testL2SanitizedToSqlSink_shouldAllow() {
+    var fn = func(
+      "store_tokenized_email",
+      List.of(piiParam("email", "L2", "email")),
+      textType(),
+      List.of(
+        letStmt("safe", callExpr("tokenize", nameExpr("email"))),
+        returnStmt(callExpr("Sql.insert", nameExpr("safe")))
+      ),
+      List.of("io")
+    );
+    var diagnostics = checker.checkModule(List.of(fn));
+    assertFalse(hasCode(diagnostics, ErrorCode.PII_SINK_UNSANITIZED));
+  }
+
+  @Test
+  void testL2ToConsoleSink_unchangedStillErrors() {
+    var fn = func(
+      "print_email",
+      List.of(piiParam("email", "L2", "email")),
+      textType(),
+      List.of(returnStmt(callExpr("IO.print", nameExpr("email")))),
+      List.of("io")
+    );
+    var diagnostics = checker.checkModule(List.of(fn));
+    var diag = findDiagnostic(diagnostics, ErrorCode.PII_SINK_UNSANITIZED);
+    assertNotNull(diag);
+    assertEquals("L2", diag.data().get("level"));
+  }
+
   private boolean hasCode(List<Diagnostic> diagnostics, ErrorCode code) {
     return diagnostics.stream().anyMatch(diag -> diag.code() == code);
   }

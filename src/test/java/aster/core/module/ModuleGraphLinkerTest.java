@@ -130,6 +130,66 @@ class ModuleGraphLinkerTest {
   }
 
   @Test
+  void mangleIsCollisionFreeBetweenDotAndUnderscore() {
+    // 回归 #24：朴素的 name.replace('.', '_') 会让 a.b 与 a_b 折叠到同一前缀。
+    var dot = new ModuleKey("a.b", 1).mangle();
+    var underscore = new ModuleKey("a_b", 1).mangle();
+    assertNotEquals(dot, underscore);
+    assertEquals("a_b_v1__", dot);
+    assertEquals("a__b_v1__", underscore);
+  }
+
+  @Test
+  void linksDotAndUnderscoreModulesToDistinctSymbols() {
+    // a.b 和 a_b 各导出同名符号 f；旧 mangle 会把两者静默重写成同一名字。
+    var rootKey = new ModuleKey("app", 1);
+    var dotKey = new ModuleKey("a.b", 1);
+    var underscoreKey = new ModuleKey("a_b", 1);
+    var root = module("app", List.of(
+      importDecl("a.b", 1, "D"),
+      importDecl("a_b", 1, "U"),
+      func("main", ret(call("D.f")))
+    ));
+    var dotMod = module("a.b", List.of(func("f", ret(intE(1)))));
+    var underscoreMod = module("a_b", List.of(func("f", ret(intE(2)))));
+    var graph = new ModuleGraph(
+      rootKey,
+      Map.of(rootKey, root, dotKey, dotMod, underscoreKey, underscoreMod),
+      List.of(
+        new ModuleGraph.ImportEdge(rootKey, "D", dotKey),
+        new ModuleGraph.ImportEdge(rootKey, "U", underscoreKey)
+      )
+    );
+
+    var linked = new ModuleGraphLinker().link(graph);
+
+    var names = linked.merged().decls.stream()
+      .filter(CoreModel.Func.class::isInstance)
+      .map(CoreModel.Func.class::cast)
+      .map(f -> f.name)
+      .toList();
+    assertTrue(names.contains("a_b_v1__f"), names.toString());
+    assertTrue(names.contains("a__b_v1__f"), names.toString());
+  }
+
+  @Test
+  void collisionGuardRejectsCollidingPrefixes() {
+    // 注入一个会制造碰撞的前缀函数，验证守护断言确实 fail loud。
+    var a = new ModuleKey("a.b", 1);
+    var b = new ModuleKey("a_b", 1);
+    var ex = assertThrows(IllegalStateException.class, () ->
+      ModuleGraphLinker.assertNoManglePrefixCollisions(List.of(a, b), key -> "SAME_PREFIX_"));
+    assertTrue(ex.getMessage().contains("collision"), ex.getMessage());
+  }
+
+  @Test
+  void collisionGuardAcceptsDistinctPrefixes() {
+    var a = new ModuleKey("a.b", 1);
+    var b = new ModuleKey("a_b", 1);
+    ModuleGraphLinker.assertNoManglePrefixCollisions(List.of(a, b), ModuleKey::mangle);
+  }
+
+  @Test
   void detectsImportCycles() {
     var a = new ModuleKey("a", 1);
     var b = new ModuleKey("b", 1);

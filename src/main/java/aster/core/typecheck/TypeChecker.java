@@ -462,22 +462,4 @@ public final class TypeChecker {
     }
   }
 
-  /**
-   * @deprecated 自 ADR-0009 (P0-1) 起，PII flow 分析永远启用。本函数仅保留为
-   *   no-op stub，计划在 aster-lang-core 0.3.0 移除。所有 caller 应当假定
-   *   PII 检查总是运行。
-   *
-   *   原渐进式 opt-in 策略（ENFORCE_PII / ASTER_ENFORCE_PII 环境变量）已是
-   *   security hazard：同一策略在不同 runtime 报告不同安全结论，违背 Aster
-   *   "PII as a first-class type" 承诺。
-   *
-   *   跨语言对齐：TS 端 aster-lang-ts 0.2.1 的 `shouldEnforcePii()` 同样
-   *   deprecated，预计 0.3.0 移除。
-   *
-   * @return always true
-   */
-  @Deprecated(since = "aster-lang-core 0.2.x (ADR-0009 P0-1)", forRemoval = true)
-  private boolean shouldEnforcePii() {
-    return true;
-  }
 }
