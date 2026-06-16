@@ -16,3 +16,6 @@ src/main/antlr/gen/
 
 # Tool cache
 .ace-tool/
+
+# CCG workflow scaffolding (local task state, not source)
+.ccg/
