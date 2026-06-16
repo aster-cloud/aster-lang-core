@@ -133,12 +133,10 @@ public final class LexiconRegistry {
      * 失败抛 IllegalStateException —— 这是构建错误，不应运行时容忍。
      */
     private void loadEmbeddedDefaults() {
-        // en-US 是默认 + fallback，缺失=构建错误，必须存在。
+        // en-US 是默认 + fallback，缺失=构建错误，必须存在。core 只内嵌 en-US 这一个
+        // builtin；其它语言（zh/de/hi）都通过 SPI 语言包（LexiconPlugin）按需加载，
+        // 这样运维可热插拔/卸载。hi-IN（Hindi）的语言包是 aster-lang-hi。
         registerEmbedded("builtin/en-US.json", true);
-        // hi-IN（Hindi/天城文）随 core 内嵌（ADR 0017 Phase 2 的 2a：不建独立仓，
-        // 与 en 同走 core builtin；zh/de 仍走 SPI 语言包）。缺失不致命（best-effort），
-        // 只是 Hindi 不可用，不影响其它 locale。
-        registerEmbedded("builtin/hi-IN.json", false);
     }
 
     /**
