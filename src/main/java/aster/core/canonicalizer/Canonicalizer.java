@@ -65,6 +65,12 @@ public final class Canonicalizer {
     private final String stringQuoteOpen;
     /** 字符串结束引号（从词法表配置获取） */
     private final String stringQuoteClose;
+    /**
+     * 词法表配置的句末符（如天城文 danda「।」），仅当为单个非 ASCII 字符时记录，
+     * 用于把非 CJK 脚本（如 Devanagari）的句末符归一成 ANTLR 认的 ASCII「.」。
+     * 为 null 表示无需归一（ASCII 句末符或 CJK 由 normalizeCJKPunctuation 处理）。
+     */
+    private final Character nonAsciiStatementEnd;
     /** 字符串分段器（供 SyntaxTransformer 使用） */
     private final StringSegmenter stringSegmenter;
     /** 预编译的多词关键字 Pattern 缓存（避免每次规范化时重新编译） */
@@ -164,6 +170,12 @@ public final class Canonicalizer {
         var punctuation = lexicon.getPunctuation();
         this.stringQuoteOpen = punctuation.stringQuoteOpen();
         this.stringQuoteClose = punctuation.stringQuoteClose();
+        // 记录非 ASCII 单字符句末符（如天城文 danda），供 normalizeLexiconStatementEnd 归一。
+        // CJK 句末符「。」走 normalizeCJKPunctuation；此处只接管其它非 ASCII 脚本（Devanagari 等）。
+        String stmtEnd = punctuation.statementEnd();
+        this.nonAsciiStatementEnd =
+                (stmtEnd != null && stmtEnd.length() == 1 && stmtEnd.charAt(0) > 0x7F)
+                        ? stmtEnd.charAt(0) : null;
         this.stringSegmenter = new StringSegmenter(stringQuoteOpen, stringQuoteClose);
         // 预编译多词关键字的 Pattern（大小写不敏感，支持 Unicode）
         List<Map.Entry<String, Pattern>> mwkPatterns = new ArrayList<>();
@@ -458,6 +470,12 @@ public final class Canonicalizer {
         // 设计文档见 ADR-0008。
         if (config.whitespaceMode() == CanonicalizationConfig.WhitespaceMode.CHINESE) {
             s = normalizeCJKPunctuation(s);
+        } else if (nonAsciiStatementEnd != null) {
+            // 5.6 非 CJK 脚本的句末符归一（如天城文 danda「।」U+0964 → ASCII「.」）。
+            // ANTLR 词法器只认 ASCII「.」作 DOT；非英语脚本的句末符必须在此翻成「.」，
+            // 否则 moduleHeader 会报「missing '.'」。仅对字符串字面量之外的位置生效。
+            // CJK「。」已由上一分支处理，故此分支只在非 CHINESE 模式触发，互不重叠。
+            s = normalizeLexiconStatementEnd(s);
         }
 
         // 6. 折叠多余空格，保持缩进
@@ -1010,6 +1028,30 @@ public final class Canonicalizer {
                 result.append(segment.text);
             } else {
                 result.append(normalizeCJKPunctuationImpl(segment.text));
+            }
+        }
+        return result.toString();
+    }
+
+    /**
+     * 把词法表配置的非 ASCII 句末符（如天城文 danda「।」）归一成 ASCII「.」。
+     *
+     * <p>用于非 CJK、非拉丁脚本（如 Devanagari）：这些脚本的句末符不是「。」也不是「.」，
+     * 不被 {@link #normalizeCJKPunctuation} 覆盖。ANTLR 词法器只认 ASCII「.」作 DOT，
+     * 故必须在进入 ANTLR 前翻译。仅对字符串字面量之外的位置生效，字符串内 100% 保留。
+     *
+     * <p>仅替换 {@link #nonAsciiStatementEnd}（单字符），不动其它标点：块起始符「:」、
+     * 列表分隔符「,」等在天城文里本就用 ASCII，无需归一。
+     */
+    private String normalizeLexiconStatementEnd(String s) {
+        List<Segment> segments = segmentString(s);
+        StringBuilder result = new StringBuilder(s.length());
+        char danda = nonAsciiStatementEnd;
+        for (Segment segment : segments) {
+            if (segment.inString) {
+                result.append(segment.text);
+            } else {
+                result.append(segment.text.replace(danda, '.'));
             }
         }
         return result.toString();

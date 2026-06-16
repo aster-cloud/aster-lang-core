@@ -133,17 +133,36 @@ public final class LexiconRegistry {
      * 失败抛 IllegalStateException —— 这是构建错误，不应运行时容忍。
      */
     private void loadEmbeddedDefaults() {
-        try (var is = getClass().getClassLoader().getResourceAsStream("builtin/en-US.json")) {
+        // en-US 是默认 + fallback，缺失=构建错误，必须存在。
+        registerEmbedded("builtin/en-US.json", true);
+        // hi-IN（Hindi/天城文）随 core 内嵌（ADR 0017 Phase 2 的 2a：不建独立仓，
+        // 与 en 同走 core builtin；zh/de 仍走 SPI 语言包）。缺失不致命（best-effort），
+        // 只是 Hindi 不可用，不影响其它 locale。
+        registerEmbedded("builtin/hi-IN.json", false);
+    }
+
+    /**
+     * 加载并注册一个 core 内嵌 lexicon JSON。
+     *
+     * @param resourcePath classpath 资源路径
+     * @param required true=缺失/解析失败抛异常（en-US）；false=best-effort 仅警告（hi-IN）
+     */
+    private void registerEmbedded(String resourcePath, boolean required) {
+        try (var is = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
             if (is == null) {
-                throw new IllegalStateException(
-                    "Core embedded en-US lexicon missing (expected classpath:builtin/en-US.json). "
-                        + "This is a build configuration error.");
+                if (required) {
+                    throw new IllegalStateException(
+                        "Core embedded lexicon missing (expected classpath:" + resourcePath + "). "
+                            + "This is a build configuration error.");
+                }
+                return;
             }
             String json = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-            Lexicon en = DynamicLexicon.fromJsonString(json);
-            registerBuiltin(en);
+            registerBuiltin(DynamicLexicon.fromJsonString(json));
         } catch (IOException e) {
-            throw new UncheckedIOException("Failed to load embedded en-US lexicon", e);
+            if (required) {
+                throw new UncheckedIOException("Failed to load embedded lexicon " + resourcePath, e);
+            }
         }
     }
 

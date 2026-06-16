@@ -47,6 +47,16 @@ class LexiconRegistryTest {
     }
 
     @Test
+    void testBuiltinHiInLexiconRegistered() {
+        // ADR 0017 Phase 2 — Hindi/天城文随 core 内嵌(builtin/hi-IN.json)。
+        assertTrue(registry.has("hi-IN"), "印地语词法表应已注册");
+        var hi = registry.getOrThrow("hi-IN");
+        assertEquals("hi-IN", hi.getId());
+        assertEquals("मॉड्यूल", hi.getKeywords().get(aster.core.lexicon.SemanticTokenKind.MODULE_DECL));
+        assertEquals("।", hi.getPunctuation().statementEnd(), "Hindi 句末符应为天城文 danda");
+    }
+
+    @Test
     void testDefaultLexicon() {
         Lexicon defaultLexicon = registry.getDefault();
         assertNotNull(defaultLexicon);
