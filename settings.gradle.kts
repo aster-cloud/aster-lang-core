@@ -12,7 +12,7 @@ dependencyResolutionManagement {
     }
     versionCatalogs {
         create("asterLibs") {
-            from("cloud.aster-lang:aster-lang-platform:1.0.0")
+            from("cloud.aster-lang:aster-lang-platform:1.0.1")
         }
     }
 }
