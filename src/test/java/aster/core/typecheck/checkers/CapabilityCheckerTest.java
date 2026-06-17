@@ -1,7 +1,7 @@
 package aster.core.typecheck.checkers;
 
+import aster.core.capability.CapabilityKind;
 import aster.core.ir.CoreModel;
-import aster.core.typecheck.CapabilityKind;
 import aster.core.typecheck.ErrorCode;
 import aster.core.typecheck.capability.ManifestConfig;
 import aster.core.typecheck.capability.ManifestReader;

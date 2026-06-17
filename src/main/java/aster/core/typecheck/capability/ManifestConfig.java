@@ -1,6 +1,6 @@
 package aster.core.typecheck.capability;
 
-import aster.core.typecheck.CapabilityKind;
+import aster.core.capability.CapabilityKind;
 
 import java.util.Collections;
 import java.util.EnumSet;
