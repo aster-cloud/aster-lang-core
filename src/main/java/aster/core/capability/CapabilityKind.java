@@ -1,4 +1,4 @@
-package aster.core.typecheck;
+package aster.core.capability;
 
 import java.util.Locale;
 import java.util.Optional;

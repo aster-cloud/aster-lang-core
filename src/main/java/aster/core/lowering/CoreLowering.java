@@ -1,12 +1,9 @@
 package aster.core.lowering;
 
 import aster.core.ast.*;
+import aster.core.capability.CapabilityInference;
+import aster.core.capability.CapabilityKind;
 import aster.core.ir.CoreModel;
-import aster.core.typecheck.CapabilityKind;
-import aster.core.typecheck.checkers.CapabilityChecker;
-// TODO(#24): lowering 依赖 typecheck（CapabilityKind / CapabilityChecker）造成 lowering->typecheck
-//   的层级耦合。应将 lowering 与 typecheck 解耦（capability 元数据下沉到 IR 或独立模块），
-//   并把模块版本改为从 git tag 派生。此次 PR 不做该架构重构，仅留记号。
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -224,11 +221,10 @@ public final class CoreLowering {
   private CoreModel.Workflow lowerWorkflow(Stmt.Workflow workflow) {
     CoreModel.Workflow out = new CoreModel.Workflow();
     out.steps = new ArrayList<>();
-    var capabilityChecker = new CapabilityChecker();
     String previousStep = null;
     if (workflow.steps() != null) {
       for (Stmt.WorkflowStep step : workflow.steps()) {
-        CoreModel.Step lowered = lowerWorkflowStep(step, previousStep, capabilityChecker);
+        CoreModel.Step lowered = lowerWorkflowStep(step, previousStep);
         out.steps.add(lowered);
         previousStep = step.name();
       }
@@ -251,8 +247,7 @@ public final class CoreLowering {
 
   private CoreModel.Step lowerWorkflowStep(
       Stmt.WorkflowStep step,
-      String previousStep,
-      CapabilityChecker capabilityChecker
+      String previousStep
   ) {
     CoreModel.Step lowered = new CoreModel.Step();
     lowered.name = step.name();
@@ -265,20 +260,19 @@ public final class CoreLowering {
     } else {
       lowered.dependencies = new ArrayList<>();
     }
-    lowered.effectCaps = collectStepCapabilities(capabilityChecker, lowered.body, lowered.compensate);
+    lowered.effectCaps = collectStepCapabilities(lowered.body, lowered.compensate);
     lowered.origin = spanToOrigin(step.span());
     return lowered;
   }
 
   private List<String> collectStepCapabilities(
-      CapabilityChecker capabilityChecker,
       CoreModel.Block body,
       CoreModel.Block compensate
   ) {
     var merged = new LinkedHashSet<String>();
-    mergeCapabilityMap(capabilityChecker.collectCapabilities(body), merged);
+    mergeCapabilityMap(CapabilityInference.collectCapabilities(body), merged);
     if (compensate != null) {
-      mergeCapabilityMap(capabilityChecker.collectCapabilities(compensate), merged);
+      mergeCapabilityMap(CapabilityInference.collectCapabilities(compensate), merged);
     }
     return new ArrayList<>(merged);
   }

@@ -13,6 +13,19 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # 校验推送的 v* tag（去掉前导 v）与 build.gradle.kts 中的 version 一致，
+      # 不一致即提前失败，避免 v1.0.3 tag 却发布出 1.0.2 的版本漂移（#26）。
+      # 镜像 aster-lang-test release-maven.yml 的守卫模式；保持静态 version，
+      # 不引入动态 version 派生（后者会破坏本地构建的稳定性）。
+      - name: Verify tag matches build.gradle.kts version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' build.gradle.kts | head -n1)
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Error: Tag version ($TAG_VERSION) does not match build.gradle.kts version ($PKG_VERSION)"
+            exit 1
+          fi
+
       # 共享版本目录（aster-lang-platform，ADR 0012）—— core settings 依赖它。
       - uses: actions/checkout@v6
         with:

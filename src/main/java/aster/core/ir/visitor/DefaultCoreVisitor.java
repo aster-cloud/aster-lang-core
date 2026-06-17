@@ -1,4 +1,4 @@
-package aster.core.typecheck.visitor;
+package aster.core.ir.visitor;
 
 import aster.core.ir.CoreModel;
 
