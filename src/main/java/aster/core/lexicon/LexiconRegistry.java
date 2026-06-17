@@ -517,6 +517,16 @@ public final class LexiconRegistry {
             }
         }
 
+        // 7. 安全：筛查不可信 customRules 正则的 ReDoS 形状（纵深防御，register 时即拒绝）。
+        var canon = lexicon.getCanonicalization();
+        if (canon != null && canon.customRules() != null) {
+            for (var rule : canon.customRules()) {
+                for (String redosError : RegexGuard.screen(rule.pattern())) {
+                    errors.add("Unsafe regex in customRule '" + rule.name() + "': " + redosError);
+                }
+            }
+        }
+
         return new ValidationResult(errors.isEmpty(), errors, warnings);
     }
 

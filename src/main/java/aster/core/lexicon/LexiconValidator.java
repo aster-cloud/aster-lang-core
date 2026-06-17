@@ -76,10 +76,14 @@ public final class LexiconValidator {
         List<String> errors = new ArrayList<>(baseResult.errors());
         List<String> warnings = new ArrayList<>(baseResult.warnings());
 
-        // 额外校验：customRules 的正则可编译性
+        // 额外校验：customRules 的正则可编译性 + ReDoS 形状筛查
         CanonicalizationConfig config = lexicon.getCanonicalization();
         if (config.customRules() != null) {
             for (CanonicalizationConfig.CanonicalizationRule rule : config.customRules()) {
+                // 不可信正则：先做 ReDoS 静态筛查（超长 / 嵌套量词），再验证可编译性。
+                for (String redosError : RegexGuard.screen(rule.pattern())) {
+                    errors.add("Unsafe regex in customRule '" + rule.name() + "': " + redosError);
+                }
                 try {
                     Pattern.compile(rule.pattern());
                 } catch (PatternSyntaxException e) {

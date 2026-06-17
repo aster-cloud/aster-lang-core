@@ -6,6 +6,7 @@ import aster.core.lexicon.CanonicalizationConfig;
 import aster.core.lexicon.CompoundPattern;
 import aster.core.lexicon.Lexicon;
 import aster.core.lexicon.LexiconRegistry;
+import aster.core.lexicon.RegexGuard;
 import aster.core.lexicon.SemanticTokenKind;
 
 import java.util.ArrayList;
@@ -540,7 +541,8 @@ public final class Canonicalizer {
      */
     private String applyCustomRules(String s) {
         for (CanonicalizationConfig.CanonicalizationRule rule : config.customRules()) {
-            Pattern pattern = Pattern.compile(rule.pattern());
+            // customRules 来自不可信 lexicon 配置：编译期筛查 ReDoS 形状。
+            Pattern pattern = RegexGuard.compile(rule.pattern(), 0);
             List<Segment> segments = segmentString(s);
             StringBuilder result = new StringBuilder(s.length());
 
@@ -573,8 +575,8 @@ public final class Canonicalizer {
         }
 
         if (protectedRanges.isEmpty()) {
-            // 无保留词，直接替换
-            return rulePattern.matcher(text).replaceAll(replacement);
+            // 无保留词，直接替换（看门狗超时防 ReDoS）
+            return RegexGuard.replaceAllWithTimeout(rulePattern, text, replacement);
         }
 
         // 对非保留区域执行替换
@@ -584,7 +586,7 @@ public final class Canonicalizer {
             // 替换保留词前的片段
             if (pos < range[0]) {
                 String segment = text.substring(pos, range[0]);
-                result.append(rulePattern.matcher(segment).replaceAll(replacement));
+                result.append(RegexGuard.replaceAllWithTimeout(rulePattern, segment, replacement));
             }
             // 保留词原样保留
             result.append(text, range[0], range[1]);
@@ -593,7 +595,7 @@ public final class Canonicalizer {
         // 替换最后一个保留词后的片段
         if (pos < text.length()) {
             String segment = text.substring(pos);
-            result.append(rulePattern.matcher(segment).replaceAll(replacement));
+            result.append(RegexGuard.replaceAllWithTimeout(rulePattern, segment, replacement));
         }
         return result.toString();
     }

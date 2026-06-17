@@ -3,6 +3,8 @@ package aster.core.typecheck;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -18,11 +20,13 @@ import java.util.stream.Stream;
  * 核心功能：
  * - JSON 配置加载：支持从 .aster/effects.json 加载配置
  * - 环境变量支持：ASTER_EFFECT_CONFIG 可自定义配置路径
- * - 静默降级：配置加载失败时自动使用默认配置
+ * - 可见降级：配置加载失败时记录 WARNING 日志后使用默认配置（不静默吞错）
  * - 细粒度分类：支持 io.http、io.sql、io.files、cpu、ai 等细分效果
  * - 单例模式：模块级缓存避免重复 I/O
  */
 public final class EffectConfig {
+
+  private static final Logger LOG = System.getLogger(EffectConfig.class.getName());
 
   // ========== 单例实例 ==========
 
@@ -234,7 +238,10 @@ public final class EffectConfig {
       // 合并用户配置与默认配置
       return mergeWithDefault(userConfig);
     } catch (IOException | IllegalArgumentException e) {
-      // 配置加载失败，静默降级到默认配置
+      // 配置加载失败：记录原因后降级到默认配置（effect 推断不属于安全边界，
+      // 不应 fail-closed；但失败必须可见，不能静默吞掉）。
+      LOG.log(Level.WARNING,
+        "Failed to load effect config from '" + configPath + "', falling back to defaults: " + e.getMessage(), e);
       return DEFAULT_CONFIG;
     }
   }

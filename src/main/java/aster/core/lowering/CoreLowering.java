@@ -4,6 +4,9 @@ import aster.core.ast.*;
 import aster.core.ir.CoreModel;
 import aster.core.typecheck.CapabilityKind;
 import aster.core.typecheck.checkers.CapabilityChecker;
+// TODO(#24): lowering 依赖 typecheck（CapabilityKind / CapabilityChecker）造成 lowering->typecheck
+//   的层级耦合。应将 lowering 与 typecheck 解耦（capability 元数据下沉到 IR 或独立模块），
+//   并把模块版本改为从 git tag 派生。此次 PR 不做该架构重构，仅留记号。
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;

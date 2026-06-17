@@ -75,6 +75,9 @@ public final class ModuleGraphLinker {
     Map<ModuleKey, Set<String>> topLevelNames
   ) {
     var result = new HashMap<ModuleKey, Map<String, String>>();
+    // 安全：不同模块绝不能产生相同的 mangle 前缀，否则跨模块符号会被静默混淆。
+    // 一旦碰撞，立刻 fail loud（而非生成错误的合并程序）。
+    assertNoManglePrefixCollisions(topLevelNames.keySet(), ModuleKey::mangle);
     for (var entry : topLevelNames.entrySet()) {
       var key = entry.getKey();
       if (key.equals(root)) {
@@ -88,6 +91,32 @@ public final class ModuleGraphLinker {
       result.put(key, Map.copyOf(rename));
     }
     return Map.copyOf(result);
+  }
+
+  /**
+   * 防御性断言：所有模块的 mangle 前缀必须两两不同。
+   * <p>
+   * {@link ModuleKey#mangle()} 已是无碰撞编码；本断言守护未来对 mangle 的回归
+   * （以及任何理论残余歧义），碰撞时 fail loud 而非生成错误的合并程序。
+   * 前缀函数可注入以便测试。
+   *
+   * @param keys     待检查的模块 key
+   * @param prefixFn 计算前缀的函数（生产代码用 {@link ModuleKey#mangle()}）
+   */
+  static void assertNoManglePrefixCollisions(
+    Collection<ModuleKey> keys,
+    java.util.function.Function<ModuleKey, String> prefixFn
+  ) {
+    var prefixOwners = new HashMap<String, ModuleKey>();
+    for (var key : keys) {
+      var prefix = prefixFn.apply(key);
+      var existing = prefixOwners.putIfAbsent(prefix, key);
+      if (existing != null && !existing.equals(key)) {
+        throw new IllegalStateException(
+          "Module mangle prefix collision: '" + existing + "' and '" + key
+            + "' both produce prefix '" + prefix + "'");
+      }
+    }
   }
 
   private Map<String, String> buildTraceNames(Map<ModuleKey, Map<String, String>> renameMaps) {
