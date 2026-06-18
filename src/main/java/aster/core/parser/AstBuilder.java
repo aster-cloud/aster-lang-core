@@ -67,9 +67,12 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                 }
             } else if (declCtx.typeDecl() != null) {
                 AsterParser.TypeDeclContext typeDeclCtx = declCtx.typeDecl();
+                // ADR 0019 G1：类型别名名也可为软关键字（小写结构词）。与 visitTypeDecl
+                // 的取名分支保持一致，避免 declaredTypeNames 预扫描漏登记。
                 String aliasName = typeDeclCtx.TYPE_IDENT() != null
                     ? typeDeclCtx.TYPE_IDENT().getText()
-                    : typeDeclCtx.IDENT() != null ? typeDeclCtx.IDENT().getText() : null;
+                    : typeDeclCtx.IDENT() != null ? typeDeclCtx.IDENT().getText()
+                    : typeDeclCtx.structKeywordName() != null ? typeDeclCtx.structKeywordName().getText() : null;
                 if (aliasName != null && !aliasName.isEmpty()) {
                     declaredTypeNames.add(aliasName);
                 }
