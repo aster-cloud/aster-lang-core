@@ -871,6 +871,56 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         return new Stmt.If(cond, thenBlock, elseBlock, spanFrom(ctx));
     }
 
+    /**
+     * ADR 0019 G2a：内联 if 语句降级为与块式 ifStmt 相同的 {@link Stmt.If}——单语句
+     * 分支包成单元素 {@link Block}，else-if 链右递归成嵌套 If 的 else 分支。**不引入新
+     * Core 节点**，下游 typecheck/eval/lowering 沿用既有 statement-If 路径。
+     */
+    @Override
+    public Stmt.If visitInlineIfStmt(AsterParser.InlineIfStmtContext ctx) {
+        Expr cond = (Expr) visit(ctx.expr());
+        InlineBranches branches = lowerThenBranch(ctx.inlineThenBranch());
+        return new Stmt.If(cond, branches.thenBlock(), branches.elseBlock(), spanFrom(ctx));
+    }
+
+    /** then 分支 + 可选 else 分支的降级结果。 */
+    private record InlineBranches(Block thenBlock, Block elseBlock) {}
+
+    private InlineBranches lowerThenBranch(AsterParser.InlineThenBranchContext ctx) {
+        if (ctx.inlineReturn() != null) {
+            // 形如 `then return X else <...>`：then 分支无 DOT，else 必存在。
+            Block thenBlock = singleStmtBlock(lowerInlineReturn(ctx.inlineReturn()));
+            Block elseBlock;
+            if (ctx.inlineElseIf() != null) {
+                // else if 链：递归成嵌套 If，作为 else 分支的唯一语句。
+                Stmt.If nested = lowerInlineElseIf(ctx.inlineElseIf());
+                elseBlock = singleStmtBlock(nested);
+            } else {
+                // else return Z.（最末分支带 DOT）。
+                elseBlock = singleStmtBlock(visitReturnStmt(ctx.returnStmt()));
+            }
+            return new InlineBranches(thenBlock, elseBlock);
+        }
+        // 无 else：`if cond then return X.`（returnStmt 带 DOT）。
+        Block thenBlock = singleStmtBlock(visitReturnStmt(ctx.returnStmt()));
+        return new InlineBranches(thenBlock, null);
+    }
+
+    private Stmt.If lowerInlineElseIf(AsterParser.InlineElseIfContext ctx) {
+        Expr cond = (Expr) visit(ctx.expr());
+        InlineBranches branches = lowerThenBranch(ctx.inlineThenBranch());
+        return new Stmt.If(cond, branches.thenBlock(), branches.elseBlock(), spanFrom(ctx));
+    }
+
+    private Stmt.Return lowerInlineReturn(AsterParser.InlineReturnContext ctx) {
+        Expr expr = (Expr) visit(ctx.expr());
+        return new Stmt.Return(expr, spanFrom(ctx));
+    }
+
+    private Block singleStmtBlock(Stmt stmt) {
+        return new Block(List.of(stmt), stmt.span());
+    }
+
     @Override
     public Stmt.Match visitMatchStmt(AsterParser.MatchStmtContext ctx) {
         Expr expr = (Expr) visit(ctx.expr());

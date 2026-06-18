@@ -219,6 +219,9 @@ structKeywordName
     | START
     | WAIT
     | ELSE
+    // ADR 0019 G2a：THEN 也是结构关键词 token，同样在标识符位置当软关键字
+    // （如 `Http.get(...).then(handle)` 的 .then 方法名）。
+    | THEN
     ;
 
 /**
@@ -353,6 +356,7 @@ stmt
     | waitStmt
     | workflowStmt
     | returnStmt
+    | inlineIfStmt
     | ifStmt
     | matchStmt
     | exprStmt
@@ -436,6 +440,46 @@ returnStmt
  */
 ifStmt
     : IF expr (COMMA | COLON)? NEWLINE block (NEWLINE? ELSE (COMMA | COLON)? NEWLINE block)?
+    ;
+
+/**
+ * ADR 0019 G2a：内联 if 语句（语句级，复用 statement-If 降级路径，不新增 Core 节点）。
+ * 语法（与文档一致，支持 else-if 链）:
+ *   if cond then return X
+ *   else if cond2 then return Y
+ *   else return Z.
+ * then 前可换行（文档里 `if ... \n then return ...`）。整个构造以单个 DOT 收尾，
+ * 由最末 returnStmt 的 DOT 承担；中间分支的 return 不带 DOT（inlineReturn）。
+ * THEN token 是与 block-if 的消歧点（block-if 走 NEWLINE block，无 THEN）。
+ */
+inlineIfStmt
+    : IF expr inlineThen inlineThenBranch
+    ;
+
+// then 前的可选布局：同一行（无）、换行（NEWLINE）、或换行且缩进（NEWLINE INDENT，
+// 文档里 `if ... \n    then return ...`）。缩进时配套的 DEDENT 由 else/末尾前的
+// inlineLayout 吸收。
+inlineThen
+    : NEWLINE? INDENT? THEN
+    ;
+
+inlineThenBranch
+    : inlineReturn inlineElseSep (inlineElseIf | returnStmt)
+    | returnStmt
+    ;
+
+// else 前的可选布局（吸收 then 分支缩进产生的 DEDENT / 分支间换行）。
+inlineElseSep
+    : NEWLINE? DEDENT? ELSE
+    ;
+
+inlineElseIf
+    : IF expr inlineThen inlineThenBranch
+    ;
+
+// 中间分支的 return（不带 DOT；DOT 由整个 inlineIfStmt 末尾的 returnStmt 承担）。
+inlineReturn
+    : RETURN expr
     ;
 
 /**
