@@ -133,6 +133,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                         return tpCtx.TYPE_IDENT().getText();
                     } else if (tpCtx.IDENT() != null) {
                         return tpCtx.IDENT().getText();
+                    } else if (tpCtx.structKeywordName() != null) {
+                        // ADR 0019 G1：类型参数名为软关键字（小写结构词）。
+                        return tpCtx.structKeywordName().getText();
                     }
                     return null;
                 })
@@ -458,7 +461,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         List<String> finalAnnotations = annotations.isEmpty() ? List.of() : List.copyOf(annotations);
         String name = ctx.TYPE_IDENT() != null
             ? ctx.TYPE_IDENT().getText()
-            : ctx.IDENT() != null ? ctx.IDENT().getText() : null;
+            : ctx.IDENT() != null ? ctx.IDENT().getText()
+            // ADR 0019 G1：类型别名名为软关键字（小写结构词）。
+            : ctx.structKeywordName() != null ? ctx.structKeywordName().getText() : null;
         if (name == null || name.isEmpty()) {
             throw new IllegalStateException("Type alias 缺失名称");
         }
@@ -474,7 +479,10 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             int positionalIndex = 0;
             for (AsterParser.AnnotationArgContext argCtx : ctx.annotationArgs().annotationArg()) {
                 if (argCtx instanceof AsterParser.NamedAnnotationArgContext namedCtx) {
-                    String key = namedCtx.IDENT().getText();
+                    // ADR 0019 G1：注解参数名可为软关键字（小写结构词）。
+                    String key = namedCtx.IDENT() != null
+                        ? namedCtx.IDENT().getText()
+                        : namedCtx.structKeywordName().getText();
                     Object value = parseAnnotationValue(namedCtx.annotationValue());
                     params.put(key, value);
                 } else if (argCtx instanceof AsterParser.PositionalAnnotationArgContext positionalCtx) {
@@ -494,6 +502,10 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         }
         if (ctx.TYPE_IDENT() != null) {
             return ctx.TYPE_IDENT().getText();
+        }
+        // ADR 0019 G1：注解名为软关键字（小写结构词）。
+        if (ctx.structKeywordName() != null) {
+            return ctx.structKeywordName().getText();
         }
         throw new IllegalStateException("注解缺失名称");
     }
@@ -524,6 +536,10 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         if (ctx.TYPE_IDENT() != null) {
             return ctx.TYPE_IDENT().getText();
         }
+        // ADR 0019 G1：注解值为软关键字（小写结构词）。
+        if (ctx.structKeywordName() != null) {
+            return ctx.structKeywordName().getText();
+        }
         throw new IllegalStateException("无法解析注解参数值");
     }
 
@@ -544,6 +560,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                 alias = aliasCtx.TYPE_IDENT().getText();
             } else if (aliasCtx.IDENT() != null) {
                 alias = aliasCtx.IDENT().getText();
+            } else if (aliasCtx.structKeywordName() != null) {
+                // ADR 0019 G1：导入别名为软关键字（小写结构词）。
+                alias = aliasCtx.structKeywordName().getText();
             }
         }
         return new Decl.Import(path, version, alias, spanFrom(ctx));
@@ -881,6 +900,16 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     @Override
     public Pattern visitPatternName(AsterParser.PatternNameContext ctx) {
         String name = ctx.IDENT().getText();
+        return new Pattern.PatternName(name, spanFrom(ctx));
+    }
+
+    /**
+     * ADR 0019 G1：match 绑定名为软关键字（小写结构词，如 `when return, ...`）。
+     * 与 PatternName 同构，仅 token 来源不同。
+     */
+    @Override
+    public Pattern visitPatternStructKeywordName(AsterParser.PatternStructKeywordNameContext ctx) {
+        String name = ctx.structKeywordName().getText();
         return new Pattern.PatternName(name, spanFrom(ctx));
     }
 

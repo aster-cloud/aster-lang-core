@@ -114,6 +114,7 @@ typeParamList
 typeParam
     : TYPE_IDENT
     | IDENT
+    | structKeywordName
     ;
 
 /**
@@ -257,6 +258,7 @@ importDecl
 importAlias
     : TYPE_IDENT
     | IDENT
+    | structKeywordName
     ;
 
 /**
@@ -264,7 +266,7 @@ importAlias
  * 语法: @pii type Email as Text.
  */
 typeDecl
-    : annotation* TYPE (TYPE_IDENT | IDENT) AS annotatedType DOT
+    : annotation* TYPE (TYPE_IDENT | IDENT | structKeywordName) AS annotatedType DOT
     ;
 
 /**
@@ -272,7 +274,7 @@ typeDecl
  * 语法: @pii
  */
 annotation
-    : AT (IDENT | TYPE_IDENT) annotationArgs?
+    : AT (IDENT | TYPE_IDENT | structKeywordName) annotationArgs?
     ;
 
 annotationArgs
@@ -280,7 +282,7 @@ annotationArgs
     ;
 
 annotationArg
-    : IDENT COLON annotationValue        # NamedAnnotationArg
+    : (IDENT | structKeywordName) COLON annotationValue  # NamedAnnotationArg
     | annotationValue                    # PositionalAnnotationArg
     ;
 
@@ -292,6 +294,7 @@ annotationValue
     | BOOL_LITERAL
     | IDENT
     | TYPE_IDENT
+    | structKeywordName
     ;
 
 // ============================================================
@@ -462,6 +465,8 @@ pattern
     | TYPE_IDENT (LPAREN pattern (COMMA pattern)* RPAREN)?  # PatternCtor
     | INT_LITERAL                         # PatternInt
     | IDENT                               # PatternName
+    // ADR 0019 G1：match 绑定名可为软关键字（小写结构词，如 `when return, ...`）。
+    | structKeywordName                   # PatternStructKeywordName
     ;
 
 /**

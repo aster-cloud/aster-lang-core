@@ -25,10 +25,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 因此被破（只是无 fixture 暴露）。
  *
  * <p>修复：把这些 token 的 lexer 规则改为逐字母字符集（{@code [Rr][Uu][Ll][Ee]}）
- * 接受任意大小写。这些 token 在 PascalCase 形式下本就是保留字（不在 nameIdent
- * 软关键词列表），加小写拼写不引入新的标识符碰撞——小写 {@code rule}/{@code return}/
- * {@code if} 当前都不是合法标识符。本测试在裸 parser 路径（与 dual-engine inventory
- * gate 一致，不经 canonicalize）上锁住该行为。
+ * 接受任意大小写。但小写形式被提升为硬 token 后，会破坏"小写词作普通标识符"的
+ * 能力（改动前小写 {@code rule}/{@code return}/{@code if} 是普通 IDENT，可作变量名/
+ * 参数名/字段名/成员名等，TS 引擎的上下文关键字模型同样接受）。因此配套引入
+ * {@code structKeywordName} 软关键字规则，在所有标识符位置放行这些 token——见下方
+ * "G1 回归守卫"测试。本测试在裸 parser 路径（与 dual-engine inventory gate 一致，
+ * 不经 canonicalize）上锁住该行为。
  */
 class LowercaseKeywordParserTest {
 
@@ -186,5 +188,41 @@ class LowercaseKeywordParserTest {
         // 模块路径段含结构词（最初暴露问题的场景：dual.engine.let.binding）。
         assertTrue(parsesClean("Module dual.engine.let.binding.\nrule r given x, produce:\n  return x."),
                 "限定模块名含 let 段应解析通过");
+    }
+
+    // ---- 复审第二轮（Codex 82/100）补齐的标识符位置 ----
+
+    @Test
+    void struct_keyword_as_match_pattern_name() {
+        // match 绑定名为软关键字（when return, ...）。
+        assertTrue(parsesClean("Module m.\nrule r given x, produce Text:\n  match x:\n    when return, return \"a\"."),
+                "match pattern 绑定名 return（软关键字）应解析通过");
+    }
+
+    @Test
+    void struct_keyword_as_type_param() {
+        assertTrue(parsesClean("Module m.\nrule r of return given x, produce:\n  return x."),
+                "类型参数名 return（软关键字）应解析通过");
+    }
+
+    @Test
+    void struct_keyword_as_import_alias() {
+        assertTrue(parsesClean("Module m.\nUse foo.bar as return."),
+                "导入别名 return（软关键字）应解析通过");
+    }
+
+    @Test
+    void struct_keyword_as_type_alias_name() {
+        assertTrue(parsesClean("Module m.\ntype return as Text."),
+                "类型别名名 return（软关键字）应解析通过");
+    }
+
+    @Test
+    void struct_keyword_as_annotation_name_and_arg() {
+        // 注解名 + 命名参数键 + 参数值都可为软关键字。
+        assertTrue(parsesClean("Module m.\n@return\nrule r given x, produce:\n  return x."),
+                "注解名 @return（软关键字）应解析通过");
+        assertTrue(parsesClean("Module m.\n@tag(let: match)\nrule r given x, produce:\n  return x."),
+                "注解参数键/值为软关键字应解析通过");
     }
 }
