@@ -120,4 +120,71 @@ class LowercaseKeywordParserTest {
         String out = canon.canonicalize("Module m.\nrule add given x, y:\n  return x plus y.");
         assertTrue(parsesClean(out), "canonicalize 后的小写关键词源码应解析通过，得到:\n" + out);
     }
+
+    @Test
+    void otherwise_branch_case_insensitive() {
+        // ELSE token 含 Else|Otherwise 两拼写，都改为大小写不敏感。锁住 otherwise
+        // 分支（Codex 审查指出原测试只覆盖 else）。
+        String pascalOtherwise = "Module m.\n"
+                + "Rule r given n, produce Text:\n"
+                + "  If n is greater than 0:\n"
+                + "    Return \"p\".\n"
+                + "  Otherwise:\n"
+                + "    Return \"n\".";
+        String lowerOtherwise = "Module m.\n"
+                + "rule r given n, produce Text:\n"
+                + "  if n is greater than 0:\n"
+                + "    return \"p\".\n"
+                + "  otherwise:\n"
+                + "    return \"n\".";
+        assertTrue(parsesClean(pascalOtherwise), "PascalCase Otherwise 应解析通过");
+        assertTrue(parsesClean(lowerOtherwise), "小写 otherwise 应解析通过");
+    }
+
+    // ============================================================
+    // ADR 0019 G1 回归守卫（Codex 审查发现）：结构关键词的小写形式被 lexer 提升为
+    // 硬 token 后，若不在标识符位置当软关键字，会破坏"小写词作普通标识符"的能力
+    // （改动前小写 let/if/return 是 IDENT 可作名字，TS 引擎用上下文关键字模型同样
+    // 接受）。下列测试锁住各标识符位置（参数名/变量引用/成员名/构造字段名/限定段）
+    // 仍接受这些词作名字，防止回归。
+    // ============================================================
+
+    @Test
+    void struct_keyword_as_param_name() {
+        assertTrue(parsesClean("Module m.\nrule r given let, produce:\n  return let."),
+                "参数名 let（软关键字）应解析通过");
+        assertTrue(parsesClean("Module m.\nrule r given match, when, produce:\n  return match."),
+                "多个软关键字参数名应解析通过");
+    }
+
+    @Test
+    void struct_keyword_as_field_name() {
+        assertTrue(parsesClean("Module m.\ndefine User has return as Text."),
+                "字段名 return（软关键字）应解析通过");
+    }
+
+    @Test
+    void struct_keyword_as_member_access() {
+        assertTrue(parsesClean("Module m.\nrule r given x, produce:\n  return x.let."),
+                "成员名 x.let（软关键字）应解析通过");
+    }
+
+    @Test
+    void struct_keyword_as_let_var_name() {
+        assertTrue(parsesClean("Module m.\nrule r given x, produce:\n  let match be x.\n  return match."),
+                "let 变量名 match（软关键字）应解析通过");
+    }
+
+    @Test
+    void struct_keyword_as_construct_field() {
+        assertTrue(parsesClean("Module m.\nrule r given x, produce User:\n  return User with let set to x."),
+                "construct 字段名 let（软关键字）应解析通过");
+    }
+
+    @Test
+    void struct_keyword_in_qualified_module_name() {
+        // 模块路径段含结构词（最初暴露问题的场景：dual.engine.let.binding）。
+        assertTrue(parsesClean("Module dual.engine.let.binding.\nrule r given x, produce:\n  return x."),
+                "限定模块名含 let 段应解析通过");
+    }
 }

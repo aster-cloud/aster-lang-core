@@ -1112,8 +1112,15 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                 pendingMembers.clear();
                 baseIsTypeIdent = false;
             } else if (suffixCtx instanceof AsterParser.MemberSuffixContext memberCtx) {
-                TerminalNode idNode = memberCtx.IDENT() != null ? memberCtx.IDENT() : memberCtx.TYPE_IDENT();
-                pendingMembers.add(new MemberSegment(idNode.getText(), spanFrom(idNode)));
+                // ADR 0019 G1：成员名可为 IDENT/TYPE_IDENT 或软关键字（小写结构词，
+                // 如 `x.let`）。软关键字走 structKeywordName 规则，取其文本与跨度。
+                if (memberCtx.structKeywordName() != null) {
+                    var sk = memberCtx.structKeywordName();
+                    pendingMembers.add(new MemberSegment(sk.getText(), spanFrom(sk)));
+                } else {
+                    TerminalNode idNode = memberCtx.IDENT() != null ? memberCtx.IDENT() : memberCtx.TYPE_IDENT();
+                    pendingMembers.add(new MemberSegment(idNode.getText(), spanFrom(idNode)));
+                }
             }
         }
 
@@ -1172,8 +1179,14 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     }
 
     public Expr.Construct.ConstructField visitConstructField(AsterParser.ConstructFieldContext ctx) {
-        // 支持 IDENT 和 TYPE_IDENT（中文字段名以 CJK 字符开头会被识别为 TYPE_IDENT）
-        String name = ctx.IDENT() != null ? ctx.IDENT().getText() : ctx.TYPE_IDENT().getText();
+        // 支持 IDENT 和 TYPE_IDENT（中文字段名以 CJK 字符开头会被识别为 TYPE_IDENT）；
+        // ADR 0019 G1：还支持软关键字字段名（小写结构词，如 `User with let set to x`）。
+        String name;
+        if (ctx.structKeywordName() != null) {
+            name = ctx.structKeywordName().getText();
+        } else {
+            name = ctx.IDENT() != null ? ctx.IDENT().getText() : ctx.TYPE_IDENT().getText();
+        }
         Expr value = (Expr) visit(ctx.expr());
         return new Expr.Construct.ConstructField(name, value);
     }
@@ -1206,6 +1219,16 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     @Override
     public Expr visitVarExpr(AsterParser.VarExprContext ctx) {
         String name = ctx.IDENT().getText();
+        return new Expr.Name(name, spanFrom(ctx));
+    }
+
+    /**
+     * ADR 0019 G1：结构关键词的小写形式在表达式位置当变量引用（如 `Return let.`）。
+     * 与 VarExpr 同构，仅 token 来源不同（structKeywordName 软关键字而非 IDENT）。
+     */
+    @Override
+    public Expr visitStructKeywordVarExpr(AsterParser.StructKeywordVarExprContext ctx) {
+        String name = ctx.structKeywordName().getText();
         return new Expr.Name(name, spanFrom(ctx));
     }
 
