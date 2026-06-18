@@ -97,6 +97,27 @@ class InlineIfStmtTest {
     }
 
     @Test
+    void same_line_if_then_else_parses() {
+        // 同一行完整 inline-if（then/else 都不换行）。
+        assertTrue(parsesClean("Module m.\nRule r given n:\n"
+                + "  if n is greater than 0 then return \"p\" else return \"z\"."),
+                () -> "解析失败: " + firstError);
+    }
+
+    @Test
+    void then_as_member_name_still_parses() {
+        // THEN 加入 structKeywordName 后，.then(...) 方法名/成员名仍可用（Codex 审查
+        // 建议的软关键字回归守卫，与 AstBuilderTest.testChainedMethodCall 呼应）。
+        assertTrue(parsesClean("Module m.\nRule r produce Text:\n"
+                + "  Return Http.get(\"https://example.com\").then(handle)."),
+                () -> "解析失败: " + firstError);
+        // then 作 let 变量名。
+        assertTrue(parsesClean("Module m.\nRule r given x, produce:\n"
+                + "  let then be x.\n  return then."),
+                () -> "解析失败: " + firstError);
+    }
+
+    @Test
     void then_on_next_line_indented_parses() {
         // 文档 overview/deployment/reference 的写法：then 换行且缩进。
         assertTrue(parsesClean("Module m.\nRule r given age:\n"
