@@ -63,6 +63,10 @@ qualifiedSegment
     | OR
     | NOT
     | WITH
+    // ADR 0019 G1：结构关键词改为大小写不敏感后，小写形式会把模块路径段误当
+    // token（如 `dual.engine.let.binding` 的 `let` 段）。复用 structKeywordName
+    // 软关键字集（与 nameIdent 等其它标识符位置一致）。
+    | structKeywordName
     ;
 
 /**
@@ -110,6 +114,7 @@ typeParamList
 typeParam
     : TYPE_IDENT
     | IDENT
+    | structKeywordName
     ;
 
 /**
@@ -191,6 +196,29 @@ nameIdent
     | MAX
     | REQUIRED
     | BETWEEN
+    | structKeywordName
+    ;
+
+/**
+ * ADR 0019 G1：结构关键词大小写不敏感后，其小写形式被 lexer 提升为硬 token
+ * （LET/IF/RETURN/...），而改动前小写 `let`/`if`/`return` 是普通 IDENT，可作
+ * 变量名、参数名、字段名、成员名、构造字段名等。为不引入相对 TS（上下文关键字
+ * 模型，结构词在非语句位置仍是普通名字）的回归，把这些 token 在所有"标识符位置"
+ * 当软关键字放行。这些位置（名字声明、变量引用、DOT 成员、construct 字段）都不
+ * 会与语句起点的关键字用法冲突——语句分派靠语句起点的 token，名字位置由前驱
+ * token（given/Let/DOT/with 等）确定，ANTLR ALL(*) 前瞻可消歧。
+ */
+structKeywordName
+    : LET
+    | MATCH
+    | IF
+    | RETURN
+    | RULE
+    | DEFINE
+    | WHEN
+    | START
+    | WAIT
+    | ELSE
     ;
 
 /**
@@ -230,6 +258,7 @@ importDecl
 importAlias
     : TYPE_IDENT
     | IDENT
+    | structKeywordName
     ;
 
 /**
@@ -237,7 +266,7 @@ importAlias
  * 语法: @pii type Email as Text.
  */
 typeDecl
-    : annotation* TYPE (TYPE_IDENT | IDENT) AS annotatedType DOT
+    : annotation* TYPE (TYPE_IDENT | IDENT | structKeywordName) AS annotatedType DOT
     ;
 
 /**
@@ -245,7 +274,7 @@ typeDecl
  * 语法: @pii
  */
 annotation
-    : AT (IDENT | TYPE_IDENT) annotationArgs?
+    : AT (IDENT | TYPE_IDENT | structKeywordName) annotationArgs?
     ;
 
 annotationArgs
@@ -253,7 +282,7 @@ annotationArgs
     ;
 
 annotationArg
-    : IDENT COLON annotationValue        # NamedAnnotationArg
+    : (IDENT | structKeywordName) COLON annotationValue  # NamedAnnotationArg
     | annotationValue                    # PositionalAnnotationArg
     ;
 
@@ -265,6 +294,7 @@ annotationValue
     | BOOL_LITERAL
     | IDENT
     | TYPE_IDENT
+    | structKeywordName
     ;
 
 // ============================================================
@@ -435,6 +465,8 @@ pattern
     | TYPE_IDENT (LPAREN pattern (COMMA pattern)* RPAREN)?  # PatternCtor
     | INT_LITERAL                         # PatternInt
     | IDENT                               # PatternName
+    // ADR 0019 G1：match 绑定名可为软关键字（小写结构词，如 `when return, ...`）。
+    | structKeywordName                   # PatternStructKeywordName
     ;
 
 /**
@@ -514,7 +546,7 @@ postfixExpr
 postfixSuffix
     : LPAREN argumentList? RPAREN          # CallSuffix
     | (WITH | HAS) argumentList             # WithCallSuffix
-    | DOT (IDENT | TYPE_IDENT)             # MemberSuffix
+    | DOT (IDENT | TYPE_IDENT | structKeywordName)  # MemberSuffix
     ;
 
 argumentList
@@ -533,6 +565,9 @@ primaryExpr
     | wrapExpr                             # WrapExprAlt
     | listLiteral                          # ListLiteralExpr
     | IDENT                                # VarExpr
+    // ADR 0019 G1：结构关键词的小写形式在表达式位置（如 `Return let.`）当变量引用，
+    // 与改动前小写词是 IDENT 的行为及 TS 上下文关键字模型一致。
+    | structKeywordName                    # StructKeywordVarExpr
     | TYPE_IDENT                           # TypeIdentExpr
     | MAP                                  # MapIdentExpr
     | STRING_LITERAL                       # StringExpr
@@ -553,7 +588,7 @@ constructFieldList
     ;
 
 constructField
-    : (IDENT | TYPE_IDENT) SET TO_WORD expr
+    : (IDENT | TYPE_IDENT | structKeywordName) SET TO_WORD expr
     ;
 
 operatorCall

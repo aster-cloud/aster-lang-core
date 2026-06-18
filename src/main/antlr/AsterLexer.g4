@@ -108,7 +108,11 @@ MODULE: 'module';
 IS: '\u0000IS' ;         // 已废弃，占位保持 token ID 稳定
 
 // 函数相关
-RULE: 'Rule';
+// ADR 0019 G1：结构关键词大小写不敏感。用逐字母字符集 [Rr]... 接受任意大小写
+// （Rule/rule/RULE 全收），与 TS 引擎 tokLowerAt 的大小写不敏感比较对齐。
+// 这些 token 在 PascalCase 形式下本就是保留字（不在 nameIdent 软关键词列表），
+// 加小写拼写不引入新的标识符碰撞——小写 rule/return/if 当前都不是合法标识符。
+RULE: [Rr][Uu][Ll][Ee];
 GIVEN: 'given';
 TO: '\u0000TO' ;         // 已废弃，占位保持 token ID 稳定
 TO_WORD: 'to';
@@ -120,7 +124,7 @@ HAS: 'has';
 SET: 'Set' | 'set';
 
 // 类型定义相关
-DEFINE: 'Define';
+DEFINE: [Dd][Ee][Ff][Ii][Nn][Ee];
 TYPE: 'type';
 AS: 'as';
 ONE: 'one';
@@ -131,16 +135,16 @@ USE: 'Use' | 'use';
 VERSION: 'version';
 
 // 语句关键字
-LET: 'Let';
+LET: [Ll][Ee][Tt];
 BE: 'be';
-RETURN: 'Return';
-IF: 'If';
-ELSE: 'Else' | 'Otherwise';
-MATCH: 'Match';
-WHEN: 'When';
+RETURN: [Rr][Ee][Tt][Uu][Rr][Nn];
+IF: [Ii][Ff];
+ELSE: [Ee][Ll][Ss][Ee] | [Oo][Tt][Hh][Ee][Rr][Ww][Ii][Ss][Ee];
+MATCH: [Mm][Aa][Tt][Cc][Hh];
+WHEN: [Ww][Hh][Ee][Nn];
 NOT: 'not';
-START: 'Start';
-WAIT: 'Wait';
+START: [Ss][Tt][Aa][Rr][Tt];
+WAIT: [Ww][Aa][Ii][Tt];
 FOR: 'for';
 ASYNC: 'async';
 WORKFLOW: 'Workflow' | 'workflow';
