@@ -139,6 +139,8 @@ LET: [Ll][Ee][Tt];
 BE: 'be';
 RETURN: [Rr][Ee][Tt][Uu][Rr][Nn];
 IF: [Ii][Ff];
+// ADR 0019 G2a：内联 if 的 then 连接词（大小写不敏感，与其它结构关键词一致）。
+THEN: [Tt][Hh][Ee][Nn];
 ELSE: [Ee][Ll][Ss][Ee] | [Oo][Tt][Hh][Ee][Rr][Ww][Ii][Ss][Ee];
 MATCH: [Mm][Aa][Tt][Cc][Hh];
 WHEN: [Ww][Hh][Ee][Nn];
