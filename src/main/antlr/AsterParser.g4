@@ -63,6 +63,21 @@ qualifiedSegment
     | OR
     | NOT
     | WITH
+    // ADR 0019 G1：结构关键词改为大小写不敏感后，小写形式（let/match/if/
+    // return/rule/define/when/start/wait）会把模块路径段误当 token（如
+    // `dual.engine.let.binding` 的 `let` 段）。沿用上面 AND/OR/NOT/WITH 的软
+    // 关键字模式，把这些 token 也允许在限定名段位置当普通标识符——段间由 DOT
+    // 分隔，不与语句位置的关键字用法冲突。
+    | LET
+    | MATCH
+    | IF
+    | RETURN
+    | RULE
+    | DEFINE
+    | WHEN
+    | START
+    | WAIT
+    | ELSE
     ;
 
 /**
