@@ -658,4 +658,105 @@ class LexiconRegistryTest {
             }
         }
     }
+
+    /**
+     * R-multi-replica：模拟多副本启动时的**瞬时 SPI 失败**——首轮 getResources 抛 IOException
+     * （ServiceLoader 扫不到 provider → 该轮丢插件），后续轮恢复。验证 discoverPlugins 的重试
+     * 包装最终把全部 bundled lexicon 加齐（消除"某副本少一门语言"的跨副本不一致）。
+     *
+     * <p>背景：生产 6 副本各丢不同的一个 locale（zh/de/hi），因 ServiceLoader lazy 迭代在类
+     * 加载竞态下偶发失败，旧实现 best-effort 静默丢弃。新实现重试直到完整。
+     */
+    @Test
+    void testTransientSpiFailureRecoveredByRetry() {
+        ClassLoader real = LexiconPlugin.class.getClassLoader();
+        final String svc = "META-INF/services/aster.core.lexicon.LexiconPlugin";
+
+        // 把 zh-CN 物理移除，模拟"本副本尚未加载 zh"。
+        registry.unregister("zh-CN");
+        assertFalse(registry.has("zh-CN"), "前置：zh-CN 已移除");
+
+        // 首轮对 LexiconPlugin service 资源抛 IOException（瞬时），之后放行到真实 loader。
+        java.util.concurrent.atomic.AtomicInteger svcCalls = new java.util.concurrent.atomic.AtomicInteger();
+        ClassLoader flaky = new ClassLoader(real) {
+            @Override
+            public java.util.Enumeration<java.net.URL> getResources(String name) throws java.io.IOException {
+                if (svc.equals(name) && svcCalls.getAndIncrement() == 0) {
+                    // 首次扫描 LexiconPlugin service 文件 → 瞬时失败（类加载竞态的等价物）。
+                    throw new java.io.IOException("simulated transient SPI resource failure");
+                }
+                return super.getResources(name);
+            }
+        };
+
+        try {
+            // discoverPlugins 内部重试：第 1 轮 getResources 抛 IOException（ServiceLoader 该轮
+            // 报 ServiceConfigurationError / 扫不到），第 2 轮恢复 → zh-CN 最终加齐。
+            int loaded = registry.discoverPlugins(flaky);
+            assertTrue(svcCalls.get() >= 2,
+                "应至少触发 2 次 getResources（首轮失败 + 重试），实际=" + svcCalls.get());
+            assertTrue(registry.has("zh-CN"),
+                "重试后 zh-CN 应已加齐（瞬时失败不应导致永久丢失）；loaded=" + loaded);
+        } finally {
+            if (!registry.has("zh-CN")) {
+                registry.discoverPlugins(LexiconPlugin.class.getClassLoader());
+            }
+        }
+    }
+
+    /**
+     * R-multi-replica（Codex 审查补充）：模拟**带 provider class** 的瞬时
+     * ServiceConfigurationError —— 生产最常见的类加载竞态 "Provider &lt;fqcn&gt; could not be
+     * instantiated / not found"。首轮 service 文件多一行**不存在的 provider 类**，使
+     * iter.next() 抛 ServiceConfigurationError（带 provider hint，key=该 class 名），第二轮
+     * 该坏行消失 → 恢复。验证：**iterator 级失败无论是否带 provider hint 都触发重试**
+     * （此前的 bug：带 hint 时 key 非 "spi-iter#" 前缀 → 漏判 → 不重试）。
+     */
+    @Test
+    void testTransientSpiFailureWithProviderHintRecoveredByRetry() throws Exception {
+        ClassLoader real = LexiconPlugin.class.getClassLoader();
+        final String svc = "META-INF/services/aster.core.lexicon.LexiconPlugin";
+
+        registry.unregister("zh-CN");
+        assertFalse(registry.has("zh-CN"), "前置：zh-CN 已移除");
+
+        // 把首轮要"注入坏行"的临时 service 文件写到 temp dir，URL 指向它。
+        java.nio.file.Path tmpDir = java.nio.file.Files.createTempDirectory("flaky-spi");
+        java.nio.file.Path svcFile = tmpDir.resolve("svc-bad.txt");
+        // 不存在的 provider 类 → ServiceLoader.iterator().next() 抛
+        // ServiceConfigurationError: Provider aster.bogus.DoesNotExistPlugin not found（带 hint）。
+        java.nio.file.Files.writeString(svcFile, "aster.bogus.DoesNotExistPlugin\n");
+        java.net.URL badUrl = svcFile.toUri().toURL();
+
+        java.util.concurrent.atomic.AtomicInteger svcCalls = new java.util.concurrent.atomic.AtomicInteger();
+        ClassLoader flaky = new ClassLoader(real) {
+            @Override
+            public java.util.Enumeration<java.net.URL> getResources(String name) throws java.io.IOException {
+                java.util.List<java.net.URL> urls = java.util.Collections.list(super.getResources(name));
+                // 仅**首轮**在真实 service 资源**前面**插入坏 URL，让 ServiceLoader 先迭代到坏
+                // 行抛错（带 provider hint），后续轮干净。
+                if (svc.equals(name) && svcCalls.getAndIncrement() == 0) {
+                    java.util.List<java.net.URL> withBad = new java.util.ArrayList<>();
+                    withBad.add(badUrl);
+                    withBad.addAll(urls);
+                    return java.util.Collections.enumeration(withBad);
+                }
+                return java.util.Collections.enumeration(urls);
+            }
+        };
+
+        try {
+            int loaded = registry.discoverPlugins(flaky);
+            assertTrue(svcCalls.get() >= 2,
+                "带 provider-hint 的瞬时失败也应触发重试（≥2 次扫描），实际=" + svcCalls.get());
+            assertTrue(registry.has("zh-CN"),
+                "重试后 zh-CN 应加齐——带 provider hint 的 iterator 失败也必须重试；loaded=" + loaded);
+        } finally {
+            java.nio.file.Files.deleteIfExists(svcFile);
+            java.nio.file.Files.deleteIfExists(tmpDir);
+            if (!registry.has("zh-CN")) {
+                registry.discoverPlugins(LexiconPlugin.class.getClassLoader());
+            }
+        }
+    }
 }
