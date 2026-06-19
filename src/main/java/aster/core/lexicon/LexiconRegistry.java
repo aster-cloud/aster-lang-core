@@ -124,6 +124,21 @@ public final class LexiconRegistry {
         // 其他语言包通过 SPI 机制按需注册（META-INF/services/aster.core.lexicon.LexiconPlugin）。
         // 若 en-US plugin 也在 classpath，discoverPlugins() 会因 ID 已注册而跳过，避免双注册。
         discoverPlugins();
+        // 完整性日志：明确打印启动后最终注册的 lexicon ids，便于多副本部署排查"某副本少一门
+        // 语言"（此前坏副本连日志都没有）。仍有 discoveryFailures 残留则一并 WARN。
+        logStartupLexiconSummary();
+    }
+
+    /** 启动 SPI 发现后打印最终 lexicon 清单 + 残留失败（多副本一致性诊断）。 */
+    private void logStartupLexiconSummary() {
+        java.util.List<String> ids = new java.util.ArrayList<>(availableIds());
+        java.util.Collections.sort(ids);
+        LOGGER.info(() -> "Lexicon registry ready: available=" + ids);
+        if (!discoveryFailures.isEmpty()) {
+            LOGGER.warning(() -> "Lexicon SPI discovery left "
+                + discoveryFailures.size() + " unresolved entries after retries: "
+                + discoveryFailures);
+        }
     }
 
     /**
@@ -599,21 +614,54 @@ public final class LexiconRegistry {
         return discoverPlugins(Thread.currentThread().getContextClassLoader());
     }
 
+    /** discoverPlugins 启动重试的最大轮数（首轮 + 重试）。 */
+    private static final int MAX_DISCOVERY_PASSES = 3;
+
     /**
      * 通过 SPI 在指定 {@link ClassLoader} 上发现并注册语言包插件。
      * <p>
      * 显式传 loader 让 hot-plug 路径无需污染调用线程的 contextClassLoader。
      * 调用者负责在加载阶段保留 loader 引用（避免被 GC 收走、jar 类被卸载）。
      * <p>
-     * 容错策略：单个 service entry 抛错（Quarkus jar 缺失会包成 RuntimeException）
-     * 时跳过该 entry；连续两次失败就放弃本次发现，避免 lazy iterator 卡死。
+     * 容错策略（R-multi-replica）：bundled SPI 语言包是确定性依赖，启动时偶发的
+     * {@link ServiceConfigurationError}（多副本并行启动 + 堆压力下的类加载竞态）是**瞬时**的。
+     * 因此 discover **重试**：每轮用**全新** {@link ServiceLoader}（不复用可能卡死的 lazy
+     * iterator）重扫，{@link #entries} 的 putIfAbsent 天然幂等，只补缺失的。重试判定用**本轮
+     * 局部**的 iterator 级失败数（{@link DiscoveryPass#iteratorFailures}，与共享诊断映射
+     * {@link #discoveryFailures} 解耦——后者并发 hot-plug 也会写，不可作控制流）：本轮有 iterator
+     * 级瞬时失败且未达上限（{@link #MAX_DISCOVERY_PASSES}）就再扫一轮，0 失败即停。这样把
+     * "best-effort 静默丢插件" 改为"最终一致加载全部 bundled 语言包"，消除跨副本
+     * /api/v1/lexicons 不一致。
      *
      * @param loader 用于 SPI 扫描的 classloader。{@code null} 表示用 system loader
-     * @return 成功加载的插件数量
+     * @return 成功加载的插件数量（累计本次调用各轮新注册）
      */
     public int discoverPlugins(ClassLoader loader) {
-        return discoverPluginsDetailed(loader).size();
+        Set<String> allNewlyRegistered = new HashSet<>();
+        for (int pass = 1; pass <= MAX_DISCOVERY_PASSES; pass++) {
+            // 重试判定用**本轮局部** iterator 级失败数（DiscoveryPass.iteratorFailures），
+            // **不**读共享 discoveryFailures 映射——后者既是诊断又是并发 hot-plug 写入的，
+            // 用它做控制流会被 stale key / 并发写入污染（Codex 审查）。也**不**依赖失败 key
+            // 的 "spi-iter#" 前缀：带 provider hint 的瞬时 ServiceConfigurationError（生产
+            // 最常见的类加载竞态）key=provider class，但它仍是 iterator 级瞬时失败、**应重试**。
+            DiscoveryPass result = discoverPluginsPass(loader);
+            allNewlyRegistered.addAll(result.newlyRegistered());
+            // iterator 级失败（瞬时类加载/解析）才重试；确定性 ABI/validate 失败不计入
+            // iteratorFailures（它们在 provider 解析成功之后发生，是真该 skip 的，见 pass 内）。
+            if (result.iteratorFailures() == 0) {
+                break;
+            }
+            if (pass < MAX_DISCOVERY_PASSES) {
+                LOGGER.warning("Lexicon SPI discovery pass " + pass + " had "
+                    + result.iteratorFailures() + " iterator-level failure(s); "
+                    + "retrying with a fresh ServiceLoader.");
+            }
+        }
+        return allNewlyRegistered.size();
     }
+
+    /** 一轮 SPI 发现的结果：本轮新注册的 id + iterator 级瞬时失败次数（重试判定用）。 */
+    private record DiscoveryPass(Set<String> newlyRegistered, int iteratorFailures) {}
 
     /**
      * R4：discoverPlugins 的"详细"变体——返回**本次调用真正新注册**的 lexicon
@@ -627,28 +675,45 @@ public final class LexiconRegistry {
      * 知道"新 loader 真正提供了哪些 lexicon"以便跟踪并在删除时清理。
      */
     public Set<String> discoverPluginsDetailed(ClassLoader loader) {
+        return discoverPluginsPass(loader).newlyRegistered();
+    }
+
+    /**
+     * 单轮 SPI 发现的内部实现，返回 {@link DiscoveryPass}（新注册 id + iterator 级瞬时失败数）。
+     * iterator 级失败数供 {@link #discoverPlugins} 决定是否重试——这是**本轮局部信号**，
+     * 与共享 {@link #discoveryFailures} 诊断映射解耦（后者并发 hot-plug 也会写，不可作控制流）。
+     */
+    private DiscoveryPass discoverPluginsPass(ClassLoader loader) {
         Set<String> newlyRegistered = new HashSet<>();
         int skipped = 0;
         Iterator<LexiconPlugin> iter = ServiceLoader.load(LexiconPlugin.class, loader).iterator();
-        int consecutiveFailures = 0;
+        // 单轮内 lazy iterator 失败的总上限：防真卡死的 iterator 无限循环，但**不**因瞬时失败
+        // （类加载竞态）就放弃后续 provider。瞬时失败靠 discoverPlugins() 的重试包装补齐
+        // （每轮 new ServiceLoader）。MAX 远超 bundled 插件数，仅作真卡死止损阀。
+        int iterFailures = 0;
+        final int maxIterFailures = 8;
         while (true) {
             LexiconPlugin plugin;
             try {
                 if (!iter.hasNext()) break;
                 plugin = iter.next();
-                consecutiveFailures = 0;
             } catch (ServiceConfigurationError | RuntimeException e) {
+                // **iterator 级失败 = 瞬时**（hasNext/next 抛错：缺类、解析竞态、provider 实例化
+                // 失败）。无论能否提取 provider hint，都计入 iterFailures 触发重试——生产最常见
+                // 的 "Provider <fqcn> could not be instantiated" 带 provider class，仍是瞬时的。
+                ++iterFailures;
                 String providerHint = extractProviderHint(e);
                 String key = providerHint != null
                     ? providerHint
-                    : "spi-iter#" + System.currentTimeMillis() + "-" + consecutiveFailures;
+                    : "spi-iter#" + System.currentTimeMillis() + "-" + iterFailures;
                 String msg = e.getClass().getSimpleName() + ": " + e.getMessage();
                 discoveryFailures.put(key, msg);
                 LOGGER.log(java.util.logging.Level.WARNING,
                     "Skipping unresolved LexiconPlugin entry [" + key + "]: " + msg, e);
-                if (++consecutiveFailures >= 2) {
-                    LOGGER.warning("Two consecutive plugin iterator failures — aborting SPI discovery. "
-                        + "Backbone en-US remains available; affected locales will fall back via FallbackLexicon.");
+                if (iterFailures >= maxIterFailures) {
+                    LOGGER.warning("SPI iterator failed " + maxIterFailures + " times this pass — "
+                        + "aborting this discovery pass (likely a genuinely stuck lazy iterator). "
+                        + "discoverPlugins() retry will re-scan with a fresh ServiceLoader.");
                     break;
                 }
                 continue;
@@ -713,7 +778,7 @@ public final class LexiconRegistry {
             LOGGER.info(() -> "Lexicon ABI summary: loaded=" + finalLoaded
                 + " skipped=" + finalSkipped + " (incompatible)");
         }
-        return newlyRegistered;
+        return new DiscoveryPass(newlyRegistered, iterFailures);
     }
 
     /**
