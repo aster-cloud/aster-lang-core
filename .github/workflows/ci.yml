@@ -35,6 +35,16 @@ jobs:
           path: aster-lang-locales
           token: ${{ secrets.CROSS_REPO_TOKEN }}
 
+      # 共享测试 corpus（cloud.aster-lang:aster-lang-test）。core 的
+      # testImplementation(asterLibs.test) 依赖它；GH Packages 未必有当前版本，
+      # 故 sibling-checkout 后 publishToMavenLocal（与下方 parity job 同范式）。
+      # 缺这步会让 :testCompileClasspath 解析 aster-lang-test:<ver> 失败。
+      - uses: ./.github/actions/checkout-sibling
+        with:
+          repository: aster-cloud/aster-lang-test
+          path: aster-lang-test
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+
       - uses: actions/setup-java@v5
         with:
           java-version: '25'
@@ -55,6 +65,11 @@ jobs:
         run: |
           ln -sfn "$PWD" aster-lang-core
           cd aster-lang-locales && ./gradlew publishToMavenLocal -x test
+
+      # Phase 2b: 发布测试 corpus 到 Maven Local（core test 的 testImplementation 依赖）。
+      - name: Publish test corpus to Maven Local
+        working-directory: aster-lang-test/packages/jvm
+        run: ./gradlew publishToMavenLocal -x test
 
       # Phase 3: 运行 core 完整构建（含测试）
       - name: Test
