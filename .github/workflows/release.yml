@@ -33,22 +33,13 @@ jobs:
           path: aster-lang-platform
           token: ${{ secrets.CROSS_REPO_TOKEN }}
 
+      # 语言包源：aster-lang-locales（多模块 en/zh/de，ADR-0011 后的现役源）。
+      # 旧的独立 aster-lang-en/zh/de 仓已归档（read-only，硬编码 pin core:1.0.2）——
+      # 不再用它们当 sibling，改用 locales（catalog 驱动，自动解析当前 core 版本）。
       - uses: actions/checkout@v6
         with:
-          repository: aster-cloud/aster-lang-en
-          path: aster-lang-en
-          token: ${{ secrets.CROSS_REPO_TOKEN }}
-
-      - uses: actions/checkout@v6
-        with:
-          repository: aster-cloud/aster-lang-zh
-          path: aster-lang-zh
-          token: ${{ secrets.CROSS_REPO_TOKEN }}
-
-      - uses: actions/checkout@v6
-        with:
-          repository: aster-cloud/aster-lang-de
-          path: aster-lang-de
+          repository: aster-cloud/aster-lang-locales
+          path: aster-lang-locales
           token: ${{ secrets.CROSS_REPO_TOKEN }}
 
       # 共享测试语料（cloud.aster-lang:aster-lang-test）—— core 的测试编译/运行
@@ -73,12 +64,16 @@ jobs:
       - name: Compile & publish core locally
         run: ./gradlew compileJava publishToMavenLocal -x test
 
-      # 构建 lang packs（core 测试需要 SPI 发现它们）
-      - name: Build lang packs
-        run: |
-          cd aster-lang-en && ./gradlew publishToMavenLocal -x test
-          cd ../aster-lang-zh && ./gradlew publishToMavenLocal -x test
-          cd ../aster-lang-de && ./gradlew publishToMavenLocal -x test
+      # locales 的 verifyLexiconParity 找 sibling aster-lang-core/（en-US.json byte-parity
+      # 校验）。core 在本 workflow checkout 到 workspace 根，软链一份到 aster-lang-core/
+      # 让 parity gate 跑而非静默跳过。
+      - name: Symlink core for locales parity gate
+        run: ln -sfn "$PWD" aster-lang-core
+
+      # 构建 lang packs（core 测试需要 SPI 发现它们）。locales 多模块根
+      # publishToMavenLocal 一次产出 en/zh/de 全部制品（catalog 驱动 → 解析当前 core）。
+      - name: Build lang packs (from aster-lang-locales)
+        run: cd aster-lang-locales && ./gradlew publishToMavenLocal -x test
 
       # 发布测试语料 jar 到 Maven Local（core 测试编译/运行依赖它）
       - name: Publish test corpus locally

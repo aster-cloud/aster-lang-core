@@ -28,22 +28,11 @@ jobs:
           path: aster-lang-platform
           token: ${{ secrets.CROSS_REPO_TOKEN }}
 
+      # 语言包源：aster-lang-locales（现役，catalog 驱动）。旧独立 en/zh/de 仓已归档。
       - uses: ./.github/actions/checkout-sibling
         with:
-          repository: aster-cloud/aster-lang-en
-          path: aster-lang-en
-          token: ${{ secrets.CROSS_REPO_TOKEN }}
-
-      - uses: ./.github/actions/checkout-sibling
-        with:
-          repository: aster-cloud/aster-lang-zh
-          path: aster-lang-zh
-          token: ${{ secrets.CROSS_REPO_TOKEN }}
-
-      - uses: ./.github/actions/checkout-sibling
-        with:
-          repository: aster-cloud/aster-lang-de
-          path: aster-lang-de
+          repository: aster-cloud/aster-lang-locales
+          path: aster-lang-locales
           token: ${{ secrets.CROSS_REPO_TOKEN }}
 
       - uses: actions/setup-java@v5
@@ -60,12 +49,12 @@ jobs:
       - name: Compile & publish core
         run: ./gradlew compileJava publishToMavenLocal -x test
 
-      # Phase 2: 构建 lang packs（core 测试需要 SPI 发现它们）
-      - name: Build lang packs
+      # Phase 2: 构建 lang packs（core 测试需要 SPI 发现它们）。core 软链到
+      # aster-lang-core/ 让 locales 的 verifyLexiconParity 跑而非跳过。
+      - name: Build lang packs (from aster-lang-locales)
         run: |
-          cd aster-lang-en && ./gradlew publishToMavenLocal -x test
-          cd ../aster-lang-zh && ./gradlew publishToMavenLocal -x test
-          cd ../aster-lang-de && ./gradlew publishToMavenLocal -x test
+          ln -sfn "$PWD" aster-lang-core
+          cd aster-lang-locales && ./gradlew publishToMavenLocal -x test
 
       # Phase 3: 运行 core 完整构建（含测试）
       - name: Test
@@ -132,26 +121,12 @@ jobs:
           path: aster-lang-ts
           token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
 
-      - name: Checkout aster-lang-en
+      - name: Checkout aster-lang-locales
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
         uses: ./aster-lang-core/.github/actions/checkout-sibling
         with:
-          repository: aster-cloud/aster-lang-en
-          path: aster-lang-en
-          token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
-      - name: Checkout aster-lang-zh
-        if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: ./aster-lang-core/.github/actions/checkout-sibling
-        with:
-          repository: aster-cloud/aster-lang-zh
-          path: aster-lang-zh
-          token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
-      - name: Checkout aster-lang-de
-        if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: ./aster-lang-core/.github/actions/checkout-sibling
-        with:
-          repository: aster-cloud/aster-lang-de
-          path: aster-lang-de
+          repository: aster-cloud/aster-lang-locales
+          path: aster-lang-locales
           token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
 
       # aster-lang-runtime + aster-lang-truffle are only needed by the
@@ -219,10 +194,8 @@ jobs:
 
       - name: Publish locale packs to Maven Local
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        run: |
-          cd aster-lang-en && ./gradlew publishToMavenLocal -x test
-          cd ../aster-lang-zh && ./gradlew publishToMavenLocal -x test
-          cd ../aster-lang-de && ./gradlew publishToMavenLocal -x test
+        working-directory: aster-lang-locales
+        run: ./gradlew publishToMavenLocal -x test
 
       - name: Publish aster-lang-runtime to Maven Local
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
