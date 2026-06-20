@@ -222,6 +222,46 @@ class LexiconRegistryTest {
     }
 
     @Test
+    void testDisabledIdsReflectsDesiredDisabled() {
+        try {
+            assertFalse(registry.disabledIds().contains("zh-cn"),
+                "未下线时 disabledIds() 不含 zh-CN");
+
+            registry.markUnavailable("zh-CN");
+            // disabledIds() 返回归一化 ID（小写），跨副本对账据此与持久集差分。
+            assertTrue(registry.disabledIds().contains("zh-cn"),
+                "下线后 disabledIds() 应含归一化的 zh-cn");
+
+            registry.markAvailable("zh-CN");
+            assertFalse(registry.disabledIds().contains("zh-cn"),
+                "恢复后 disabledIds() 不再含 zh-cn");
+        } finally {
+            registry.markAvailable("zh-CN");
+        }
+    }
+
+    @Test
+    void testDisabledIdsNeverContainsEnUsBackbone() {
+        // en-US backbone 永不可下线（markUnavailable 守护）→ disabledIds() 必不含它。
+        registry.markUnavailable("en-US");
+        assertFalse(registry.disabledIds().contains("en-us"),
+            "en-US backbone 不可下线，disabledIds() 必不含");
+    }
+
+    @Test
+    void testDisabledIdsSnapshotIsDefensiveCopy() {
+        try {
+            registry.markUnavailable("zh-CN");
+            java.util.Set<String> snapshot = registry.disabledIds();
+            snapshot.clear(); // 修改快照不应影响注册表内部状态
+            assertFalse(registry.has("zh-CN"),
+                "清空 disabledIds() 返回的快照不应让 zh-CN 重新可用（防御性拷贝）");
+        } finally {
+            registry.markAvailable("zh-CN");
+        }
+    }
+
+    @Test
     void testDesiredDisabledPersistsAcrossRegisterCycle() {
         // M8 回归：在已注册的 zh-CN 上 markUnavailable 后，
         // 一次 hypothetical re-register 不应清除 desired-disabled 状态。

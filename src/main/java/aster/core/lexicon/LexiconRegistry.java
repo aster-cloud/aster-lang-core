@@ -955,6 +955,22 @@ public final class LexiconRegistry {
     }
 
     /**
+     * 返回当前**软下线**（desiredDisabled）的 lexicon 归一化 ID 只读快照。
+     *
+     * <p>用途：跨副本可用性对账需要把“本副本实际下线集”与持久真相源（如 Redis SET）做差分，
+     * 从而恢复漏掉的 enable。直接读注册表是**唯一可靠的本地下线视图**——调用方自行跟踪“已应用
+     * 下线”易在 origin 路径漏记（本地 disable 后 self-broadcast 的 markUnavailable 返回 false）。
+     *
+     * <p>en-US backbone 永不会进入 desiredDisabled（{@link #markUnavailable} 守护），故不会出现在
+     * 此集合。返回防御性拷贝，调用方修改不影响内部状态。
+     *
+     * @return 归一化的已下线 ID 集合快照（可能为空）
+     */
+    public Set<String> disabledIds() {
+        return new HashSet<>(desiredDisabled);
+    }
+
+    /**
      * 异步通知所有监听器当前可用集合。
      * <p>
      * 实现选择：内联调用而非另起线程池。理由：
