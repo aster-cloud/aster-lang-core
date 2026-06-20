@@ -534,6 +534,9 @@ public final class TypeSystem {
         yield funcType;
       }
       case CoreModel.Construct ctor -> createTypeName(ctor.typeName);
+      // ADR 0019 G2b：表达式级 if 的静态类型 = then 分支类型（两分支类型一致由
+      // BaseTypeChecker.checkIfExpr 校验；此处取 then 作代表，null 时降级 unknown）。
+      case CoreModel.IfE ifx -> inferStaticType(ifx.thenE);
       default -> null;
     };
   }

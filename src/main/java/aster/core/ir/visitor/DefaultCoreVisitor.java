@@ -243,6 +243,14 @@ public class DefaultCoreVisitor<Ctx> implements CoreVisitor<Ctx, Void> {
 
       // Lambda
       case CoreModel.Lambda lambda -> visitLambdaImpl(lambda, ctx);
+
+      // ADR 0019 G2b：表达式级 if —— 遍历三个子表达式（cond/then/else）。
+      case CoreModel.IfE ifx -> {
+        visitExpressionChild(ifx.cond, ctx);
+        visitExpressionChild(ifx.thenE, ctx);
+        visitExpressionChild(ifx.elseE, ctx);
+        yield null;
+      }
     };
   }
 

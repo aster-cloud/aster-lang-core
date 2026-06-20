@@ -120,6 +120,12 @@ public final class EffectChecker {
         }
         yield maxEffect;
       }
+      // ADR 0019 G2b：表达式级 if 的效果 = 三个子表达式效果的并（否则分支里的
+      // io/async 调用会被 default→PURE 漏掉，导致效果分析失真）。
+      case CoreModel.IfE ifx -> join(
+        inferEffect(ifx.cond, ctx),
+        join(inferEffect(ifx.thenE, ctx), inferEffect(ifx.elseE, ctx))
+      );
       // 字面量和名称引用都是纯的
       default -> Effect.PURE;
     };

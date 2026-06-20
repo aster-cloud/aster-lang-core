@@ -998,6 +998,26 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     // 表达式
     // ============================================================
 
+    // expr : ifExpr | orExpr —— 分派到对应子节点。默认 visitChildren 在多 alt 下不可靠，
+    // 显式取存在的那个分支。
+    @Override
+    public Expr visitExpr(AsterParser.ExprContext ctx) {
+        if (ctx.ifExpr() != null) {
+            return (Expr) visit(ctx.ifExpr());
+        }
+        return (Expr) visit(ctx.orExpr());
+    }
+
+    // ADR 0019 G2b：表达式级 if —— `IF cond=orExpr inlineThen thenE=expr inlineElseSep elseE=expr`
+    // → Expr.IfExpr{cond, thenExpr, elseExpr}。thenE/elseE 是 expr → 天然支持嵌套 if-expr。
+    @Override
+    public Expr visitIfExpr(AsterParser.IfExprContext ctx) {
+        Expr cond = (Expr) visit(ctx.cond);
+        Expr thenE = (Expr) visit(ctx.thenE);
+        Expr elseE = (Expr) visit(ctx.elseE);
+        return new Expr.IfExpr(cond, thenE, elseE, spanFrom(ctx));
+    }
+
     // 逻辑或：andExpr (OR andExpr)* → 左结合的 Call{Name "or", [l, r]}
     @Override
     public Expr visitOrExpr(AsterParser.OrExprContext ctx) {
