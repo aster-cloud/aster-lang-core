@@ -426,6 +426,15 @@ public final class CoreLowering {
         out.origin = spanToOrigin(await.span());
         yield out;
       }
+      case Expr.IfExpr ifx -> {
+        // ADR 0019 G2b：表达式级 if 降为 Core IR IfE（保表达式语义，不展开成语句）。
+        CoreModel.IfE out = new CoreModel.IfE();
+        out.cond = lowerExpr(ifx.cond());
+        out.thenE = lowerExpr(ifx.thenExpr());
+        out.elseE = lowerExpr(ifx.elseExpr());
+        out.origin = spanToOrigin(ifx.span());
+        yield out;
+      }
       case Expr.ListLiteral list -> {
         CoreModel.Construct out = new CoreModel.Construct();
         out.typeName = "List";

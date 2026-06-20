@@ -42,6 +42,8 @@ class CoreIrSchemaAbiTest {
         "Name", "Call", "Construct", "Lambda", "Await",
         "Int", "Long", "Double", "Bool", "String", "Null",
         "Ok", "Err", "Some", "None", "ListLiteral",
+        "IfExpr", // ADR 0019 G2b：表达式级 if（只增不删）
+
         // 语句 Stmt（注意 Workflow 的 kind() 返回小写 "workflow"）
         "Let", "Return", "If", "Match", "Set", "Start", "Wait", "Block", "Define", "workflow",
         // 类型 Type

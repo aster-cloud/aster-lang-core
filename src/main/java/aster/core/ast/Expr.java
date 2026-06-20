@@ -31,12 +31,13 @@ import java.util.List;
     @JsonSubTypes.Type(value = Expr.None.class, name = "None"),
     @JsonSubTypes.Type(value = Expr.ListLiteral.class, name = "ListLiteral"),
     @JsonSubTypes.Type(value = Expr.Lambda.class, name = "Lambda"),
-    @JsonSubTypes.Type(value = Expr.Await.class, name = "Await")
+    @JsonSubTypes.Type(value = Expr.Await.class, name = "Await"),
+    @JsonSubTypes.Type(value = Expr.IfExpr.class, name = "IfExpr")
 })
 public sealed interface Expr extends AstNode
     permits Expr.Name, Expr.Bool, Expr.Int, Expr.Long, Expr.Double, Expr.String, Expr.Null,
             Expr.Call, Expr.Construct, Expr.Ok, Expr.Err, Expr.Some, Expr.None, Expr.ListLiteral,
-            Expr.Lambda, Expr.Await {
+            Expr.Lambda, Expr.Await, Expr.IfExpr {
 
     /**
      * Name 名称表达式（变量引用或函数名）
@@ -320,6 +321,31 @@ public sealed interface Expr extends AstNode
         @Override
         public java.lang.String kind() {
             return "Await";
+        }
+    }
+
+    /**
+     * IfExpr 表达式级条件（ADR 0019 G2b）：{@code if cond then thenExpr else elseExpr}。
+     *
+     * <p>与语句级 {@link Stmt.If} 区别：这是**表达式**，三个分支都是 {@link Expr}（非块），
+     * 求值产出一个值，可作子表达式 / Return 值 / Let 绑定右侧。else 分支**必需**
+     * （表达式必须在两个方向都有值，否则类型不完整——与语句级 if 的 else 可选不同）。
+     *
+     * @param cond     条件表达式（须为 Bool）
+     * @param thenExpr 条件为真时求值的表达式
+     * @param elseExpr 条件为假时求值的表达式
+     * @param span     源码位置信息
+     */
+    @JsonTypeName("IfExpr")
+    record IfExpr(
+        @JsonProperty("cond") Expr cond,
+        @JsonProperty("thenExpr") Expr thenExpr,
+        @JsonProperty("elseExpr") Expr elseExpr,
+        @JsonProperty("span") Span span
+    ) implements Expr {
+        @Override
+        public java.lang.String kind() {
+            return "IfExpr";
         }
     }
 }

@@ -114,7 +114,35 @@ public final class BaseTypeChecker {
 
       // Await
       case CoreModel.Await await -> checkAwait(await, ctx);
+
+      // ADR 0019 G2b：表达式级 if —— cond 须 Bool，类型 = 两分支统一后的类型。
+      case CoreModel.IfE ifx -> checkIfExpr(ifx, ctx);
     };
+  }
+
+  /**
+   * 表达式级 if 类型推断（ADR 0019 G2b）：cond 须 Bool；类型 = then/else 两分支的统一类型。
+   * 与语句级 {@link #checkIf} 区别：else 必需（表达式两方向都要有值），故总是比较两分支。
+   * 分支类型不一致 → IF_BRANCH_MISMATCH（与语句级同一错误码），返回 then 分支类型继续推断。
+   */
+  private Type checkIfExpr(CoreModel.IfE ifx, VisitorContext ctx) {
+    var condType = typeOfExpr(ifx.cond, ctx);
+    if (!TypeSystem.equals(condType, createTypeName("Bool"), false)) {
+      diagnostics.typeMismatch(createTypeName("Bool"), condType, Optional.ofNullable(ifx.origin));
+    }
+    var thenType = typeOfExpr(ifx.thenE, ctx);
+    var elseType = typeOfExpr(ifx.elseE, ctx);
+    if (!TypeSystem.equals(thenType, elseType, false)) {
+      diagnostics.error(
+        ErrorCode.IF_BRANCH_MISMATCH,
+        Optional.ofNullable(ifx.origin),
+        Map.of(
+          "then", TypeSystem.format(thenType),
+          "else", TypeSystem.format(elseType)
+        )
+      );
+    }
+    return thenType;
   }
 
   // ========== 语句类型检查 ==========

@@ -426,9 +426,10 @@ public final class CoreModel {
     @JsonSubTypes.Type(value = Construct.class, name = "Construct"),
     @JsonSubTypes.Type(value = Call.class, name = "Call"),
     @JsonSubTypes.Type(value = Lambda.class, name = "Lambda"),
-    @JsonSubTypes.Type(value = Await.class, name = "Await")
+    @JsonSubTypes.Type(value = Await.class, name = "Await"),
+    @JsonSubTypes.Type(value = IfE.class, name = "IfExpr")
   })
-  public sealed interface Expr permits Name, Bool, IntE, LongE, DoubleE, StringE, NullE, Ok, Err, Some, NoneE, Construct, Call, Lambda, Await {}
+  public sealed interface Expr permits Name, Bool, IntE, LongE, DoubleE, StringE, NullE, Ok, Err, Some, NoneE, Construct, Call, Lambda, Await, IfE {}
 
   @JsonTypeName("Name")
   public static final class Name implements Expr {
@@ -529,6 +530,19 @@ public final class CoreModel {
   @JsonTypeName("Await")
   public static final class Await implements Expr {
     public Expr expr;       // 异步表达式（等待其完成）
+    public Origin origin;
+  }
+
+  /**
+   * IfE 表达式级条件（ADR 0019 G2b）：{@code if cond then thenE else elseE}，求值产出一个值。
+   * 与语句级 {@link If} 区别：三分支都是 {@link Expr}（非块），且 else 必需。
+   * kind 序列化为 "IfExpr"（与前端 AST + TS Core IR 对齐，双引擎 IR-parity 契约）。
+   */
+  @JsonTypeName("IfExpr")
+  public static final class IfE implements Expr {
+    public Expr cond;       // 条件（Bool）
+    public Expr thenE;      // 真分支表达式
+    public Expr elseE;      // 假分支表达式
     public Origin origin;
   }
 }

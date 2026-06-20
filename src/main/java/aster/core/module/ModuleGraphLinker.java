@@ -378,6 +378,12 @@ public final class ModuleGraphLinker {
           // captures 是局部闭包变量名，不参与顶层符号重命名。
         });
         case CoreModel.Await await -> rewriteExpr(await.expr);
+        case CoreModel.IfE ifx -> {
+          // ADR 0019 G2b：表达式级 if 的三个子表达式都可能含跨模块符号引用。
+          rewriteExpr(ifx.cond);
+          rewriteExpr(ifx.thenE);
+          rewriteExpr(ifx.elseE);
+        }
       }
     }
 

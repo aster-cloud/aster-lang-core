@@ -529,8 +529,17 @@ exprStmt
  * 表达式（多级优先级）
  * 优先级（低→高）：or < and < not < 比较 < 加减 < 乘除 < 函数调用 < 基本表达式
  */
+// ADR 0019 G2b：表达式级 if（`if cond then a else b`）作为完整表达式。锚在 expr 顶层
+// 而非进运算符优先级链：if-expr 是自带边界的完整表达式（then/else 划定子表达式范围），
+// 不参与 +/*/比较 的结合，从根本上避开 dangling-else 与运算符优先级歧义。else 必需
+// （表达式两个方向都必须有值）。thenExpr/elseExpr 递归用 expr → 支持嵌套 if-expr。
 expr
-    : orExpr
+    : ifExpr
+    | orExpr
+    ;
+
+ifExpr
+    : IF cond=orExpr inlineThen thenE=expr inlineElseSep elseE=expr
     ;
 
 // 逻辑或（最低优先级，左结合）。and/or 在表达式上下文是逻辑运算符；

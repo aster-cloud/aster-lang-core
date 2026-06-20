@@ -238,6 +238,14 @@ public final class PiiTypeChecker {
       traverseBlock(lambda.body, lambdaEnv, lambdaCtx);
       return null;
     }
+    if (expr instanceof CoreModel.IfE ifx) {
+      // ADR 0019 G2b：表达式级 if —— cond/then/else 都要走 sink 检查（分支里可能有 sink
+      // 调用），结果 PII = 两分支 PII 的并（值可能来自任一分支）。
+      inferExprPii(ifx.cond, env, ctx);
+      var thenMeta = inferExprPii(ifx.thenE, env, ctx);
+      var elseMeta = inferExprPii(ifx.elseE, env, ctx);
+      return mergePiiMeta(thenMeta, elseMeta);
+    }
     return null;
   }
 
@@ -540,6 +548,7 @@ public final class PiiTypeChecker {
     if (expr instanceof CoreModel.Call call) return call.origin;
     if (expr instanceof CoreModel.Lambda lambda) return lambda.origin;
     if (expr instanceof CoreModel.Await await) return await.origin;
+    if (expr instanceof CoreModel.IfE ifx) return ifx.origin; // ADR 0019 G2b
     return null;
   }
 
