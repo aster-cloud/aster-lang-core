@@ -31,6 +31,12 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     );
 
     private final Set<String> declaredTypeNames = new HashSet<>();
+    /**
+     * 可【构造】的类型名（Data/Enum 记录类型），不含 type alias。
+     * 仅用于「位置式构造禁止」检查——type alias 别名标量（如 Int），本就不该用
+     * {@code with..set to} 构造，故不纳入；与 aster-lang-ts 行为对齐。
+     */
+    private final Set<String> declaredRecordTypeNames = new HashSet<>();
 
     private record TypeWithAnnotations(Type type, List<Annotation> annotations) {}
 
@@ -47,6 +53,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         }
 
         declaredTypeNames.clear();
+        declaredRecordTypeNames.clear();
         List<AsterParser.TopLevelDeclContext> declContexts = ctx.topLevelDecl();
         if (declContexts == null) {
             declContexts = List.of();
@@ -59,13 +66,16 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                 TerminalNode typeName = declCtx.dataDecl().TYPE_IDENT();
                 if (typeName != null) {
                     declaredTypeNames.add(typeName.getText());
+                    declaredRecordTypeNames.add(typeName.getText());  // 可构造
                 }
             } else if (declCtx.enumDecl() != null) {
                 TerminalNode typeName = declCtx.enumDecl().TYPE_IDENT();
                 if (typeName != null) {
                     declaredTypeNames.add(typeName.getText());
+                    declaredRecordTypeNames.add(typeName.getText());  // 可构造
                 }
             } else if (declCtx.typeDecl() != null) {
+                // type alias 别名标量，不可构造 → 只进 declaredTypeNames，不进 record 集
                 AsterParser.TypeDeclContext typeDeclCtx = declCtx.typeDecl();
                 // ADR 0019 G1：类型别名名也可为软关键字（小写结构词）。与 visitTypeDecl
                 // 的取名分支保持一致，避免 declaredTypeNames 预扫描漏登记。
@@ -1562,6 +1572,18 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     private Expr createCallExpression(Expr target, List<Expr> args, Span span) {
         if (target instanceof Expr.Name name) {
             String funcName = name.name();
+            // 位置式 `TypeName(args)` 对【已声明类型】不是合法语法——结构体构造必须用命名字段
+            // `TypeName with field set to expr and ...`。原先位置式被静默降级成函数调用，
+            // 后续才在执行期暴露为「未定义函数」；在此于构建期就报错并给出正确写法。
+            // 此检查置于 Ok/Err/Some/None 内置变体之前：若用户声明了同名记录类型（如 Define Ok），
+            // 以用户声明优先报错，与 TS 引擎行为一致（declaredRecordTypes 优先），保证 parity。
+            // 仅对【记录类型】报错，不含 type alias（别名标量本就不可构造）。
+            if (declaredRecordTypeNames.contains(funcName)) {
+                throw new IllegalStateException(
+                    "Cannot construct '" + funcName + "' with positional arguments. "
+                    + "Use named fields instead: '" + funcName
+                    + " with <field> set to <value> and ...'");
+            }
             switch (funcName) {
                 case "Ok" -> {
                     if (args.size() == 1) {
