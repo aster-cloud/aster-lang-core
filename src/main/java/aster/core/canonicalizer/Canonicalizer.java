@@ -78,6 +78,20 @@ public final class Canonicalizer {
     private final List<Map.Entry<String, Pattern>> multiWordKeywordPatterns;
     /** 标识符索引（用于领域词汇翻译，如 "驾驶员" → "Driver"） */
     private final IdentifierIndex identifierIndex;
+    /**
+     * 关键词「词」集合（小写，含 customRules 转写前后两种形态）。
+     * <p>
+     * customRules（如德语 oe→ö/ue→ü/ae→ä）的本意是让用户用 ASCII 输入德语关键词
+     * （hoechstens→höchstens），但全局替换会误伤含这些二合字母的【用户标识符】
+     * （fruehereSchaeden→frühereSchäden），导致标识符与运行时 context 键不匹配。
+     * 本集合用于把转写限定在关键词词上：仅当某词转写后是关键词词时才采纳转写。
+     */
+    private final Set<String> keywordWordSet;
+    /**
+     * 预编译的 customRules（pattern + replacement）。canonicalize 是热路径，
+     * 按词应用时不能每词每规则重新编译正则，构造器里一次性预编译。
+     */
+    private final List<Map.Entry<Pattern, String>> compiledCustomRules;
 
     /**
      * 空白规范化所需的正则表达式
@@ -88,18 +102,15 @@ public final class Canonicalizer {
     private static final Pattern TRAILING_SPACE_RE = Pattern.compile("\\s+$");
 
     /**
-     * ANTLR 保留词（字面量和关键字），不受 customRules 影响。
-     * 防止德语 umlaut 规则将 {@code true} 错误转换为 {@code trü}。
+     * 完整标识符 token 模式（Unicode）：字母/下划线起头，后接字母/数字/下划线。
+     * customRules 转写以整 token 为判定单位，避免把 {@code fuer_foo}/{@code fuer2}
+     * 中的字母段 {@code fuer} 误转成 {@code für_foo}/{@code für2}。
+     * <p>
+     * ANTLR 保留词（{@code true}/{@code false} 等）天然不在关键词词集合的转写目标里，
+     * 故无需单独保护——它们转写后不是关键词，gate 会保留原样。
      */
-    private static final Set<String> PROTECTED_TOKENS = Set.of(
-        "true", "false", "null",
-        "Module", "Rule", "with", "has", "and", "or", "not",
-        "given", "produce", "Define", "Return", "If", "Else",
-        "Otherwise", "Let", "be", "Use", "as", "one", "of",
-        "is", "to", "function", "Match", "When",
-        "For", "each", "in", "Set", "module", "type"
-    );
-    private static final Pattern WORD_PATTERN = Pattern.compile("\\b[a-zA-Z]+\\b");
+    private static final Pattern WORD_PATTERN =
+        Pattern.compile("[\\p{L}_][\\p{L}\\p{N}_]*", Pattern.UNICODE_CHARACTER_CLASS);
 
     /**
      * 使用默认词法表（en-US）创建规范化器
@@ -190,6 +201,41 @@ public final class Canonicalizer {
         this.multiWordKeywordPatterns = List.copyOf(mwkPatterns);  // 不可变视图
         // 设置标识符索引（用于领域词汇翻译）
         this.identifierIndex = identifierIndex;
+        // 预编译 customRules（热路径，避免按词重复编译正则）
+        List<Map.Entry<Pattern, String>> ccr = new ArrayList<>();
+        for (CanonicalizationConfig.CanonicalizationRule rule : config.customRules()) {
+            // customRules 来自不可信 lexicon 配置：编译期筛查 ReDoS 形状。
+            ccr.add(Map.entry(RegexGuard.compile(rule.pattern(), 0), rule.replacement()));
+        }
+        this.compiledCustomRules = List.copyOf(ccr);
+        // 构建关键词词集合，供 customRules 转写限定使用
+        this.keywordWordSet = buildKeywordWordSet(lexicon);
+    }
+
+    /**
+     * 构建关键词「词」集合：枚举词法表全部关键词值，按空白拆成单词，对每个单词同时
+     * 收集原形与 customRules 转写后形态（均小写）。判定「某词转写后是否落在关键词上」
+     * 时按小写比对。
+     */
+    private Set<String> buildKeywordWordSet(Lexicon sourceLexicon) {
+        Set<String> set = new java.util.HashSet<>();
+        Map<SemanticTokenKind, String> keywords = sourceLexicon.getKeywords();
+        if (keywords == null) {
+            return set;
+        }
+        for (String value : keywords.values()) {
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            for (String word : value.trim().split("\\s+")) {
+                if (word.isEmpty()) {
+                    continue;
+                }
+                set.add(word.toLowerCase(java.util.Locale.ROOT));
+                set.add(applyCustomRulesToKey(word).toLowerCase(java.util.Locale.ROOT));
+            }
+        }
+        return set;
     }
 
     /**
@@ -529,75 +575,68 @@ public final class Canonicalizer {
     // ============================================================
 
     /**
-     * 执行自定义规范化规则
+     * 执行自定义规范化规则（按【词】应用，仅转写关键词，不误伤标识符）。
      * <p>
-     * 遍历 {@link CanonicalizationConfig#customRules()} 中定义的规则，
-     * 对字符串字面量外的代码段执行正则替换。
+     * 典型用例：德语 ASCII umlaut 替换（oe → ö, ue → ü, ae → ä）。这些转写本意是让用户
+     * 用 ASCII 输入德语关键词（hoechstens→höchstens），但原先的全局替换会误伤含同样二合
+     * 字母的【用户标识符】（fruehereSchaeden→frühereSchäden）。
      * <p>
-     * 典型用例：德语 ASCII umlaut 替换（oe → ö, ue → ü, ae → ä）
+     * <b>算法</b>：对字符串字面量外的每个词，<b>一次性</b>应用全部 customRules 得到最终转写
+     * 形态；仅当该形态落在【关键词词集合】上时才采纳，否则保留原词。一次性应用（而非逐条规则）
+     * 是必要的——某些关键词需多条规则串联才成形（如 {@code groesser} 经 oe→ö 成 {@code grösser}
+     * 再经 {@code \bgrösser\b→größer} 成 {@code größer}），逐条判定会在中间态被误判为标识符而中断。
      * <p>
-     * <b>保护机制</b>：ANTLR 保留词（如 {@code true}、{@code false}）不受规则影响，
-     * 避免德语 umlaut 规则将 {@code true} 错误转换为 {@code trü}。
+     * <b>保护机制</b>：ANTLR 保留词（如 {@code true}）天然不在关键词词集合的转写目标里，
+     * 故不会被改写（{@code true} 不会变成 {@code trü}）。
      */
     private String applyCustomRules(String s) {
-        for (CanonicalizationConfig.CanonicalizationRule rule : config.customRules()) {
-            // customRules 来自不可信 lexicon 配置：编译期筛查 ReDoS 形状。
-            Pattern pattern = RegexGuard.compile(rule.pattern(), 0);
-            List<Segment> segments = segmentString(s);
-            StringBuilder result = new StringBuilder(s.length());
-
-            for (Segment segment : segments) {
-                if (segment.inString()) {
-                    result.append(segment.text());
-                } else {
-                    result.append(applyRuleWithProtection(segment.text(), pattern, rule.replacement()));
-                }
-            }
-            s = result.toString();
+        if (config.customRules().isEmpty()) {
+            return s;
         }
-        return s;
+        List<Segment> segments = segmentString(s);
+        StringBuilder result = new StringBuilder(s.length());
+        for (Segment segment : segments) {
+            if (segment.inString()) {
+                result.append(segment.text());
+            } else {
+                result.append(applyCustomRulesKeywordGated(segment.text()));
+            }
+        }
+        return result.toString();
     }
 
     /**
-     * 应用自定义规则，但保护 ANTLR 保留词不被修改
-     * <p>
-     * 算法：先标记所有保留词的位置范围，然后仅对非保留词区域执行正则替换。
+     * 对一段（字符串字面量外的）文本按词应用 customRules：每个词一次性应用全部规则，
+     * 仅当转写后是关键词词时采纳，否则保留原词。
      */
-    private String applyRuleWithProtection(String text, Pattern rulePattern, String replacement) {
-        // 找出所有保留词的位置范围
+    private String applyCustomRulesKeywordGated(String text) {
         java.util.regex.Matcher wordMatcher = WORD_PATTERN.matcher(text);
-        // 记录受保护的字符位置范围 [start, end)
-        List<int[]> protectedRanges = new ArrayList<>();
-        while (wordMatcher.find()) {
-            if (PROTECTED_TOKENS.contains(wordMatcher.group())) {
-                protectedRanges.add(new int[]{wordMatcher.start(), wordMatcher.end()});
-            }
-        }
-
-        if (protectedRanges.isEmpty()) {
-            // 无保留词，直接替换（看门狗超时防 ReDoS）
-            return RegexGuard.replaceAllWithTimeout(rulePattern, text, replacement);
-        }
-
-        // 对非保留区域执行替换
         StringBuilder result = new StringBuilder(text.length());
         int pos = 0;
-        for (int[] range : protectedRanges) {
-            // 替换保留词前的片段
-            if (pos < range[0]) {
-                String segment = text.substring(pos, range[0]);
-                result.append(RegexGuard.replaceAllWithTimeout(rulePattern, segment, replacement));
+        while (wordMatcher.find()) {
+            // 复制词前未匹配片段（标点/空白等）原样保留
+            result.append(text, pos, wordMatcher.start());
+            String word = wordMatcher.group();
+            String transliterated = applyAllCustomRules(word);
+            if (!transliterated.equals(word)
+                    && keywordWordSet.contains(transliterated.toLowerCase(java.util.Locale.ROOT))) {
+                result.append(transliterated);  // 转写后是关键词 → 采纳
+            } else {
+                result.append(word);            // 标识符/无变化 → 原样保留
             }
-            // 保留词原样保留
-            result.append(text, range[0], range[1]);
-            pos = range[1];
+            pos = wordMatcher.end();
         }
-        // 替换最后一个保留词后的片段
-        if (pos < text.length()) {
-            String segment = text.substring(pos);
-            result.append(RegexGuard.replaceAllWithTimeout(rulePattern, segment, replacement));
-        }
+        result.append(text, pos, text.length());
         return result.toString();
+    }
+
+    /** 对单个词一次性串联应用全部（预编译的）customRules（看门狗超时防 ReDoS）。 */
+    private String applyAllCustomRules(String word) {
+        String out = word;
+        for (Map.Entry<Pattern, String> rule : compiledCustomRules) {
+            out = RegexGuard.replaceAllWithTimeout(rule.getKey(), out, rule.getValue());
+        }
+        return out;
     }
 
     /**
