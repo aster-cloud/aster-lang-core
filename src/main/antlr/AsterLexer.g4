@@ -183,9 +183,13 @@ PERFORMS: 'performs';
 // ============================================================
 
 // 类型标识符（Uppercase 开头，支持 Latin Extended 和 CJK 等 Unicode 字符）
+// 私有区标记  起头：Canonicalizer 把"非英文关键词当标识符"候选词包成
+// 原值 单 token（避免多词展开撑破标识符位置），由 AsterCustomLexer 按
+// 位置决定还原成标识符或展开成关键词（见该类）。
 TYPE_IDENT: [A-Z] IdentContinue*
           | LatinExtUpperChar IdentContinue*
           | CjkChar IdentContinue*
+          | KwIdentMarkerOpen IdentContinue*
           ;
 
 // 普通标识符（lowercase 或 _ 开头，支持 Latin Extended 和 CJK 等 Unicode 字符）
@@ -193,8 +197,14 @@ IDENT: [a-z_] IdentContinue*
      | LatinExtLowerChar IdentContinue*
      ;
 
-// 标识符续字符片段（字母、数字、下划线、Latin Extended、CJK 字符）
-fragment IdentContinue: [a-zA-Z0-9_] | LatinExtChar | CjkChar;
+// 私有区标记起止字符（U+E000 / U+E001），仅用于 Canonicalizer↔AsterCustomLexer 内部协议。
+fragment KwIdentMarkerOpen: '\uE000';
+fragment KwIdentMarkerClose: '\uE001';
+fragment KwIdentMarkerSep: '\uE002';
+fragment KwIdentMarkerSpace: '\uE003';
+
+// 标识符续字符片段（字母、数字、下划线、Latin Extended、CJK 字符、私有区标记）
+fragment IdentContinue: [a-zA-Z0-9_] | LatinExtChar | CjkChar | KwIdentMarkerOpen | KwIdentMarkerClose | KwIdentMarkerSep | KwIdentMarkerSpace;
 
 // Latin Extended 字符（德语 ü/ö/ä/ß、法语 é/è/ê 等）
 fragment LatinExtChar: [\u00C0-\u00FF]     // Latin-1 Supplement (À-ÿ)

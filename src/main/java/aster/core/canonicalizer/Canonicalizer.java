@@ -94,6 +94,75 @@ public final class Canonicalizer {
     private final List<Map.Entry<Pattern, String>> compiledCustomRules;
 
     /**
+     * "关键词当标识符"协议标记（私有区 U+E000 / U+E001）。
+     * <p>
+     * 非英文（zh）词法包下,【单源词→多英文词】的关键词(如 `结果`→`result of`)当用户标识符
+     * 时,多词展开会撑破标识符位置(`result of`=两 token)破坏解析。Canonicalizer 把这些源词
+     * 包成 {@code 原值} 单 token(不展开),由 AsterCustomLexer 按位置决定:标识符
+     * 位置剥标记还原成源词,关键词位置展开成英文关键词。保证 AST 标识符名=源词,与 TS 引擎
+     * 的 originalValue 还原机制 parity。
+     */
+    public static final char KW_IDENT_MARKER_OPEN = '\uE000';
+    public static final char KW_IDENT_MARKER_CLOSE = '\uE001';
+    /** \u6807\u8BB0\u5185\u5206\u9694\u3010\u6E90\u8BCD\u3011\u4E0E\u3010\u82F1\u6587\u5C55\u5F00\u5F62\u3011\u7684\u79C1\u6709\u533A\u5206\u9694\u7B26\uFF08U+E002\uFF09\u3002 */
+    public static final char KW_IDENT_MARKER_SEP = '\uE002';
+    /** \u6807\u8BB0\u5185\u82F1\u6587\u5C55\u5F00\u5F62\u91CC\u3010\u7A7A\u683C\u3011\u7684\u79C1\u6709\u533A\u5360\u4F4D\u7B26\uFF08U+E003\uFF09\uFF0C\u907F\u514D\u6807\u8BB0 token \u542B\u7A7A\u683C\u88AB\u62C6\u3002 */
+    public static final char KW_IDENT_MARKER_SPACE = '\uE003';
+
+    /**
+     * \u628A\u6E90\u8BCD + \u82F1\u6587\u5C55\u5F00\u5F62\u5305\u6210\u81EA\u5305\u542B\u7684\u5355 token \u6807\u8BB0\uFF1A{@code <OPEN>\u6E90\u8BCD<SEP>\u82F1\u6587\u5C55\u5F00<CLOSE>}\u3002
+     * \u82F1\u6587\u5C55\u5F00\u5F62\u91CC\u7684\u7A7A\u683C\u7528 SPACE \u5360\u4F4D\u7B26\u66FF\u6362\uFF0C\u4F7F\u6574\u4F53\u6210\u4E3A\u4E0D\u542B\u7A7A\u683C\u7684\u5355 token\u3002
+     */
+    public static String wrapKeywordIdent(String source, String englishExpansion) {
+        String enc = englishExpansion.replace(' ', KW_IDENT_MARKER_SPACE);
+        return KW_IDENT_MARKER_OPEN + source + KW_IDENT_MARKER_SEP + enc + KW_IDENT_MARKER_CLOSE;
+    }
+
+    /**
+     * 可包裹的 OF 家族关键词（{@code wrapExpr: IDENT OF expr} 文法）。这些关键词的英文形首词
+     * 是普通 IDENT（result/option/ok/err/some），与用户标识符真撞名,故包裹保护。其余"单源词→
+     * 多英文词"关键词(为以下之一/结果为/执行/对每个/等候/最多尝试)在固定语法位置或被文本级
+     * transformer 消费,不包裹。
+     */
+    private static final java.util.Set<SemanticTokenKind> WRAPPABLE_OF_FAMILY = java.util.Set.of(
+        SemanticTokenKind.RESULT_OF,
+        SemanticTokenKind.OPTION_OF,
+        SemanticTokenKind.OK_OF,
+        SemanticTokenKind.ERR_OF,
+        SemanticTokenKind.SOME_OF
+    );
+
+    /** 判断 token 文本是否是包裹的"关键词当标识符"标记。 */
+    public static boolean isWrappedKeywordIdent(String text) {
+        return text != null && text.length() >= 2
+            && text.charAt(0) == KW_IDENT_MARKER_OPEN
+            && text.charAt(text.length() - 1) == KW_IDENT_MARKER_CLOSE;
+    }
+
+    /** 从标记还原【源词】（标识符位置用）。返回 null 表示非标记。 */
+    public static String unwrapSource(String text) {
+        if (!isWrappedKeywordIdent(text)) {
+            return null;
+        }
+        int sep = text.indexOf(KW_IDENT_MARKER_SEP);
+        int end = sep >= 0 ? sep : text.length() - 1;
+        return text.substring(1, end);
+    }
+
+    /** 从标记还原【英文展开形】（关键词位置用，空格已解码）。返回 null 表示非标记。 */
+    public static String unwrapEnglish(String text) {
+        if (!isWrappedKeywordIdent(text)) {
+            return null;
+        }
+        int sep = text.indexOf(KW_IDENT_MARKER_SEP);
+        if (sep < 0) {
+            return null;
+        }
+        String enc = text.substring(sep + 1, text.length() - 1);
+        return enc.replace(KW_IDENT_MARKER_SPACE, ' ');
+    }
+
+    /**
      * 空白规范化所需的正则表达式
      */
     private static final Pattern SPACE_RUN_RE = Pattern.compile("[ \\t]+");
@@ -365,9 +434,22 @@ public final class Canonicalizer {
 
             String targetKeyword = targetLexicon.getKeywords().get(kind);
             if (targetKeyword != null && !sourceKeyword.equals(targetKeyword)) {
-                // 对关键词应用 customRules 变换，使翻译表匹配 customRules 处理后的文本
-                // 例如：德语 "gib zurueck" 经 customRules 后变为 "gib zurück"
-                translationMap.put(applyCustomRulesToKey(sourceKeyword), targetKeyword);
+                String srcCanon = applyCustomRulesToKey(sourceKeyword);
+                // "关键词当标识符"保护：单源词(无空格)翻成多英文词(含空格)的关键词,当用户标识符
+                // 时多词展开(`result of`=两 token)会撑破标识符位置。改为映射到自包含标记
+                // {@code 源词英文展开} 单 token,由 AsterCustomLexer 按位置还原(标识符)
+                // 或展开(关键词)。
+                // ★只包裹 OF 家族(wrapExpr `IDENT OF expr`):首词是普通 IDENT,与用户标识符真撞名。
+                //   结构短语(为以下之一/结果为/执行/对每个/等候/最多尝试)不包裹——它们在固定语法
+                //   位置或被文本级 transformer(如 ResultIsTransformer)消费,包裹会破坏其关键词用法。
+                if (WRAPPABLE_OF_FAMILY.contains(kind)
+                        && !srcCanon.trim().contains(" ") && targetKeyword.trim().contains(" ")) {
+                    translationMap.put(srcCanon, wrapKeywordIdent(sourceKeyword, targetKeyword));
+                } else {
+                    // 对关键词应用 customRules 变换，使翻译表匹配 customRules 处理后的文本
+                    // 例如：德语 "gib zurueck" 经 customRules 后变为 "gib zurück"
+                    translationMap.put(srcCanon, targetKeyword);
+                }
             }
         }
 
