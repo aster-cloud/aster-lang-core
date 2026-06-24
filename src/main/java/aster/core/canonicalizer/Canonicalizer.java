@@ -379,6 +379,14 @@ public final class Canonicalizer {
                 translationMap.put(applyCustomRulesToKey(sourceKeyword), symbol);
             }
 
+            // 运算符别名也翻成同一符号（ADR 0022，识别侧）。别名与规范拼写共享输出符号，
+            // 故 IR 不受影响。含已有运算符子串的多词别名靠最长匹配整体消费。
+            for (String alias : sourceLexicon.getAliases().getOrDefault(kind, List.of())) {
+                if (alias != null && !alias.isBlank() && !alias.equals(symbol)) {
+                    translationMap.putIfAbsent(applyCustomRulesToKey(alias), symbol);
+                }
+            }
+
             // 如果源语言不是英语，也需要添加英语关键词到符号的映射
             // 因为规范化后可能保留英语运算符关键词，需要再翻译为符号
             if (!"en-US".equals(sourceLexicon.getId())) {
@@ -389,8 +397,24 @@ public final class Canonicalizer {
             }
         }
 
-        // 2. 如果是英语词法表，只需要运算符符号翻译，不需要关键词翻译
+        // 2. 英语词法表：非运算符别名（如 FUNC_TO 的 "Policy"、IF 的 "Whenever"）需翻成
+        //    各自的英语规范关键词，否则 grammar 不认。运算符别名已在 §1 处理。
         if ("en-US".equals(sourceLexicon.getId())) {
+            for (Map.Entry<SemanticTokenKind, List<String>> e : sourceLexicon.getAliases().entrySet()) {
+                SemanticTokenKind kind = e.getKey();
+                if (OPERATOR_SYMBOL_MAP.containsKey(kind)) {
+                    continue; // 运算符别名已映射到符号
+                }
+                String canonical = sourceLexicon.getKeywords().get(kind);
+                if (canonical == null) {
+                    continue;
+                }
+                for (String alias : e.getValue()) {
+                    if (alias != null && !alias.isBlank() && !alias.equals(canonical)) {
+                        translationMap.putIfAbsent(applyCustomRulesToKey(alias), canonical);
+                    }
+                }
+            }
             return translationMap;
         }
 
@@ -449,6 +473,17 @@ public final class Canonicalizer {
                     // 对关键词应用 customRules 变换，使翻译表匹配 customRules 处理后的文本
                     // 例如：德语 "gib zurueck" 经 customRules 后变为 "gib zurück"
                     translationMap.put(srcCanon, targetKeyword);
+                }
+            }
+
+            // 该 kind 的源语言别名也翻成同一英语规范关键词（ADR 0022，识别侧）。
+            // 别名经校验保证不与标识符/其它关键词同形，故沿用与规范拼写相同的输出，
+            // 不做 OF 家族包裹（别名候选已排除会撑破标识符位置的形态）。
+            if (targetKeyword != null) {
+                for (String alias : sourceLexicon.getAliases().getOrDefault(kind, List.of())) {
+                    if (alias != null && !alias.isBlank()) {
+                        translationMap.putIfAbsent(applyCustomRulesToKey(alias), targetKeyword);
+                    }
                 }
             }
         }

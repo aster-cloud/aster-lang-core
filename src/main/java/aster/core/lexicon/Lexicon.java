@@ -47,9 +47,24 @@ public interface Lexicon {
     Direction getDirection();
 
     /**
-     * 获取关键词映射：SemanticTokenKind -> 该语言的关键词字符串
+     * 获取关键词映射：SemanticTokenKind -> 该语言的关键词字符串（规范拼写，唯一）
      */
     Map<SemanticTokenKind, String> getKeywords();
+
+    /**
+     * 获取关键词别名映射：SemanticTokenKind -> 该语义的别名拼写列表。
+     *
+     * <p>ADR 0022：别名只存在于「识别侧」（输入），规范拼写（{@link #getKeywords()}）
+     * 是唯一的「产出侧」（输出）。Canonicalizer 把别名归一成规范拼写后再进入下游，
+     * 因此别名不影响 Core IR —— 用别名与规范拼写编写的同一逻辑产出字节一致的 IR。
+     *
+     * <p>默认返回空 Map，表示无别名，行为与历史完全一致（向后兼容）。
+     *
+     * @return kind -> 别名列表（识别侧）
+     */
+    default Map<SemanticTokenKind, List<String>> getAliases() {
+        return Map.of();
+    }
 
     /**
      * 获取标点符号配置
@@ -81,6 +96,16 @@ public interface Lexicon {
             // 使用 Locale.ROOT 避免土耳其语等特殊区域设置导致的大小写转换问题
             index.put(entry.getValue().toLowerCase(Locale.ROOT), entry.getKey());
         }
+        // 别名也进索引（识别侧多对一）。规范拼写优先：别名不覆盖已存在的规范 key。
+        // 校验阶段（LexiconValidator）已保证别名不遮蔽任何规范拼写，故此处 putIfAbsent
+        // 仅作纵深防御。
+        for (Map.Entry<SemanticTokenKind, List<String>> entry : getAliases().entrySet()) {
+            for (String alias : entry.getValue()) {
+                if (alias != null && !alias.isBlank()) {
+                    index.putIfAbsent(alias.toLowerCase(Locale.ROOT), entry.getKey());
+                }
+            }
+        }
         return index;
     }
 
@@ -99,6 +124,21 @@ public interface Lexicon {
 
             if (isMultiWord || hasMarker) {
                 multiWord.add(keyword);
+            }
+        }
+
+        // 多词别名也纳入最长匹配集，否则像 "multiplied by" 这类含空格别名会被按单词拆开，
+        // 子词（如 by）无法被识别为同一关键词（ADR 0022 §5.4）。
+        for (List<String> aliases : getAliases().values()) {
+            for (String alias : aliases) {
+                if (alias == null || alias.isBlank()) {
+                    continue;
+                }
+                boolean isMultiWord = alias.contains(" ");
+                boolean hasMarker = punct.hasMarkers() && alias.contains(punct.markerOpen());
+                if (isMultiWord || hasMarker) {
+                    multiWord.add(alias);
+                }
             }
         }
 
@@ -121,6 +161,14 @@ public interface Lexicon {
                 return Optional.of(entry.getKey());
             }
         }
+        // 识别侧也认别名（ADR 0022）。
+        for (Map.Entry<SemanticTokenKind, List<String>> entry : getAliases().entrySet()) {
+            for (String alias : entry.getValue()) {
+                if (alias != null && alias.toLowerCase(Locale.ROOT).equals(lower)) {
+                    return Optional.of(entry.getKey());
+                }
+            }
+        }
         return Optional.empty();
     }
 
@@ -133,8 +181,15 @@ public interface Lexicon {
     default boolean isKeyword(String word) {
         // 使用 Locale.ROOT 避免土耳其语等特殊区域设置导致的大小写转换问题
         String lower = word.toLowerCase(Locale.ROOT);
-        return getKeywords().values().stream()
+        boolean canonical = getKeywords().values().stream()
             .anyMatch(kw -> kw.toLowerCase(Locale.ROOT).equals(lower));
+        if (canonical) {
+            return true;
+        }
+        // 别名也算关键词（识别侧，ADR 0022）。
+        return getAliases().values().stream()
+            .flatMap(List::stream)
+            .anyMatch(a -> a != null && a.toLowerCase(Locale.ROOT).equals(lower));
     }
 
     /**

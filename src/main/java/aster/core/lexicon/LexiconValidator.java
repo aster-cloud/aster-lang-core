@@ -4,7 +4,10 @@ import aster.core.canonicalizer.TransformerRegistry;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -98,6 +101,36 @@ public final class LexiconValidator {
         if (actual < expected) {
             warnings.add("Lexicon has " + actual + " keywords, expected " + expected
                     + " (missing " + (expected - actual) + ")");
+        }
+
+        // ADR 0022：别名不得遮蔽任何规范拼写或其它 kind 的别名。别名经规范化（lowercase）
+        // 后若与任一规范拼写撞 → error（会让识别歧义/抢占规范词）；与其它别名撞 → error。
+        // 这把"别名零损"的前提固化为注册时的硬校验。
+        Map<String, SemanticTokenKind> canonByLower = new HashMap<>();
+        for (Map.Entry<SemanticTokenKind, String> e : lexicon.getKeywords().entrySet()) {
+            if (e.getValue() != null && !e.getValue().isBlank()) {
+                canonByLower.put(e.getValue().toLowerCase(Locale.ROOT), e.getKey());
+            }
+        }
+        Map<String, SemanticTokenKind> aliasByLower = new HashMap<>();
+        for (Map.Entry<SemanticTokenKind, List<String>> e : lexicon.getAliases().entrySet()) {
+            for (String alias : e.getValue()) {
+                if (alias == null || alias.isBlank()) {
+                    errors.add("Empty alias for " + e.getKey());
+                    continue;
+                }
+                String lower = alias.toLowerCase(Locale.ROOT);
+                SemanticTokenKind clashCanon = canonByLower.get(lower);
+                if (clashCanon != null) {
+                    errors.add("Alias '" + alias + "' for " + e.getKey()
+                            + " shadows canonical keyword of " + clashCanon);
+                }
+                SemanticTokenKind clashAlias = aliasByLower.putIfAbsent(lower, e.getKey());
+                if (clashAlias != null) {
+                    errors.add("Alias '" + alias + "' is defined for both "
+                            + clashAlias + " and " + e.getKey());
+                }
+            }
         }
 
         return new LexiconRegistry.ValidationResult(errors.isEmpty(), errors, warnings);
