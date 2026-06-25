@@ -151,21 +151,24 @@ class KeywordAliasTest {
     }
 
     /**
-     * 端到端：用内置 en-US（现自带别名）走完整 Java 管线 Canonicalize → ANTLR Parse →
-     * AstBuilder → CoreLowering，断言「别名版」与「规范版」降到**结构一致的 Core IR**
-     * （剥离 origin 源码位置元数据，与 ADR 0016 / TS 端同口径）。这是 Java 侧的
-     * 「别名→同 IR」权威证明，与 ts keyword-aliases.test 对称。
+     * 端到端：把别名经**编译期注入**（方案 D 形态：aliasSet 注入 lexicon，而非内置）
+     * 走完整 Java 管线 Canonicalize → ANTLR Parse → AstBuilder → CoreLowering，断言
+     * 「别名版」与「规范版」降到**结构一致的 Core IR**（剥离 origin，与 ADR 0016 同口径）。
+     * 这是 Java 侧的「别名→同 IR」权威证明，与 ts keyword-aliases.test 对称。
+     *
+     * <p>官方 builtin 不含别名（方案 A 已回滚）：别名版用注入了多词别名的 lexicon，
+     * 规范版用默认 builtin lexicon。
      */
     @Test
     void aliasLowersToSameCoreIrViaFullPipeline() throws Exception {
-        // 用内置 en-US 的首批多词别名（multiplied by→times、split by→divided by）。
-        // 单词别名不进内置（占标识符命名空间），故此处用多词别名验证端到端。
+        // 注入多词别名（FUNC_TO=Policy 单词不可，故用多词运算符别名验证端到端）。
+        Lexicon aliasLex = enWithAliases(); // 注入 FUNC_TO=Policy / IF=Whenever / TIMES=multiplied by
         String aliasSrc = """
             Module Pricing.
 
-            Rule discountedPrice given amount as Int, produce Int:
-              If amount greater than 100
-                Return amount multiplied by 90 split by 100.
+            Policy discountedPrice given amount as Int, produce Int:
+              Whenever amount greater than 100
+                Return amount multiplied by 90 divided by 100.
               Return amount.""";
         String canonicalSrc = """
             Module Pricing.
@@ -175,15 +178,18 @@ class KeywordAliasTest {
                 Return amount times 90 divided by 100.
               Return amount.""";
 
-        JsonNode aliasIr = stripOrigin(lowerToCoreIr(aliasSrc));
-        JsonNode canonIr = stripOrigin(lowerToCoreIr(canonicalSrc));
+        JsonNode aliasIr = stripOrigin(lowerToCoreIr(aliasSrc, aliasLex));
+        JsonNode canonIr = stripOrigin(lowerToCoreIr(canonicalSrc, null));
 
         assertThat(aliasIr).isEqualTo(canonIr);
     }
 
-    /** 走默认 Canonicalizer（内置 en-US + 别名）的完整管线，返回 Core IR JSON。 */
-    private static JsonNode lowerToCoreIr(String source) {
-        Canonicalizer canonicalizer = new Canonicalizer();
+    /**
+     * 走完整管线返回 Core IR JSON。lexicon 为 null 时用默认 builtin（无别名）。
+     * 提供 lexicon 时用注入别名的 Canonicalizer（方案 D 编译期注入形态）。
+     */
+    private static JsonNode lowerToCoreIr(String source, Lexicon lexicon) {
+        Canonicalizer canonicalizer = lexicon != null ? new Canonicalizer(lexicon) : new Canonicalizer();
         String canonical = canonicalizer.canonicalize(source);
         AsterCustomLexer lexer = new AsterCustomLexer(CharStreams.fromString(canonical));
         CommonTokenStream tokens = new CommonTokenStream(lexer);

@@ -84,14 +84,6 @@
     "MATCHING": "matching",
     "PATTERN": "pattern"
   },
-  "aliases": {
-    "TIMES": [
-      "multiplied by"
-    ],
-    "DIVIDED_BY": [
-      "split by"
-    ]
-  },
   "punctuation": {
     "statementEnd": ".",
     "listSeparator": ",",
@@ -104,34 +96,14 @@
     "fullWidthToHalf": false,
     "whitespaceMode": "ENGLISH",
     "removeArticles": true,
-    "articles": [
-      "a",
-      "an",
-      "the"
-    ],
+    "articles": ["a", "an", "the"],
     "allowedDuplicates": [
-      [
-        "TO_WORD",
-        "FUNC_TO"
-      ],
-      [
-        "LESS_THAN",
-        "UNDER"
-      ],
-      [
-        "GREATER_THAN",
-        "MORE_THAN",
-        "OVER"
-      ]
+      ["TO_WORD", "FUNC_TO"],
+      ["LESS_THAN", "UNDER"],
+      ["GREATER_THAN", "MORE_THAN", "OVER"]
     ],
-    "preTranslationTransformers": [
-      "english-possessive",
-      "is-comparator"
-    ],
-    "postTranslationTransformers": [
-      "result-is",
-      "set-to"
-    ]
+    "preTranslationTransformers": ["english-possessive", "is-comparator"],
+    "postTranslationTransformers": ["result-is", "set-to"]
   },
   "messages": {
     "unexpectedToken": "Unexpected token: {token}",
