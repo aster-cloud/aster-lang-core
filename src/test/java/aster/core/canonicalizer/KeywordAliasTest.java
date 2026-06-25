@@ -91,7 +91,8 @@ class KeywordAliasTest {
     @Test
     void noAliasesIsBackwardCompatible() throws Exception {
         // 显式移除 aliases 段的 lexicon：getAliases() 为空，行为与历史一致。
-        // （builtin en-US.json 现已自带 aliases，故这里删掉该段以测"无别名"路径。）
+        // （builtin en-US.json 本身无 aliases 段——方案 A 官方别名已撤；此处仍显式 remove
+        //  以稳健测"无别名"路径，不依赖 builtin 当前是否带 aliases。）
         String json = new String(
             KeywordAliasTest.class.getClassLoader()
                 .getResourceAsStream("builtin/en-US.json").readAllBytes(),
