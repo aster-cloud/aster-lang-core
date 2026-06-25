@@ -135,6 +135,25 @@ public final class LexiconExporter {
             }
         }
 
+        // aliases（ADR 0022）：kind -> [别名,...]，仅导出非空项。按枚举顺序，
+        // 供 TS 引擎 / cloud 前端消费。无别名的 lexicon 不产出该段（向后兼容）。
+        Map<SemanticTokenKind, List<String>> aliasMap = lexicon.getAliases();
+        if (aliasMap != null && !aliasMap.isEmpty()) {
+            ObjectNode aliases = mapper.createObjectNode();
+            for (SemanticTokenKind kind : SemanticTokenKind.values()) {
+                List<String> list = aliasMap.get(kind);
+                if (list != null && !list.isEmpty()) {
+                    ArrayNode arr = aliases.putArray(kind.name());
+                    for (String a : list) {
+                        arr.add(a);
+                    }
+                }
+            }
+            if (!aliases.isEmpty()) {
+                node.set("aliases", aliases);
+            }
+        }
+
         // punctuation
         node.set("punctuation", serializePunctuation(lexicon.getPunctuation()));
 

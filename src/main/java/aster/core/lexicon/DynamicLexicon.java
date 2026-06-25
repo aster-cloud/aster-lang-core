@@ -32,6 +32,7 @@ public final class DynamicLexicon implements Lexicon {
     private final String name;
     private final Direction direction;
     private final Map<SemanticTokenKind, String> keywords;
+    private final Map<SemanticTokenKind, List<String>> aliases;
     private final PunctuationConfig punctuation;
     private final CanonicalizationConfig canonicalization;
     private final ErrorMessages messages;
@@ -41,6 +42,7 @@ public final class DynamicLexicon implements Lexicon {
             String name,
             Direction direction,
             Map<SemanticTokenKind, String> keywords,
+            Map<SemanticTokenKind, List<String>> aliases,
             PunctuationConfig punctuation,
             CanonicalizationConfig canonicalization,
             ErrorMessages messages
@@ -49,6 +51,16 @@ public final class DynamicLexicon implements Lexicon {
         this.name = name;
         this.direction = direction;
         this.keywords = Map.copyOf(keywords);
+        // 深拷贝为不可变（ADR 0022）。别名缺省为空 Map，向后兼容。
+        Map<SemanticTokenKind, List<String>> aliasCopy = new EnumMap<>(SemanticTokenKind.class);
+        if (aliases != null) {
+            for (Map.Entry<SemanticTokenKind, List<String>> e : aliases.entrySet()) {
+                if (e.getValue() != null && !e.getValue().isEmpty()) {
+                    aliasCopy.put(e.getKey(), List.copyOf(e.getValue()));
+                }
+            }
+        }
+        this.aliases = Map.copyOf(aliasCopy);
         this.punctuation = punctuation;
         this.canonicalization = canonicalization;
         this.messages = messages;
@@ -104,6 +116,9 @@ public final class DynamicLexicon implements Lexicon {
         // keywords
         Map<SemanticTokenKind, String> keywords = parseKeywords(requireNode(root, "keywords"));
 
+        // aliases（可选，ADR 0022）：kind -> [别名, ...]。缺省为空。
+        Map<SemanticTokenKind, List<String>> aliases = parseAliases(root.path("aliases"));
+
         // punctuation
         PunctuationConfig punctuation = parsePunctuation(requireNode(root, "punctuation"));
 
@@ -113,7 +128,7 @@ public final class DynamicLexicon implements Lexicon {
         // messages
         ErrorMessages messages = parseMessages(root.path("messages"));
 
-        return new DynamicLexicon(id, name, direction, keywords, punctuation, canonicalization, messages);
+        return new DynamicLexicon(id, name, direction, keywords, aliases, punctuation, canonicalization, messages);
     }
 
     // ============================================================
@@ -133,6 +148,41 @@ public final class DynamicLexicon implements Lexicon {
             }
         }
         return keywords;
+    }
+
+    /**
+     * 解析别名映射（ADR 0022）：{@code { "FUNC_TO": ["Policy", ...], ... }}。
+     * 缺省/空节点返回空 Map。未知 kind 静默忽略（前向兼容）。
+     */
+    private static Map<SemanticTokenKind, List<String>> parseAliases(JsonNode node) {
+        Map<SemanticTokenKind, List<String>> aliases = new EnumMap<>(SemanticTokenKind.class);
+        if (node == null || !node.isObject()) {
+            return aliases;
+        }
+        Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> entry = fields.next();
+            try {
+                SemanticTokenKind kind = SemanticTokenKind.valueOf(entry.getKey());
+                JsonNode arr = entry.getValue();
+                if (!arr.isArray()) {
+                    continue;
+                }
+                List<String> list = new ArrayList<>();
+                for (JsonNode a : arr) {
+                    String s = a.asText();
+                    if (s != null && !s.isBlank()) {
+                        list.add(s);
+                    }
+                }
+                if (!list.isEmpty()) {
+                    aliases.put(kind, list);
+                }
+            } catch (IllegalArgumentException e) {
+                // 忽略未知 token（前向兼容）
+            }
+        }
+        return aliases;
     }
 
     private static PunctuationConfig parsePunctuation(JsonNode node) {
@@ -367,6 +417,11 @@ public final class DynamicLexicon implements Lexicon {
     @Override
     public Map<SemanticTokenKind, String> getKeywords() {
         return keywords;
+    }
+
+    @Override
+    public Map<SemanticTokenKind, List<String>> getAliases() {
+        return aliases;
     }
 
     @Override

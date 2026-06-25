@@ -2,6 +2,7 @@ package aster.core.lexicon;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -82,6 +83,16 @@ public final class FallbackLexicon implements Lexicon {
     @Override
     public Map<SemanticTokenKind, String> getKeywords() {
         return mergedKeywords;
+    }
+
+    /**
+     * 别名完全透传 target（ADR 0022）。别名是语言强相关的识别侧扩展——把 en-US 的别名
+     * （如 "Policy"）混进 zh-CN 文档的识别集没有意义且可能误伤，故与 punctuation /
+     * canonicalization 同策略：只用 target 的，不做 fallback 合并。
+     */
+    @Override
+    public Map<SemanticTokenKind, List<String>> getAliases() {
+        return target.getAliases();
     }
 
     @Override
