@@ -41,13 +41,25 @@ jobs:
         with:
           token: ${{ secrets.CROSS_REPO_TOKEN }}
           fetch-depth: 0
+      # catalog-derived version（ADR 0023 §9）：version = asterLibs.findVersion("asterLang")，
+      # 不再 sed 字面量。settings 只声明 mavenLocal+mavenCentral → 先 checkout platform 并
+      # publishToMavenLocal，本仓 Gradle 才能解析 catalog 派生的 project version。与 hi/locales 同构。
+      - uses: actions/checkout@v6
+        with:
+          repository: aster-cloud/aster-lang-platform
+          path: aster-lang-platform
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+      - uses: actions/setup-java@v5
+        with: { java-version: '25', distribution: 'temurin' }
+      - name: Bootstrap version catalog to Maven Local
+        run: cd aster-lang-platform && ./gradlew publishToMavenLocal
       - name: Create & push release tag
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          PKG_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' build.gradle.kts | head -n1)
-          if [ "$VERSION" != "$PKG_VERSION" ]; then
-            echo "::error::dispatch version ($VERSION) != build.gradle.kts version ($PKG_VERSION)"
+          RESOLVED=$(./gradlew -q properties | sed -n 's/^version: //p' | head -n1)
+          if [ "$VERSION" != "$RESOLVED" ]; then
+            echo "::error::dispatch version ($VERSION) != Gradle-resolved catalog version ($RESOLVED)"
             exit 1
           fi
           git config user.name "github-actions[bot]"
@@ -73,19 +85,6 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v6
-
-      # 校验推送的 v* tag（去掉前导 v）与 build.gradle.kts 中的 version 一致，
-      # 不一致即提前失败，避免 v1.0.3 tag 却发布出 1.0.2 的版本漂移（#26）。
-      # 镜像 aster-lang-test release-maven.yml 的守卫模式；保持静态 version，
-      # 不引入动态 version 派生（后者会破坏本地构建的稳定性）。
-      - name: Verify tag matches build.gradle.kts version
-        run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          PKG_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' build.gradle.kts | head -n1)
-          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
-            echo "Error: Tag version ($TAG_VERSION) does not match build.gradle.kts version ($PKG_VERSION)"
-            exit 1
-          fi
 
       # 共享版本目录（aster-lang-platform，ADR 0012）—— core settings 依赖它。
       - uses: actions/checkout@v6
@@ -120,6 +119,19 @@ jobs:
       # 发布共享版本目录到 Maven Local（core settings 依赖它）
       - name: Publish version catalog locally
         run: cd aster-lang-platform && ./gradlew publishToMavenLocal
+
+      # 校验推送的 v* tag 与 catalog-derived project version 一致（ADR 0023 §9）。
+      # version 已从 catalog 的 asterLang 派生（不再字面量），故用 Gradle 解析而非 sed。
+      # 须在 catalog publishToMavenLocal 之后跑（否则本仓 Gradle 配置期解析不到 catalog）。
+      # 不一致即提前失败，避免 v1.0.3 tag 却发布出 1.0.2 的版本漂移（#26）。
+      - name: Verify tag matches catalog-derived version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          RESOLVED=$(./gradlew -q properties | sed -n 's/^version: //p' | head -n1)
+          if [ "$TAG_VERSION" != "$RESOLVED" ]; then
+            echo "Error: Tag version ($TAG_VERSION) != Gradle-resolved catalog version ($RESOLVED)"
+            exit 1
+          fi
 
       # 编译 core 并发布到 Maven Local（供 lang packs 依赖）
       - name: Compile & publish core locally
