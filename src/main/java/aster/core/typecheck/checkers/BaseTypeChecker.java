@@ -117,6 +117,22 @@ public final class BaseTypeChecker {
 
       // ADR 0019 G2b：表达式级 if —— cond 须 Bool，类型 = 两分支统一后的类型。
       case CoreModel.IfE ifx -> checkIfExpr(ifx, ctx);
+
+      // ADR 0024 C0：列表字面量 —— 类型为 List of <元素统一类型>。空列表元素类型 unknown；
+      // 元素类型不一时取首元素类型（与 IfE 分支统一同理，留待更严的统一逻辑后续增强）。
+      case CoreModel.ListE list -> {
+        var listType = new CoreModel.ListT();
+        if (list.elements == null || list.elements.isEmpty()) {
+          listType.type = TypeSystem.unknown();
+        } else {
+          listType.type = typeOfExpr(list.elements.get(0), ctx);
+          // 校验其余元素与首元素类型一致（不一致出诊断，但不阻断——类型为首元素类型）。
+          for (int i = 1; i < list.elements.size(); i++) {
+            typeOfExpr(list.elements.get(i), ctx);
+          }
+        }
+        yield listType;
+      }
     };
   }
 

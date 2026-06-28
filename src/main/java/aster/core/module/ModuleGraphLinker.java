@@ -384,6 +384,14 @@ public final class ModuleGraphLinker {
           rewriteExpr(ifx.thenE);
           rewriteExpr(ifx.elseE);
         }
+        case CoreModel.ListE list -> {
+          // ADR 0024 C0：列表元素可能含跨模块符号引用。
+          if (list.elements != null) {
+            for (var el : list.elements) {
+              rewriteExpr(el);
+            }
+          }
+        }
       }
     }
 
