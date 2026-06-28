@@ -427,9 +427,10 @@ public final class CoreModel {
     @JsonSubTypes.Type(value = Call.class, name = "Call"),
     @JsonSubTypes.Type(value = Lambda.class, name = "Lambda"),
     @JsonSubTypes.Type(value = Await.class, name = "Await"),
-    @JsonSubTypes.Type(value = IfE.class, name = "IfExpr")
+    @JsonSubTypes.Type(value = IfE.class, name = "IfExpr"),
+    @JsonSubTypes.Type(value = ListE.class, name = "ListLit")
   })
-  public sealed interface Expr permits Name, Bool, IntE, LongE, DoubleE, StringE, NullE, Ok, Err, Some, NoneE, Construct, Call, Lambda, Await, IfE {}
+  public sealed interface Expr permits Name, Bool, IntE, LongE, DoubleE, StringE, NullE, Ok, Err, Some, NoneE, Construct, Call, Lambda, Await, IfE, ListE {}
 
   @JsonTypeName("Name")
   public static final class Name implements Expr {
@@ -543,6 +544,18 @@ public final class CoreModel {
     public Expr cond;       // 条件（Bool）
     public Expr thenE;      // 真分支表达式
     public Expr elseE;      // 假分支表达式
+    public Origin origin;
+  }
+
+  /**
+   * 列表字面量（ADR 0024 C0）：{@code [a, b, c]}，求值产出一个有序列表值。
+   * kind 序列化为 "ListLit"（与前端 AST + TS Core IR 对齐，双引擎 IR-parity 契约）。
+   * 取代旧的 {@code Construct("List", {0:.., 1:..})} 伪 struct 降级——后者在 Truffle
+   * 运行时查不到名为 "List" 的 Data 定义而崩溃。
+   */
+  @JsonTypeName("ListLit")
+  public static final class ListE implements Expr {
+    public List<Expr> elements;  // 元素表达式（有序）
     public Origin origin;
   }
 }

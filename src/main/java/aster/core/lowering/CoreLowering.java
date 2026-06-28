@@ -436,16 +436,13 @@ public final class CoreLowering {
         yield out;
       }
       case Expr.ListLiteral list -> {
-        CoreModel.Construct out = new CoreModel.Construct();
-        out.typeName = "List";
-        out.fields = new ArrayList<>();
+        // ADR 0024 C0：降成原生 ListE 节点（取代旧的 Construct("List",{0:..,1:..})
+        // 伪 struct——后者在 Truffle 查不到名为 "List" 的 Data 定义而运行时崩溃）。
+        CoreModel.ListE out = new CoreModel.ListE();
+        out.elements = new ArrayList<>();
         if (list.items() != null) {
-          int index = 0;
           for (Expr item : list.items()) {
-            CoreModel.FieldInit init = new CoreModel.FieldInit();
-            init.name = Integer.toString(index++);
-            init.expr = lowerExpr(item);
-            out.fields.add(init);
+            out.elements.add(lowerExpr(item));
           }
         }
         out.origin = spanToOrigin(list.span());

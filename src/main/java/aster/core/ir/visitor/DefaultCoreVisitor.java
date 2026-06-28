@@ -251,6 +251,16 @@ public class DefaultCoreVisitor<Ctx> implements CoreVisitor<Ctx, Void> {
         visitExpressionChild(ifx.elseE, ctx);
         yield null;
       }
+
+      // ADR 0024 C0：列表字面量 —— 遍历每个元素子表达式。
+      case CoreModel.ListE list -> {
+        if (list.elements != null) {
+          for (var el : list.elements) {
+            visitExpressionChild(el, ctx);
+          }
+        }
+        yield null;
+      }
     };
   }
 
