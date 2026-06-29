@@ -87,6 +87,11 @@ BOOL_LITERAL: 'true' | 'false';
 // null 字面量
 NULL_LITERAL: 'null';
 
+// Decimal 字面量（带 m/M 后缀，ADR 0025）：精确十进制金额类型，区别于二进制浮点
+// FLOAT_LITERAL。必须排在 FLOAT/INT/LONG 之前——否则 ANTLR 最长匹配把 `1.08m` 切成
+// FLOAT_LITERAL(1.08) + 标识符(m)。整数形 `10m` 与小数形 `1.08m` 都接受。
+DECIMAL_LITERAL: [0-9]+ ('.' [0-9]+)? [mM];
+
 // 长整型字面量（带 L 后缀）
 LONG_LITERAL: [0-9]+ [Ll];
 

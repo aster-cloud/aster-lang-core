@@ -39,6 +39,9 @@ public enum ErrorCode {
   COMPENSATE_NEW_CAPABILITY("E028", Category.CAPABILITY, Severity.ERROR, "Compensate block for step '%s' in function '%s' introduces new capability %s that does not appear in the main step body.", "Compensate 只能重复主体已使用的能力；如需额外调用，请将相同行为移至主体或在主体中声明该 capability。"),
   WORKFLOW_UNKNOWN_STEP_DEPENDENCY("E029", Category.SCOPE, Severity.ERROR, "Workflow step '%s' depends on undefined step '%s'.", "仅引用当前 workflow 中已声明的步骤名称，或修正依赖拼写。"),
   WORKFLOW_CIRCULAR_DEPENDENCY("E030", Category.TYPE, Severity.ERROR, "Workflow contains circular step dependency: %s", "移除或重构循环依赖，确保步骤可拓扑排序执行。"),
+  // ADR 0025：Decimal↔Double 混算编译期拦截（与 TS E031 对齐）。Double 是二进制浮点，
+  // 与精确 Decimal 混算会注入舍入误差，破坏可证明性；Int/Long→Decimal 精确提升放行。
+  DECIMAL_DOUBLE_MIXING("E031", Category.TYPE, Severity.ERROR, "Cannot combine Decimal and Double in '{operator}'. Double is binary floating-point and would inject rounding error into an exact Decimal. Use Decimal literals (e.g. 1.08m) on both sides, or Int/Long (exact promotion).", "使两侧操作数都为 Decimal（m 后缀），或改用 Int/Long（可精确提升为 Decimal）。"),
   // P0-R3 (codex review High #3): 与 TS 端 ERROR_METADATA category 对齐——
   // 5 个核心 PII codes 从 Category.TYPE 改为 Category.PII。之前的 'TYPE'
   // 分类是历史包袱，让任何按 category 派生 PII 集合的代码（如跨语言

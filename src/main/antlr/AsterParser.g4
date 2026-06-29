@@ -632,6 +632,7 @@ primaryExpr
     | STRING_LITERAL                       # StringExpr
     | INT_LITERAL                          # IntExpr
     | FLOAT_LITERAL                        # FloatExpr
+    | DECIMAL_LITERAL                      # DecimalExpr
     | LONG_LITERAL                         # LongExpr
     | BOOL_LITERAL                         # BoolExpr
     | NULL_LITERAL                         # NullExpr

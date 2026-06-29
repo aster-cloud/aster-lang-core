@@ -41,6 +41,7 @@ class CoreIrSchemaAbiTest {
         // 表达式 Expr
         "Name", "Call", "Construct", "Lambda", "Await",
         "Int", "Long", "Double", "Bool", "String", "Null",
+        "Decimal", // ADR 0025：Decimal 精确十进制字面量（只增不删，V1 向后兼容——旧 IR 无此 kind）
         "Ok", "Err", "Some", "None", "ListLiteral",
         "IfExpr", // ADR 0019 G2b：表达式级 if（只增不删）
 

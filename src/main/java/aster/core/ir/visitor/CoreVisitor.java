@@ -141,6 +141,10 @@ public interface CoreVisitor<Ctx, R> {
     return visitExpression(d, ctx);
   }
 
+  default R visitDecimal(CoreModel.DecimalE dec, Ctx ctx) {
+    return visitExpression(dec, ctx);
+  }
+
   default R visitString(CoreModel.StringE s, Ctx ctx) {
     return visitExpression(s, ctx);
   }

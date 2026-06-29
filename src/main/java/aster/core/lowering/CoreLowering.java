@@ -358,6 +358,12 @@ public final class CoreLowering {
         out.origin = spanToOrigin(dbl.span());
         yield out;
       }
+      case Expr.Decimal dec -> {
+        CoreModel.DecimalE out = new CoreModel.DecimalE();
+        out.value = dec.value();  // 已是 canonical 字符串（AstBuilder 归一）
+        out.origin = spanToOrigin(dec.span());
+        yield out;
+      }
       case Expr.String str -> {
         CoreModel.StringE out = new CoreModel.StringE();
         out.value = str.value();

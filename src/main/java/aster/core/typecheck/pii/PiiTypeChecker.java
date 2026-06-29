@@ -161,8 +161,8 @@ public final class PiiTypeChecker {
       return cloneMeta(env.get(name.name));
     }
     if (expr instanceof CoreModel.Bool || expr instanceof CoreModel.IntE || expr instanceof CoreModel.LongE
-      || expr instanceof CoreModel.DoubleE || expr instanceof CoreModel.StringE || expr instanceof CoreModel.NullE
-      || expr instanceof CoreModel.NoneE) {
+      || expr instanceof CoreModel.DoubleE || expr instanceof CoreModel.DecimalE || expr instanceof CoreModel.StringE
+      || expr instanceof CoreModel.NullE || expr instanceof CoreModel.NoneE) {
       return null;
     }
     if (expr instanceof CoreModel.Call call) {
@@ -538,6 +538,7 @@ public final class PiiTypeChecker {
     if (expr instanceof CoreModel.IntE i) return i.origin;
     if (expr instanceof CoreModel.LongE l) return l.origin;
     if (expr instanceof CoreModel.DoubleE d) return d.origin;
+    if (expr instanceof CoreModel.DecimalE dec) return dec.origin;
     if (expr instanceof CoreModel.StringE s) return s.origin;
     if (expr instanceof CoreModel.NullE n) return n.origin;
     if (expr instanceof CoreModel.Ok ok) return ok.origin;

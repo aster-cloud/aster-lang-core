@@ -225,6 +225,7 @@ public class DefaultCoreVisitor<Ctx> implements CoreVisitor<Ctx, Void> {
       case CoreModel.IntE i -> null;
       case CoreModel.LongE l -> null;
       case CoreModel.DoubleE d -> null;
+      case CoreModel.DecimalE dec -> null;
       case CoreModel.StringE s -> null;
       case CoreModel.NullE n -> null;
       case CoreModel.NoneE n -> null;

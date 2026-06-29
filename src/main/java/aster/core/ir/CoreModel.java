@@ -417,6 +417,7 @@ public final class CoreModel {
     @JsonSubTypes.Type(value = IntE.class, name = "Int"),
     @JsonSubTypes.Type(value = LongE.class, name = "Long"),
     @JsonSubTypes.Type(value = DoubleE.class, name = "Double"),
+    @JsonSubTypes.Type(value = DecimalE.class, name = "Decimal"),
     @JsonSubTypes.Type(value = StringE.class, name = "String"),
     @JsonSubTypes.Type(value = NullE.class, name = "Null"),
     @JsonSubTypes.Type(value = Ok.class, name = "Ok"),
@@ -430,7 +431,7 @@ public final class CoreModel {
     @JsonSubTypes.Type(value = IfE.class, name = "IfExpr"),
     @JsonSubTypes.Type(value = ListE.class, name = "ListLit")
   })
-  public sealed interface Expr permits Name, Bool, IntE, LongE, DoubleE, StringE, NullE, Ok, Err, Some, NoneE, Construct, Call, Lambda, Await, IfE, ListE {}
+  public sealed interface Expr permits Name, Bool, IntE, LongE, DoubleE, DecimalE, StringE, NullE, Ok, Err, Some, NoneE, Construct, Call, Lambda, Await, IfE, ListE {}
 
   @JsonTypeName("Name")
   public static final class Name implements Expr {
@@ -459,6 +460,15 @@ public final class CoreModel {
   @JsonTypeName("Double")
   public static final class DoubleE implements Expr {
     public double value;    // 浮点数
+    public Origin origin;
+  }
+
+  // Decimal 字面量（ADR 0025）：value 是 canonical 十进制字符串（如 "1.08"/"1"/"0"），
+  // 非二进制浮点——与 TS Core.Decimal、truffle DecimalE 逐位一致。两引擎 eval 时
+  // 还原为 decimal.js / BigDecimal 做精确算术。
+  @JsonTypeName("Decimal")
+  public static final class DecimalE implements Expr {
+    public String value;    // canonical 十进制字符串
     public Origin origin;
   }
 
