@@ -298,7 +298,9 @@ public class AsterCustomLexer extends AsterLexer {
             || type == AsterParser.RETURN || type == AsterParser.RULE
             || type == AsterParser.DEFINE || type == AsterParser.WHEN
             || type == AsterParser.START || type == AsterParser.WAIT
-            || type == AsterParser.ELSE || type == AsterParser.THEN;
+            || type == AsterParser.ELSE || type == AsterParser.THEN
+            // MAX/ATTEMPTS 同列入 structKeywordName（retry 语法 token，标识符位置当软关键字）
+            || type == AsterParser.MAX || type == AsterParser.ATTEMPTS;
     }
 
     /** 把英文展开形（如 "result of"）重新词法化成 token，全部入 pending。 */

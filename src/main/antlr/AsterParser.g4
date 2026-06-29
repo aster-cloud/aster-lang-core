@@ -193,7 +193,6 @@ nameIdent
     | TYPE_IDENT
     | TYPE
     | VERSION
-    | MAX
     | REQUIRED
     | BETWEEN
     | structKeywordName
@@ -222,6 +221,13 @@ structKeywordName
     // ADR 0019 G2a：THEN 也是结构关键词 token，同样在标识符位置当软关键字
     // （如 `Http.get(...).then(handle)` 的 .then 方法名）。
     | THEN
+    // MAX/ATTEMPTS 是 workflow retry 语法 `max attempts: N.` 的 lexer 硬 token
+    // （AsterLexer.g4），但在标识符位置（DOT 成员、变量名、参数、字段）应当软关键字——
+    // 否则 stdlib `List.max(xs)` / `List.attempts(xs)` 的成员名被卡（生产实测
+    // "extraneous 'max'"）。retryDirective 起点仍按 MAX/ATTEMPTS token 分派，不受影响。
+    // 同 ADR 0019 G1 的 LET/IF/RETURN 软关键字范式（ADR 0024 §poker 纯 CNL 前置修复）。
+    | MAX
+    | ATTEMPTS
     ;
 
 /**
