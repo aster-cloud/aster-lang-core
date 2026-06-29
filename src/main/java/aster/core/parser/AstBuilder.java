@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     private static final Set<String> BUILTIN_TYPE_NAMES = Set.of(
-        "Int", "Bool", "Text", "Long", "Double", "Number", "Float", "Option", "Result", "List", "Map"
+        "Int", "Bool", "Text", "Long", "Double", "Decimal", "Number", "Float", "Option", "Result", "List", "Map"
     );
 
     private final Set<String> declaredTypeNames = new HashSet<>();
@@ -1444,6 +1444,36 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     public Expr visitFloatExpr(AsterParser.FloatExprContext ctx) {
         double value = Double.parseDouble(ctx.FLOAT_LITERAL().getText());
         return new Expr.Double(value, spanFrom(ctx));
+    }
+
+    @Override
+    public Expr visitDecimalExpr(AsterParser.DecimalExprContext ctx) {
+        // Decimal 字面量（ADR 0025）：去 m/M 后缀，归一为 canonical 十进制字符串
+        // （去前导/尾零、零归 "0"），与 TS canonicalizeDecimal、truffle BigDecimal
+        // toPlainString 逐位一致——双引擎 Core IR value 必须字节相同。
+        String raw = ctx.DECIMAL_LITERAL().getText();
+        String digits = raw.substring(0, raw.length() - 1); // 去掉末尾 m/M
+        String canonical = canonicalizeDecimal(digits);
+        // ADR 0025 v1：Decimal 有效位 ≤38。超限会让 TS decimal.js（precision 80）乘法静默舍入、
+        // BigDecimal 精确 → 双引擎分歧（Codex 审查 P1）。硬拒以保 parity 与确定性。
+        int sigDigits = canonical.replaceAll("[.-]", "").replaceFirst("^0+(?=\\d)", "").length();
+        if (sigDigits > 38) {
+            throw new IllegalStateException(
+                "Decimal literal has " + sigDigits + " significant digits; the v1 maximum is 38 (ADR 0025).");
+        }
+        return new Expr.Decimal(canonical, spanFrom(ctx));
+    }
+
+    /** 把十进制数字串归一为 canonical 形：去前导零、去尾零，零归 "0"（不产生 "-0"/指数）。 */
+    private static String canonicalizeDecimal(String digits) {
+        int dot = digits.indexOf('.');
+        String intPart = dot < 0 ? digits : digits.substring(0, dot);
+        String fracPart = dot < 0 ? "" : digits.substring(dot + 1);
+        intPart = intPart.replaceFirst("^0+(?=\\d)", "");
+        if (intPart.isEmpty()) intPart = "0";
+        fracPart = fracPart.replaceFirst("0+$", "");
+        String out = fracPart.isEmpty() ? intPart : intPart + "." + fracPart;
+        return out.equals("-0") || out.isEmpty() ? "0" : out;
     }
 
     @Override

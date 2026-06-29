@@ -54,6 +54,7 @@ public final class BaseTypeChecker {
       case CoreModel.IntE i -> createTypeName("Int");
       case CoreModel.LongE l -> createTypeName("Long");
       case CoreModel.DoubleE d -> createTypeName("Double");
+      case CoreModel.DecimalE dec -> createTypeName("Decimal");
       case CoreModel.StringE s -> createTypeName("String");
       case CoreModel.NullE n -> {
         var maybe = new CoreModel.Maybe();
@@ -275,6 +276,42 @@ public final class BaseTypeChecker {
         typeOfExpr(call.args.get(0), ctx);
       }
       return createTypeName("Bool");
+    }
+
+    // 算术 + 比较运算符（+/-/*///% 与 == != < <= > >=，lower 为 Call{Name op}）：Decimal↔Double
+    // 混算编译期拦截（ADR 0025，与 TS expression.ts 对齐）。Double 是二进制浮点，与精确 Decimal
+    // 混算注入舍入误差；Int/Long↔Decimal 精确提升放行。Codex 审查 P0：不止算术，比较运算符也须拦
+    // ——`1.0m equals to 1.0` TS runtime 当 Int 提升、Truffle 抛错 = 双引擎分歧。算术任一
+    // Decimal/Int/Long 组合 → 结果 Decimal（传播，使嵌套继续被检查）；比较返回 Bool（不在此设）。
+    if (call.target instanceof CoreModel.Name opName
+        && (isArithmeticOperator(opName.name) || isComparisonOperator(opName.name)) && call.args.size() == 2) {
+      var lt = typeOfExpr(call.args.get(0), ctx);
+      var rt = typeOfExpr(call.args.get(1), ctx);
+      boolean lDec = isTypeNamed(lt, "Decimal"), rDec = isTypeNamed(rt, "Decimal");
+      boolean lDbl = isTypeNamed(lt, "Double"), rDbl = isTypeNamed(rt, "Double");
+      if ((lDec && rDbl) || (lDbl && rDec)) {
+        diagnostics.error(ErrorCode.DECIMAL_DOUBLE_MIXING, Optional.ofNullable(call.origin),
+            Map.of("operator", opName.name));
+      }
+      if (isArithmeticOperator(opName.name)) {
+        boolean lIntLong = isTypeNamed(lt, "Int") || isTypeNamed(lt, "Long");
+        boolean rIntLong = isTypeNamed(rt, "Int") || isTypeNamed(rt, "Long");
+        if ((lDec || rDec) && (lDec || lIntLong) && (rDec || rIntLong)) {
+          return createTypeName("Decimal");
+        }
+      }
+    }
+
+    // Codex 审查 P0：Decimal.round(x,…)/Decimal.divide(x,y,…) 的 Decimal 操作数位不得是 Double。
+    if (call.target instanceof CoreModel.Name fn
+        && ("Decimal.round".equals(fn.name) || "Decimal.divide".equals(fn.name))) {
+      int decimalArgCount = "Decimal.divide".equals(fn.name) ? 2 : 1;
+      for (int i = 0; i < Math.min(decimalArgCount, call.args.size()); i++) {
+        if (isTypeNamed(typeOfExpr(call.args.get(i), ctx), "Double")) {
+          diagnostics.error(ErrorCode.DECIMAL_DOUBLE_MIXING, Optional.ofNullable(call.origin),
+              Map.of("operator", fn.name));
+        }
+      }
     }
 
     // 如果不是函数类型，返回 unknown
@@ -531,6 +568,23 @@ public final class BaseTypeChecker {
     var type = new CoreModel.TypeName();
     type.name = name;
     return type;
+  }
+
+  /** 算术运算符（lower 后的 Call target Name）：+/-/*///%。 */
+  private boolean isArithmeticOperator(String op) {
+    return "+".equals(op) || "-".equals(op) || "*".equals(op)
+        || "/".equals(op) || "//".equals(op) || "%".equals(op);
+  }
+
+  /** 比较运算符（lower 后的 Call target Name）：== != < <= > >=。 */
+  private boolean isComparisonOperator(String op) {
+    return "==".equals(op) || "!=".equals(op) || "<".equals(op)
+        || "<=".equals(op) || ">".equals(op) || ">=".equals(op);
+  }
+
+  /** 类型是否为指定名的 TypeName（如 "Decimal"/"Double"/"Int"/"Long"）。 */
+  private boolean isTypeNamed(Type t, String name) {
+    return t instanceof CoreModel.TypeName tn && name.equals(tn.name);
   }
 
   /**

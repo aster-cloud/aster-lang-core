@@ -494,6 +494,7 @@ public final class TypeSystem {
       case CoreModel.IntE i -> createTypeName("Int");
       case CoreModel.LongE l -> createTypeName("Long");
       case CoreModel.DoubleE d -> createTypeName("Double");
+      case CoreModel.DecimalE dec -> createTypeName("Decimal");
       case CoreModel.StringE s -> createTypeName("String");
       case CoreModel.NullE n -> {
         var maybe = new CoreModel.Maybe();

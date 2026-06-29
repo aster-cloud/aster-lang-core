@@ -27,6 +27,9 @@ public final class BuiltinTypes {
   /** 双精度浮点数类型 */
   public static final String DOUBLE = "Double";
 
+  /** 精确十进制类型（ADR 0025，金融/保险金额，区别于二进制浮点 Double） */
+  public static final String DECIMAL = "Decimal";
+
   /** 字符串类型（标准名称） */
   public static final String STRING = "String";
 
@@ -59,6 +62,7 @@ public final class BuiltinTypes {
         || BOOL.equals(typeName)
         || LONG.equals(typeName)
         || DOUBLE.equals(typeName)
+        || DECIMAL.equals(typeName)
         || isStringType(typeName)
         || NUMBER.equals(typeName);
   }

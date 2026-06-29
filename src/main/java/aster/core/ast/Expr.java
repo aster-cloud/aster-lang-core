@@ -21,6 +21,7 @@ import java.util.List;
     @JsonSubTypes.Type(value = Expr.Int.class, name = "Int"),
     @JsonSubTypes.Type(value = Expr.Long.class, name = "Long"),
     @JsonSubTypes.Type(value = Expr.Double.class, name = "Double"),
+    @JsonSubTypes.Type(value = Expr.Decimal.class, name = "Decimal"),
     @JsonSubTypes.Type(value = Expr.String.class, name = "String"),
     @JsonSubTypes.Type(value = Expr.Null.class, name = "Null"),
     @JsonSubTypes.Type(value = Expr.Call.class, name = "Call"),
@@ -35,7 +36,7 @@ import java.util.List;
     @JsonSubTypes.Type(value = Expr.IfExpr.class, name = "IfExpr")
 })
 public sealed interface Expr extends AstNode
-    permits Expr.Name, Expr.Bool, Expr.Int, Expr.Long, Expr.Double, Expr.String, Expr.Null,
+    permits Expr.Name, Expr.Bool, Expr.Int, Expr.Long, Expr.Double, Expr.Decimal, Expr.String, Expr.Null,
             Expr.Call, Expr.Construct, Expr.Ok, Expr.Err, Expr.Some, Expr.None, Expr.ListLiteral,
             Expr.Lambda, Expr.Await, Expr.IfExpr {
 
@@ -121,6 +122,27 @@ public sealed interface Expr extends AstNode
         @Override
         public java.lang.String kind() {
             return "Double";
+        }
+    }
+
+    /**
+     * Decimal 精确十进制字面量（ADR 0025，m 后缀）
+     *
+     * <p>value 是 canonical 十进制字符串（如 "1.08"/"1"/"0"），NOT 二进制浮点——
+     * 与 TS decimal.js、truffle BigDecimal 逐位一致。金融/保险金额规则用此避免
+     * Double 的二进制误差。
+     *
+     * @param value canonical 十进制字符串
+     * @param span  源码位置信息
+     */
+    @JsonTypeName("Decimal")
+    record Decimal(
+        @JsonProperty("value") java.lang.String value,
+        @JsonProperty("span") Span span
+    ) implements Expr {
+        @Override
+        public java.lang.String kind() {
+            return "Decimal";
         }
     }
 

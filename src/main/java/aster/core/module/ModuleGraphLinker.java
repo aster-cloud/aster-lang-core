@@ -346,6 +346,8 @@ public final class ModuleGraphLinker {
         }
         case CoreModel.DoubleE ignored -> {
         }
+        case CoreModel.DecimalE ignored -> {
+        }
         case CoreModel.StringE ignored -> {
         }
         case CoreModel.NullE ignored -> {

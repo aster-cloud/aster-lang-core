@@ -126,7 +126,8 @@ public final class TypeInference {
             "Text".equals(typeName) ||
             "DateTime".equals(typeName) ||
             "Long".equals(typeName) ||
-            "Double".equals(typeName)
+            "Double".equals(typeName) ||
+            "Decimal".equals(typeName)
         );
     }
 }
