@@ -228,6 +228,9 @@ structKeywordName
     // 同 ADR 0019 G1 的 LET/IF/RETURN 软关键字范式（ADR 0024 §poker 纯 CNL 前置修复）。
     | MAX
     | ATTEMPTS
+    // ADR 0027：APPLY 是无括号调用引入词的硬 token，但在标识符位置当软关键字——
+    // 否则 `Rule apply given …`（函数名叫 apply）被卡。applyExpr 起点仍按 APPLY 分派。
+    | APPLY
     ;
 
 /**
@@ -551,13 +554,20 @@ ifExpr
 // 逻辑或（最低优先级，左结合）。and/or 在表达式上下文是逻辑运算符；
 // 在 givenParamList / fieldList / constructFields / typeList / waitStmt 等
 // 列表上下文，AND 由各自规则显式消费，不进入此表达式链。
+// ADR 0026：等缩进多行表达式续行——运算符前后可有零或多个 NEWLINE（只吞 NEWLINE，
+// 绝不含 INDENT/DEDENT，故块的缩进栈不受影响）。与 fieldList 里 `NEWLINE* (AND|COMMA) NEWLINE*`
+// 同构。ALL(*) 靠运算符 first-set 与「NEWLINE 后接 DEDENT/语句引导」区分续行 vs 块边界。
+nlOpt
+    : NEWLINE*
+    ;
+
 orExpr
-    : andExpr (OR andExpr)*
+    : andExpr (nlOpt OR nlOpt andExpr)*
     ;
 
 // 逻辑与（高于 or，低于 not / 比较，左结合）
 andExpr
-    : comparisonExpr (AND comparisonExpr)*
+    : comparisonExpr (nlOpt AND nlOpt comparisonExpr)*
     ;
 
 // 比较表达式。除符号/多词比较词 token 外，`under` / `over` 作为**软关键字**
@@ -565,13 +575,13 @@ andExpr
 // 软关键字前可带一个可选的 `is` 连接词（`is under` / `is over`），由语义谓词
 // 识别 IDENT 文本，避免在 lexer 无条件保留这些常见英文单词。
 comparisonExpr
-    : additiveExpr (
+    : additiveExpr ( nlOpt (
           op=(LT | GT | LTE | GTE | NEQ | EQ | EQUALS
               | LESS_THAN_WORD | GREATER_THAN_WORD
               | LESS_THAN_OR_EQUAL_WORD | GREATER_THAN_OR_EQUAL_WORD
-              | EQUALS_TO_WORD | NOT_EQUAL_TO_WORD) additiveExpr
-        | softCmp=softComparator additiveExpr
-      )?
+              | EQUALS_TO_WORD | NOT_EQUAL_TO_WORD) nlOpt additiveExpr
+        | softCmp=softComparator nlOpt additiveExpr
+      ) )?
     ;
 
 // 软比较词：`under` / `over`，前置可选 `is`。用语义谓词匹配 IDENT 文本，使
@@ -583,16 +593,39 @@ softComparator
     ;
 
 additiveExpr
-    : multiplicativeExpr (op=(PLUS | MINUS | PLUS_WORD | MINUS_WORD) multiplicativeExpr)*
+    : multiplicativeExpr (nlOpt op=(PLUS | MINUS | PLUS_WORD | MINUS_WORD) nlOpt multiplicativeExpr)*
     ;
 
 multiplicativeExpr
-    : unaryExpr (op=(STAR | SLASH | TIMES_WORD | DIVIDED_BY_WORD | INTEGER_DIVIDED_BY_WORD | MODULO_WORD) unaryExpr)*
+    : unaryExpr (nlOpt op=(STAR | SLASH | TIMES_WORD | DIVIDED_BY_WORD | INTEGER_DIVIDED_BY_WORD | MODULO_WORD) nlOpt unaryExpr)*
     ;
 
 unaryExpr
     : NOT unaryExpr                      # NotExpr
+    // ADR 0027：无括号单参调用 `apply <fn> to <arg>`，lower 成 Call(fn,[arg])，零新 IR 节点。
+    // 放在 unaryExpr 层（而非 primaryExpr）以免 postfixExpr 对 apply 结果接调用/成员后缀；
+    // arg 取顶层 expr（贪婪），故 `apply gather to stars less 1` = `gather(stars less 1)`。
+    | applyExpr                          # ApplyCallExpr
     | postfixExpr                        # PostfixUnary
+    ;
+
+/**
+ * ADR 0027：无括号单参调用。fn 用专门的 callTarget（裸名/限定名点链，不含调用后缀），
+ * 与 TS 引擎 parseCallTargetName 对齐——否则 `apply f(y) to x` 会一引擎接受一引擎拒，破坏 parity。
+ */
+applyExpr
+    : APPLY callTarget TO_WORD expr
+    ;
+
+callTarget
+    : callTargetSegment (DOT callTargetSegment)*
+    ;
+
+// 每段放行集对齐 TS parseCallTargetName（TS 无 MAP token，`Map` 处处是 TYPE_IDENT）——
+// MAP 须出现在**任意段**而非仅首段，否则 `apply Foo.Map to x` 一引擎收一引擎拒
+// （Codex 审查 019f1639 致命问题 #1）。
+callTargetSegment
+    : IDENT | TYPE_IDENT | MAP | structKeywordName
     ;
 
 /**

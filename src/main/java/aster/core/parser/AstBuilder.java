@@ -1380,6 +1380,35 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     }
 
     /**
+     * ADR 0027：无括号单参调用 `apply <fn> to <arg>`，lower 成与 `fn(arg)` 完全一致的
+     * Call(Name, [arg])——零新 IR 节点。fn 是 callTarget（裸名或限定名点链），arg 取顶层
+     * expr（贪婪），故 `apply gather to stars less 1` 等价 `gather(stars less 1)`。
+     */
+    @Override
+    public Expr visitApplyCallExpr(AsterParser.ApplyCallExprContext ctx) {
+        AsterParser.ApplyExprContext apply = ctx.applyExpr();
+        Expr.Name target = visitCallTargetName(apply.callTarget());
+        Expr arg = (Expr) visit(apply.expr());
+        // 复用普通调用构造路径（Codex 审查 019f1639 致命问题 #2）：createCallExpression 对
+        // Ok/Err/Some/None 内置变体作 AST 规范化（→ Expr.Some 等），故 `apply Some to x` 与
+        // `Some(x)` lower 到**完全相同**节点——这正是 ADR 0027「等价 fn(arg)」不变式所要求。
+        return createCallExpression(target, List.of(arg), spanFrom(ctx));
+    }
+
+    /**
+     * callTarget = 裸名/限定名点链（不含调用后缀），拼成单个点号分隔的 Expr.Name，
+     * 与后缀调用路径（combineName）及 TS parseCallTargetName 的命名口径一致。
+     */
+    private Expr.Name visitCallTargetName(AsterParser.CallTargetContext ctx) {
+        List<MemberSegment> segments = new ArrayList<>();
+        for (AsterParser.CallTargetSegmentContext seg : ctx.callTargetSegment()) {
+            segments.add(new MemberSegment(seg.getText(), spanFrom(seg)));
+        }
+        String qualified = combineName(null, segments);
+        return new Expr.Name(qualified, spanFrom(ctx));
+    }
+
+    /**
      * Lambda 表达式的 alternative 入口
      * 语法: function with x: T, produce R: body
      */

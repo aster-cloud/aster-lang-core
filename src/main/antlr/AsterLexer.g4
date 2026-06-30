@@ -143,6 +143,9 @@ VERSION: 'version';
 LET: [Ll][Ee][Tt];
 BE: 'be';
 RETURN: [Rr][Ee][Tt][Uu][Rr][Nn];
+// ADR 0027：无括号单参调用引入词 `apply <fn> to <arg>`。软关键词——在标识符位置
+// （structKeywordName）放行，故 `Rule apply given …` 不破。
+APPLY: [Aa][Pp][Pp][Ll][Yy];
 IF: [Ii][Ff];
 // ADR 0019 G2a：内联 if 的 then 连接词（大小写不敏感，与其它结构关键词一致）。
 THEN: [Tt][Hh][Ee][Nn];
