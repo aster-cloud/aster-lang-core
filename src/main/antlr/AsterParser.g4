@@ -228,6 +228,9 @@ structKeywordName
     // 同 ADR 0019 G1 的 LET/IF/RETURN 软关键字范式（ADR 0024 §poker 纯 CNL 前置修复）。
     | MAX
     | ATTEMPTS
+    // ADR 0027：APPLY 是无括号调用引入词的硬 token，但在标识符位置当软关键字——
+    // 否则 `Rule apply given …`（函数名叫 apply）被卡。applyExpr 起点仍按 APPLY 分派。
+    | APPLY
     ;
 
 /**
@@ -599,7 +602,30 @@ multiplicativeExpr
 
 unaryExpr
     : NOT unaryExpr                      # NotExpr
+    // ADR 0027：无括号单参调用 `apply <fn> to <arg>`，lower 成 Call(fn,[arg])，零新 IR 节点。
+    // 放在 unaryExpr 层（而非 primaryExpr）以免 postfixExpr 对 apply 结果接调用/成员后缀；
+    // arg 取顶层 expr（贪婪），故 `apply gather to stars less 1` = `gather(stars less 1)`。
+    | applyExpr                          # ApplyCallExpr
     | postfixExpr                        # PostfixUnary
+    ;
+
+/**
+ * ADR 0027：无括号单参调用。fn 用专门的 callTarget（裸名/限定名点链，不含调用后缀），
+ * 与 TS 引擎 parseCallTargetName 对齐——否则 `apply f(y) to x` 会一引擎接受一引擎拒，破坏 parity。
+ */
+applyExpr
+    : APPLY callTarget TO_WORD expr
+    ;
+
+callTarget
+    : callTargetSegment (DOT callTargetSegment)*
+    ;
+
+// 每段放行集对齐 TS parseCallTargetName（TS 无 MAP token，`Map` 处处是 TYPE_IDENT）——
+// MAP 须出现在**任意段**而非仅首段，否则 `apply Foo.Map to x` 一引擎收一引擎拒
+// （Codex 审查 019f1639 致命问题 #1）。
+callTargetSegment
+    : IDENT | TYPE_IDENT | MAP | structKeywordName
     ;
 
 /**
