@@ -40,6 +40,16 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     private record TypeWithAnnotations(Type type, List<Annotation> annotations) {}
 
+    /**
+     * 红队 P2-H：表达式嵌套深度上限（防深嵌套 CNL 递归 StackOverflow DoS）。
+     * 与 aster-lang-ts 的 MAX_RECURSION_DEPTH=300 对齐，维持双引擎行为一致。
+     * 每进入一层 {@link #visitExpr} 计数，超限即抛（可恢复的解析错误，由错误恢复层
+     * 转成 Diagnostic）。ANTLR 生成解析器自身的解析期递归另由 64KB 源长度上限约束
+     * （见 SourcePolicyRequest @Size / CnlSourceLimits），此处守 AstBuilder 访问期递归。
+     */
+    static final int MAX_EXPR_DEPTH = 300;
+    private int exprDepth = 0;
+
     // ============================================================
     // 模块和顶层声明
     // ============================================================
@@ -1012,10 +1022,21 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     // 显式取存在的那个分支。
     @Override
     public Expr visitExpr(AsterParser.ExprContext ctx) {
-        if (ctx.ifExpr() != null) {
-            return (Expr) visit(ctx.ifExpr());
+        // 红队 P2-H：表达式嵌套深度守卫。每个表达式子树都经此入口（paren/if-expr/运算数
+        // 都递归回 visitExpr），故在此计数即覆盖全部嵌套形态。超限抛可恢复解析错误。
+        if (++exprDepth > MAX_EXPR_DEPTH) {
+            exprDepth--; // 抛前回退，保持计数对称（错误恢复后可能继续访问同级）
+            throw new IllegalStateException(
+                "表达式嵌套过深（> " + MAX_EXPR_DEPTH + "），拒绝以防栈溢出");
         }
-        return (Expr) visit(ctx.orExpr());
+        try {
+            if (ctx.ifExpr() != null) {
+                return (Expr) visit(ctx.ifExpr());
+            }
+            return (Expr) visit(ctx.orExpr());
+        } finally {
+            exprDepth--;
+        }
     }
 
     // ADR 0019 G2b：表达式级 if —— `IF cond=orExpr inlineThen thenE=expr inlineElseSep elseE=expr`
