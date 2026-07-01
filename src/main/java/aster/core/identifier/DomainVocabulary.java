@@ -104,7 +104,7 @@ public record DomainVocabulary(
             triggers.add(mapping.localized());
             if (mapping.aliases() != null) triggers.addAll(mapping.aliases());
             for (String t : triggers) {
-                String key = t.toLowerCase();
+                String key = t.toLowerCase(java.util.Locale.ROOT); // 与 IdentifierIndex.build 一致
                 Boolean prev = seenTrigger.get(key);
                 if (prev != null && (prev || isLit)) {
                     errors.add("触发词 '" + t + "' 与另一条映射冲突（字面量宏触发词须全局唯一，防\"字符串 vs 标识符\"替换歧义）");
