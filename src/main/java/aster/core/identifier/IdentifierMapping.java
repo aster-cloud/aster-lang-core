@@ -114,8 +114,13 @@ public record IdentifierMapping(
             if (c <= 0x1F || c == 0x7F) {
                 return false; // 控制字符/换行
             }
-            if (c == '"' || c == '\\') {
-                return false; // 裸引号/反斜杠 → 防逃逸
+            // 禁任何字符串定界符与反斜杠：内容会被包进 lexicon 引号，含引号字符可提前闭合
+            // 字符串逃逸出 token 注入源码（Codex 复审 P0）。ASCII " / \ / CJK「」『』/ 法式 «»。
+            if (c == '"' || c == '\\'
+                || c == '「' || c == '」'   // 「 」
+                || c == '『' || c == '』'   // 『 』
+                || c == '«' || c == '»') { // « »
+                return false;
             }
         }
         return true;

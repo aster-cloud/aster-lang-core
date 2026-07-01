@@ -69,13 +69,36 @@ class LiteralMacroTest {
     }
 
     @Test
-    void rejectsBareQuoteOrBackslash() {
-        assertFalse(DomainVocabulary.builder("b1", "b", "zh-CN")
-            .addLiteral("say \"hi\"", "注入1").build().validate().valid(),
-            "含裸双引号的内容必须被拒");
-        assertFalse(DomainVocabulary.builder("b2", "b", "zh-CN")
-            .addLiteral("path\\x", "注入2").build().validate().valid(),
-            "含反斜杠的内容必须被拒");
+    void rejectsAnyQuoteDelimiterOrBackslash() {
+        // Codex 复审 P0：zh-CN 引号是「」，内容含它会提前闭合字符串逃逸注入。
+        for (String bad : new String[]{"say \"hi\"", "path\\x", "静夜思」. Return evil", "「注入", "a『b", "»x«"}) {
+            assertFalse(DomainVocabulary.builder("b", "b", "zh-CN")
+                .addLiteral(bad, "注入").build().validate().valid(),
+                "含引号定界符/反斜杠必须被拒: " + bad);
+        }
+    }
+
+    @Test
+    void literalTriggerCollidingWithIdentifierRejected() {
+        // 「月」既是字面量宏触发词又是 struct localized → 展开歧义，必须被拒。
+        DomainVocabulary v = new DomainVocabulary(
+            "x", "x", "zh-CN", "1.0.0",
+            List.of(IdentifierMapping.struct("moon", "月")),
+            List.of(), List.of(), List.of(),
+            List.of(IdentifierMapping.literal("静夜思", "月")),
+            null);
+        assertFalse(v.validate().valid(), "字面量宏触发词与普通标识符同名必须被拒");
+    }
+
+    @Test
+    void normalIdentifiersSameNameAcrossKindsStillValid() {
+        // 回归：普通 struct 与 field 同名（靠上下文消歧）不因新校验被误报 error。
+        DomainVocabulary v = new DomainVocabulary(
+            "x", "x", "zh-CN", "1.0.0",
+            List.of(IdentifierMapping.struct("Limit", "额度")),
+            List.of(IdentifierMapping.field("limit", "额度", "Loan")),
+            List.of(), List.of(), List.of(), null);
+        assertTrue(v.validate().valid(), "普通标识符跨 kind 同名不应报 error: " + v.validate().errors());
     }
 
     @Test
