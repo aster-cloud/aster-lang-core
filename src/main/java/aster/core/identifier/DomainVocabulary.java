@@ -28,6 +28,7 @@ public record DomainVocabulary(
     List<IdentifierMapping> fields,
     List<IdentifierMapping> functions,
     List<IdentifierMapping> enumValues,
+    List<IdentifierMapping> literals,
     VocabularyMetadata metadata
 ) {
     /**
@@ -53,6 +54,7 @@ public record DomainVocabulary(
         if (fields == null) fields = List.of();
         if (functions == null) functions = List.of();
         if (enumValues == null) enumValues = List.of();
+        if (literals == null) literals = List.of();
     }
 
     /**
@@ -64,6 +66,7 @@ public record DomainVocabulary(
         all.addAll(fields);
         all.addAll(functions);
         all.addAll(enumValues);
+        all.addAll(literals);
         return all;
     }
 
@@ -78,9 +81,17 @@ public record DomainVocabulary(
 
         // 验证所有映射
         for (IdentifierMapping mapping : allMappings()) {
-            if (!mapping.isValidCanonical()) {
-                errors.add("无效的规范化名称 '" + mapping.canonical() +
-                    "': 必须是有效的 ASCII 标识符");
+            if (mapping.kind() == IdentifierKind.LITERAL) {
+                // 字面量宏：canonical 是字符串内容（非 ASCII 标识符），校验防注入。
+                if (!mapping.isValidLiteralContent()) {
+                    errors.add("无效的字面量宏内容 '" + mapping.canonical() +
+                        "': 须为单行、无控制字符、无裸双引号或反斜杠（防编译期注入）");
+                }
+            } else {
+                if (!mapping.isValidCanonical()) {
+                    errors.add("无效的规范化名称 '" + mapping.canonical() +
+                        "': 必须是有效的 ASCII 标识符");
+                }
             }
 
             // 检查字段是否有父结构体
@@ -133,6 +144,7 @@ public record DomainVocabulary(
         private final List<IdentifierMapping> fields = new ArrayList<>();
         private final List<IdentifierMapping> functions = new ArrayList<>();
         private final List<IdentifierMapping> enumValues = new ArrayList<>();
+        private final List<IdentifierMapping> literals = new ArrayList<>();
         private VocabularyMetadata metadata;
 
         private Builder(String id, String name, String locale) {
@@ -171,6 +183,12 @@ public record DomainVocabulary(
             return this;
         }
 
+        /** 字面量宏：localized token 展开成字符串字面量 content（不含引号）。 */
+        public Builder addLiteral(String content, String localized, String... aliases) {
+            literals.add(IdentifierMapping.literal(content, localized, aliases));
+            return this;
+        }
+
         public DomainVocabulary build() {
             return new DomainVocabulary(
                 id, name, locale, version,
@@ -178,6 +196,7 @@ public record DomainVocabulary(
                 List.copyOf(fields),
                 List.copyOf(functions),
                 List.copyOf(enumValues),
+                List.copyOf(literals),
                 metadata
             );
         }

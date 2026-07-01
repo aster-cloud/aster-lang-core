@@ -94,6 +94,34 @@ public record IdentifierMapping(
     }
 
     /**
+     * 创建字面量宏映射（kind = LITERAL）。{@code content} 为字符串字面量**内容**（不含引号），
+     * canonicalize 时把 {@code localized} token 展开成 {@code <open>content<close>}。
+     */
+    public static IdentifierMapping literal(String content, String localized, String... aliases) {
+        return new IdentifierMapping(content, localized, IdentifierKind.LITERAL, null, null, List.of(aliases));
+    }
+
+    /**
+     * 字面量宏内容校验：单行、无控制字符（0x00-0x1F/0x7F）、无裸双引号或反斜杠。
+     * 与 aster-lang-ts validateVocabulary 的 LITERAL 分支逐条对齐（防编译期文本注入）。
+     */
+    public boolean isValidLiteralContent() {
+        if (canonical == null || canonical.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < canonical.length(); i++) {
+            char c = canonical.charAt(i);
+            if (c <= 0x1F || c == 0x7F) {
+                return false; // 控制字符/换行
+            }
+            if (c == '"' || c == '\\') {
+                return false; // 裸引号/反斜杠 → 防逃逸
+            }
+        }
+        return true;
+    }
+
+    /**
      * 检查规范化名称是否有效（必须是 ASCII 标识符）。
      */
     public boolean isValidCanonical() {

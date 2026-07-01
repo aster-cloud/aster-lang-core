@@ -3,8 +3,10 @@ package aster.core.identifier;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 标识符索引。
@@ -25,6 +27,13 @@ public final class IdentifierIndex {
     /** 按父结构体索引的字段：parent → (localized → mapping) */
     private final Map<String, Map<String, IdentifierMapping>> fieldsByParent;
 
+    /**
+     * 字面量宏的 localized/alias key（已小写）。canonicalize 替换时据此判定：命中则把
+     * toCanonical 里存的**内容**用 lexicon 引号包裹后插入，而非当作标识符原样插入。
+     * 与 aster-lang-ts IdentifierIndex.literals 对称。
+     */
+    private final Set<String> literals;
+
     /** 源词汇表 */
     private final DomainVocabulary vocabulary;
 
@@ -33,12 +42,14 @@ public final class IdentifierIndex {
         Map<String, String> toLocalized,
         Map<IdentifierKind, Map<String, IdentifierMapping>> byKind,
         Map<String, Map<String, IdentifierMapping>> fieldsByParent,
+        Set<String> literals,
         DomainVocabulary vocabulary
     ) {
         this.toCanonical = Collections.unmodifiableMap(toCanonical);
         this.toLocalized = Collections.unmodifiableMap(toLocalized);
         this.byKind = Collections.unmodifiableMap(byKind);
         this.fieldsByParent = Collections.unmodifiableMap(fieldsByParent);
+        this.literals = Collections.unmodifiableSet(literals);
         this.vocabulary = vocabulary;
     }
 
@@ -53,6 +64,7 @@ public final class IdentifierIndex {
         Map<String, String> toLocalized = new HashMap<>();
         Map<IdentifierKind, Map<String, IdentifierMapping>> byKind = new EnumMap<>(IdentifierKind.class);
         Map<String, Map<String, IdentifierMapping>> fieldsByParent = new HashMap<>();
+        Set<String> literals = new HashSet<>();
 
         // 初始化 byKind 映射
         for (IdentifierKind kind : IdentifierKind.values()) {
@@ -63,18 +75,27 @@ public final class IdentifierIndex {
         for (IdentifierMapping mapping : vocabulary.allMappings()) {
             String canonical = mapping.canonical();
             String localized = mapping.localized();
+            boolean isLiteral = mapping.kind() == IdentifierKind.LITERAL;
+            String localizedKey = localized.toLowerCase(Locale.ROOT);
 
-            // 添加主映射（本地化 → 规范化）。键用小写，与 TS
-            // buildIdentifierIndex 一致，保证两引擎对本地化名查找大小写不敏感
-            // 且等价（拉丁文术语如德语 Fahrer/fahrer 同样命中）。
-            toCanonical.put(localized.toLowerCase(Locale.ROOT), canonical);
-            // 添加反向映射（规范化 → 本地化，使用小写键便于大小写不敏感匹配）
-            toLocalized.put(canonical.toLowerCase(Locale.ROOT), localized);
+            // 添加主映射（本地化 → 规范化/字面量内容）。键用小写，与 TS
+            // buildIdentifierIndex 一致，保证两引擎对本地化名查找大小写不敏感且等价。
+            toCanonical.put(localizedKey, canonical);
+            // 字面量宏是单向宏展开，不建反向映射（与 TS 一致，避免 toLocalized 暴露内容反查）。
+            if (isLiteral) {
+                literals.add(localizedKey);
+            } else {
+                toLocalized.put(canonical.toLowerCase(Locale.ROOT), localized);
+            }
 
             // 添加别名映射（同样用小写键）
             if (mapping.aliases() != null) {
                 for (String alias : mapping.aliases()) {
-                    toCanonical.put(alias.toLowerCase(Locale.ROOT), canonical);
+                    String aliasKey = alias.toLowerCase(Locale.ROOT);
+                    toCanonical.put(aliasKey, canonical);
+                    if (isLiteral) {
+                        literals.add(aliasKey);
+                    }
                 }
             }
 
@@ -89,7 +110,7 @@ public final class IdentifierIndex {
             }
         }
 
-        return new IdentifierIndex(toCanonical, toLocalized, byKind, fieldsByParent, vocabulary);
+        return new IdentifierIndex(toCanonical, toLocalized, byKind, fieldsByParent, literals, vocabulary);
     }
 
     /**
@@ -130,6 +151,14 @@ public final class IdentifierIndex {
      */
     public boolean hasMapping(String localized) {
         return toCanonical.containsKey(localized);
+    }
+
+    /**
+     * 该本地化名称（或别名）是否为字面量宏（kind = LITERAL）。命中时 canonicalize()
+     * 返回的是**字面量内容**（不含引号），调用方须用 lexicon 引号包裹后插入。
+     */
+    public boolean isLiteral(String localized) {
+        return localized != null && literals.contains(localized.toLowerCase(Locale.ROOT));
     }
 
     /**
