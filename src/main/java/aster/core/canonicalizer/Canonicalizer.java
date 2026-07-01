@@ -848,9 +848,7 @@ public final class Canonicalizer {
             } else {
                 // 标识符结束，翻译并输出
                 if (inIdentifier) {
-                    String token = currentToken.toString();
-                    String translated = identifierIndex.canonicalize(token);
-                    result.append(translated);
+                    result.append(translateToken(currentToken.toString()));
                     currentToken.setLength(0);
                     inIdentifier = false;
                 }
@@ -861,12 +859,24 @@ public final class Canonicalizer {
 
         // 处理末尾的标识符
         if (inIdentifier) {
-            String token = currentToken.toString();
-            String translated = identifierIndex.canonicalize(token);
-            result.append(translated);
+            result.append(translateToken(currentToken.toString()));
         }
 
         return result.toString();
+    }
+
+    /**
+     * 翻译单个标识符 token。普通映射返回规范化名；字面量宏（kind = LITERAL）把
+     * 索引里存的**内容**用当前 lexicon 的 stringQuotes 包裹成字符串字面量返回
+     * （{@code <open>content<close>}），使其被后续 segmentString 正确保护。
+     * 与 aster-lang-ts translateIdentifiersInSegment 的字面量分支逐字节对齐。
+     */
+    private String translateToken(String token) {
+        String translated = identifierIndex.canonicalize(token);
+        if (identifierIndex.isLiteral(token)) {
+            return stringQuoteOpen + translated + stringQuoteClose;
+        }
+        return translated;
     }
 
     /**

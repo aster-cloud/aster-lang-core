@@ -210,6 +210,7 @@ public final class VocabularyRegistry {
         List<IdentifierMapping> allFields = new ArrayList<>();
         List<IdentifierMapping> allFunctions = new ArrayList<>();
         List<IdentifierMapping> allEnumValues = new ArrayList<>();
+        List<IdentifierMapping> allLiterals = new ArrayList<>();
 
         for (VocabularyEntry entry : entries) {
             DomainVocabulary vocab = entry.vocabulary();
@@ -217,6 +218,7 @@ public final class VocabularyRegistry {
             allFields.addAll(vocab.fields());
             allFunctions.addAll(vocab.functions());
             allEnumValues.addAll(vocab.enumValues());
+            allLiterals.addAll(vocab.literals());
         }
 
         String mergedId = String.join("+", domains);
@@ -227,7 +229,7 @@ public final class VocabularyRegistry {
 
         return Optional.of(new DomainVocabulary(
             mergedId, mergedName, locale, "1.0.0",
-            allStructs, allFields, allFunctions, allEnumValues, null
+            allStructs, allFields, allFunctions, allEnumValues, allLiterals, null
         ));
     }
 

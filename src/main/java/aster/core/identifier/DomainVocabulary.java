@@ -28,6 +28,7 @@ public record DomainVocabulary(
     List<IdentifierMapping> fields,
     List<IdentifierMapping> functions,
     List<IdentifierMapping> enumValues,
+    List<IdentifierMapping> literals,
     VocabularyMetadata metadata
 ) {
     /**
@@ -53,6 +54,7 @@ public record DomainVocabulary(
         if (fields == null) fields = List.of();
         if (functions == null) functions = List.of();
         if (enumValues == null) enumValues = List.of();
+        if (literals == null) literals = List.of();
     }
 
     /**
@@ -64,6 +66,7 @@ public record DomainVocabulary(
         all.addAll(fields);
         all.addAll(functions);
         all.addAll(enumValues);
+        all.addAll(literals);
         return all;
     }
 
@@ -75,12 +78,38 @@ public record DomainVocabulary(
     public ValidationResult validate() {
         List<String> errors = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
+        // 触发词（localized + aliases，小写）→ 是否字面量宏。字面量宏触发词须全局唯一（Codex 复审 P0）。
+        java.util.Map<String, Boolean> seenTrigger = new java.util.HashMap<>();
 
         // 验证所有映射
         for (IdentifierMapping mapping : allMappings()) {
-            if (!mapping.isValidCanonical()) {
-                errors.add("无效的规范化名称 '" + mapping.canonical() +
-                    "': 必须是有效的 ASCII 标识符");
+            if (mapping.kind() == IdentifierKind.LITERAL) {
+                // 字面量宏：canonical 是字符串内容（非 ASCII 标识符），校验防注入。
+                if (!mapping.isValidLiteralContent()) {
+                    errors.add("无效的字面量宏内容 '" + mapping.canonical() +
+                        "': 须为单行、无控制字符、无引号定界符或反斜杠（防编译期注入）");
+                }
+            } else {
+                if (!mapping.isValidCanonical()) {
+                    errors.add("无效的规范化名称 '" + mapping.canonical() +
+                        "': 必须是有效的 ASCII 标识符");
+                }
+            }
+
+            // 字面量宏触发词隔离（Codex 复审 P0）：字面量宏展开成字符串、普通标识符展开成
+            // 标识符，语义天差地别。要求字面量宏触发词不得与任何其它映射触发词冲突；普通标识符
+            // 之间同名（不同 kind 靠上下文消歧）仍是既有 warning 行为，不在此报 error。
+            boolean isLit = mapping.kind() == IdentifierKind.LITERAL;
+            java.util.List<String> triggers = new ArrayList<>();
+            triggers.add(mapping.localized());
+            if (mapping.aliases() != null) triggers.addAll(mapping.aliases());
+            for (String t : triggers) {
+                String key = t.toLowerCase(java.util.Locale.ROOT); // 与 IdentifierIndex.build 一致
+                Boolean prev = seenTrigger.get(key);
+                if (prev != null && (prev || isLit)) {
+                    errors.add("触发词 '" + t + "' 与另一条映射冲突（字面量宏触发词须全局唯一，防\"字符串 vs 标识符\"替换歧义）");
+                }
+                seenTrigger.put(key, (prev != null && prev) || isLit);
             }
 
             // 检查字段是否有父结构体
@@ -133,6 +162,7 @@ public record DomainVocabulary(
         private final List<IdentifierMapping> fields = new ArrayList<>();
         private final List<IdentifierMapping> functions = new ArrayList<>();
         private final List<IdentifierMapping> enumValues = new ArrayList<>();
+        private final List<IdentifierMapping> literals = new ArrayList<>();
         private VocabularyMetadata metadata;
 
         private Builder(String id, String name, String locale) {
@@ -171,6 +201,12 @@ public record DomainVocabulary(
             return this;
         }
 
+        /** 字面量宏：localized token 展开成字符串字面量 content（不含引号）。 */
+        public Builder addLiteral(String content, String localized, String... aliases) {
+            literals.add(IdentifierMapping.literal(content, localized, aliases));
+            return this;
+        }
+
         public DomainVocabulary build() {
             return new DomainVocabulary(
                 id, name, locale, version,
@@ -178,6 +214,7 @@ public record DomainVocabulary(
                 List.copyOf(fields),
                 List.copyOf(functions),
                 List.copyOf(enumValues),
+                List.copyOf(literals),
                 metadata
             );
         }

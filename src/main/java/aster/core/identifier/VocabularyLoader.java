@@ -154,6 +154,7 @@ public final class VocabularyLoader {
         List<IdentifierMapping> fields = convertMappings(json.fields, IdentifierKind.FIELD);
         List<IdentifierMapping> functions = convertMappings(json.functions, IdentifierKind.FUNCTION);
         List<IdentifierMapping> enumValues = convertMappings(json.enumValues, IdentifierKind.ENUM_VALUE);
+        List<IdentifierMapping> literals = convertMappings(json.literals, IdentifierKind.LITERAL);
 
         DomainVocabulary.VocabularyMetadata metadata = null;
         if (json.metadata != null) {
@@ -166,7 +167,7 @@ public final class VocabularyLoader {
 
         return new DomainVocabulary(
             json.id, json.name, json.locale, json.version,
-            structs, fields, functions, enumValues, metadata
+            structs, fields, functions, enumValues, literals, metadata
         );
     }
 
@@ -207,6 +208,7 @@ public final class VocabularyLoader {
         json.fields = convertToJsonMappings(vocabulary.fields());
         json.functions = convertToJsonMappings(vocabulary.functions());
         json.enumValues = convertToJsonMappings(vocabulary.enumValues());
+        json.literals = convertToJsonMappings(vocabulary.literals());
 
         return json;
     }
@@ -240,6 +242,7 @@ public final class VocabularyLoader {
         public List<JsonMapping> functions;
         @JsonProperty("enumValues")
         public List<JsonMapping> enumValues;
+        public List<JsonMapping> literals;
     }
 
     private static class JsonMetadata {

@@ -28,7 +28,16 @@ public enum IdentifierKind {
      * 枚举值
      * 例如：Excellent（优秀）、Good（良好）
      */
-    ENUM_VALUE("enum_value");
+    ENUM_VALUE("enum_value"),
+
+    /**
+     * 字面量宏（token → 字符串字面量）。与其它 kind 不同：canonical **不是** ASCII
+     * 标识符，而是要展开的**字符串内容**（不含引号）。canonicalize 时把 localized token
+     * 替换成 {@code <open>content<close>}（用当前 lexicon 的 stringQuotes 包裹）。
+     * 用途：把领域术语固定展开成标准文案（合规场景），如 思故乡 → "静夜思"。
+     * 内容受严格校验（单行、无控制字符、无裸引号/反斜杠）防编译期注入。
+     */
+    LITERAL("literal");
 
     private final String value;
 
