@@ -177,9 +177,14 @@ public final class Canonicalizer {
      * <p>
      * ANTLR 保留词（{@code true}/{@code false} 等）天然不在关键词词集合的转写目标里，
      * 故无需单独保护——它们转写后不是关键词，gate 会保留原样。
+     * <p>
+     * token 部分含 {@code \p{M}}（组合记号）：天城文(Hindi)等元音符号(matra)属 Unicode Mark，
+     * 不纳入会把 जागे 切成 ज+ग。数字用 {@code \p{Nd}}（十进制）而非 {@code \p{N}}：与
+     * {@link #isIdentifierPart}（isLetterOrDigit）及 TS 引擎 {@code identifierTokenRegex}
+     * 的 {@code [\p{L}_][\p{L}\p{M}\p{Nd}_]*} 对齐（跨引擎 parity）。
      */
     private static final Pattern WORD_PATTERN =
-        Pattern.compile("[\\p{L}_][\\p{L}\\p{N}_]*", Pattern.UNICODE_CHARACTER_CLASS);
+        Pattern.compile("[\\p{L}_][\\p{L}\\p{M}\\p{Nd}_]*", Pattern.UNICODE_CHARACTER_CLASS);
 
     /**
      * 使用默认词法表（en-US）创建规范化器
@@ -891,10 +896,20 @@ public final class Canonicalizer {
     /**
      * 判断字符是否可以作为标识符的一部分
      * <p>
-     * 包括：Unicode 字母、数字、下划线
+     * 包括：Unicode 字母、数字、下划线，以及**组合记号**（Mark：非间距记号 Mn、
+     * 间距组合记号 Mc、包围记号 Me）。天城文（Hindi）等印度系文字的元音符号（matra，
+     * 如 जागे 里的 ा/े）属于 Mark 而非 Letter，若不纳入会把 जागे 切成 ज+ग 丢失元音，
+     * 导致标识符/字面量宏永不匹配。与 TS 引擎的 {@code [\p{L}_][\p{L}\p{M}\p{Nd}_]*}
+     * 口径对齐（跨脚本 parity）。
      */
     private boolean isIdentifierPart(char ch) {
-        return Character.isLetterOrDigit(ch) || ch == '_';
+        if (Character.isLetterOrDigit(ch) || ch == '_') {
+            return true;
+        }
+        int type = Character.getType(ch);
+        return type == Character.NON_SPACING_MARK
+            || type == Character.COMBINING_SPACING_MARK
+            || type == Character.ENCLOSING_MARK;
     }
 
     /**
