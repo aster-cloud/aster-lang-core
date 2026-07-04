@@ -225,7 +225,12 @@ public final class LexiconRegistry {
      * @throws IllegalArgumentException 如果词法表 ID 已存在或验证失败
      */
     public void register(Lexicon lexicon) {
-        ValidationResult result = validate(lexicon);
+        // 审计 #58：register() 此前只调用 validate()（无别名校验），别名遮蔽/重复只在
+        // LexiconValidator.validateLexicon 里被拦（仅 CLI/测试调用）。任何声明
+        // "aliases":{"RETURN":["if"]} 的 lexicon/plugin 都能干净注册并把每个 if 悄悄改写成
+        // return。现改为复用同一别名硬校验契约（appendSemanticChecks），单一验证入口。
+        // 注意用实例方法 validate(lexicon) 算 base（构造期 getInstance() 尚为 null）。
+        ValidationResult result = LexiconValidator.appendSemanticChecks(lexicon, validate(lexicon));
         if (!result.isValid()) {
             throw new IllegalArgumentException(
                 "Invalid lexicon '" + lexicon.getId() + "': " + String.join("; ", result.errors())
@@ -745,7 +750,11 @@ public final class LexiconRegistry {
                 // 否则任何外部 jar 都能绕过验证污染 registry（缺关键字、id 冲突格式错、
                 // 必需角色未覆盖等）。validate 失败的 plugin 计入 discoveryFailures
                 // 让 admin diag 端点能看到原因。
-                ValidationResult validation = validate(lexicon);
+                // 审计 #58：同样追加别名遮蔽/重复硬校验（appendSemanticChecks），使外部
+                // 插件无法通过 SPI 绕过 ADR-0022 别名保护。用实例方法 validate() 算 base
+                // （构造期 discoverPlugins 运行时 getInstance() 尚为 null）。
+                ValidationResult validation =
+                    LexiconValidator.appendSemanticChecks(lexicon, validate(lexicon));
                 if (!validation.isValid()) {
                     String msg = "validation failed: " + String.join("; ", validation.errors());
                     discoveryFailures.put(providerClass, msg);

@@ -251,6 +251,35 @@ class VocabularyRegistryTest {
 
             assertFalse(merged.isPresent());
         }
+
+        @Test
+        @DisplayName("跨领域字面量宏触发词冲突时合并大声失败（审计 #58）")
+        void mergeCrossDomainLiteralTriggerCollisionThrows() {
+            // A 域：字面量宏，触发词 "分享" → 字符串内容 "shared"（单域内唯一，register 通过）。
+            DomainVocabulary a = DomainVocabulary.builder("audit.a", "A", "zh-CN")
+                .addLiteral("shared", "分享")
+                .build();
+            // B 域：普通结构体，触发词同为 "分享"（单域内唯一，register 通过）。
+            // 合并后 "字面量宏 vs 标识符" 触发词冲突，是 P0 不变式违规，必须失败而非静默污染。
+            DomainVocabulary b = DomainVocabulary.builder("audit.b", "B", "zh-CN")
+                .addStruct("Shared", "分享")
+                .build();
+            registry.register(a);
+            registry.register(b);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> registry.merge(List.of("audit.a", "audit.b"), "zh-CN"));
+            assertTrue(ex.getMessage().contains("校验失败"),
+                "应报合并校验失败，实际: " + ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("无冲突的跨领域合并仍正常返回（审计 #58 回归护栏）")
+        void mergeCleanDomainsStillSucceeds() {
+            Optional<DomainVocabulary> merged = registry.merge(
+                List.of("insurance.auto", "finance.loan"), "zh-CN");
+            assertTrue(merged.isPresent(), "无冲突的内置领域合并应成功");
+        }
     }
 
     // ============================================================
