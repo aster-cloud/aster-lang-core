@@ -487,4 +487,41 @@ class CanonicalizerTest {
             assertTrue(result.contains("ApprovalResult"), "'审批结果'应翻译为'ApprovalResult'，实际结果: " + result);
         }
     }
+
+    // ============================================================
+    // 审计 #58：段感知 「」 转换 + 伪造 PUA 标记拒绝
+    // ============================================================
+
+    @Nested
+    @DisplayName("审计 #58 安全")
+    class Audit58SecurityTests {
+
+        @Test
+        @DisplayName("字符串字面量内的 「」 经 canonicalize 保留（不溢出到代码位）")
+        void cjkBracketsInsideStringLiteralPreserved() {
+            // 默认 en-US：字符串定界符是 ASCII "。字面量内部的中文直角引号 「」 必须原样保留，
+            // 不能被 step 9.5 盲替换成 " 而把内容溢出到代码位（parse error / 语义漂移）。
+            String input = "Let x be \"a「b」c\".";
+            String out = canonicalizer.canonicalize(input);
+            assertTrue(out.contains("「b」"),
+                "字符串内的 「」 应保留，实际: " + out);
+            assertFalse(out.contains("\"a\"b\"c\""),
+                "内部 「」 不应被改写成 \"，实际: " + out);
+        }
+
+        @Test
+        @DisplayName("原始输入含伪造 PUA 协议标记 U+E000–E003 被拒绝")
+        void forgedPuaMarkersRejected() {
+            char[] markers = { '\uE000', '\uE001', '\uE002', '\uE003' };
+            for (char c : markers) {
+                String input = "Let x be " + c + "evil.";
+                assertThrows(IllegalArgumentException.class,
+                    () -> canonicalizer.canonicalize(input),
+                    "含 U+" + Integer.toHexString(c).toUpperCase() + " 的输入应被拒绝");
+            }
+            // 范围外的 PUA（U+E004）与普通文本不受影响。
+            assertDoesNotThrow(() -> canonicalizer.canonicalize("plain text.\n"));
+            assertDoesNotThrow(() -> canonicalizer.canonicalize("Let y be \"ok\".\n"));
+        }
+    }
 }

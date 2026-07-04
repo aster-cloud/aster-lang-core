@@ -235,6 +235,16 @@ public final class Canonicalizer {
     public Canonicalizer(Lexicon lexicon, IdentifierIndex identifierIndex) {
         this.lexicon = lexicon;
         this.config = lexicon.getCanonicalization();
+        // 预编译 customRules（热路径，避免按词重复编译正则）。审计 #58：提前到此处，使
+        // applyCustomRulesToKey（buildKeywordTranslationMap/buildKeywordWordSet 会调用）也走
+        // 预编译 + RegexGuard 看门狗，堵住构造期未加固正则的 ReDoS（screen-evading pattern
+        // 挂死构造线程）。RegexGuard.compile 静态筛查 ReDoS 形状，replaceAllWithTimeout 加运行期超时。
+        List<Map.Entry<Pattern, String>> ccr = new ArrayList<>();
+        for (CanonicalizationConfig.CanonicalizationRule rule : config.customRules()) {
+            // customRules 来自不可信 lexicon 配置：编译期筛查 ReDoS 形状。
+            ccr.add(Map.entry(RegexGuard.compile(rule.pattern(), 0), rule.replacement()));
+        }
+        this.compiledCustomRules = List.copyOf(ccr);
         this.multiWordKeywords = lexicon.getMultiWordKeywords();
         this.articlePattern = buildArticlePattern();
         this.keywordTranslationMap = buildKeywordTranslationMap(lexicon);
@@ -275,13 +285,7 @@ public final class Canonicalizer {
         this.multiWordKeywordPatterns = List.copyOf(mwkPatterns);  // 不可变视图
         // 设置标识符索引（用于领域词汇翻译）
         this.identifierIndex = identifierIndex;
-        // 预编译 customRules（热路径，避免按词重复编译正则）
-        List<Map.Entry<Pattern, String>> ccr = new ArrayList<>();
-        for (CanonicalizationConfig.CanonicalizationRule rule : config.customRules()) {
-            // customRules 来自不可信 lexicon 配置：编译期筛查 ReDoS 形状。
-            ccr.add(Map.entry(RegexGuard.compile(rule.pattern(), 0), rule.replacement()));
-        }
-        this.compiledCustomRules = List.copyOf(ccr);
+        // compiledCustomRules 已在构造器开头预编译（供 applyCustomRulesToKey 复用，见上）。
         // 构建关键词词集合，供 customRules 转写限定使用
         this.keywordWordSet = buildKeywordWordSet(lexicon);
     }
@@ -503,12 +507,14 @@ public final class Canonicalizer {
      * 例如：德语 {@code "gib zurueck"} 经 umlaut 规则后变为 {@code "gib zurück"}。
      */
     private String applyCustomRulesToKey(String keyword) {
-        if (config.customRules().isEmpty()) {
+        if (compiledCustomRules.isEmpty()) {
             return keyword;
         }
+        // 审计 #58：改用预编译规则 + RegexGuard 看门狗超时，堵住构造期未加固正则的 ReDoS
+        //（此前是裸 result.replaceAll(rule.pattern(), ...)，在 :240 构造期执行，早于任何加固）。
         String result = keyword;
-        for (CanonicalizationConfig.CanonicalizationRule rule : config.customRules()) {
-            result = result.replaceAll(rule.pattern(), rule.replacement());
+        for (Map.Entry<Pattern, String> rule : compiledCustomRules) {
+            result = RegexGuard.replaceAllWithTimeout(rule.getKey(), result, rule.getValue());
         }
         return result;
     }
@@ -604,6 +610,13 @@ public final class Canonicalizer {
      * @return 规范化后的 CNL 源代码
      */
     public String canonicalize(String input) {
+        // 0. 安全（审计 #58）：拒绝原始输入里伪造的私有区协议标记（U+E000–U+E003）。这些字符是
+        //    Canonicalizer 内部"关键词当标识符"协议的保留标记，AsterCustomLexer 会对它们做特殊
+        //    展开/还原（AsterCustomLexer 会重新词法化"展开"文本）；若原始输入直接携带，攻击者可
+        //    注入不在可见源码中的 token（TS parity 破坏 / 源码注入）。合法 CNL 源码绝不含这些 PUA
+        //    字符，故在入口处直接拒绝。
+        rejectForgedMarkers(input);
+
         // 1. 规范化换行符为 \n
         String s = input.replaceAll("\\r\\n?", "\n");
 
@@ -683,13 +696,37 @@ public final class Canonicalizer {
 
         // 9.5 中文字符串引号转英文引号（ANTLR 词法器只识别 ASCII 双引号）
         // 必须在所有字符串分段操作完成后执行（因为分段依赖 「」 识别字符串边界）
-        s = s.replace("\u300C", "\"")  // 「 → "
-             .replace("\u300D", "\""); // 」 → "
+        // 审计 #58：改为**段感知**——只转换【作为字符串定界符】的 「」，绝不改写字符串
+        // 字面量内部的 「」。盲替换会把 "…「重要」…" 的内部改成 "…"重要"…"，溢出到代码位。
+        s = convertCjkStringQuotes(s);
 
         // 10. 最终空白符规范化（确保幂等性）
         s = finalWhitespaceNormalization(s);
 
         return s;
+    }
+
+    /**
+     * 拒绝原始输入里伪造的私有区"关键词当标识符"协议标记（U+E000–U+E003，审计 #58）。
+     * <p>
+     * 这些字符（{@link #KW_IDENT_MARKER_OPEN}..{@link #KW_IDENT_MARKER_SPACE}）由 Canonicalizer
+     * 在内部注入、由 AsterCustomLexer 特殊处理。合法 CNL 源码绝不含它们，出现即视为攻击注入。
+     *
+     * @throws IllegalArgumentException 输入含任一保留标记字符
+     */
+    private static void rejectForgedMarkers(String input) {
+        if (input == null) {
+            return;
+        }
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (c >= KW_IDENT_MARKER_OPEN && c <= KW_IDENT_MARKER_SPACE) {
+                throw new IllegalArgumentException(
+                    "Input contains reserved private-use marker U+"
+                    + String.format("%04X", (int) c) + " at index " + i
+                    + " (forged keyword-ident protocol marker rejected, audit #58)");
+            }
+        }
     }
 
     // ============================================================
@@ -879,9 +916,51 @@ public final class Canonicalizer {
     private String translateToken(String token) {
         String translated = identifierIndex.canonicalize(token);
         if (identifierIndex.isLiteral(token)) {
+            // 审计 #58：字面量宏内容会被原样包进当前 lexicon 的引号注入源码。公共构造器
+            // Canonicalizer(Lexicon, IdentifierIndex) 与 IdentifierIndex.build 接受【未经
+            // DomainVocabulary.validate 校验】的词汇表，故一个 canonical 为 x".\nRule evil
+            // 的字面量宏会被展开成"编译进制品的源码注入"。这里对内容再做一次防注入校验（含
+            // 当前 lexicon 的引号字符），未通过则拒绝展开、大声抛错，而非注入源码。
+            if (!isSafeLiteralContent(translated)) {
+                throw new IllegalStateException(
+                    "Unsafe literal-macro content for token '" + token
+                    + "': contains quote/backslash/control characters "
+                    + "(source-injection guard, audit #58)");
+            }
             return stringQuoteOpen + translated + stringQuoteClose;
         }
         return translated;
+    }
+
+    /**
+     * 字面量宏内容防注入校验（审计 #58）。与 IdentifierMapping.isValidLiteralContent 同口径——
+     * 拒绝控制字符（0x00-0x1F/0x7F）、反斜杠、常见字符串定界符（ASCII " / CJK 「」『』/ 法式
+     * «»）——并额外纳入<b>当前 active lexicon 的字符串引号</b>（stringQuoteOpen/stringQuoteClose，
+     * 可能是多字符），确保内容无法提前闭合字符串逃逸出 token。
+     */
+    private boolean isSafeLiteralContent(String content) {
+        if (content == null || content.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < content.length(); i++) {
+            char c = content.charAt(i);
+            if (c <= 0x1F || c == 0x7F || c == '\\') {
+                return false;
+            }
+            if (c == '"' || c == '「' || c == '」' || c == '『' || c == '』'
+                    || c == '«' || c == '»') {
+                return false;
+            }
+        }
+        if (stringQuoteOpen != null && !stringQuoteOpen.isEmpty()
+                && content.contains(stringQuoteOpen)) {
+            return false;
+        }
+        if (stringQuoteClose != null && !stringQuoteClose.isEmpty()
+                && content.contains(stringQuoteClose)) {
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -1602,6 +1681,44 @@ public final class Canonicalizer {
             out = out.substring(0, out.length() - 1);
         }
         return out;
+    }
+
+    /**
+     * 段感知地把【作为字符串定界符】的中文直角引号 「」(U+300C/U+300D) 转成 ASCII 双引号
+     * （ANTLR 词法器只认 ASCII "）。审计 #58。
+     * <p>
+     * 关键：字符串字面量<b>内部</b>的 「」 一律保留原样——它们是字符串内容，改写会把内容
+     * 溢出到代码位（如 "…「重要」…" → "…"重要"…"，parse error / 语义漂移 / TS parity 破坏）。
+     * 因此只对<b>由 「」 定界</b>的字符串段转换其首尾定界符；由 ASCII " 定界的字符串段完全不动
+     * 其内部；代码段里游离的 「」（正常不出现）保守转为 "。
+     */
+    private String convertCjkStringQuotes(String s) {
+        // 快速路径：无中文直角引号直接返回，避免热路径无谓分段。
+        if (s.indexOf('\u300C') < 0 && s.indexOf('\u300D') < 0) {
+            return s;
+        }
+        List<Segment> segments = segmentString(s);
+        StringBuilder result = new StringBuilder(s.length());
+        for (Segment segment : segments) {
+            String text = segment.text();
+            if (segment.inString()) {
+                // 仅当该字符串本身由 「」 定界（首「尾」）时，转换其首尾定界符为 ASCII "。
+                // 其内部保持原样（含内部的 「」）。ASCII "…" 定界的字符串完全不动。
+                if (text.length() >= 2
+                        && text.charAt(0) == '\u300C'
+                        && text.charAt(text.length() - 1) == '\u300D') {
+                    result.append('"')
+                          .append(text, 1, text.length() - 1)
+                          .append('"');
+                } else {
+                    result.append(text);
+                }
+            } else {
+                // 代码段：正常不含成对字符串定界符；保守地把游离 「」 归一为 "（保留历史行为）。
+                result.append(text.replace('\u300C', '"').replace('\u300D', '"'));
+            }
+        }
+        return result.toString();
     }
 
     /**

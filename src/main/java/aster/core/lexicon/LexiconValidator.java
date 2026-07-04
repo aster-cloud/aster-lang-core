@@ -75,7 +75,25 @@ public final class LexiconValidator {
     public static LexiconRegistry.ValidationResult validateLexicon(Lexicon lexicon) {
         // 先使用 LexiconRegistry 的通用验证
         LexiconRegistry.ValidationResult baseResult = LexiconRegistry.getInstance().validate(lexicon);
+        return appendSemanticChecks(lexicon, baseResult);
+    }
 
+    /**
+     * 在给定的 base 校验结果上追加 DynamicLexicon 特有校验（customRules 可编译性 +
+     * ADR-0022 别名遮蔽/重复）。
+     * <p>
+     * 抽出成独立方法，是为了让 {@link LexiconRegistry#register} 与 SPI 注册路径复用<b>同一</b>
+     * 别名硬校验契约（审计 #58：别名遮蔽此前只在 CLI/测试里被 {@link #validateLexicon} 拦，
+     * register() 从不调用）。关键：本方法<b>不</b>调用 {@link LexiconRegistry#getInstance()}——
+     * registry 构造期（loadEmbeddedDefaults / discoverPlugins）INSTANCE 尚未赋值，getInstance()
+     * 会返回 null。调用方传入用<b>实例方法</b> {@code this.validate(lexicon)} 算好的 baseResult 即可。
+     *
+     * @param lexicon    待校验的 lexicon
+     * @param baseResult {@link LexiconRegistry#validate} 的结果（由调用方以实例方法算出）
+     * @return 追加了别名/正则校验后的结果
+     */
+    static LexiconRegistry.ValidationResult appendSemanticChecks(
+            Lexicon lexicon, LexiconRegistry.ValidationResult baseResult) {
         List<String> errors = new ArrayList<>(baseResult.errors());
         List<String> warnings = new ArrayList<>(baseResult.warnings());
 

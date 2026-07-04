@@ -1,5 +1,8 @@
 package aster.core.lexicon;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -798,5 +801,54 @@ class LexiconRegistryTest {
                 registry.discoverPlugins(LexiconPlugin.class.getClassLoader());
             }
         }
+    }
+
+    // ============================================================
+    // 审计 #58：register() 强制别名遮蔽/重复校验
+    // ============================================================
+
+    @Test
+    void registerRejectsShadowingAlias() throws Exception {
+        // 审计 #58：声明别名遮蔽规范拼写的 lexicon（aliases {"RETURN":["if"]}）此前能干净注册，
+        // 悄悄把每个 if 改写成 return。register() 现须复用 LexiconValidator 的别名硬校验并拒绝。
+        ObjectMapper mapper = new ObjectMapper();
+        String json = new String(
+            getClass().getClassLoader().getResourceAsStream("builtin/en-US.json").readAllBytes(),
+            java.nio.charset.StandardCharsets.UTF_8);
+        ObjectNode root = (ObjectNode) mapper.readTree(json);
+        root.put("id", "qa-ZZ"); // 未占用的合法 BCP47 id，避免 "already registered" 抢先返回
+        ArrayNode ifArr = mapper.createArrayNode();
+        ifArr.add("if");
+        root.putObject("aliases").set("RETURN", ifArr);
+        Lexicon bad = DynamicLexicon.fromJsonString(mapper.writeValueAsString(root));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+            () -> registry.register(bad));
+        assertTrue(ex.getMessage().contains("shadows canonical keyword"),
+            "应报别名遮蔽错误，实际: " + ex.getMessage());
+        assertFalse(registry.has("qa-ZZ"), "被拒的 lexicon 不应进入注册表");
+    }
+
+    @Test
+    void registerRejectsDuplicateAliasAcrossKinds() throws Exception {
+        // 审计 #58：同一别名给两个 kind → register() 拒绝（ADR-0022 别名重复）。
+        ObjectMapper mapper = new ObjectMapper();
+        String json = new String(
+            getClass().getClassLoader().getResourceAsStream("builtin/en-US.json").readAllBytes(),
+            java.nio.charset.StandardCharsets.UTF_8);
+        ObjectNode root = (ObjectNode) mapper.readTree(json);
+        root.put("id", "qa-ZY");
+        ObjectNode aliases = root.putObject("aliases");
+        ArrayNode a1 = mapper.createArrayNode(); a1.add("Foo");
+        ArrayNode a2 = mapper.createArrayNode(); a2.add("Foo");
+        aliases.set("FUNC_TO", a1);
+        aliases.set("TYPE_DEF", a2);
+        Lexicon bad = DynamicLexicon.fromJsonString(mapper.writeValueAsString(root));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+            () -> registry.register(bad));
+        assertTrue(ex.getMessage().contains("defined for both"),
+            "应报别名重复错误，实际: " + ex.getMessage());
+        assertFalse(registry.has("qa-ZY"));
     }
 }

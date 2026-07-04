@@ -227,10 +227,24 @@ public final class VocabularyRegistry {
             .reduce((a, b) -> a + " + " + b)
             .orElse("");
 
-        return Optional.of(new DomainVocabulary(
+        DomainVocabulary merged = new DomainVocabulary(
             mergedId, mergedName, locale, "1.0.0",
             allStructs, allFields, allFunctions, allEnumValues, allLiterals, null
-        ));
+        );
+
+        // 审计 #58：合并后的词汇表此前直接喂给 IdentifierIndex.build（Canonicalizer.buildMergedIndex）
+        // 而不校验。"字面量宏触发词全局唯一" 的 P0 不变式只在**单领域** validate() 里执行，
+        // 跨领域合并会产生新的触发词冲突（如 A 域的字面量宏触发词 == B 域某标识符触发词），
+        // 使 translateToken 把一个标识符的规范名当作字符串字面量包裹。故此处对合并结果整体
+        // validate()，跨域冲突大声失败而非静默污染。
+        DomainVocabulary.ValidationResult validation = merged.validate();
+        if (!validation.valid()) {
+            throw new IllegalArgumentException(
+                "合并词汇表 '" + mergedId + "' 校验失败（跨领域字面量宏触发词冲突等）: "
+                + String.join("; ", validation.errors()));
+        }
+
+        return Optional.of(merged);
     }
 
     /**
