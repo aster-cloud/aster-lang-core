@@ -39,6 +39,12 @@ import java.util.concurrent.TimeUnit;
  * <p>TS 侧走 `node dist/scripts/core-ir-json.js <file> --block-end=fin`；Java 侧内联管线
  * （Canonicalizer(en-US+fin) → ANTLR → AstBuilder → CoreLowering）。剪除字段与
  * {@link CrossCompilerCoreIRTest} 的 PRUNE_FIELDS 契约一致。
+ *
+ * <p>⚠️ 运行环境（与 {@link CrossCompilerCoreIRTest} 同）：`@Tag("golden")` + 需要 TS 编译
+ * 产物（dist/scripts/core-ir-json.js）。**core CI 的 build job 不 build ts，故本测试在 CI
+ * 里被 assumeTrue skip**——它是**本地 / 发版前 / golden task** 的跨引擎验证（本地实测
+ * tests=1 pass）。发版前跑：`cd aster-lang-ts && pnpm build` 后 `./gradlew goldenTest`
+ * （或 `ASTER_TS_ROOT=... ./gradlew test --tests ExplicitBlockCrossCompilerTest`）。
  */
 @Tag("golden")
 class ExplicitBlockCrossCompilerTest {
