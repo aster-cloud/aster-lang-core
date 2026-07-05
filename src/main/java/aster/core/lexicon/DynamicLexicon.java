@@ -33,6 +33,8 @@ public final class DynamicLexicon implements Lexicon {
     private final Direction direction;
     private final Map<SemanticTokenKind, String> keywords;
     private final Map<SemanticTokenKind, List<String>> aliases;
+    // ADR 0028：显式块结束词（如「毕」）。缺省空列表 = 关闭，向后兼容。
+    private final List<String> blockEndWords;
     private final PunctuationConfig punctuation;
     private final CanonicalizationConfig canonicalization;
     private final ErrorMessages messages;
@@ -43,6 +45,7 @@ public final class DynamicLexicon implements Lexicon {
             Direction direction,
             Map<SemanticTokenKind, String> keywords,
             Map<SemanticTokenKind, List<String>> aliases,
+            List<String> blockEndWords,
             PunctuationConfig punctuation,
             CanonicalizationConfig canonicalization,
             ErrorMessages messages
@@ -61,9 +64,15 @@ public final class DynamicLexicon implements Lexicon {
             }
         }
         this.aliases = Map.copyOf(aliasCopy);
+        this.blockEndWords = blockEndWords == null ? List.of() : List.copyOf(blockEndWords);
         this.punctuation = punctuation;
         this.canonicalization = canonicalization;
         this.messages = messages;
+    }
+
+    @Override
+    public List<String> getBlockEndWords() {
+        return blockEndWords;
     }
 
     /**
@@ -119,6 +128,17 @@ public final class DynamicLexicon implements Lexicon {
         // aliases（可选，ADR 0022）：kind -> [别名, ...]。缺省为空。
         Map<SemanticTokenKind, List<String>> aliases = parseAliases(root.path("aliases"));
 
+        // blockDelimiters.end（可选，ADR 0028）：显式块结束词列表。缺省空 = 关闭。
+        List<String> blockEndWords = new ArrayList<>();
+        JsonNode bd = root.path("blockDelimiters");
+        if (bd.isObject() && bd.path("end").isArray()) {
+            for (JsonNode w : bd.path("end")) {
+                if (w.isTextual() && !w.asText().isBlank()) {
+                    blockEndWords.add(w.asText());
+                }
+            }
+        }
+
         // punctuation
         PunctuationConfig punctuation = parsePunctuation(requireNode(root, "punctuation"));
 
@@ -128,7 +148,7 @@ public final class DynamicLexicon implements Lexicon {
         // messages
         ErrorMessages messages = parseMessages(root.path("messages"));
 
-        return new DynamicLexicon(id, name, direction, keywords, aliases, punctuation, canonicalization, messages);
+        return new DynamicLexicon(id, name, direction, keywords, aliases, blockEndWords, punctuation, canonicalization, messages);
     }
 
     // ============================================================

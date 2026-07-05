@@ -5,9 +5,11 @@ import aster.core.canonicalizer.TransformerRegistry;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -148,6 +150,36 @@ public final class LexiconValidator {
                     errors.add("Alias '" + alias + "' is defined for both "
                             + clashAlias + " and " + e.getKey());
                 }
+            }
+        }
+
+        // ADR 0028（Codex 交叉审 P1/P2）：显式块结束词校验。约束——
+        //   ① 非空；② 单个「词」（无空白，即单标识符 token，不支持多词短语；两引擎对此才一致）；
+        //   ③ 不得与任何规范关键词 / 别名撞（否则被抢成 BLOCK_END，破坏关键词识别）。
+        //   ④ 无重复。
+        // 「同脚本」约束（块结束词须是所在 lexicon 可 lex 为标识符的字符）不在此硬校验——它是
+        //   使用契约（zh 方言配中文词、en 配英文词），由 ADR 0028 §6 记录 + 各方言自证；跨脚本
+        //   会在 TS 引擎 lex 阶段自然失败（en-US 不认 CJK），故不会静默产出错误 IR。
+        Set<String> seenEnd = new HashSet<>();
+        for (String endWord : lexicon.getBlockEndWords()) {
+            if (endWord == null || endWord.isBlank()) {
+                errors.add("Empty block-end word (blockDelimiters.end)");
+                continue;
+            }
+            if (endWord.chars().anyMatch(Character::isWhitespace)) {
+                errors.add("Block-end word '" + endWord + "' must be a single word (no whitespace)");
+            }
+            String lower = endWord.toLowerCase(Locale.ROOT);
+            if (canonByLower.containsKey(lower)) {
+                errors.add("Block-end word '" + endWord + "' collides with canonical keyword of "
+                        + canonByLower.get(lower));
+            }
+            if (aliasByLower.containsKey(lower)) {
+                errors.add("Block-end word '" + endWord + "' collides with alias of "
+                        + aliasByLower.get(lower));
+            }
+            if (!seenEnd.add(lower)) {
+                errors.add("Duplicate block-end word '" + endWord + "'");
             }
         }
 

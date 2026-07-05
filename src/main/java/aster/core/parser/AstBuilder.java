@@ -223,9 +223,15 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         }
 
         // 函数体（可能为 null）
+        // ADR 0028：函数体经 funcBody（缩进块 block 或显式块 explicitBlock）。
         Block body = null;
-        if (ctx.block() != null) {
-            body = visitBlock(ctx.block());
+        if (ctx.funcBody() != null) {
+            AsterParser.FuncBodyContext fb = ctx.funcBody();
+            if (fb.block() != null) {
+                body = visitBlock(fb.block());
+            } else if (fb.explicitBlock() != null) {
+                body = visitExplicitBlock(fb.explicitBlock());
+            }
         }
 
         Span nameSpan = spanFrom(ctx.nameIdent());
@@ -723,6 +729,26 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Block visitBlock(AsterParser.BlockContext ctx) {
+        List<Stmt> stmts = ctx.stmt().stream()
+            .map(this::visitStmt)
+            .map(obj -> (Stmt) obj)
+            .collect(Collectors.toList());
+        Span blockSpan = spanFrom(ctx);
+        if (!stmts.isEmpty()) {
+            Span first = stmts.get(0).span();
+            Span last = stmts.get(stmts.size() - 1).span();
+            if (first != null && last != null) {
+                blockSpan = new Span(first.start(), last.end());
+            }
+        }
+        return new Block(stmts, blockSpan);
+    }
+
+    // ADR 0028：显式块与缩进块产出**同款 Block AST**（仅结束方式不同：DEDENT vs BLOCK_END）。
+    // 逻辑与 visitBlock 一致——从 stmt 列表构造 Block，span 取首末语句。这保证显式块与缩进块
+    // 编译到字节级一致的 Core IR（与 TS 引擎对齐）。
+    @Override
+    public Block visitExplicitBlock(AsterParser.ExplicitBlockContext ctx) {
         List<Stmt> stmts = ctx.stmt().stream()
             .map(this::visitStmt)
             .map(obj -> (Stmt) obj)

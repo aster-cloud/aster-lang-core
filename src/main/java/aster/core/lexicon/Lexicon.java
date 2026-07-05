@@ -67,6 +67,22 @@ public interface Lexicon {
     }
 
     /**
+     * ADR 0028：显式块结束词（如「毕」）。让函数体块可脱离缩进、以显式词收尾。
+     *
+     * <p>默认返回空列表 = 关闭（无显式块，纯缩进，向后兼容）——存量 lexicon（en/zh/de/hi）
+     * 不开。Canonicalizer 把这些词翻译成内部 BLOCK_END sentinel（同别名归一），ANTLR 据此
+     * 走 explicitBlock 产式，与缩进块编译到同一 Core IR。
+     *
+     * <p>安全（ADR 0028 §6）：块结束词属结构安全面，只应由官方受信 lexicon 提供，不给租户
+     * 自定义。用内部 sentinel 而非可输入英文词，故 feature 只由本方法非空时开启。
+     *
+     * @return 块结束词列表（识别侧）；默认空 = 关闭
+     */
+    default List<String> getBlockEndWords() {
+        return List.of();
+    }
+
+    /**
      * 获取标点符号配置
      */
     PunctuationConfig getPunctuation();
