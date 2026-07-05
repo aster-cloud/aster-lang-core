@@ -376,6 +376,16 @@ public final class Canonicalizer {
         Map<String, String> translationMap = new HashMap<>();
         Lexicon targetLexicon = LexiconRegistry.getInstance().getOrThrow("en-US");
 
+        // 0. ADR 0028：显式块结束词（如「毕」）翻译成内部 BLOCK_END sentinel。与关键词/别名归一
+        //    同机制——源码写的方言词经此翻成 ANTLR 认的 sentinel，走 explicitBlock 产式。
+        //    sentinel 值必须与 AsterLexer.g4 的 `BLOCK_END: '\u0000BLOCK_END'` 逐字一致。
+        //    默认 getBlockEndWords()=空 → 不加任何项 → 无 BLOCK_END → 只走缩进块，向后兼容。
+        for (String endWord : sourceLexicon.getBlockEndWords()) {
+            if (endWord != null && !endWord.isBlank()) {
+                translationMap.putIfAbsent(applyCustomRulesToKey(endWord), "\u0000BLOCK_END");
+            }
+        }
+
         // 1. 首先处理运算符关键词 -> 符号的翻译（适用于所有语言）
         // 例如：中文 "小于" -> "<"，英文 "less than" -> "<"
         for (Map.Entry<SemanticTokenKind, String> symbolEntry : OPERATOR_SYMBOL_MAP.entrySet()) {
