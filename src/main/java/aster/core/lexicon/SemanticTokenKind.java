@@ -80,6 +80,9 @@ public enum SemanticTokenKind {
     /** 否则分支 - "otherwise" / "否则" */
     OTHERWISE,
 
+    /** 内联 if 的 then 连接词 - "then" / "那么" */
+    THEN,
+
     /** 模式匹配 - "match" / "把" */
     MATCH,
 
@@ -320,7 +323,7 @@ public enum SemanticTokenKind {
         Map.entry("module", Arrays.asList(MODULE_DECL, IMPORT, IMPORT_ALIAS, IMPORT_VERSION)),
         Map.entry("type", Arrays.asList(TYPE_DEF, TYPE_WITH, TYPE_HAS, TYPE_ONE_OF)),
         Map.entry("function", Arrays.asList(FUNC_TO, FUNC_GIVEN, FUNC_PRODUCE, FUNC_PERFORMS)),
-        Map.entry("control", Arrays.asList(IF, OTHERWISE, MATCH, WHEN, RETURN, RESULT_IS, FOR_EACH, IN)),
+        Map.entry("control", Arrays.asList(IF, OTHERWISE, THEN, MATCH, WHEN, RETURN, RESULT_IS, FOR_EACH, IN)),
         Map.entry("variable", Arrays.asList(LET, BE, SET, TO_WORD)),
         Map.entry("boolean", Arrays.asList(OR, AND, NOT)),
         Map.entry("arithmetic", Arrays.asList(PLUS, MINUS_WORD, TIMES, DIVIDED_BY, INTEGER_DIVIDED_BY, MODULO)),
