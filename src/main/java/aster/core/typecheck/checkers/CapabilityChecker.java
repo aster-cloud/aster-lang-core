@@ -75,9 +75,14 @@ public final class CapabilityChecker {
     var capabilities = collectCapabilities(func.body);
     checkDeclaredCapabilities(func, capabilities);
     if (!capabilities.isEmpty()) {
+      // capability 的 effect 分类走 CapabilityKind.effectClass 单源（shared/capabilities.json）：
+      // io-class 需 @io；cpu-class（CPU/CRYPTO，本地计算密集）需 @cpu 或 @io。与 TS 对齐。
       var ioCaps = new LinkedHashSet<CapabilityKind>();
+      var cpuCaps = new LinkedHashSet<CapabilityKind>();
       for (var cap : capabilities.keySet()) {
-        if (cap != CapabilityKind.CPU) {
+        if (cap.isCpuClass()) {
+          cpuCaps.add(cap);
+        } else {
           ioCaps.add(cap);
         }
       }
@@ -98,8 +103,8 @@ public final class CapabilityChecker {
         );
       }
 
-      if (capabilities.containsKey(CapabilityKind.CPU) && !(declaredEffects.contains("cpu") || declaredEffects.contains("io"))) {
-        var sampleCalls = summarizeCalls(capabilities, List.of(CapabilityKind.CPU));
+      if (!cpuCaps.isEmpty() && !(declaredEffects.contains("cpu") || declaredEffects.contains("io"))) {
+        var sampleCalls = summarizeCalls(capabilities, new java.util.ArrayList<>(cpuCaps));
         emit(
           ErrorCode.CAPABILITY_INFER_MISSING_CPU,
           func.origin,
