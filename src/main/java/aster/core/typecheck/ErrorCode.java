@@ -53,6 +53,9 @@ public enum ErrorCode {
   UNDEFINED_VARIABLE("E101", Category.SCOPE, Severity.ERROR, "Undefined variable: %s", "在使用变量前先声明并初始化。"),
   MULTIPLE_ENTRY_RULES("E102", Category.SCOPE, Severity.ERROR, "Multiple @entry rules in module: {rules}", "每个模块最多保留一个 @entry Rule。"),
   IMPORT_SYMBOL_CONFLICT("E103", Category.SCOPE, Severity.WARNING, "Import symbol conflict: {symbol}", "调整 import alias 或本地顶层声明名称，避免导入符号冲突。"),
+  // 与 TS 端 ErrorCode.DUPLICATE_SYMBOL 对齐（原 TS 端占 E102，反向重建 error_codes.json
+  // 时按用户裁决迁至 E104，让 E102 归 MULTIPLE_ENTRY_RULES）。
+  DUPLICATE_SYMBOL("E104", Category.SCOPE, Severity.ERROR, "Symbol '{name}' is already defined in this scope.", "选择不同的名称或检查是否存在意外的重复声明。"),
   EFF_MISSING_IO("E200", Category.EFFECT, Severity.ERROR, "Function '%s' may perform I/O but is missing @io effect.", "为具有 IO 行为的函数声明 @io 效果。"),
   EFF_MISSING_CPU("E201", Category.EFFECT, Severity.ERROR, "Function '%s' may perform CPU-bound work but is missing @cpu (or @io) effect.", "为 CPU 密集型函数声明 @cpu 或 @io 效果。"),
   EFF_SUPERFLUOUS_IO_CPU_ONLY("E202", Category.EFFECT, Severity.INFO, "Function '%s' declares @io but only CPU-like work found; @io subsumes @cpu and may be unnecessary.", "若函数仅执行 CPU 工作，可移除多余的 @io 声明。"),
@@ -63,6 +66,10 @@ public enum ErrorCode {
   EFF_INFER_REDUNDANT_IO("E207", Category.EFFECT, Severity.WARNING, "函数 '%s' 声明了 @io，但推断未发现 IO 副作用。", "确认是否需要保留 @io 声明。"),
   EFF_INFER_REDUNDANT_CPU("E208", Category.EFFECT, Severity.WARNING, "函数 '%s' 声明了 @cpu，但推断未发现 CPU 副作用。", "若无 CPU 副作用，可删除 @cpu 声明。"),
   EFF_INFER_REDUNDANT_CPU_WITH_IO("E209", Category.EFFECT, Severity.WARNING, "函数 '%s' 同时声明 @cpu 和 @io；由于需要 @io，@cpu 可移除。", "保留 @io 即可满足需求，移除多余的 @cpu。"),
+  // 与 TS 端 ErrorCode.EFFECT_VAR_UNDECLARED / EFFECT_VAR_UNRESOLVED 对齐（TS 端已有，
+  // 补齐 Java 侧码表使双引擎 error_codes.json 契约一致；Java 引擎实现效果变量检查时可 emit）。
+  EFFECT_VAR_UNDECLARED("E210", Category.TYPE, Severity.ERROR, "Effect variable {var} undeclared", "在函数签名的效果参数列表中添加效果类型参数。"),
+  EFFECT_VAR_UNRESOLVED("E211", Category.TYPE, Severity.ERROR, "Effect variable {vars} could not be resolved to concrete effects", "提供明确效果（pure/cpu/io/workflow）或移除未使用的效果变量。"),
   CAPABILITY_NOT_ALLOWED("E300", Category.CAPABILITY, Severity.ERROR, "Function '%s' requires %s capability but manifest for module '%s' denies it.", "更新能力清单或修改函数实现以符合限制。"),
   EFF_CAP_MISSING("E301", Category.CAPABILITY, Severity.ERROR, "Function '%s' uses %s capability but header declares [%s].", "在函数头部声明实际使用到的能力。"),
   EFF_CAP_SUPERFLUOUS("E302", Category.CAPABILITY, Severity.INFO, "Function '%s' declares %s capability but it is not used.", "移除未使用的能力声明以保持清晰。"),

@@ -1,0 +1,492 @@
+{
+  "TYPE_MISMATCH": {
+    "code": "E001",
+    "category": "type",
+    "severity": "error",
+    "message": "Type mismatch: expected {expected}, got {actual}",
+    "help": "Check that the type annotation matches the inferred expression type."
+  },
+  "TYPE_MISMATCH_ASSIGN": {
+    "code": "E002",
+    "category": "type",
+    "severity": "error",
+    "message": "Type mismatch assigning to '{name}': {expected} vs {actual}",
+    "help": "Ensure the variable's previous binding type matches the current assignment."
+  },
+  "RETURN_TYPE_MISMATCH": {
+    "code": "E003",
+    "category": "type",
+    "severity": "error",
+    "message": "Return type mismatch: expected {expected}, got {actual}",
+    "help": "Check that the return statement matches the declared return type."
+  },
+  "TYPE_VAR_UNDECLARED": {
+    "code": "E004",
+    "category": "type",
+    "severity": "error",
+    "message": "Type variable '{name}' is used in '{func}' but not declared in its type parameters.",
+    "help": "Declare used type variables in the function signature's 'of' clause."
+  },
+  "TYPE_PARAM_UNUSED": {
+    "code": "E005",
+    "category": "type",
+    "severity": "warning",
+    "message": "Type parameter '{name}' on '{func}' is declared but not used.",
+    "help": "Remove unused type parameters to avoid confusion."
+  },
+  "TYPEVAR_LIKE_UNDECLARED": {
+    "code": "E006",
+    "category": "type",
+    "severity": "error",
+    "message": "Type variable-like '{name}' is used in '{func}' but not declared; declare it with 'of {name}'.",
+    "help": "For names that look like type variables, declare them in the 'of' clause."
+  },
+  "TYPEVAR_INCONSISTENT": {
+    "code": "E007",
+    "category": "type",
+    "severity": "error",
+    "message": "Type variable '{name}' inferred inconsistently: {previous} vs {actual}",
+    "help": "Ensure all usage sites of a type variable produce the same concrete type."
+  },
+  "IF_BRANCH_MISMATCH": {
+    "code": "E008",
+    "category": "type",
+    "severity": "error",
+    "message": "If branch type mismatch: then {thenType} vs else {elseType}",
+    "help": "Ensure both branches of an if expression return the same type."
+  },
+  "MATCH_BRANCH_MISMATCH": {
+    "code": "E009",
+    "category": "type",
+    "severity": "error",
+    "message": "Match case return types differ: {expected} vs {actual}",
+    "help": "Check that all match branches return the same type."
+  },
+  "INTEGER_PATTERN_TYPE": {
+    "code": "E010",
+    "category": "type",
+    "severity": "error",
+    "message": "Integer pattern used on non-Int scrutinee ({scrutineeType})",
+    "help": "Only use integer patterns on Int-typed match expressions."
+  },
+  "UNKNOWN_FIELD": {
+    "code": "E011",
+    "category": "type",
+    "severity": "error",
+    "message": "Unknown field '{field}' for {type}",
+    "help": "Check that the field name is correct for the data type."
+  },
+  "FIELD_TYPE_MISMATCH": {
+    "code": "E012",
+    "category": "type",
+    "severity": "error",
+    "message": "Field '{field}' expects {expected}, got {actual}",
+    "help": "Verify the field initializer expression matches the declared type."
+  },
+  "MISSING_REQUIRED_FIELD": {
+    "code": "E013",
+    "category": "type",
+    "severity": "error",
+    "message": "Construction of {type} missing required field '{field}'",
+    "help": "Provide all required fields declared in the data type."
+  },
+  "NOT_CALL_ARITY": {
+    "code": "E014",
+    "category": "type",
+    "severity": "error",
+    "message": "not(...) expects 1 argument",
+    "help": "Adjust the not() call to have exactly 1 argument."
+  },
+  "AWAIT_TYPE": {
+    "code": "E015",
+    "category": "type",
+    "severity": "warning",
+    "message": "await expects Maybe<T> or Result<T,E>, got {type}",
+    "help": "Only use await on Maybe or Result types."
+  },
+  "DUPLICATE_ENUM_CASE": {
+    "code": "E016",
+    "category": "type",
+    "severity": "warning",
+    "message": "Duplicate enum case '{case}' in match on {type}.",
+    "help": "Remove duplicate enum branches to keep the match concise."
+  },
+  "NON_EXHAUSTIVE_MAYBE": {
+    "code": "E017",
+    "category": "type",
+    "severity": "warning",
+    "message": "Non-exhaustive match on Maybe type; missing {missing} case.",
+    "help": "Add both null and non-null branches for Maybe matches."
+  },
+  "NON_EXHAUSTIVE_ENUM": {
+    "code": "E018",
+    "category": "type",
+    "severity": "warning",
+    "message": "Non-exhaustive match on {type}; missing: {missing}",
+    "help": "Add all uncovered enum branches, or add a wildcard."
+  },
+  "AMBIGUOUS_INTEROP_NUMERIC": {
+    "code": "E019",
+    "category": "type",
+    "severity": "warning",
+    "message": "Ambiguous interop call '{target}': mixing numeric kinds (Int={hasInt}, Long={hasLong}, Double={hasDouble}). Overload resolution may widen/box implicitly.",
+    "help": "Unify numeric argument types in interop calls to avoid implicit boxing and widening."
+  },
+  "LIST_ELEMENT_TYPE_MISMATCH": {
+    "code": "E020",
+    "category": "type",
+    "severity": "error",
+    "message": "List literal element type mismatch: expected {expected}, got {actual}",
+    "help": "Ensure all elements in a list literal have the same type."
+  },
+  "OPTIONAL_EXPECTED": {
+    "code": "E021",
+    "category": "type",
+    "severity": "error",
+    "message": "Optional value required here: expected Maybe or Option, but got {actual}",
+    "help": "Pass a Maybe/Option type or explicitly wrap the value."
+  },
+  "WORKFLOW_COMPENSATE_TYPE": {
+    "code": "E022",
+    "category": "type",
+    "severity": "error",
+    "message": "Compensate block for step '{step}' must return Result<Unit, {expectedErr}>, got {actual}",
+    "help": "Ensure the compensate block returns Result<Unit, E> where E is the step error type."
+  },
+  "WORKFLOW_COMPENSATE_MISSING": {
+    "code": "E023",
+    "category": "effect",
+    "severity": "warning",
+    "message": "Step '{step}' performs side effects but does not define a compensate block.",
+    "help": "Provide a compensate block for steps with IO side effects to enable rollback."
+  },
+  "WORKFLOW_RETRY_INVALID": {
+    "code": "E024",
+    "category": "type",
+    "severity": "error",
+    "message": "Workflow retry max attempts must be greater than zero (actual: {maxAttempts}).",
+    "help": "Set retry.maxAttempts to a positive integer."
+  },
+  "WORKFLOW_TIMEOUT_INVALID": {
+    "code": "E025",
+    "category": "type",
+    "severity": "error",
+    "message": "Workflow timeout must be greater than zero milliseconds (actual: {milliseconds}).",
+    "help": "Set the timeout to a positive value to ensure compensate logic can be triggered."
+  },
+  "WORKFLOW_MISSING_IO_EFFECT": {
+    "code": "E026",
+    "category": "effect",
+    "severity": "error",
+    "message": "Workflow '{func}' must declare @io effect before using a 'workflow' block.",
+    "help": "Add @io effect declaration to the function header."
+  },
+  "WORKFLOW_UNDECLARED_CAPABILITY": {
+    "code": "E027",
+    "category": "capability",
+    "severity": "error",
+    "message": "Workflow '{func}' step '{step}' uses capability {capability} that is not declared on the function header.",
+    "help": "Declare {capability} in the function header or adjust the step code."
+  },
+  "COMPENSATE_NEW_CAPABILITY": {
+    "code": "E028",
+    "category": "capability",
+    "severity": "error",
+    "message": "Compensate block for step '{step}' in function '{func}' introduces new capability {capability} that does not appear in the main step body.",
+    "help": "Compensate blocks can only reuse capabilities from the main step body."
+  },
+  "WORKFLOW_UNKNOWN_STEP_DEPENDENCY": {
+    "code": "E029",
+    "category": "scope",
+    "severity": "error",
+    "message": "Workflow step '{step}' depends on undefined step '{dependency}'.",
+    "help": "Only reference declared step names in the current workflow."
+  },
+  "WORKFLOW_CIRCULAR_DEPENDENCY": {
+    "code": "E030",
+    "category": "type",
+    "severity": "error",
+    "message": "Workflow contains circular step dependency: {cycle}",
+    "help": "Remove or restructure circular dependencies to enable topological execution."
+  },
+  "DECIMAL_DOUBLE_MIXING": {
+    "code": "E031",
+    "category": "type",
+    "severity": "error",
+    "message": "Cannot combine Decimal and Double in '{operator}'. Double is binary floating-point and would inject rounding error into an exact Decimal. Use Decimal literals (e.g. 1.08m) on both sides, or Int/Long (exact promotion).",
+    "help": "Make both operands Decimal (suffix m), or use Int/Long which promote exactly to Decimal."
+  },
+  "PII_ASSIGN_DOWNGRADE": {
+    "code": "E070",
+    "category": "pii",
+    "severity": "error",
+    "message": "Cannot assign PII data to lower-level target: {source} -> {target}",
+    "help": "Use a sanitization function or declare a matching @pii level on the target."
+  },
+  "PII_SINK_UNSANITIZED": {
+    "code": "E072",
+    "category": "pii",
+    "severity": "error",
+    "message": "PII level {level} data output to {sinkKind} without sanitization",
+    "help": "Call redact() or tokenize() before output to reduce sensitivity."
+  },
+  "PII_ARG_VIOLATION": {
+    "code": "E073",
+    "category": "pii",
+    "severity": "error",
+    "message": "PII argument type mismatch: expected {expected}, got {actual}",
+    "help": "Check the function signature to ensure PII levels and categories match."
+  },
+  "DUPLICATE_IMPORT_ALIAS": {
+    "code": "E100",
+    "category": "scope",
+    "severity": "warning",
+    "message": "Duplicate import alias '{alias}'.",
+    "help": "Use unique aliases for different imports to avoid shadowing."
+  },
+  "UNDEFINED_VARIABLE": {
+    "code": "E101",
+    "category": "scope",
+    "severity": "error",
+    "message": "Undefined variable: {name}",
+    "help": "Declare and initialize the variable before use."
+  },
+  "MULTIPLE_ENTRY_RULES": {
+    "code": "E102",
+    "category": "scope",
+    "severity": "error",
+    "message": "Multiple @entry rules in module: {rules}",
+    "help": "Keep at most one Rule annotated with @entry in a module."
+  },
+  "IMPORT_SYMBOL_CONFLICT": {
+    "code": "E103",
+    "category": "scope",
+    "severity": "warning",
+    "message": "Import symbol conflict: {symbol}",
+    "help": "Adjust the import alias or the local top-level declaration name to avoid the import symbol conflict."
+  },
+  "DUPLICATE_SYMBOL": {
+    "code": "E104",
+    "category": "scope",
+    "severity": "error",
+    "message": "Symbol '{name}' is already defined in this scope.",
+    "help": "Choose a different name or check for unintended duplicate declarations."
+  },
+  "EFF_MISSING_IO": {
+    "code": "E200",
+    "category": "effect",
+    "severity": "error",
+    "message": "Function '{func}' may perform I/O but is missing @io effect.",
+    "help": "Declare @io effect for functions that perform I/O."
+  },
+  "EFF_MISSING_CPU": {
+    "code": "E201",
+    "category": "effect",
+    "severity": "error",
+    "message": "Function '{func}' may perform CPU-bound work but is missing @cpu (or @io) effect.",
+    "help": "Declare @cpu or @io effect for CPU-intensive functions."
+  },
+  "EFF_SUPERFLUOUS_IO_CPU_ONLY": {
+    "code": "E202",
+    "category": "effect",
+    "severity": "info",
+    "message": "Function '{func}' declares @io but only CPU-like work found; @io subsumes @cpu and may be unnecessary.",
+    "help": "If the function only does CPU work, consider removing the redundant @io declaration."
+  },
+  "EFF_SUPERFLUOUS_IO": {
+    "code": "E203",
+    "category": "effect",
+    "severity": "warning",
+    "message": "Function '{func}' declares @io but no obvious I/O found.",
+    "help": "Confirm @io is needed; remove if no I/O behavior exists."
+  },
+  "EFF_SUPERFLUOUS_CPU": {
+    "code": "E204",
+    "category": "effect",
+    "severity": "warning",
+    "message": "Function '{func}' declares @cpu but no obvious CPU-bound work found.",
+    "help": "Remove the redundant @cpu declaration or add corresponding CPU work."
+  },
+  "EFF_INFER_MISSING_IO": {
+    "code": "E205",
+    "category": "effect",
+    "severity": "error",
+    "message": "Function '{func}' missing @io effect declaration, inference requires IO.",
+    "help": "Add @io effect based on inference results."
+  },
+  "EFF_INFER_MISSING_CPU": {
+    "code": "E206",
+    "category": "effect",
+    "severity": "error",
+    "message": "Function '{func}' missing @cpu effect declaration, inference requires CPU (or @io).",
+    "help": "Add @cpu or @io effect based on inference results."
+  },
+  "EFF_INFER_REDUNDANT_IO": {
+    "code": "E207",
+    "category": "effect",
+    "severity": "warning",
+    "message": "Function '{func}' declares @io but no IO side effects inferred.",
+    "help": "Confirm whether to keep the @io declaration."
+  },
+  "EFF_INFER_REDUNDANT_CPU": {
+    "code": "E208",
+    "category": "effect",
+    "severity": "warning",
+    "message": "Function '{func}' declares @cpu but no CPU side effects inferred.",
+    "help": "Remove the @cpu declaration if no CPU side effects exist."
+  },
+  "EFF_INFER_REDUNDANT_CPU_WITH_IO": {
+    "code": "E209",
+    "category": "effect",
+    "severity": "warning",
+    "message": "Function '{func}' declares both @cpu and @io; @cpu is redundant since @io is required.",
+    "help": "Keep @io only; remove the redundant @cpu."
+  },
+  "EFFECT_VAR_UNDECLARED": {
+    "code": "E210",
+    "category": "type",
+    "severity": "error",
+    "message": "Effect variable {var} undeclared",
+    "help": "Add the effect type parameter to the function signature's effect parameter list."
+  },
+  "EFFECT_VAR_UNRESOLVED": {
+    "code": "E211",
+    "category": "type",
+    "severity": "error",
+    "message": "Effect variable {vars} could not be resolved to concrete effects",
+    "help": "Provide explicit effects (pure/cpu/io/workflow) or remove unused effect variables."
+  },
+  "CAPABILITY_NOT_ALLOWED": {
+    "code": "E300",
+    "category": "capability",
+    "severity": "error",
+    "message": "Function '{func}' requires {cap} capability but manifest for module '{module}' denies it.",
+    "help": "Update the capability manifest or modify the function to comply."
+  },
+  "EFF_CAP_MISSING": {
+    "code": "E301",
+    "category": "capability",
+    "severity": "error",
+    "message": "Function '{func}' uses {cap} capability but header declares [{declared}].",
+    "help": "Declare the actually used capabilities in the function header."
+  },
+  "EFF_CAP_SUPERFLUOUS": {
+    "code": "E302",
+    "category": "capability",
+    "severity": "info",
+    "message": "Function '{func}' declares {cap} capability but it is not used.",
+    "help": "Remove unused capability declarations for clarity."
+  },
+  "CAPABILITY_INFER_MISSING_IO": {
+    "code": "E303",
+    "category": "capability",
+    "severity": "error",
+    "message": "Function '{func}' uses IO capabilities [{capabilities}] but is missing @io effect (e.g., {calls}).",
+    "help": "Declare @io effect in the function header, or remove related calls to stay pure."
+  },
+  "CAPABILITY_INFER_MISSING_CPU": {
+    "code": "E304",
+    "category": "capability",
+    "severity": "error",
+    "message": "Function '{func}' performs CPU capability calls (e.g., {calls}) but declares neither @cpu nor @io effect.",
+    "help": "Add @cpu or @io effect to cover CPU capabilities."
+  },
+  "PII_HTTP_UNENCRYPTED": {
+    "code": "E400",
+    "category": "pii",
+    "severity": "error",
+    "message": "PII data transmitted over HTTP without encryption",
+    "help": "Use an encrypted channel (HTTPS) or sanitize before transmitting PII data."
+  },
+  "PII_ANNOTATION_MISSING": {
+    "code": "E401",
+    "category": "pii",
+    "severity": "error",
+    "message": "PII annotation missing for value flowing into '{sink}'",
+    "help": "Add @pii annotation to sensitive data for tracking."
+  },
+  "PII_SENSITIVITY_MISMATCH": {
+    "code": "E402",
+    "category": "pii",
+    "severity": "warning",
+    "message": "PII sensitivity mismatch: required {required}, got {actual}",
+    "help": "Adjust the data sensitivity level or update the process requirements."
+  },
+  "PII_MISSING_CONSENT_CHECK": {
+    "code": "E403",
+    "category": "pii",
+    "severity": "warning",
+    "message": "Function '{func}' processes PII data without consent check (GDPR Art. 6)",
+    "help": "Call checkConsent() or add @consent_required annotation before processing PII data."
+  },
+  "PII_ANALYZER_FAILED": {
+    "code": "E404",
+    "category": "pii",
+    "severity": "error",
+    "message": "PII safety analysis failed for this module — the editor cannot verify whether sensitive data is correctly handled. This policy should not be deployed until the analysis succeeds. Internal reason: {reason}",
+    "help": "Try saving and reloading the file. If the error persists, contact your administrator or report this issue with the source code attached."
+  },
+  "ASYNC_START_NOT_WAITED": {
+    "code": "E500",
+    "category": "async",
+    "severity": "error",
+    "message": "Started async task '{task}' not waited",
+    "help": "Call wait on started async tasks to ensure completion."
+  },
+  "ASYNC_WAIT_NOT_STARTED": {
+    "code": "E501",
+    "category": "async",
+    "severity": "error",
+    "message": "Waiting for async task '{task}' that was never started",
+    "help": "Ensure the task name in wait matches a started task."
+  },
+  "ASYNC_DUPLICATE_START": {
+    "code": "E502",
+    "category": "async",
+    "severity": "error",
+    "message": "Async task '{task}' started multiple times ({count} occurrences)",
+    "help": "Avoid starting the same task multiple times; reuse or rename."
+  },
+  "ASYNC_DUPLICATE_WAIT": {
+    "code": "E503",
+    "category": "async",
+    "severity": "warning",
+    "message": "Async task '{task}' waited multiple times ({count} occurrences)",
+    "help": "Ensure each task is waited on only once, or use a separate synchronization mechanism."
+  },
+  "ASYNC_WAIT_BEFORE_START": {
+    "code": "E504",
+    "category": "async",
+    "severity": "error",
+    "message": "Wait for async task '{task}' occurs before any matching start",
+    "help": "Execute start before wait, and ensure both are on compatible control paths."
+  },
+  "PII_IMPLICIT_UPLEVEL": {
+    "code": "W071",
+    "category": "pii",
+    "severity": "warning",
+    "message": "Implicit PII level escalation detected: {source} -> {target}",
+    "help": "Add explicit type annotations for level changes to aid auditing."
+  },
+  "PII_SINK_UNKNOWN": {
+    "code": "W074",
+    "category": "pii",
+    "severity": "warning",
+    "message": "PII data may flow to {sinkKind} without annotation",
+    "help": "Add @pii annotation to track sensitive data flow."
+  },
+  "WORKFLOW_RETRY_INCONSISTENT": {
+    "code": "W105",
+    "category": "type",
+    "severity": "warning",
+    "message": "Workflow retry configuration may be unreasonable: {reason}",
+    "help": "Check the combination of total wait time, maxAttempts, and backoff strategy."
+  },
+  "WORKFLOW_TIMEOUT_UNREASONABLE": {
+    "code": "W106",
+    "category": "type",
+    "severity": "warning",
+    "message": "Workflow timeout configuration may be unreasonable: {reason}",
+    "help": "Check whether the timeout value is too large or too small."
+  }
+}
