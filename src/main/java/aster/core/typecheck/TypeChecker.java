@@ -205,7 +205,7 @@ public final class TypeChecker {
 
     // 【修复】在模块作用域（当前作用域）注册函数符号，确保跨函数调用可见
     // 存储函数声明的最高级别效果，用于后续效果推断
-    // 计算所有声明效果中的最大值（PURE < CPU < IO < ASYNC）
+    // 计算所有声明效果中的最大值（PURE < CPU < IO）
     Optional<String> declaredEffect;
     if (func.effects.isEmpty()) {
       declaredEffect = Optional.empty();
