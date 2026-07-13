@@ -1,0 +1,448 @@
+{
+  "version": "aster-canonical-json/v1",
+  "cases": [
+    {
+      "name": "empty-object",
+      "input": {},
+      "decimalPaths": [],
+      "canonical": "{}",
+      "hash": "f6f3fa8261aa58e7885494398a1f39dedb8da20bbaf43e294f856f544fafb9e1"
+    },
+    {
+      "name": "key-ordering",
+      "input": {
+        "c": 3,
+        "a": 1,
+        "b": 2
+      },
+      "decimalPaths": [],
+      "canonical": "{\"a\":1,\"b\":2,\"c\":3}",
+      "hash": "79036aa14afada58e49171d3625929af2bbcb901750ce3d51d906a9b85ab6f9f"
+    },
+    {
+      "name": "nested-ordering",
+      "input": {
+        "z": {
+          "y": 1,
+          "x": 2
+        },
+        "a": 3
+      },
+      "decimalPaths": [],
+      "canonical": "{\"a\":3,\"z\":{\"x\":2,\"y\":1}}",
+      "hash": "7aa8aa0e2613b6a6ec603cbf5a3088b2d1f34876f61f8e73bce1ea3273ea1ddb"
+    },
+    {
+      "name": "array-preserves-order",
+      "input": [
+        3,
+        1,
+        2
+      ],
+      "decimalPaths": [],
+      "canonical": "[3,1,2]",
+      "hash": "3daebcda12bde313bb851aa8474c93469f28ca685b9c40410336233025c7e245"
+    },
+    {
+      "name": "uppercase-before-lowercase",
+      "input": {
+        "a": 1,
+        "A": 2
+      },
+      "decimalPaths": [],
+      "canonical": "{\"A\":2,\"a\":1}",
+      "hash": "61d0c7ba2e384302d07f2b0b7bf87e90187536374cc34204175f9e4071df74c6"
+    },
+    {
+      "name": "supplementary-plane-keys",
+      "input": {
+        "😀": 1,
+        "￿": 2
+      },
+      "decimalPaths": [],
+      "canonical": "{\"￿\":2,\"😀\":1}",
+      "hash": "eb15e6e7121683182a82fcc707821d6be7917c4ee4727c8b9ac41392f277fb41"
+    },
+    {
+      "name": "null-explicit",
+      "input": {
+        "a": null
+      },
+      "decimalPaths": [],
+      "canonical": "{\"a\":null}",
+      "hash": "77a4d4d37e14f10cb9f9985bcf900895d0c90c48d8fc2b9679be71f563406d01"
+    },
+    {
+      "name": "null-vs-missing-A",
+      "input": {
+        "a": 1,
+        "b": null
+      },
+      "decimalPaths": [],
+      "canonical": "{\"a\":1,\"b\":null}",
+      "hash": "1a71015c49ddcea3b151049a6162080d764cfdcd214d7205b85541b345054025"
+    },
+    {
+      "name": "null-vs-missing-B",
+      "input": {
+        "a": 1
+      },
+      "decimalPaths": [],
+      "canonical": "{\"a\":1}",
+      "hash": "c119cbf81654971fff9be4c3fca048f9141febed3c4dd0bce1a08d93313c6f69"
+    },
+    {
+      "name": "empty-values-kept",
+      "input": {
+        "o": {},
+        "arr": [],
+        "f": false,
+        "z": 0,
+        "s": ""
+      },
+      "decimalPaths": [],
+      "canonical": "{\"arr\":[],\"f\":false,\"o\":{},\"s\":\"\",\"z\":0}",
+      "hash": "af74a48b2249f6e4692493504b85f5b8f4ba4ccdfd9016a4f547111ae24d0d6c"
+    },
+    {
+      "name": "safe-integer",
+      "input": {
+        "n": 9007199254740991
+      },
+      "decimalPaths": [],
+      "canonical": "{\"n\":9007199254740991}",
+      "hash": "6f3152d51f7bcf75bedcf0b6987888e3de1187b068114ad7a8723e7ba1de840c"
+    },
+    {
+      "name": "negative-integer",
+      "input": {
+        "n": -42
+      },
+      "decimalPaths": [],
+      "canonical": "{\"n\":-42}",
+      "hash": "1aaac9a9ebf76dcde24907362aa30e02a856370b5902d6d655ac4137cc09432a"
+    },
+    {
+      "name": "neg-zero",
+      "input": {
+        "n": 0
+      },
+      "decimalPaths": [],
+      "canonical": "{\"n\":0}",
+      "hash": "516f6d8fa0df169f373165d8de44fe89690f5ace19a6cfa1139a3e9a1552a9ba"
+    },
+    {
+      "name": "string-not-trimmed",
+      "input": {
+        "s": "  Hello  "
+      },
+      "decimalPaths": [],
+      "canonical": "{\"s\":\"  Hello  \"}",
+      "hash": "4a874fa2246f19fa4ba94692e64422aaf02143068741162fcd457cf4b7fd5650"
+    },
+    {
+      "name": "string-vs-number",
+      "input": {
+        "a": 1,
+        "b": "1"
+      },
+      "decimalPaths": [],
+      "canonical": "{\"a\":1,\"b\":\"1\"}",
+      "hash": "0cccd2a7a4f8b4684fad03ff180826d106c9f0334437d349b319c5e10b2a80c5"
+    },
+    {
+      "name": "string-escapes",
+      "input": {
+        "s": "a\"b\\c\nd\te"
+      },
+      "decimalPaths": [],
+      "canonical": "{\"s\":\"a\\\"b\\\\c\\nd\\te\"}",
+      "hash": "3528236ff6db6cb7293f5e656cbfe6a16038c48d488eaa7bd60c81a0671ea0e6"
+    },
+    {
+      "name": "unicode-string",
+      "input": {
+        "name": "静夜思",
+        "hi": "नमस्ते"
+      },
+      "decimalPaths": [],
+      "canonical": "{\"hi\":\"नमस्ते\",\"name\":\"静夜思\"}",
+      "hash": "2d8b230ded447eaa9e078f53dfa11e7522554e1c17500814067e129dbf7cd54f"
+    },
+    {
+      "name": "decimal-trailing-zero",
+      "input": {
+        "amount": "100.500"
+      },
+      "decimalPaths": [
+        "amount"
+      ],
+      "canonical": "{\"amount\":100.5}",
+      "hash": "7a1f7f1d164c156faac856f2d4abb7de5df4ceec1561ebaf1ebe4c4b72ddf46c"
+    },
+    {
+      "name": "decimal-integer-form",
+      "input": {
+        "amount": "42.0"
+      },
+      "decimalPaths": [
+        "amount"
+      ],
+      "canonical": "{\"amount\":42}",
+      "hash": "b280ba8b6372a14401a06cc7412485c5528fb213a1376a0a1d3560f57bc08afc"
+    },
+    {
+      "name": "decimal-leading-zero",
+      "input": {
+        "amount": "007.50"
+      },
+      "decimalPaths": [
+        "amount"
+      ],
+      "canonical": "{\"amount\":7.5}",
+      "hash": "2dcdb68855ad809b5b421e85007b73f43d93ada210950ccfb365c32a775c9688"
+    },
+    {
+      "name": "decimal-neg-zero",
+      "input": {
+        "amount": "-0.00"
+      },
+      "decimalPaths": [
+        "amount"
+      ],
+      "canonical": "{\"amount\":0}",
+      "hash": "20859a64f83af0a2d65198b43841144c858ae630a7e2580d64f28ca717c5af2d"
+    },
+    {
+      "name": "decimal-negative",
+      "input": {
+        "amount": "-100.50"
+      },
+      "decimalPaths": [
+        "amount"
+      ],
+      "canonical": "{\"amount\":-100.5}",
+      "hash": "0cd7216c79be91e252918f130cb7b1d71290ae020806b7f1c0300b145a9e7d85"
+    },
+    {
+      "name": "decimal-exponent",
+      "input": {
+        "amount": "1.5e2"
+      },
+      "decimalPaths": [
+        "amount"
+      ],
+      "canonical": "{\"amount\":150}",
+      "hash": "2ac8e048f14f5c51d0d7c7b76d17155b8166d1adffa80132dad580ac2b5a5870"
+    },
+    {
+      "name": "decimal-array-wildcard",
+      "input": {
+        "applicants": [
+          {
+            "income": "5000.00"
+          },
+          {
+            "income": "6000.0"
+          }
+        ]
+      },
+      "decimalPaths": [
+        "applicants[].income"
+      ],
+      "canonical": "{\"applicants\":[{\"income\":5000},{\"income\":6000}]}",
+      "hash": "1162ce8575c9ba9c1f8b963c71841f4cd3bc9409cf6b2e06fa13338e374f35c8"
+    },
+    {
+      "name": "credit-application",
+      "input": {
+        "requestedAmount": "50000.00",
+        "income": "120000.0",
+        "creditScore": 680,
+        "applicantName": "Alice"
+      },
+      "decimalPaths": [
+        "requestedAmount",
+        "income"
+      ],
+      "canonical": "{\"applicantName\":\"Alice\",\"creditScore\":680,\"income\":120000,\"requestedAmount\":50000}",
+      "hash": "85ab63de9c3cde48b3d4e5882c33ea6b0c8b4e9fc32edffa271915eb8db32c23"
+    },
+    {
+      "name": "credit-boundary-679",
+      "input": {
+        "creditScore": 679
+      },
+      "decimalPaths": [],
+      "canonical": "{\"creditScore\":679}",
+      "hash": "fd8c1ff1da5776d50e8658c19630954e0a77f5ceeb2fc13b3e31e0f9f976b40a"
+    },
+    {
+      "name": "credit-boundary-680",
+      "input": {
+        "creditScore": 680
+      },
+      "decimalPaths": [],
+      "canonical": "{\"creditScore\":680}",
+      "hash": "9f2a3d35c80e5fbbb25a8d03623e6b49f5a0733391261eccfc84f67150510cdf"
+    },
+    {
+      "name": "del-char-0x7f",
+      "input": {
+        "s": "ab"
+      },
+      "decimalPaths": [],
+      "canonical": "{\"s\":\"ab\"}",
+      "hash": "863d10f24b7ba7daa1b55e3b5d84a59f8e5e1872607598f733cc70f3dabfad0e"
+    },
+    {
+      "name": "u2028-u2029-not-escaped",
+      "input": {
+        "s": "a  b"
+      },
+      "decimalPaths": [],
+      "canonical": "{\"s\":\"a  b\"}",
+      "hash": "92b75b770df7fed04f14493522389c0e890fe8b6df8bb23e876121a4af98f0da"
+    },
+    {
+      "name": "valid-surrogate-pair-in-value",
+      "input": {
+        "s": "😀 emoji 💰"
+      },
+      "decimalPaths": [],
+      "canonical": "{\"s\":\"😀 emoji 💰\"}",
+      "hash": "8a35a9976d31b2679a0b6d1a56ca83a9469cd3991754ca2ed7741f6b6c7ef440"
+    },
+    {
+      "name": "control-chars-escaped",
+      "input": {
+        "s": "\u0001\u001f"
+      },
+      "decimalPaths": [],
+      "canonical": "{\"s\":\"\\u0001\\u001f\"}",
+      "hash": "c24341fa26b6f4ecd4d6d94c130110f787a0564fe38a4f9989c06f259e917dea"
+    },
+    {
+      "name": "decimal-large-int-string",
+      "input": {
+        "x": "9007199254740993"
+      },
+      "decimalPaths": [
+        "x"
+      ],
+      "canonical": "{\"x\":9007199254740993}",
+      "hash": "ae599608cbe67fd15c63a300a2ce29fe25c76f1d64eb8d5b49ad7f3f04480c39"
+    },
+    {
+      "name": "decimal-many-frac-digits",
+      "input": {
+        "x": "0.123456789012345"
+      },
+      "decimalPaths": [
+        "x"
+      ],
+      "canonical": "{\"x\":0.123456789012345}",
+      "hash": "55dcbc7d18567e4c990654b2405bde7ce7480e3f957a14939b8a90e49655a0a2"
+    },
+    {
+      "name": "lone-high-surrogate-value",
+      "input": {
+        "s": "x\ud800y"
+      },
+      "decimalPaths": [],
+      "canonical": "{\"s\":\"x\\ud800y\"}",
+      "hash": "bf256e8f3bffea20b376d3713f6f1aaf5b18e648d393236ca95cef4c1e9f182c"
+    },
+    {
+      "name": "lone-low-surrogate-value",
+      "input": {
+        "s": "x\udc00y"
+      },
+      "decimalPaths": [],
+      "canonical": "{\"s\":\"x\\udc00y\"}",
+      "hash": "0aa3701bf7b9795743de70bd7568a36a1097d5612f5d2ef88c70a87e754c23f5"
+    },
+    {
+      "name": "lone-surrogate-key",
+      "input": {
+        "\ud800": 1,
+        "a": 2
+      },
+      "decimalPaths": [],
+      "canonical": "{\"a\":2,\"\\ud800\":1}",
+      "hash": "dc9356effd594f7bc600846a38ae59b1441a6801a3799378aac00c0baee7429f"
+    },
+    {
+      "name": "mixed-surrogate-key-ordering",
+      "input": {
+        "\ud800": 1,
+        "\udc00": 2,
+        "😀": 3,
+        "￿": 4
+      },
+      "decimalPaths": [],
+      "canonical": "{\"\\ud800\":1,\"\\udc00\":2,\"￿\":4,\"😀\":3}",
+      "hash": "bd0fbadc7a05622cb27750a0c9d4aad94889c4b334aac1c91e77ef02df55c02d"
+    }
+  ],
+  "negativeCases": [
+    {
+      "name": "neg-non-decimal-float",
+      "input": {
+        "n": 1.5
+      },
+      "decimalPaths": [],
+      "expectedReason": "NON_INTEGER_NUMBER"
+    },
+    {
+      "name": "neg-decimal-path-float",
+      "input": {
+        "x": 100.5
+      },
+      "decimalPaths": [
+        "x"
+      ],
+      "expectedReason": "NON_INTEGER_NUMBER"
+    },
+    {
+      "name": "neg-decimal-whitespace",
+      "input": {
+        "x": " 1.5 "
+      },
+      "decimalPaths": [
+        "x"
+      ],
+      "expectedReason": "NON_CANONICAL_NUMBER"
+    },
+    {
+      "name": "neg-decimal-huge-exponent",
+      "input": {
+        "x": "1e+0000000001"
+      },
+      "decimalPaths": [
+        "x"
+      ],
+      "expectedReason": "DECIMAL_TOO_LARGE"
+    },
+    {
+      "name": "neg-decimal-illegal",
+      "input": {
+        "x": "abc"
+      },
+      "decimalPaths": [
+        "x"
+      ],
+      "expectedReason": "NON_CANONICAL_NUMBER"
+    },
+    {
+      "name": "neg-decimal-exp-int-overflow",
+      "input": {
+        "x": "1e9999999999"
+      },
+      "decimalPaths": [
+        "x"
+      ],
+      "expectedReason": "DECIMAL_TOO_LARGE"
+    }
+  ]
+}
