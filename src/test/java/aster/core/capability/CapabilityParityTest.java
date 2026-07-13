@@ -81,6 +81,38 @@ class CapabilityParityTest {
     }
 
     @Test
+    void effectClassMatchesJson() throws Exception {
+        // A3: capability 的 effect 分类（io/cpu）双引擎一致 —— Java effectClass() ↔ json class。
+        List<String> mismatches = new ArrayList<>();
+        var jsonCpuSet = new TreeSet<String>();
+        for (JsonNode c : loadCapabilities()) {
+            String enumName = c.get("enumName").asText();
+            String jsonClass = c.get("class").asText();
+            if ("cpu".equals(jsonClass)) {
+                jsonCpuSet.add(enumName);
+            }
+            CapabilityKind kind = CapabilityKind.valueOf(enumName);
+            String javaClass = kind.effectClass().name().toLowerCase();
+            if (!jsonClass.equals(javaClass)) {
+                mismatches.add(enumName + ".class: json=" + jsonClass + " java=" + javaClass);
+            }
+        }
+        assertTrue(mismatches.isEmpty(),
+                "effect class 与 json 不一致:\n" + String.join("\n", mismatches));
+
+        // 钉死 cpu-class 集合 = {CPU, CRYPTO}（本地计算密集），防未来 drift。
+        var expectedCpu = new TreeSet<>(java.util.Set.of("CPU", "CRYPTO"));
+        assertEquals(expectedCpu, jsonCpuSet, "json cpu-class 集合应为 {CPU, CRYPTO}");
+        var javaCpuSet = new TreeSet<String>();
+        for (CapabilityKind k : CapabilityKind.values()) {
+            if (k.isCpuClass()) {
+                javaCpuSet.add(k.name());
+            }
+        }
+        assertEquals(expectedCpu, javaCpuSet, "Java cpu-class 集合应为 {CPU, CRYPTO}");
+    }
+
+    @Test
     void fromLabelResolvesEveryDisplayName() throws Exception {
         List<String> failures = new ArrayList<>();
         for (JsonNode c : loadCapabilities()) {

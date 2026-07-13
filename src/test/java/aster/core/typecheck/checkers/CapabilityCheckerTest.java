@@ -76,6 +76,50 @@ class CapabilityCheckerTest {
     assertEquals(ErrorCode.CAPABILITY_INFER_MISSING_IO, diagnostics.get(0).code());
   }
 
+  // ===== A3: Crypto 是 cpu-class（与 TS 对齐），缺声明报 MISSING_CPU 非 MISSING_IO =====
+
+  @Test
+  void cryptoHashReportsMissingCpuNotIo() {
+    // Hash.sha256（Crypto，cpu-class）无 effect → CAPABILITY_INFER_MISSING_CPU。
+    var func = createFunc("digest", List.of(), blockWithStatements(returnCall("Hash.sha256")));
+
+    var diagnostics = checker.checkModule(List.of(func));
+
+    assertEquals(1, diagnostics.size());
+    assertEquals(ErrorCode.CAPABILITY_INFER_MISSING_CPU, diagnostics.get(0).code());
+  }
+
+  @Test
+  void cryptoKmsReportsMissingCpuNotIo() {
+    // Kms.encrypt（Crypto，cpu-class）无 effect → MISSING_CPU（远程 KMS 应另加 Network/Secrets）。
+    var func = createFunc("encrypt", List.of(), blockWithStatements(returnCall("Kms.encrypt")));
+
+    var diagnostics = checker.checkModule(List.of(func));
+
+    assertEquals(1, diagnostics.size());
+    assertEquals(ErrorCode.CAPABILITY_INFER_MISSING_CPU, diagnostics.get(0).code());
+  }
+
+  @Test
+  void cryptoWithCpuEffectIsClean() {
+    // Crypto + 声明 cpu → 无诊断（cpu-class 需 @cpu 或 @io）。
+    var func = createFunc("digest", List.of("cpu"), blockWithStatements(returnCall("Hash.sha256")));
+
+    var diagnostics = checker.checkModule(List.of(func));
+
+    assertTrue(diagnostics.isEmpty());
+  }
+
+  @Test
+  void cryptoWithIoEffectIsClean() {
+    // Crypto + 声明 io → 无诊断（io 隐含可计算，覆盖 cpu-class）。
+    var func = createFunc("digest", List.of("io"), blockWithStatements(returnCall("Hash.sha256")));
+
+    var diagnostics = checker.checkModule(List.of(func));
+
+    assertTrue(diagnostics.isEmpty());
+  }
+
   @Test
   void checkModuleIgnoresNullBody() {
     var func = createFunc("noop", List.of(), null);
