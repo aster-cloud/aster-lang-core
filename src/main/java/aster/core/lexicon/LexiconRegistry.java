@@ -40,7 +40,7 @@ public final class LexiconRegistry {
      * 全部 lexicon 加载失败（chicken-egg 发布顺序死锁）。迁移完成后可移除。
      */
     private static final Set<SemanticTokenKind> OPTIONAL_KINDS =
-        EnumSet.of(SemanticTokenKind.IMPORT_VERSION, SemanticTokenKind.THEN);
+        EnumSet.of(SemanticTokenKind.IMPORT_VERSION, SemanticTokenKind.THEN, SemanticTokenKind.APPLY);
 
     private static final LexiconRegistry INSTANCE = new LexiconRegistry();
 

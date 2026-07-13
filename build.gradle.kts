@@ -84,6 +84,8 @@ dependencies {
     testRuntimeOnly(asterLibs.en)
     testRuntimeOnly(asterLibs.zh)
     testRuntimeOnly(asterLibs.de)
+    // hi-IN 语言包：补齐后 exportLexicons 才导出 hi-IN，verify-lexicon-sync 才能守门。
+    testRuntimeOnly(asterLibs.hi)
 
     // 共享测试 corpus：双引擎等价 + 单端 fixture
     testImplementation(asterLibs.test)
@@ -244,6 +246,7 @@ dependencies {
     langPacks(asterLibs.en)
     langPacks(asterLibs.zh)
     langPacks(asterLibs.de)
+    langPacks(asterLibs.hi)
 }
 
 // Lexicon JSON 导出任务（供 aster-lang-ts / aster-cloud 代码生成消费）

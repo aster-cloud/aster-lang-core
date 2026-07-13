@@ -24,6 +24,7 @@
     "MATCH": "Match",
     "WHEN": "When",
     "RETURN": "Return",
+    "APPLY": "apply",
     "RESULT_IS": "the result is",
     "FOR_EACH": "for each",
     "IN": "in",
