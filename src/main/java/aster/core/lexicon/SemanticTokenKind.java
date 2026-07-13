@@ -92,6 +92,11 @@ public enum SemanticTokenKind {
     /** 返回语句 - "return" / "返回" */
     RETURN,
 
+    /** 无括号单参调用引入词（ADR 0027）- "apply" / "应用"。软关键词：仅 `apply &lt;名&gt; to &lt;expr&gt;`
+     *  形态触发，其余位置仍是普通标识符。与 TS SemanticTokenKind.APPLY 对齐。
+     *  迁移期在 LexiconRegistry.OPTIONAL_KINDS 中，各语言包补齐 apply 翻译后可移除。 */
+    APPLY,
+
     /** 结果是（同义词） - "the result is" / "结果为" */
     RESULT_IS,
 
@@ -322,7 +327,7 @@ public enum SemanticTokenKind {
     public static final Map<String, List<SemanticTokenKind>> CATEGORIES = Map.ofEntries(
         Map.entry("module", Arrays.asList(MODULE_DECL, IMPORT, IMPORT_ALIAS, IMPORT_VERSION)),
         Map.entry("type", Arrays.asList(TYPE_DEF, TYPE_WITH, TYPE_HAS, TYPE_ONE_OF)),
-        Map.entry("function", Arrays.asList(FUNC_TO, FUNC_GIVEN, FUNC_PRODUCE, FUNC_PERFORMS)),
+        Map.entry("function", Arrays.asList(FUNC_TO, FUNC_GIVEN, FUNC_PRODUCE, FUNC_PERFORMS, APPLY)),
         Map.entry("control", Arrays.asList(IF, OTHERWISE, THEN, MATCH, WHEN, RETURN, RESULT_IS, FOR_EACH, IN)),
         Map.entry("variable", Arrays.asList(LET, BE, SET, TO_WORD)),
         Map.entry("boolean", Arrays.asList(OR, AND, NOT)),
