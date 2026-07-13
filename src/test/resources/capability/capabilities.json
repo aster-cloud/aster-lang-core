@@ -1,0 +1,65 @@
+{
+  "$comment": "Capability 能力表单源真值 (双引擎共享契约, 类比 error_codes.json)。ts CapabilityKind (src/config/semantic.ts) 与 Java CapabilityKind (aster-lang-core/.../capability/CapabilityKind.java) 均以此为准, 由 parity 测试守门。displayName 为 CNL 表面名, prefixes 为调用前缀推断表 (CapabilityInference / CAPABILITY_PREFIXES)。注: capability 的 effect 分类 (io/cpu) 双引擎当前存在 drift (ts effects.ts CPU_CLASS 含 Crypto, Java CapabilityChecker 纯 cap!=CPU=>io), 待独立组 A3 统一后再纳入本单源, 本文件暂不固化 class 以免'看似单源实际漂移'。",
+  "capabilities": [
+    {
+      "enumName": "HTTP",
+      "displayName": "Http",
+      "prefixes": ["Http."]
+    },
+    {
+      "enumName": "NETWORK",
+      "displayName": "Network",
+      "prefixes": ["Net.", "Network.", "Tcp.", "Udp.", "Socket.", "Ws.", "WebSocket.", "Sse."]
+    },
+    {
+      "enumName": "SQL",
+      "displayName": "Sql",
+      "prefixes": ["Db.", "Sql."]
+    },
+    {
+      "enumName": "TIME",
+      "displayName": "Time",
+      "prefixes": ["Time.", "Clock."]
+    },
+    {
+      "enumName": "FILES",
+      "displayName": "Files",
+      "prefixes": ["Files.", "Fs."]
+    },
+    {
+      "enumName": "SECRETS",
+      "displayName": "Secrets",
+      "prefixes": ["Secrets."]
+    },
+    {
+      "enumName": "CRYPTO",
+      "displayName": "Crypto",
+      "prefixes": ["Crypto.", "Hash.", "Cipher.", "Sign.", "Kms.", "Jwt."]
+    },
+    {
+      "enumName": "PROCESS",
+      "displayName": "Process",
+      "prefixes": ["Process.", "Proc.", "Exec.", "Shell.", "Env.", "Os."]
+    },
+    {
+      "enumName": "AI_MODEL",
+      "displayName": "AiModel",
+      "prefixes": ["Ai."]
+    },
+    {
+      "enumName": "CPU",
+      "displayName": "Cpu",
+      "prefixes": []
+    },
+    {
+      "enumName": "PAYMENT",
+      "displayName": "Payment",
+      "prefixes": ["Payment."]
+    },
+    {
+      "enumName": "INVENTORY",
+      "displayName": "Inventory",
+      "prefixes": ["Inventory."]
+    }
+  ]
+}

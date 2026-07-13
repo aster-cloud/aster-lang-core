@@ -10,10 +10,15 @@ import java.util.Optional;
  */
 public enum CapabilityKind {
   HTTP("Http"),
+  // 与 TS 端 capability taxonomy 对齐（shared/capabilities.json 单源）：
+  // NETWORK/CRYPTO/PROCESS 为 TS 后加（commit 063ff6d），Java 补齐消除双引擎枚举 drift。
+  NETWORK("Network"),
   SQL("Sql"),
   TIME("Time"),
   FILES("Files"),
   SECRETS("Secrets"),
+  CRYPTO("Crypto"),
+  PROCESS("Process"),
   AI_MODEL("AiModel"),
   CPU("Cpu"),
   PAYMENT("Payment"),
