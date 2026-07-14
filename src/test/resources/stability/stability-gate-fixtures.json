@@ -1,0 +1,127 @@
+{
+  "version": "stability-gate/v1",
+  "cases": [
+    {
+      "name": "workflow",
+      "src": "Module test.wf.\n\nRule process, produce Text:\n  Start task as async fetch().\n  Wait for task.\n  Return \"done\".\n",
+      "features": [
+        "workflow",
+        "workflow"
+      ],
+      "nodeKinds": [
+        "Start",
+        "Wait"
+      ]
+    },
+    {
+      "name": "version-import",
+      "src": "Module test.vi.\n\nUse risk.Scoring version 2 as Score.\nUse Http as H.\n\nRule greet, produce Text:\n  Return \"hi\".\n",
+      "features": [
+        "version-import"
+      ],
+      "nodeKinds": [
+        "Import"
+      ]
+    },
+    {
+      "name": "effect-capabilities",
+      "src": "Module test.eff.\n\nRule fetch, produce Text. It performs io [Http]:\n  Return Http.get(\"/x\").\n",
+      "features": [
+        "effect-capabilities"
+      ],
+      "nodeKinds": [
+        "Func"
+      ]
+    },
+    {
+      "name": "pii",
+      "src": "Module test.pii.\n\nRule secure given field as @pii(L2, email) Text, produce Text:\n  Return field.\n",
+      "features": [
+        "pii"
+      ],
+      "nodeKinds": [
+        "PiiType"
+      ]
+    },
+    {
+      "name": "pii-nested-list",
+      "src": "Module test.pii_nested.\n\nRule collect given items as List of @pii(L2, email) Text, produce Text:\n  Return \"ok\".\n",
+      "features": [
+        "pii"
+      ],
+      "nodeKinds": [
+        "PiiType"
+      ]
+    },
+    {
+      "name": "deprecated-annotation",
+      "src": "Module test.anno.\n\n@deprecated\nRule oldRule, produce Text:\n  Return \"x\".\n",
+      "features": [
+        "deprecated-annotation"
+      ],
+      "nodeKinds": [
+        "Annotation"
+      ]
+    },
+    {
+      "name": "example-annotation",
+      "src": "Module test.anno2.\n\n@example\nRule demo, produce Text:\n  Return \"x\".\n",
+      "features": [
+        "deprecated-annotation"
+      ],
+      "nodeKinds": [
+        "Annotation"
+      ]
+    },
+    {
+      "name": "nested-workflow-in-if",
+      "src": "Module test.nested_wf.\n\nRule process given flag as Bool, produce Text:\n  If flag:\n    Start task as async fetch().\n    Return \"async\".\n  Otherwise:\n    Return \"sync\".\n",
+      "features": [
+        "workflow"
+      ],
+      "nodeKinds": [
+        "Start"
+      ]
+    },
+    {
+      "name": "stable-bare-io",
+      "src": "Module test.stable_io.\n\nRule fetch, produce Text. It performs io:\n  Return Http.get(\"/x\").\n",
+      "features": [],
+      "nodeKinds": []
+    },
+    {
+      "name": "stable-entry",
+      "src": "Module test.stable_entry.\n\n@entry\nRule main, produce Text:\n  Return \"x\".\n",
+      "features": [],
+      "nodeKinds": []
+    },
+    {
+      "name": "stable-plain",
+      "src": "Module test.pure_stable.\n\nRule greet given name as Text, produce Text. It performs io:\n  Return name.\n",
+      "features": [],
+      "nodeKinds": []
+    },
+    {
+      "name": "pii-return-type",
+      "src": "Module test.ret_pii.\n\nRule getEmail, produce @pii(L2, email) Text:\n  Return \"user@example.com\".\n",
+      "features": [
+        "pii"
+      ],
+      "nodeKinds": [
+        "PiiType"
+      ]
+    },
+    {
+      "name": "pii-param-and-return",
+      "src": "Module test.pii_both.\n\nRule process given raw as @pii(L1, name) Text, produce @pii(L2, email) Text:\n  Return raw.\n",
+      "features": [
+        "pii",
+        "pii"
+      ],
+      "nodeKinds": [
+        "PiiType",
+        "PiiType"
+      ]
+    }
+  ]
+}
