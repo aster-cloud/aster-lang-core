@@ -127,7 +127,34 @@ public final class CanonicalJson {
      * 与 TS canonicalHash 同算法同前缀 → 同输入产同 hash。
      */
     public static String canonicalHash(JsonNode value, TypeContext ctx) {
+        return hashCanonical(canonicalJson(value, ctx));
+    }
+
+    public static String canonicalHash(JsonNode value) {
+        return canonicalHash(value, TypeContext.empty());
+    }
+
+    /**
+     * canonical 字符串 + 其 hash 的配对（M2 回放 payload）。一次序列化同时拿到 canonical 串与其 hash，
+     * 避免 canonicalJson + canonicalHash 各序列化一次的重复开销。
+     *
+     * <p>返回的 {@link #canonical} 就是被 hash 的那个串（{@code hash == sha256(version + "\n" + canonical)}）——
+     * cloud 收到后 <b>直接 re-hash 校验即可，无需 re-canonicalize</b>（绕开 liftDecimals 的 TS↔Java parity gap，
+     * 见 docs/m2-replay-payload-contract.md）。
+     */
+    public record CanonicalPair(String canonical, String hash) {}
+
+    public static CanonicalPair canonicalWithHash(JsonNode value, TypeContext ctx) {
         String canonical = canonicalJson(value, ctx);
+        return new CanonicalPair(canonical, hashCanonical(canonical));
+    }
+
+    public static CanonicalPair canonicalWithHash(JsonNode value) {
+        return canonicalWithHash(value, TypeContext.empty());
+    }
+
+    /** 对已 canonical 化的字符串算 hash（sha256(version + "\n" + canonical)，hex）。单一构造点。 */
+    private static String hashCanonical(String canonical) {
         String payload = CANONICALIZATION_VERSION + "\n" + canonical;
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -136,10 +163,6 @@ public final class CanonicalJson {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 不可用", e);
         }
-    }
-
-    public static String canonicalHash(JsonNode value) {
-        return canonicalHash(value, TypeContext.empty());
     }
 
     private static void write(JsonNode node, String path, TypeContext ctx, StringBuilder sb) {
