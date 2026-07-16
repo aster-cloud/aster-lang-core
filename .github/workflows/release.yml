@@ -152,8 +152,13 @@ jobs:
       - name: Publish test corpus locally
         run: cd aster-lang-test/packages/jvm && ./gradlew publishToMavenLocal
 
-      - name: Build & Test
-        run: ./gradlew build
+      # 发布时只 assemble 制品，**不跑 test**（-x test）。原因：core:test 有 testRuntimeOnly(hi) +
+      # langPacks(hi) 的**前向依赖**——hi 在 release-train DAG 里晚于 core 一层（hi impl(core)），
+      # lockstep bump 后 core:test 会要 hi:<新版>，而该版本此刻尚未发布 → 解析 401，卡住级联。
+      # 测试已在 PR CI 阶段跑过（发布前门），发布步骤无须重测。与上面依赖 publishToMavenLocal 步骤
+      # 已用的 -x test 一致。
+      - name: Build (assemble only, tests ran in PR CI)
+        run: ./gradlew build -x test
 
       - name: Publish to GitHub Packages
         run: ./gradlew publish
