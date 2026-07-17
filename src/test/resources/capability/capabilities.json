@@ -1,64 +1,76 @@
 {
-  "$comment": "Capability 能力表单源真值 (双引擎共享契约, 类比 error_codes.json)。ts CapabilityKind (src/config/semantic.ts) 与 Java CapabilityKind (aster-lang-core/.../capability/CapabilityKind.java) 均以此为准, 由 parity 测试守门。displayName 为 CNL 表面名, prefixes 为调用前缀推断表 (CapabilityInference / CAPABILITY_PREFIXES)。注: capability 的 effect 分类 (io/cpu) 双引擎当前存在 drift (ts effects.ts CPU_CLASS 含 Crypto, Java CapabilityChecker 纯 cap!=CPU=>io), 待独立组 A3 统一后再纳入本单源, 本文件暂不固化 class 以免'看似单源实际漂移'。",
+  "$comment": "Capability 能力表单源真值 (双引擎共享契约, 类比 error_codes.json)。ts CapabilityKind (src/config/semantic.ts) 与 Java CapabilityKind (aster-lang-core/.../capability/CapabilityKind.java) 均以此为准, 由 parity 测试守门。displayName 为 CNL 表面名, prefixes 为调用前缀推断表 (CapabilityInference / CAPABILITY_PREFIXES)。class 为 effect 分类 (io/cpu): CPU/CRYPTO=cpu (本地密码学 CPU 密集, 需 @cpu 或 @io), 其余皆 io。双引擎按此统一分类 (ts CAPABILITY_EFFECT_CLASS + isCpuClassCapability, Java CapabilityKind.effectClass, A3 消除 ts effects.ts/workflow.ts 与 Java CapabilityChecker 的分类 drift)。",
   "capabilities": [
     {
       "enumName": "HTTP",
       "displayName": "Http",
+      "class": "io",
       "prefixes": ["Http."]
     },
     {
       "enumName": "NETWORK",
       "displayName": "Network",
+      "class": "io",
       "prefixes": ["Net.", "Network.", "Tcp.", "Udp.", "Socket.", "Ws.", "WebSocket.", "Sse."]
     },
     {
       "enumName": "SQL",
       "displayName": "Sql",
+      "class": "io",
       "prefixes": ["Db.", "Sql."]
     },
     {
       "enumName": "TIME",
       "displayName": "Time",
+      "class": "io",
       "prefixes": ["Time.", "Clock."]
     },
     {
       "enumName": "FILES",
       "displayName": "Files",
+      "class": "io",
       "prefixes": ["Files.", "Fs."]
     },
     {
       "enumName": "SECRETS",
       "displayName": "Secrets",
+      "class": "io",
       "prefixes": ["Secrets."]
     },
     {
       "enumName": "CRYPTO",
       "displayName": "Crypto",
+      "class": "cpu",
       "prefixes": ["Crypto.", "Hash.", "Cipher.", "Sign.", "Kms.", "Jwt."]
     },
     {
       "enumName": "PROCESS",
       "displayName": "Process",
+      "class": "io",
       "prefixes": ["Process.", "Proc.", "Exec.", "Shell.", "Env.", "Os."]
     },
     {
       "enumName": "AI_MODEL",
       "displayName": "AiModel",
+      "class": "io",
       "prefixes": ["Ai."]
     },
     {
       "enumName": "CPU",
       "displayName": "Cpu",
+      "class": "cpu",
       "prefixes": []
     },
     {
       "enumName": "PAYMENT",
       "displayName": "Payment",
+      "class": "io",
       "prefixes": ["Payment."]
     },
     {
       "enumName": "INVENTORY",
       "displayName": "Inventory",
+      "class": "io",
       "prefixes": ["Inventory."]
     }
   ]
