@@ -19,12 +19,16 @@ import java.util.Optional;
  */
 public final class CapabilityInference {
 
+  // 前缀推断表与 TS CAPABILITY_PREFIXES / shared/capabilities.json 单源对齐。
   private static final Map<CapabilityKind, List<String>> CAPABILITY_PREFIXES = Map.ofEntries(
     Map.entry(CapabilityKind.HTTP, List.of("Http.")),
+    Map.entry(CapabilityKind.NETWORK, List.of("Net.", "Network.", "Tcp.", "Udp.", "Socket.", "Ws.", "WebSocket.", "Sse.")),
     Map.entry(CapabilityKind.SQL, List.of("Db.", "Sql.")),
     Map.entry(CapabilityKind.TIME, List.of("Time.", "Clock.")),
     Map.entry(CapabilityKind.FILES, List.of("Files.", "Fs.")),
     Map.entry(CapabilityKind.SECRETS, List.of("Secrets.")),
+    Map.entry(CapabilityKind.CRYPTO, List.of("Crypto.", "Hash.", "Cipher.", "Sign.", "Kms.", "Jwt.")),
+    Map.entry(CapabilityKind.PROCESS, List.of("Process.", "Proc.", "Exec.", "Shell.", "Env.", "Os.")),
     Map.entry(CapabilityKind.AI_MODEL, List.of("Ai.")),
     Map.entry(CapabilityKind.PAYMENT, List.of("Payment.")),
     Map.entry(CapabilityKind.INVENTORY, List.of("Inventory."))
