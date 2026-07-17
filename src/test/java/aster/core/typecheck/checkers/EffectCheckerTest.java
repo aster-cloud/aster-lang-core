@@ -65,7 +65,6 @@ class EffectCheckerTest {
     assertEquals("pure", Effect.PURE.toString());
     assertEquals("cpu", Effect.CPU.toString());
     assertEquals("io", Effect.IO.toString());
-    assertEquals("async", Effect.ASYNC.toString());
   }
 
   // ========== 效果Join测试 ==========
@@ -444,69 +443,45 @@ class EffectCheckerTest {
     return pattern;
   }
 
-  // ========== ASYNC 效果测试 ==========
+  // ========== async 非授权语义测试（A2：移除 Effect.ASYNC 授权过宽漏洞）==========
 
   @Test
-  void testEffectFromStringAsync() {
-    // 测试 ASYNC 字符串解析
-    assertEquals(Effect.ASYNC, Effect.fromString("async"));
-    assertEquals(Effect.ASYNC, Effect.fromString("ASYNC"));
-    assertEquals(Effect.ASYNC, Effect.fromString("Async"));
+  void testEffectFromStringAsyncIsNonAuthorizingAlias() {
+    // "async" 不是效果授权轴 → 映射为 PURE（非授权废弃别名），不得授权 IO/CPU。
+    assertEquals(Effect.PURE, Effect.fromString("async"));
+    assertEquals(Effect.PURE, Effect.fromString("ASYNC"));
+    assertEquals(Effect.PURE, Effect.fromString("Async"));
   }
 
   @Test
-  void testJoinPureWithAsync() {
-    // PURE ⊔ ASYNC = ASYNC
-    assertEquals(Effect.ASYNC, checker.join(Effect.PURE, Effect.ASYNC));
-    assertEquals(Effect.ASYNC, checker.join(Effect.ASYNC, Effect.PURE));
+  void testAsyncDeclarationDoesNotAuthorizeIO() {
+    // 安全回归：函数声明 `It performs async`（declared=PURE）不再授权 IO。
+    // 历史漏洞：ASYNC 是顶层效果，isSubEffect(IO, ASYNC)=true → async 可覆盖 IO。
+    Effect declared = Effect.fromString("async");
+    assertFalse(checker.isSubEffect(Effect.IO, declared),
+        "It performs async 不应授权 IO（否则复现授权过宽漏洞）");
   }
 
   @Test
-  void testJoinCPUWithAsync() {
-    // CPU ⊔ ASYNC = ASYNC
-    assertEquals(Effect.ASYNC, checker.join(Effect.CPU, Effect.ASYNC));
-    assertEquals(Effect.ASYNC, checker.join(Effect.ASYNC, Effect.CPU));
+  void testCheckEffectCompatibilityAsyncActualIOReportsDiagnostic() {
+    // 用户可见边界：声明 async（→PURE）但实际 IO，checkEffectCompatibility 必须报诊断。
+    checker.checkEffectCompatibility(Effect.fromString("async"), Effect.IO, Optional.empty());
+    assertFalse(diagnostics.getDiagnostics().isEmpty(),
+        "declared=async 实际=IO 应报 effect 缺失诊断（授权过宽漏洞修复）");
   }
 
   @Test
-  void testJoinIOWithAsync() {
-    // IO ⊔ ASYNC = ASYNC
-    assertEquals(Effect.ASYNC, checker.join(Effect.IO, Effect.ASYNC));
-    assertEquals(Effect.ASYNC, checker.join(Effect.ASYNC, Effect.IO));
-  }
-
-  @Test
-  void testJoinAsync() {
-    // ASYNC ⊔ ASYNC = ASYNC
-    assertEquals(Effect.ASYNC, checker.join(Effect.ASYNC, Effect.ASYNC));
-  }
-
-  @Test
-  void testIsSubEffectAsync() {
-    // 所有效果都是 ASYNC 的子效果
-    assertTrue(checker.isSubEffect(Effect.PURE, Effect.ASYNC));
-    assertTrue(checker.isSubEffect(Effect.CPU, Effect.ASYNC));
-    assertTrue(checker.isSubEffect(Effect.IO, Effect.ASYNC));
-    assertTrue(checker.isSubEffect(Effect.ASYNC, Effect.ASYNC));
-
-    // ASYNC 不是 IO/CPU/PURE 的子效果
-    assertFalse(checker.isSubEffect(Effect.ASYNC, Effect.IO));
-    assertFalse(checker.isSubEffect(Effect.ASYNC, Effect.CPU));
-    assertFalse(checker.isSubEffect(Effect.ASYNC, Effect.PURE));
-  }
-
-  @Test
-  void testInferEffectAwait() {
-    // await(42) - ASYNC
+  void testInferEffectAwaitPropagatesPure() {
+    // await(42)：await 不增加授权效果，纯表达式仍为 PURE。
     var await = new CoreModel.Await();
     await.expr = createInt(42);
 
-    assertEquals(Effect.ASYNC, checker.inferEffect(await, ctx));
+    assertEquals(Effect.PURE, checker.inferEffect(await, ctx));
   }
 
   @Test
-  void testInferEffectAwaitWithIO() {
-    // await(IO.readFile()) - ASYNC（await 的效果总是 ASYNC）
+  void testInferEffectAwaitPropagatesIO() {
+    // await(IO.readFile())：await 传播被 await 值的效果（IO），要求声明 @io。
     var call = new CoreModel.Call();
     call.target = createName("IO.readFile");
     call.args = List.of();
@@ -514,33 +489,33 @@ class EffectCheckerTest {
     var await = new CoreModel.Await();
     await.expr = call;
 
-    assertEquals(Effect.ASYNC, checker.inferEffect(await, ctx));
+    assertEquals(Effect.IO, checker.inferEffect(await, ctx));
   }
 
   @Test
-  void testCompareEffectsAsync() {
-    // ASYNC 的 ordinal 最大
-    assertTrue(checker.compareEffects(Effect.PURE, Effect.ASYNC) < 0);
-    assertTrue(checker.compareEffects(Effect.CPU, Effect.ASYNC) < 0);
-    assertTrue(checker.compareEffects(Effect.IO, Effect.ASYNC) < 0);
-    assertEquals(0, checker.compareEffects(Effect.ASYNC, Effect.ASYNC));
+  void testJoinLinearLattice() {
+    // 线性格 PURE ⊑ CPU ⊑ IO（无 ASYNC 顶层）。
+    assertEquals(Effect.IO, checker.join(Effect.PURE, Effect.IO));
+    assertEquals(Effect.IO, checker.join(Effect.CPU, Effect.IO));
+    assertEquals(Effect.CPU, checker.join(Effect.PURE, Effect.CPU));
+    assertEquals(Effect.IO, checker.join(Effect.IO, Effect.IO));
   }
 
   @Test
-  void testCheckEffectCompatibilityAsyncValid() {
-    // PURE ⊑ ASYNC - 有效
-    checker.checkEffectCompatibility(Effect.ASYNC, Effect.PURE, Optional.empty());
-    assertTrue(diagnostics.getDiagnostics().isEmpty());
-
-    // IO ⊑ ASYNC - 有效
-    checker.checkEffectCompatibility(Effect.ASYNC, Effect.IO, Optional.empty());
-    assertTrue(diagnostics.getDiagnostics().isEmpty());
+  void testIsSubEffectLinearLattice() {
+    // IO 是顶：PURE/CPU/IO 都是 IO 的子效果。
+    assertTrue(checker.isSubEffect(Effect.PURE, Effect.IO));
+    assertTrue(checker.isSubEffect(Effect.CPU, Effect.IO));
+    assertTrue(checker.isSubEffect(Effect.IO, Effect.IO));
+    // CPU 的子效果只有 PURE/CPU（IO 不是）。
+    assertFalse(checker.isSubEffect(Effect.IO, Effect.CPU));
+    assertTrue(checker.isSubEffect(Effect.CPU, Effect.CPU));
+    // PURE 的子效果只有 PURE。
+    assertFalse(checker.isSubEffect(Effect.CPU, Effect.PURE));
+    assertTrue(checker.isSubEffect(Effect.PURE, Effect.PURE));
   }
 
-  @Test
-  void testCheckEffectCompatibilityAsyncInvalid() {
-    // ASYNC ⋢ IO - 无效
-    checker.checkEffectCompatibility(Effect.IO, Effect.ASYNC, Optional.empty());
-    assertFalse(diagnostics.getDiagnostics().isEmpty());
-  }
+  // 原 testCheckEffectCompatibilityAsyncValid/Invalid 已删除：它们固化了
+  // "declared=ASYNC 接受 actual=IO" 的授权过宽语义（A2 修复的漏洞本身）。
+  // 正确的非授权行为由 testAsyncDeclarationDoesNotAuthorizeIO 覆盖。
 }

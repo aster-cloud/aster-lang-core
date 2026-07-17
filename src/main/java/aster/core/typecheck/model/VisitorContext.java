@@ -28,9 +28,7 @@ public final class VisitorContext {
     /** CPU 密集型：计算密集但无 I/O */
     CPU,
     /** I/O 操作：包含外部交互 */
-    IO,
-    /** 异步操作：包含 async/await */
-    ASYNC
+    IO
   }
 
   // ========== 字段 ==========

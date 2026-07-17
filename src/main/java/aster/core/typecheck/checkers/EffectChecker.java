@@ -19,8 +19,10 @@ import java.util.*;
  * <p>
  * 效果层次（偏序关系）：
  * PURE ⊑ CPU ⊑ IO
- * PURE ⊑ ASYNC
- * ASYNC 是顶层效果（所有效果的最小上界）
+ * <p>
+ * 注：async/await 不是授权效果轴（那是调度/并发纪律，由 AsyncDisciplineChecker 管）。
+ * 历史上 ASYNC 曾是顶层效果，导致 `It performs async` 可覆盖 IO 授权（授权过宽漏洞）；
+ * 已移除，await 表达式传播被 await 值的效果，async 声明降级为非授权废弃别名。
  * <p>
  * 核心功能：
  * - 效果推断：根据函数调用前缀和类型注解推断效果
@@ -41,19 +43,20 @@ public final class EffectChecker {
     /** CPU 密集型：计算密集但无 I/O */
     CPU,
     /** I/O 操作：包含外部交互 */
-    IO,
-    /** 异步操作：包含 async/await */
-    ASYNC;
+    IO;
 
     /**
-     * 从字符串解析效果
+     * 从字符串解析效果。
+     * <p>
+     * "async" 是调度/纪律关键字，不是效果授权轴——映射为 PURE（非授权废弃别名），
+     * 让声明 `It performs async` 的旧源码进入正常效果检查：若函数体实际做 IO，会正确
+     * 报 EFF_MISSING_IO（而非被 async 静默授权）。**不得**映射为 IO（否则漏洞换皮）。
      */
     public static Effect fromString(String str) {
       return switch (str.toLowerCase()) {
-        case "async" -> ASYNC;
         case "io" -> IO;
         case "cpu" -> CPU;
-        case "pure", "" -> PURE;
+        // "async"、"pure"、"" 及未知值均为非授权 → PURE
         default -> PURE;
       };
     }
@@ -64,7 +67,6 @@ public final class EffectChecker {
         case PURE -> "pure";
         case CPU -> "cpu";
         case IO -> "io";
-        case ASYNC -> "async";
       };
     }
   }
@@ -108,11 +110,9 @@ public final class EffectChecker {
       case CoreModel.Ok ok -> inferEffect(ok.expr, ctx);
       case CoreModel.Err err -> inferEffect(err.expr, ctx);
       case CoreModel.Some some -> inferEffect(some.expr, ctx);
-      case CoreModel.Await await -> {
-        // await 表达式总是标记为 ASYNC
-        var exprEffect = inferEffect(await.expr, ctx);
-        yield join(Effect.ASYNC, exprEffect);
-      }
+      case CoreModel.Await await ->
+        // await 本身不增加授权效果；IO/CPU 来自被 await 的表达式（对齐 TS，async 不是效果轴）。
+        inferEffect(await.expr, ctx);
       case CoreModel.Construct construct -> {
         var maxEffect = Effect.PURE;
         for (var field : construct.fields) {
@@ -279,29 +279,19 @@ public final class EffectChecker {
   /**
    * 效果 Join（格论中的最小上界）
    * <p>
-   * Join 规则：
+   * Join 规则（线性格 PURE ⊑ CPU ⊑ IO）：
    * - PURE ⊔ PURE = PURE
    * - PURE ⊔ CPU = CPU
    * - PURE ⊔ IO = IO
-   * - PURE ⊔ ASYNC = ASYNC
    * - CPU ⊔ CPU = CPU
    * - CPU ⊔ IO = IO
-   * - CPU ⊔ ASYNC = ASYNC
    * - IO ⊔ IO = IO
-   * - IO ⊔ ASYNC = ASYNC
-   * - ASYNC ⊔ ASYNC = ASYNC
-   * <p>
-   * 效果层次：ASYNC 是最高级别，独立于 IO/CPU 分支
    *
    * @param e1 效果1
    * @param e2 效果2
    * @return 最小上界
    */
   public Effect join(Effect e1, Effect e2) {
-    // ASYNC 是最高级别
-    if (e1 == Effect.ASYNC || e2 == Effect.ASYNC) {
-      return Effect.ASYNC;
-    }
     if (e1 == Effect.IO || e2 == Effect.IO) {
       return Effect.IO;
     }
@@ -314,8 +304,7 @@ public final class EffectChecker {
   /**
    * 效果子类型关系
    * <p>
-   * 偏序关系：PURE ⊑ CPU ⊑ IO，PURE ⊑ ASYNC
-   * ASYNC 是顶层效果，所有效果都是 ASYNC 的子效果
+   * 偏序关系：PURE ⊑ CPU ⊑ IO
    *
    * @param sub 子效果
    * @param sup 超效果
@@ -323,8 +312,7 @@ public final class EffectChecker {
    */
   public boolean isSubEffect(Effect sub, Effect sup) {
     return switch (sup) {
-      case ASYNC -> true; // 所有效果都是 ASYNC 的子效果
-      case IO -> sub != Effect.ASYNC; // PURE、CPU、IO 是 IO 的子效果
+      case IO -> true; // PURE、CPU、IO 都是 IO 的子效果
       case CPU -> sub == Effect.PURE || sub == Effect.CPU; // PURE 和 CPU 是 CPU 的子效果
       case PURE -> sub == Effect.PURE; // 只有 PURE 是 PURE 的子效果
     };
