@@ -236,6 +236,17 @@ application {
 // （两份 source 内容一致：都从 src/main/resources/ 复制而来）。
 tasks.jar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    // ★S0 / m1.5 层1：把 catalog 派生的引擎版本写进 jar MANIFEST 的 Implementation-Version，
+    // 供 aster-api ToolchainIdentityProvider.coreEngineVersion()（读 Canonicalizer 包 ImplementationVersion）
+    // 拿到真值。原本 jar 无此属性 → 各消费路径（本地/CI/发布产物/部署 fast-jar）恒读 null → toolchainId
+    // 的 core= 段退化 "dev"。此处一处修复覆盖全部路径（版本单源=catalog，见上 version 派生）。
+    manifest {
+        attributes(
+            "Implementation-Title" to "aster-lang-core",
+            "Implementation-Version" to project.version.toString(),
+            "Implementation-Vendor" to "cloud.aster-lang"
+        )
+    }
 }
 
 // 语言包配置（exportLexicons 任务需要通过 SPI 发现语言包）
