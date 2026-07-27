@@ -19,3 +19,4 @@ src/main/antlr/gen/
 
 # CCG workflow scaffolding (local task state, not source)
 .ccg/
+/.claude/**
