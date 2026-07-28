@@ -5,6 +5,7 @@ import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.List;
 
@@ -1186,6 +1187,53 @@ class AstBuilderTest {
         Decl.Func f = (Decl.Func) module.decls().get(0);
         assertEquals(3, f.params().size());
         assertEquals("max", f.params().get(2).name());
+    }
+
+    // ── 字面量范围（issue #81 / #85 / #86）─────────────────────────────
+    // 超限字面量必须抛结构化 IllegalStateException（AstBuilder 既有 Decimal 超限同型），
+    // 而非未捕获的 NumberFormatException / 静默 Infinity。两引擎一律硬拒，与 TS 的
+    // L006/L007/L008 对齐——放宽任一侧都会让同一份源码在两引擎行为分歧。
+
+    @ParameterizedTest(name = "[{index}] {0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+        "3000000000",            // > Int32
+        "99999999999999999999",  // 20 位，TS 侧曾静默丢精度
+    })
+    void intLiteralOutOfRangeIsRejected(String literal) {
+        var ex = assertThrows(IllegalStateException.class, () -> parseAndBuild("""
+            Rule f produce:
+              Return %s.
+            """.formatted(literal)));
+        assertTrue(ex.getMessage().contains("out of range for Int"),
+            "应为 Int 范围错误，实际：" + ex.getMessage());
+    }
+
+    @Test
+    void longLiteralOutOfRangeIsRejected() {
+        var ex = assertThrows(IllegalStateException.class, () -> parseAndBuild("""
+            Rule f produce:
+              Return 99999999999999999999L.
+            """));
+        assertTrue(ex.getMessage().contains("out of range for Long"),
+            "应为 Long 范围错误，实际：" + ex.getMessage());
+    }
+
+    @Test
+    void floatLiteralOverflowingToInfinityIsRejected() {
+        var ex = assertThrows(IllegalStateException.class, () -> parseAndBuild("""
+            Rule f produce:
+              Return %s.0.
+            """.formatted("9".repeat(400))));
+        assertTrue(ex.getMessage().contains("Infinity"),
+            "应为 Float 溢出错误，实际：" + ex.getMessage());
+    }
+
+    @Test
+    void inRangeLiteralsStillParse() {
+        // 反向守卫：边界内的字面量不得因本次收紧而被误拒
+        assertNotNull(firstReturnExpr("Rule f produce:\n  Return 2147483647.\n"));
+        assertNotNull(firstReturnExpr("Rule f produce:\n  Return 9223372036854775807L.\n"));
+        assertNotNull(firstReturnExpr("Rule f produce:\n  Return 1.5.\n"));
     }
 
     /**
