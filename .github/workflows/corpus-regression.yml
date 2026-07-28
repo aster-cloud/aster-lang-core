@@ -35,6 +35,7 @@ jobs:
           repository: aster-cloud/aster-lang-test
           path: aster-lang-test
           ref: ${{ github.event.client_payload.sha || 'main' }}
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
 
       # Lexicon siblings（与 ci.yml 一致）
       - uses: actions/checkout@v6
