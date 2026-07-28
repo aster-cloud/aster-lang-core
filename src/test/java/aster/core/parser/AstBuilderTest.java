@@ -1187,4 +1187,120 @@ class AstBuilderTest {
         assertEquals(3, f.params().size());
         assertEquals("max", f.params().get(2).name());
     }
+
+    /**
+     * 解析并收集语法错误。
+     * <p>
+     * {@link #parseAndBuild} 会移除错误监听器，语法错误被静默吞掉、由 ANTLR 错误恢复
+     * 产出一棵「抢救树」，因此不能用它判断输入是否被接受。需要断言拒绝的用例走这里。
+     */
+    private List<String> syntaxErrorsOf(String input) {
+        CharStream charStream = CharStreams.fromString(input);
+        AsterCustomLexer lexer = new AsterCustomLexer(charStream);
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
+
+        tokens.fill();
+        tokens.seek(0);
+
+        AsterParser parser = new AsterParser(tokens);
+        parser.removeErrorListeners();
+
+        List<String> errors = new java.util.ArrayList<>();
+        parser.addErrorListener(new org.antlr.v4.runtime.BaseErrorListener() {
+            @Override
+            public void syntaxError(org.antlr.v4.runtime.Recognizer<?, ?> recognizer,
+                                    Object offendingSymbol, int line, int charPositionInLine,
+                                    String msg, org.antlr.v4.runtime.RecognitionException e) {
+                errors.add("line " + line + ":" + charPositionInLine + " " + msg);
+            }
+        });
+
+        parser.module();
+        return errors;
+    }
+
+    /**
+     * 取出 Rule 体内第一条 Return 的表达式，供 not 优先级用例断言。
+     */
+    private Expr firstReturnExpr(String input) {
+        aster.core.ast.Module module = parseAndBuild(input);
+        Decl.Func func = (Decl.Func) module.decls().get(0);
+        Stmt.Return returnStmt = (Stmt.Return) func.body().statements().get(0);
+        return returnStmt.expr();
+    }
+
+    private Expr.Call assertCall(Expr expr, String name, int arity) {
+        assertInstanceOf(Expr.Call.class, expr);
+        Expr.Call call = (Expr.Call) expr;
+        assertEquals(name, ((Expr.Name) call.target()).name());
+        assertEquals(arity, call.args().size());
+        return call;
+    }
+
+    // not 优先级回归：not 松于比较（and < not < 比较），与 TS 引擎一致。
+    // 历史 bug：NOT 曾挂在 unaryExpr 上（紧于比较），`not x greater than y`
+    // 被解析成 (not x) greater than y，Java 侧类型错误崩溃而 TS 侧正常求值。
+    // 语义侧的双引擎求值 golden 见 aster-lang-test
+    // corpus/tier1-equivalence/inputs/not-precedence.cases.json（三条 rule 全覆盖）。
+
+    @Test
+    void notBindsLooserThanComparison() {
+        // not x greater than y → not(>(x, y))，而非 >(not(x), y)
+        Expr expr = firstReturnExpr("""
+            Rule f given x as Int and y as Int, produce Bool:
+              Return not x greater than y.
+            """);
+
+        Expr.Call notCall = assertCall(expr, "not", 1);
+        Expr.Call cmp = assertCall(notCall.args().get(0), ">", 2);
+        assertEquals("x", ((Expr.Name) cmp.args().get(0)).name());
+        assertEquals("y", ((Expr.Name) cmp.args().get(1)).name());
+    }
+
+    @Test
+    void notIsRightAssociativeWhenNested() {
+        // not not b → not(not(b))
+        Expr expr = firstReturnExpr("""
+            Rule f given b as Bool, produce Bool:
+              Return not not b.
+            """);
+
+        Expr.Call outer = assertCall(expr, "not", 1);
+        Expr.Call inner = assertCall(outer.args().get(0), "not", 1);
+        assertEquals("b", ((Expr.Name) inner.args().get(0)).name());
+    }
+
+    @Test
+    void notBindsTighterThanAnd() {
+        // not x greater than 0 and y greater than 0 → and(not(>(x, 0)), >(y, 0))
+        // not 只吞掉左侧比较，不吞整个 and。
+        Expr expr = firstReturnExpr("""
+            Rule f given x as Int and y as Int, produce Bool:
+              Return not x greater than 0 and y greater than 0.
+            """);
+
+        Expr.Call andCall = assertCall(expr, "and", 2);
+        Expr.Call notCall = assertCall(andCall.args().get(0), "not", 1);
+        Expr.Call left = assertCall(notCall.args().get(0), ">", 2);
+        assertEquals("x", ((Expr.Name) left.args().get(0)).name());
+
+        Expr.Call right = assertCall(andCall.args().get(1), ">", 2);
+        assertEquals("y", ((Expr.Name) right.args().get(0)).name());
+    }
+
+    @Test
+    void notIsRejectedOnRightHandSideOfComparison() {
+        // not 只能出现在前缀位置：比较的右操作数上写 not 属语法错误，与 TS 引擎一致
+        // （TS 报 P005 "Expected '.' at end of statement"）。
+        // 注意：这里必须查语法错误而非 AST——ANTLR 错误恢复会丢掉 not 抢救出
+        // >(x, y)，若只断言 AST 会误判为「被接受」。
+        List<String> errors = syntaxErrorsOf("""
+            Rule f given x as Int and y as Bool, produce Bool:
+              Return x greater than not y.
+            """);
+
+        assertFalse(errors.isEmpty(), "比较右侧的 not 应产生语法错误");
+        assertTrue(errors.get(0).contains("'not'"),
+                "错误应指向 not，实际为：" + errors.get(0));
+    }
 }

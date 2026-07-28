@@ -791,8 +791,10 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     }
 
     @Override
-    public Expr visitNotExpr(AsterParser.NotExprContext ctx) {
-        Expr operand = (Expr) visit(ctx.unaryExpr());
+    public Expr visitLogicalNot(AsterParser.LogicalNotContext ctx) {
+        // 新 grammar：LogicalNot 的操作数是 notExpr（NOT notExpr，右结合），不再是 unaryExpr。
+        // not 现松于比较（`not x greater than y` = not(x greater than y)），对齐 TS。
+        Expr operand = (Expr) visit(ctx.notExpr());
         Expr.Name notName = new Expr.Name("not", spanFrom(ctx.NOT().getSymbol()));
         return new Expr.Call(notName, List.of(operand), spanFrom(ctx));
     }
@@ -1087,12 +1089,13 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         return left;
     }
 
-    // 逻辑与：comparisonExpr (AND comparisonExpr)* → 左结合的 Call{Name "and", [l, r]}
+    // 逻辑与：notExpr (AND notExpr)* → 左结合的 Call{Name "and", [l, r]}
+    // （andExpr 操作数现为 notExpr——not 已上移到比较之上，对齐 TS）
     @Override
     public Expr visitAndExpr(AsterParser.AndExprContext ctx) {
-        Expr left = (Expr) visit(ctx.comparisonExpr(0));
-        for (int i = 1; i < ctx.comparisonExpr().size(); i++) {
-            Expr right = (Expr) visit(ctx.comparisonExpr(i));
+        Expr left = (Expr) visit(ctx.notExpr(0));
+        for (int i = 1; i < ctx.notExpr().size(); i++) {
+            Expr right = (Expr) visit(ctx.notExpr(i));
             Expr.Name op = new Expr.Name("and", spanFrom(ctx.AND(i - 1).getSymbol()));
             left = new Expr.Call(op, List.of(left, right), spanFrom(ctx));
         }
