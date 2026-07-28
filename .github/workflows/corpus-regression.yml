@@ -57,6 +57,14 @@ jobs:
         working-directory: aster-lang-platform
         run: ./gradlew publishToMavenLocal
 
+      # 发布测试 corpus 到 Maven Local（core test 的 testImplementation 依赖）。
+      # aster-lang-test 转私后 GH Packages 上的 cloud.aster-lang:aster-lang-test
+      # 也随之私有，远程解析会失败；改为从上面已 checkout 的源码就地构建。
+      # 与 ci.yml 的 Phase 2b 同范式。
+      - name: Publish test corpus to Maven Local
+        working-directory: aster-lang-test/packages/jvm
+        run: ./gradlew publishToMavenLocal -x test
+
       - name: Run corpus regression tests
         working-directory: aster-lang-core
         env:
