@@ -80,4 +80,64 @@ class TypeInferenceTest {
         assertThat(type).isInstanceOf(aster.core.ast.Type.TypeName.class);
         assertThat(((aster.core.ast.Type.TypeName) type).name()).isEqualTo("Int");
     }
+
+    /**
+     * 双引擎 parity 回归（issue #80 / #82 / #83）。
+     * <p>
+     * 这些字段名此前在 Java 与 TS 引擎推断出不同类型，或两侧同时误判。期望值即
+     * TS `BASE_NAMING_RULES` + en-US overlay 的推断结果，两侧必须逐字一致；
+     * 改动任一侧的规则都应先跑本用例。
+     */
+    @ParameterizedTest(name = "[{index}] {0} → {1}")
+    @CsvSource({
+        // #80：-age 结尾的普通单词曾被 Age$ 规则误判为 Int
+        "usage, Text",
+        "language, Text",
+        "package, Text",
+        "storage, Text",
+        "voltage, Text",
+        "mileage, Text",
+        "coverage, Text",
+        // #80：Message/Dosage 曾缺失 Text 规则（dosage 还同时踩 -age 陷阱）
+        "errorMessage, Text",
+        "message, Text",
+        "dosage, Text",
+        // Age 作为完整词或 camelCase 词段仍应是 Int（不能被上面的修复误伤）
+        "age, Int",
+        "userAge, Int",
+        "personAge, Int",
+        // #82：布尔前缀缺驼峰边界，把这些误判为 Bool
+        "canceledAt, DateTime",
+        "validatedAt, DateTime",
+        "wasteAmount, Float",
+        "isbnCode, Text",
+        // 真正的布尔前缀必须仍然有效
+        "isValid, Bool",
+        "hasErrors, Bool",
+        "canSubmit, Bool",
+        "is, Bool",
+        // #83：Success/Passed/Verified 后缀曾缺失
+        "loginVerified, Bool",
+        "taskPassed, Bool",
+        "paymentSuccess, Bool",
+        // *Valid 不得被 Id$ 规则吞掉（TS 侧曾因 /i 把 "Val-id" 判为 Text）
+        "approvedValid, Bool",
+        "expiredValid, Bool",
+        // camelCase 的真 Id 仍是 Text
+        "userId, Text",
+        "orderIdentifier, Text",
+        // snake_case 也必须走词边界（corpus hipaa-validation-demo 用 requires_consent，
+        // 该字段被赋 true/false，若推成 Text 会让整份合规样本编译失败）
+        "requires_consent, Bool",
+        "is_active, Bool",
+        "has_consent, Bool",
+        "validated_at, DateTime",
+        // 时间单位支持中间位置匹配
+        "daysRemaining, Int",
+        "termMonths, Int",
+        "days, Int"
+    })
+    void shouldMatchTsEngineInference(String fieldName, String expectedType) {
+        assertThat(TypeInference.inferTypeNameFromFieldName(fieldName)).isEqualTo(expectedType);
+    }
 }
