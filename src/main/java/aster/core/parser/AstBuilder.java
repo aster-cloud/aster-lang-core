@@ -546,15 +546,15 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             return StringEscapes.unescape(inner);
         }
         if (ctx.INT_LITERAL() != null) {
-            return Integer.parseInt(ctx.INT_LITERAL().getText());
+            return LiteralParsing.parseInt(ctx.INT_LITERAL().getText());
         }
         if (ctx.FLOAT_LITERAL() != null) {
-            return Double.parseDouble(ctx.FLOAT_LITERAL().getText());
+            return LiteralParsing.parseDouble(ctx.FLOAT_LITERAL().getText());
         }
         if (ctx.LONG_LITERAL() != null) {
             String text = ctx.LONG_LITERAL().getText();
             String digits = text.substring(0, text.length() - 1);
-            return Long.parseLong(digits);
+            return LiteralParsing.parseLong(digits);
         }
         if (ctx.BOOL_LITERAL() != null) {
             return Boolean.parseBoolean(ctx.BOOL_LITERAL().getText());
@@ -581,7 +581,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         String path = visitQualifiedName(ctx.qualifiedName());
         Integer version = ctx.INT_LITERAL() == null
             ? null
-            : Integer.parseInt(ctx.INT_LITERAL().getText());
+            : LiteralParsing.parseInt(ctx.INT_LITERAL().getText());
         String alias = null;
         if (ctx.importAlias() != null) {
             AsterParser.ImportAliasContext aliasCtx = ctx.importAlias();
@@ -868,7 +868,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         String backoff = null;
         for (var directive : ctx.retryDirective()) {
             if (directive.MAX() != null) {
-                int attempts = Integer.parseInt(directive.INT_LITERAL().getText());
+                int attempts = LiteralParsing.parseInt(directive.INT_LITERAL().getText());
                 if (attempts <= 0) {
                     throw new IllegalStateException("Retry `max attempts` 必须大于 0");
                 }
@@ -895,7 +895,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Stmt.Timeout visitTimeoutSection(AsterParser.TimeoutSectionContext ctx) {
-        long seconds = Long.parseLong(ctx.INT_LITERAL().getText());
+        long seconds = LiteralParsing.parseLong(ctx.INT_LITERAL().getText());
         if (seconds < 0) {
             throw new IllegalStateException("timeout 数值必须为非负整数");
         }
@@ -1016,7 +1016,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Pattern visitPatternInt(AsterParser.PatternIntContext ctx) {
-        int value = Integer.parseInt(ctx.INT_LITERAL().getText());
+        int value = LiteralParsing.parseInt(ctx.INT_LITERAL().getText());
         return new Pattern.PatternInt(value, spanFrom(ctx));
     }
 
@@ -1515,13 +1515,13 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Expr visitIntExpr(AsterParser.IntExprContext ctx) {
-        int value = Integer.parseInt(ctx.INT_LITERAL().getText());
+        int value = LiteralParsing.parseInt(ctx.INT_LITERAL().getText());
         return new Expr.Int(value, spanFrom(ctx));
     }
 
     @Override
     public Expr visitFloatExpr(AsterParser.FloatExprContext ctx) {
-        double value = Double.parseDouble(ctx.FLOAT_LITERAL().getText());
+        double value = LiteralParsing.parseDouble(ctx.FLOAT_LITERAL().getText());
         return new Expr.Double(value, spanFrom(ctx));
     }
 
@@ -1559,7 +1559,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     public Expr visitLongExpr(AsterParser.LongExprContext ctx) {
         String text = ctx.LONG_LITERAL().getText();
         // 移除 'L' 或 'l' 后缀
-        long value = Long.parseLong(text.substring(0, text.length() - 1));
+        long value = LiteralParsing.parseLong(text.substring(0, text.length() - 1));
         return new Expr.Long(value, spanFrom(ctx));
     }
 

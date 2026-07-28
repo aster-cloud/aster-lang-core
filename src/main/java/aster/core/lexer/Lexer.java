@@ -605,6 +605,12 @@ public final class Lexer {
                 num.append(next());
             }
             double val = Double.parseDouble(num.toString());
+            // 溢出成 ±Infinity 的字面量拒收：否则超限值被当作合法 Float 继续参与运算。
+            if (!Double.isFinite(val)) {
+                throw new LexerException(
+                    "Float literal " + num + " overflows to Infinity and is not a finite Float. "
+                        + "Use a Decimal literal for values beyond the double range.", start);
+            }
             push(TokenKind.FLOAT, val, start, null);
             return;
         }
@@ -612,12 +618,42 @@ public final class Lexer {
         // Look for long suffix 'L' or 'l'
         if (Character.toLowerCase(peek()) == 'l') {
             next();
-            long val = Long.parseLong(num.toString());
-            push(TokenKind.LONG, val, start, null);
+            push(TokenKind.LONG, parseBounded(num.toString(), start, true), start, null);
             return;
         }
 
-        int val = Integer.parseInt(num.toString());
-        push(TokenKind.INT, val, start, null);
+        push(TokenKind.INT, (int) parseBounded(num.toString(), start, false), start, null);
+    }
+
+    /**
+     * 解析整数字面量并校验范围，超限抛 {@link LexerException} 而非未捕获的
+     * {@link NumberFormatException}。与 ANTLR 路径的 {@code LiteralParsing}、
+     * 以及 TS 侧 L006/L007 保持同一约定：**两引擎一律硬拒**超限字面量。
+     *
+     * @param isLong true 走 Long 范围，false 走 Int 范围
+     */
+    private long parseBounded(String raw, Position start, boolean isLong) {
+        java.math.BigInteger value;
+        try {
+            value = new java.math.BigInteger(raw);
+        } catch (NumberFormatException ex) {
+            throw new LexerException("Malformed numeric literal " + raw + ".", start);
+        }
+        java.math.BigInteger min = isLong
+            ? java.math.BigInteger.valueOf(Long.MIN_VALUE)
+            : java.math.BigInteger.valueOf(Integer.MIN_VALUE);
+        java.math.BigInteger max = isLong
+            ? java.math.BigInteger.valueOf(Long.MAX_VALUE)
+            : java.math.BigInteger.valueOf(Integer.MAX_VALUE);
+        if (value.compareTo(min) < 0 || value.compareTo(max) > 0) {
+            throw new LexerException(
+                (isLong ? "Long" : "Integer") + " literal " + raw + " is out of range for "
+                    + (isLong ? "Long" : "Int") + " (" + min + ".." + max + "). "
+                    + (isLong
+                        ? "Use a Decimal literal instead."
+                        : "Add the 'L' suffix for a 64-bit Long, or use a Decimal literal."),
+                start);
+        }
+        return value.longValue();
     }
 }
