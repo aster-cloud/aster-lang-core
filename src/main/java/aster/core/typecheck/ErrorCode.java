@@ -70,6 +70,13 @@ public enum ErrorCode {
   // 补齐 Java 侧码表使双引擎 error_codes.json 契约一致；Java 引擎实现效果变量检查时可 emit）。
   EFFECT_VAR_UNDECLARED("E210", Category.TYPE, Severity.ERROR, "Effect variable {var} undeclared", "在函数签名的效果参数列表中添加效果类型参数。"),
   EFFECT_VAR_UNRESOLVED("E211", Category.TYPE, Severity.ERROR, "Effect variable {vars} could not be resolved to concrete effects", "提供明确效果（pure/cpu/io/workflow）或移除未使用的效果变量。"),
+  // E212（issue aster-lang-ts#90）：调用了效果未知的 builtin。既非本地函数、无导入效果
+  // 签名、不匹配任何已知前缀、也不属于已知纯 stdlib 命名空间——此前这类调用被**静默推断
+  // 为 pure**，一个真做网络请求但名为 Webhook.post 的 builtin 因此不会触发缺 @io 诊断。
+  // 前缀匹配本质不可能完备，故不改判为"不纯"（会大量误报），而是把未知显式暴露成 warning。
+  // 目前只有 TS 侧发出该码；此处登记以保持 shared/error_codes.json 单源码表两端一致
+  // （generate_error_codes.ts 会校验 drift）。
+  EFF_INFER_UNKNOWN_BUILTIN("E212", Category.EFFECT, Severity.WARNING, "Effect of builtin '{builtin}' called by '{func}' is unknown; it is NOT assumed pure", "通过 ASTER_EFFECT_CONFIG 前缀声明、提供导入效果签名，或改用已知 stdlib 命名空间。"),
   CAPABILITY_NOT_ALLOWED("E300", Category.CAPABILITY, Severity.ERROR, "Function '%s' requires %s capability but manifest for module '%s' denies it.", "更新能力清单或修改函数实现以符合限制。"),
   EFF_CAP_MISSING("E301", Category.CAPABILITY, Severity.ERROR, "Function '%s' uses %s capability but header declares [%s].", "在函数头部声明实际使用到的能力。"),
   EFF_CAP_SUPERFLUOUS("E302", Category.CAPABILITY, Severity.INFO, "Function '%s' declares %s capability but it is not used.", "移除未使用的能力声明以保持清晰。"),
