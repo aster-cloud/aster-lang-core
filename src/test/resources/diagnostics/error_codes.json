@@ -356,6 +356,13 @@
     "message": "Effect variable {vars} could not be resolved to concrete effects",
     "help": "Provide explicit effects (pure/cpu/io/workflow) or remove unused effect variables."
   },
+  "EFF_INFER_UNKNOWN_BUILTIN": {
+    "code": "E212",
+    "category": "effect",
+    "severity": "warning",
+    "message": "Effect of builtin '{builtin}' called by '{func}' is unknown; it is NOT assumed pure",
+    "help": "Declare it via ASTER_EFFECT_CONFIG prefixes, supply an imported effect signature, or use a known stdlib namespace."
+  },
   "CAPABILITY_NOT_ALLOWED": {
     "code": "E300",
     "category": "capability",
