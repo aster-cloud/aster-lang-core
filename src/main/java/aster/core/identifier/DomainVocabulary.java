@@ -78,8 +78,13 @@ public record DomainVocabulary(
     public ValidationResult validate() {
         List<String> errors = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
-        // 触发词（localized + aliases，小写）→ 是否字面量宏。字面量宏触发词须全局唯一（Codex 复审 P0）。
-        java.util.Map<String, Boolean> seenTrigger = new java.util.HashMap<>();
+        // 触发词（localized + aliases，小写）→ (是否字面量宏, 规范名)。
+        // 字面量宏触发词须全局唯一（Codex 复审 P0）；此外**非字面量**触发词若映射到
+        // 不同 canonical 也必须报错（issue #88）——IdentifierIndex.build 用
+        // toCanonical.put 无条件覆盖，两条冲突映射的胜者取决于 allMappings() 的迭代
+        // 顺序，同一份词汇集合换个合并次序就会得到不同的编译结果。
+        record TriggerInfo(boolean isLiteral, String canonical) {}
+        java.util.Map<String, TriggerInfo> seenTrigger = new java.util.HashMap<>();
 
         // 验证所有映射
         for (IdentifierMapping mapping : allMappings()) {
@@ -105,11 +110,26 @@ public record DomainVocabulary(
             if (mapping.aliases() != null) triggers.addAll(mapping.aliases());
             for (String t : triggers) {
                 String key = t.toLowerCase(java.util.Locale.ROOT); // 与 IdentifierIndex.build 一致
-                Boolean prev = seenTrigger.get(key);
-                if (prev != null && (prev || isLit)) {
+                TriggerInfo prev = seenTrigger.get(key);
+                if (prev != null && (prev.isLiteral() || isLit)) {
                     errors.add("触发词 '" + t + "' 与另一条映射冲突（字面量宏触发词须全局唯一，防\"字符串 vs 标识符\"替换歧义）");
+                } else if (prev != null && !prev.canonical().equals(mapping.canonical())) {
+                    // 同一触发词映射到不同 canonical：IdentifierIndex.build 的
+                    // toCanonical.put 无条件覆盖，胜者取决于 allMappings() 的迭代顺序
+                    // ——同一份词汇集合换个合并次序就得到不同的编译结果（issue #88）。
+                    //
+                    // ★定为 warning 而非 error：现网词汇表（含内置 SPI 插件）里已存在
+                    // 这类重叠声明，直接报 error 会让 VocabularyRegistry.register 抛异常、
+                    // 整个词汇体系无法注册（实测 29 个测试挂、注册数归零）。既有数据的
+                    // 合法性不该由一次缺陷修复单方面推翻，故先让歧义**可见**：
+                    // 调用方能从 warnings 里看到并逐个消解，待现网清理干净后再升级为 error。
+                    warnings.add("触发词 '" + t + "' 被映射到两个不同的规范名（'"
+                        + prev.canonical() + "' 与 '" + mapping.canonical()
+                        + "'）；实际生效者取决于合并顺序，建议消除歧义");
                 }
-                seenTrigger.put(key, (prev != null && prev) || isLit);
+                seenTrigger.put(key, new TriggerInfo(
+                    (prev != null && prev.isLiteral()) || isLit,
+                    prev != null && prev.isLiteral() ? prev.canonical() : mapping.canonical()));
             }
 
             // 检查字段是否有父结构体
