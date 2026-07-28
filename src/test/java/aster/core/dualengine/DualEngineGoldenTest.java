@@ -64,11 +64,22 @@ class DualEngineGoldenTest {
                 DynamicTest.dynamicTest("cases array non-empty", () -> {
                     assertThat(cases.path("cases").size()).isGreaterThan(0);
                 }),
-                DynamicTest.dynamicTest("every case has name/input/expectedOutput", () -> {
+                DynamicTest.dynamicTest("every case has name/input + expectedOutput 或 expectError", () -> {
                     for (JsonNode c : cases.path("cases")) {
                         assertThat(c.has("name")).isTrue();
                         assertThat(c.has("input")).isTrue();
-                        assertThat(c.has("expectedOutput")).isTrue();
+                        // 错误路径用例（aster-lang-test#69）用 expectError:true 断言
+                        // "两个引擎都必须拒绝该输入"，此时刻意**不写** expectedOutput
+                        // （没有正常返回值可断言）。两者二选一，且互斥——与 JS 侧
+                        // scripts/lib/eval-cases.mjs 的 validateEvalCasesDocument 同一约定。
+                        boolean hasOutput = c.has("expectedOutput");
+                        boolean expectsError = c.path("expectError").asBoolean(false);
+                        assertThat(hasOutput || expectsError)
+                            .as("case '%s' 必须有 expectedOutput 或 expectError:true", c.path("name").asText())
+                            .isTrue();
+                        assertThat(hasOutput && expectsError)
+                            .as("case '%s' 不得同时有 expectedOutput 与 expectError（互斥）", c.path("name").asText())
+                            .isFalse();
                     }
                 })
             )));
