@@ -115,6 +115,8 @@ public final class TypeChecker {
         .filter(CoreModel.Func.class::isInstance)
         .map(CoreModel.Func.class::cast)
         .toList();
+      // 模块名仅用于 CAPABILITY_NOT_ALLOWED 的消息文案（对齐 TS 的 {module} 参数）
+      capabilityChecker.setModuleName(module.name);
       baseDiagnostics.addAll(capabilityChecker.checkModule(funcs));
       // P0-1 (ADR-0009): PII flow 分析永远启用，不再依赖 env var。
       // 与 TypeScript 端 typecheckModule / typecheckBrowser 保持一致语义。

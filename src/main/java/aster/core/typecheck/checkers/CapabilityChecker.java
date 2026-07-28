@@ -28,9 +28,16 @@ public final class CapabilityChecker {
 
   private final List<Diagnostic> diagnostics = new ArrayList<>();
   private ManifestConfig manifest;
+  /** 当前模块名，仅用于 CAPABILITY_NOT_ALLOWED 的消息文案（与 TS 的 {module} 参数对齐）。 */
+  private String moduleName;
 
   public void setManifest(ManifestConfig manifest) {
     this.manifest = manifest;
+  }
+
+  /** 设置当前模块名（可选；未设置时消息中的模块字段为空串）。 */
+  public void setModuleName(String moduleName) {
+    this.moduleName = moduleName;
   }
 
   /**
@@ -119,7 +126,8 @@ public final class CapabilityChecker {
     }
 
     checkWorkflowConstraints(func, declaredEffects);
-    checkManifestConstraints(func);
+    // 复用上面已算好的 capabilities（body 实际用到的能力），避免二次遍历函数体。
+    checkManifestConstraints(func, capabilities);
   }
 
   private void checkDeclaredCapabilities(CoreModel.Func func, Map<CapabilityKind, List<String>> usedCaps) {
@@ -365,32 +373,49 @@ public final class CapabilityChecker {
     ));
   }
 
-  private void checkManifestConstraints(CoreModel.Func func) {
-    if (manifest == null || func == null || !func.effectCapsExplicit) {
+  /**
+   * Manifest 能力约束校验。
+   * <p>
+   * ★校验对象是「**声明的** ∪ **body 实际用到的**」能力（issue #84）。此前只查声明集合，
+   * 且在 {@code !effectCapsExplicit} 时整体早退，于是裸 {@code @io}（未显式列 effectCaps）
+   * 的函数即便真的调用了被 manifest deny 的能力也毫无诊断——沙箱被完全绕过。
+   * TS 侧 {@code typecheck/module.ts} 本就把 {@code collectCapabilities(body)} 并入待查集合，
+   * 本方法与之对齐。
+   *
+   * @param usedCaps {@code checkFunction} 已算好的 body 实际能力，避免重复遍历函数体
+   */
+  private void checkManifestConstraints(CoreModel.Func func, Map<CapabilityKind, List<String>> usedCaps) {
+    if (manifest == null || func == null) {
       return;
     }
-    var declaredCaps = normalizeEffectCaps(func.effectCaps);
-    if (declaredCaps.isEmpty()) {
-      return;
-    }
-    for (var capLabel : declaredCaps) {
-      var kind = CapabilityKind.fromLabel(capLabel);
-      if (kind.isEmpty()) {
-        continue;
+    var caps = new LinkedHashSet<CapabilityKind>();
+    // 声明的能力（仅在显式声明时才有意义）
+    if (func.effectCapsExplicit) {
+      for (var capLabel : normalizeEffectCaps(func.effectCaps)) {
+        CapabilityKind.fromLabel(capLabel).ifPresent(caps::add);
       }
-      var cap = kind.get();
+    }
+    // body 中实际用到的能力——绕过的关键补丁
+    if (usedCaps != null) {
+      caps.addAll(usedCaps.keySet());
+    }
+    for (var cap : caps) {
       if (!manifest.isAllowed(cap)) {
         emit(
-          ErrorCode.WORKFLOW_UNDECLARED_CAPABILITY,
+          // 与 TS 一致用 CAPABILITY_NOT_ALLOWED(E300)：manifest 拒绝 ≠ 未声明能力。
+          // 此前误用 WORKFLOW_UNDECLARED_CAPABILITY(E027)，而 E300 在 Java 侧从未被发出过。
+          ErrorCode.CAPABILITY_NOT_ALLOWED,
           func.origin,
+          // data 键与 TS builder.error(..., {func, module, cap}) 对齐
           Map.of(
             "func", func.name,
-            "capability", cap.displayName(),
-            "manifest", "not allowed"
+            "module", moduleName == null ? "" : moduleName,
+            "cap", cap.displayName()
           ),
+          // 格式串顺序：Function '%s' requires %s capability but manifest for module '%s' denies it.
           func.name,
-          "manifest",
-          cap.displayName()
+          cap.displayName(),
+          moduleName == null ? "" : moduleName
         );
       }
     }

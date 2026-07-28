@@ -167,8 +167,12 @@ class CapabilityCheckerTest {
     var diagnostics = checker.checkModule(List.of(func));
 
     assertTrue(
-      diagnostics.stream().anyMatch(d -> d.code() == ErrorCode.WORKFLOW_UNDECLARED_CAPABILITY),
-      "Manifest 拒绝的能力应产生 WORKFLOW_UNDECLARED_CAPABILITY 诊断"
+      // issue #84：manifest 拒绝应报 CAPABILITY_NOT_ALLOWED(E300)，与 TS 一致。
+      // 此前误用 WORKFLOW_UNDECLARED_CAPABILITY(E027)——那是「workflow 用了未声明能力」
+      // 的语义，与「manifest 明令拒绝」不是一回事（E027 仍用于前者，见 checkWorkflowConstraints）。
+      diagnostics.stream().anyMatch(d -> d.code() == ErrorCode.CAPABILITY_NOT_ALLOWED),
+      "Manifest 拒绝的能力应产生 CAPABILITY_NOT_ALLOWED 诊断；实际="
+        + diagnostics.stream().map(d -> d.code().toString()).toList()
     );
   }
 
@@ -202,7 +206,91 @@ class CapabilityCheckerTest {
 
     var diagnostics = checker.checkModule(List.of(func));
 
-    assertTrue(diagnostics.isEmpty(), "未显式声明 effectCaps 时应跳过能力核对");
+    // 未显式声明 effectCaps 时跳过「声明 vs 实际」的核对（本用例未配置 manifest）。
+    // 注意这不代表跳过 manifest 校验——manifest 必须对 body 实际用到的能力生效，
+    // 见 manifestDeniesCapabilityUsedInBodyWithoutExplicitCaps。
+    assertTrue(diagnostics.isEmpty(), "未显式声明 effectCaps 时应跳过声明核对");
+  }
+
+  @Test
+  void manifestDeniesCapabilityUsedInBodyWithoutExplicitCaps() {
+    // issue #84：manifest 此前只对**声明的**能力生效，裸 @io（未显式列 effectCaps）
+    // 的函数即便 body 里真的调用了被 deny 的能力，也完全不产生诊断——沙箱被绕过。
+    // TS 侧 typecheck/module.ts 早已把 collectCapabilities(body) 并入待查集合。
+    var manifest = new ManifestConfig(
+      Set.of(CapabilityKind.HTTP),
+      Set.of(CapabilityKind.PROCESS)
+    );
+    checker.setManifest(manifest);
+
+    var func = createFunc(
+      "runJob",
+      List.of("io"),
+      blockWithStatements(returnCall("Process.exec"))
+    );
+    func.effectCaps = List.of();
+    func.effectCapsExplicit = false;
+
+    var diagnostics = checker.checkModule(List.of(func));
+
+    assertTrue(
+      diagnostics.stream().anyMatch(d -> d.code() == ErrorCode.CAPABILITY_NOT_ALLOWED),
+      "manifest 拒绝的能力即便未显式声明，只要 body 用到就必须报 CAPABILITY_NOT_ALLOWED；"
+        + "实际诊断=" + diagnostics.stream().map(d -> d.code().toString()).toList()
+    );
+  }
+
+  @Test
+  void manifestDeniesCapabilityUsedInBodyWhenDeclaringSomethingElse() {
+    // 变体：显式声明了 Http（合规），但 body 里另外调用了被 deny 的 Process。
+    // 此前只核对声明集合，故 Process 从不过 manifest。
+    var manifest = new ManifestConfig(
+      Set.of(CapabilityKind.HTTP),
+      Set.of(CapabilityKind.PROCESS)
+    );
+    checker.setManifest(manifest);
+
+    var func = createFunc(
+      "mixed",
+      List.of("io"),
+      blockWithStatements(returnCall("Http.get"), returnCall("Process.exec"))
+    );
+    func.effectCaps = List.of("Http");
+    func.effectCapsExplicit = true;
+
+    var diagnostics = checker.checkModule(List.of(func));
+
+    assertTrue(
+      diagnostics.stream().anyMatch(d -> d.code() == ErrorCode.CAPABILITY_NOT_ALLOWED),
+      "body 中被 deny 的能力必须报 CAPABILITY_NOT_ALLOWED；实际诊断="
+        + diagnostics.stream().map(d -> d.code().toString()).toList()
+    );
+  }
+
+  @Test
+  void manifestAllowedCapabilityInBodyProducesNoManifestDiagnostic() {
+    // 反向守卫：body 用到的能力在 allow 列表内时，不得因本次收紧而误报。
+    var manifest = new ManifestConfig(
+      Set.of(CapabilityKind.HTTP),
+      Set.of(CapabilityKind.PROCESS)
+    );
+    checker.setManifest(manifest);
+
+    var func = createFunc(
+      "fetch",
+      List.of("io"),
+      blockWithStatements(returnCall("Http.get"))
+    );
+    func.effectCaps = List.of();
+    func.effectCapsExplicit = false;
+
+    var diagnostics = checker.checkModule(List.of(func));
+
+    assertTrue(
+      diagnostics.stream().noneMatch(d -> d.code() == ErrorCode.CAPABILITY_NOT_ALLOWED),
+      "allow 列表内的能力不应报 manifest 诊断；实际诊断="
+        + diagnostics.stream().map(d -> d.code().toString()).toList()
+    );
   }
 
   @Test
