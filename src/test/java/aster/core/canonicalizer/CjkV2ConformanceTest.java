@@ -48,8 +48,17 @@ class CjkV2ConformanceTest {
     private static final int MIN_EXPECTED_CASES = 4;
 
     /**
-     * 定位 aster-lang-test 仓根：系统属性 → 环境变量 → 兄弟目录回退。
-     * 与 corpus-regression.yml 注入的 {@code ASTER_LANG_TEST_PATH} 对齐。
+     * 定位 aster-lang-test 仓根，按优先级尝试多种布局。
+     *
+     * <p>必须同时兼容两种目录结构，否则会在其中一种下误判为「语料缺失」：
+     * <ul>
+     *   <li><b>本地开发</b>：两仓并列 → {@code ../aster-lang-test}；</li>
+     *   <li><b>CI 的 build job</b>：core 自身 checkout 到 workspace 根（无 path:），
+     *       兄弟仓作为子目录 → {@code ./aster-lang-test}；</li>
+     *   <li><b>CI 的 parity job</b>：core 也带 path:，此时又回到并列布局。</li>
+     * </ul>
+     * 显式指定（系统属性 / 环境变量）优先级最高，与 corpus-regression.yml
+     * 注入的 {@code ASTER_LANG_TEST_PATH} 对齐。
      */
     private static Path resolveCorpusRoot() {
         String sysProp = System.getProperty("aster.test.root");
@@ -61,8 +70,19 @@ class CjkV2ConformanceTest {
             return Paths.get(envVar);
         }
         Path cwd = Paths.get(System.getProperty("user.dir"));
+        List<Path> candidates = new ArrayList<>();
+        candidates.add(cwd.resolve("aster-lang-test"));          // CI build job：子目录
         Path parent = cwd.getParent();
-        return parent == null ? cwd.resolve("aster-lang-test") : parent.resolve("aster-lang-test");
+        if (parent != null) {
+            candidates.add(parent.resolve("aster-lang-test"));   // 本地/parity job：兄弟目录
+        }
+        for (Path c : candidates) {
+            if (Files.isDirectory(c.resolve("corpus/conformance/cjk-v2"))) {
+                return c;
+            }
+        }
+        // 都没命中：返回首选项，让调用方的断言给出带路径的清晰报错
+        return candidates.get(0);
     }
 
     @TestFactory
@@ -74,7 +94,9 @@ class CjkV2ConformanceTest {
         // ——这正是本文件所替换的那个测试犯的错。
         assertTrue(Files.isDirectory(dir),
             "CJK v2 conformance 语料目录不存在: " + dir.toAbsolutePath()
-                + "；请置于 aster-lang-test 兄弟目录，或设 ASTER_LANG_TEST_PATH。");
+                + "（cwd=" + Paths.get("").toAbsolutePath() + "）"
+                + "；已尝试 ./aster-lang-test 与 ../aster-lang-test 两种布局，"
+                + "可用 -Daster.test.root=... 或 ASTER_LANG_TEST_PATH 显式指定。");
 
         List<Path> cases = new ArrayList<>();
         try (Stream<Path> paths = Files.list(dir)) {
