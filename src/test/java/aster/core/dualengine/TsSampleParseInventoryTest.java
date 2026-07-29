@@ -9,6 +9,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import aster.core.parser.AsterCustomLexer;
 import aster.core.parser.AsterParser;
 import cloud.aster.test.CorpusLoader;
@@ -103,7 +106,36 @@ class TsSampleParseInventoryTest {
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
                 .forEach(e -> System.out.printf("  %4d × %s%n", e.getValue(), e.getKey()));
         }
+
+        // ── 断言（2026-07-29 审计修复）──────────────────────────────────
+        //
+        // 本测试原本**一条断言都没有**，Javadoc 自陈「The test always passes」。
+        // 而 corpus-regression.yml 的过滤器 `--tests '*Corpus*'` 匹配 0 个类
+        // （CorpusLoaderTest 在 aster-lang-test 仓），于是这个无断言的 inventory
+        // 是该 workflow **唯一真正执行**的测试——整条 gate 只打印表格然后恒绿。
+        //
+        // 保留它的诊断性质（不追求 100%，4 个已知 TS-only 特性允许存在），
+        // 但补两条不变量，让它至少能挡住「真回归」和「语料没加载」：
+
+        assertFalse(samples.isEmpty(),
+            "未发现任何 TS 引擎样本——语料未加载（空集合遍历会让所有统计恒真）。"
+                + "corpus 依赖 cloud.aster-lang:aster-lang-test，检查它是否已发布到 mavenLocal。");
+
+        // 棘轮：允许已知的 4 个失败，但不允许更多。数字只应下降，不应上升；
+        // 若确有新的 TS-only 特性需要豁免，应显式改这个基线并在 PR 说明理由。
+        assertTrue(fail <= MAX_KNOWN_PARSE_FAILURES,
+            String.format("Java 解析失败数 %d 超过已知基线 %d —— 疑似语法回归。"
+                + "失败样本见上方 failure clusters。若为有意新增的 TS-only 特性，"
+                + "请调整 MAX_KNOWN_PARSE_FAILURES 并说明。", fail, MAX_KNOWN_PARSE_FAILURES));
     }
+
+    /**
+     * 已知的 Java 解析失败数基线（2026-07-29 实测 222 样本中 4 例失败，通过率 98.2%）。
+     *
+     * <p>这些是 TS PEG 接受而 Java ANTLR 尚不支持的语法特性，属已知差距而非回归。
+     * ★本数字只应随着差距消解而**下降**。
+     */
+    private static final int MAX_KNOWN_PARSE_FAILURES = 4;
 
     private static final class CollectingErrorListener extends BaseErrorListener {
         final List<String> errors = new ArrayList<>();

@@ -293,8 +293,13 @@ jobs:
           set -o pipefail
           node scripts/parity-tier1.mjs --mode=parse
 
-      # Phase B IR fingerprint parity — report-only for first cycle.
-      # See aster-lang-test/.github/workflows/ci.yml for full rationale.
+      # Phase B IR fingerprint parity —— 仍为 report-only，但这是**有据的例外**而非默认。
+      #
+      # 2026-07-29 实测：218 个样本中 2 个真分叉，均出在 `Use <Module> as <Alias>`
+      # 的导入别名处理上——TS 为被导入模块生成 decl（declNames.tsOnly:
+      # ["Db","Http","Time"] / ["Http"]），Java 不生成。哪一侧是正确语义需要一次
+      # 独立的设计裁决，不能在「修 CI」的改动里顺手拍板，故暂不阻断。
+      # ★收敛条件：上述 2 例消解后，本步应与 eval 一样去掉 continue-on-error。
       - name: Run tier1-parity (IR fingerprint, report-only)
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
         working-directory: aster-lang-test
@@ -304,15 +309,19 @@ jobs:
           set -o pipefail
           node scripts/parity-tier1.mjs --mode=ir --report-only | tee parity-tier1-ir-report.md
 
-      # Phase C evaluator parity — report-only first cycle.
-      - name: Run tier1-parity (eval, report-only)
+      # Phase C evaluator parity —— **PR-blocking**（2026-07-29 审计修复）。
+      #
+      # 此前是 continue-on-error + --report-only，标注「first cycle」却无到期日：
+      # 两个引擎的求值结果分叉不会让 CI 变红，等于这一层 parity 是装饰性的。
+      # 本地实测当前 298/298 identical、0 divergent，具备直接阻断的条件，故去掉
+      # 两个静音开关。aster-lang-test 的 ci.yml 早已完成同样的收紧，此处是补传播。
+      - name: Run tier1-parity (eval)
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
         working-directory: aster-lang-test
-        continue-on-error: true
         shell: bash
         run: |
           set -o pipefail
-          node scripts/parity-tier1.mjs --mode=eval --report-only | tee parity-tier1-eval-report.md
+          node scripts/parity-tier1.mjs --mode=eval | tee parity-tier1-eval-report.md
 
       - name: Upload parity reports
         if: always() && (steps.changed.outputs.parity == 'true' || github.event_name == 'push')
