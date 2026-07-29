@@ -70,4 +70,9 @@ jobs:
         env:
           ASTER_LANG_TEST_PATH: ${{ github.workspace }}/aster-lang-test
         run: |
-          ./gradlew test --tests '*Corpus*' --tests '*TsSampleParseInventory*' --no-daemon
+          # 去掉 '*Corpus*'：本仓没有任何类名含 Corpus 的测试
+          # （CorpusLoaderTest 在 aster-lang-test 仓），该模式一直匹配 0 个类。
+          # Gradle 因为另一个模式有匹配而不报错，于是「半个过滤器写错」被静默吞掉。
+          # TsSampleParseInventoryTest 现已补上断言（语料非空 + 失败数棘轮），
+          # 不再是无断言的打印任务。
+          ./gradlew test --tests '*TsSampleParseInventory*' --no-daemon
