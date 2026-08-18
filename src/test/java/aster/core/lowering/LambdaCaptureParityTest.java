@@ -125,10 +125,16 @@ class LambdaCaptureParityTest {
   void nestedLambdaCapturePropagatesToOuter() {
     // 第三处分歧：内层 lambda 引用 outer 时，**外层也必须捕获**——
     // 外层不捕获就没有该变量，内层无从拿到。此前 Java 在 Expr.Lambda 直接 return。
+    // ★内层体必须**真的引用 y**（对抗性审查 2026-08-18 发现）：
+    //   原写法内层体是 `Return outer.`，y 从未被引用，而捕获收集只记录被引用的名字
+    //   —— 于是下面那条「y 不得穿透」的反向断言**恒真**，是空断言。
+    //   实证：把「压入内层形参」的逻辑改坏（改成继承外层作用域、不绑定内层形参），
+    //   6 个用例仍全绿，而该变异确实制造了 y 泄漏进外层 captures 的污染。
+    //   改成 `If y then outer else outer` 后，只有内层形参真正入栈才不会误记。
     String src = "Module probe.\n\nRule r given outer, produce:\n"
         + "  Let f be function with x, produce:\n"
         + "    Let g be function with y, produce:\n"
-        + "      Return outer.\n"
+        + "      Return If y then outer else outer.\n"
         + "    Return g(x).\n"
         + "  Return f(outer).\n";
     var lambdas = allCapturesOf(src);
@@ -139,6 +145,10 @@ class LambdaCaptureParityTest {
         "内层 lambda 自身也必须捕获 outer，实际=" + lambdas.get(1));
     assertTrue(!lambdas.get(0).contains("y"),
         "内层形参 y 不得穿透成外层的捕获，实际=" + lambdas.get(0));
+    assertTrue(!lambdas.get(1).contains("y"),
+        "y 是内层自己的形参，也不得计入内层的 captures，实际=" + lambdas.get(1));
+    assertTrue(!lambdas.get(0).contains("g"),
+        "g 由 Let 绑定，不是自由变量，不得计入外层 captures，实际=" + lambdas.get(0));
   }
 
   @Test
