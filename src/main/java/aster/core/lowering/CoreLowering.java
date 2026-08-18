@@ -892,7 +892,24 @@ public final class CoreLowering {
       visitExpr(await.expr(), scopes, captures);
       return;
     }
-    if (expr instanceof Expr.Lambda) {
+    if (expr instanceof Expr.Lambda inner) {
+      // 嵌套 lambda：内层引用的外部变量必须**穿透**记到外层的 captures 上——
+      // 外层不捕获就没有该变量，内层无从拿到。递归时把内层形参压入作用域，
+      // 使内层自己的参数不被误记为外层捕获。
+      Set<String> innerScope = new HashSet<>();
+      if (inner.params() != null) {
+        for (Decl.Parameter param : inner.params()) {
+          if (param != null && param.name() != null) {
+            innerScope.add(param.name());
+          }
+        }
+      }
+      scopes.push(innerScope);
+      try {
+        traverseBlock(inner.body(), scopes, captures);
+      } finally {
+        scopes.pop();
+      }
       return;
     }
     if (expr instanceof Expr.ListLiteral list) {
@@ -901,6 +918,15 @@ public final class CoreLowering {
           visitExpr(item, scopes, captures);
         }
       }
+      return;
+    }
+    if (expr instanceof Expr.IfExpr ifExpr) {
+      // ADR 0019 G2b：表达式级 if 的三个子表达式都要递归。漏掉它们会让
+      // `If c then outer else x` 里的 outer 收不进 captures——两侧都不报错，
+      // 只是 Truffle 帧里没有 outer 的槽位。
+      visitExpr(ifExpr.cond(), scopes, captures);
+      visitExpr(ifExpr.thenExpr(), scopes, captures);
+      visitExpr(ifExpr.elseExpr(), scopes, captures);
     }
   }
 
