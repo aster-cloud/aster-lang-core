@@ -111,7 +111,7 @@ public final class BaseTypeChecker {
       case CoreModel.Lambda lambda -> checkLambda(lambda, ctx);
 
       // 构造器
-      case CoreModel.Construct construct -> checkConstruct(construct);
+      case CoreModel.Construct construct -> checkConstruct(construct, ctx);
 
       // Await
       case CoreModel.Await await -> checkAwait(await, ctx);
@@ -454,9 +454,77 @@ public final class BaseTypeChecker {
   /**
    * 检查构造器
    */
-  private Type checkConstruct(CoreModel.Construct construct) {
-    // 简化实现：返回类型名
-    // 完整实现需要查找 data 声明并验证字段
+  private Type checkConstruct(CoreModel.Construct construct, VisitorContext ctx) {
+    // ★2026-08-17 审计：此前这里是空壳（注释自述「简化实现」「完整实现需要查找 data
+    //   声明并验证字段」），导致 FIELD_TYPE_MISMATCH / UNKNOWN_FIELD /
+    //   MISSING_REQUIRED_FIELD 三个错误码在 Java 侧 emit 站点数为 **0**，
+    //   而 TS 侧（typecheck/expression.ts 的 Construct 分支）全部实现。
+    //
+    //   同一段 CNL：TS 报 3 个诊断，Java **静默接受**。对合规引擎而言，
+    //   「未覆盖的决策分支不告警」本身就是缺陷；更麻烦的是错误码表两侧
+    //   byte-identical，制造了「表对齐 = 行为对齐」的假象——表对齐了，
+    //   表背后的行为一侧根本不存在。
+    //
+    //   本实现逐条对齐 TS：未知字段 / 字段类型不匹配 / 缺失必填字段。
+    var dataDecls = ctx.getDataDecls();
+    var decl = dataDecls.get(construct.typeName);
+    if (decl == null || decl.fields == null) {
+      // 与 TS 一致：找不到 data 声明就不校验字段（该情形由其他检查负责报错，
+      // 这里再报一次只会产生重复诊断）。
+      return createTypeName(construct.typeName);
+    }
+
+    var provided = new java.util.HashSet<String>();
+    if (construct.fields != null) {
+      for (var field : construct.fields) {
+        if (field == null || field.name == null) {
+          continue;
+        }
+        provided.add(field.name);
+        var schemaField = decl.fields.stream()
+            .filter(f -> f.name != null && f.name.equals(field.name))
+            .findFirst()
+            .orElse(null);
+        if (schemaField == null) {
+          diagnostics.error(ErrorCode.UNKNOWN_FIELD, Optional.ofNullable(construct.origin),
+              Map.of("field", field.name, "type", decl.name));
+          continue;
+        }
+        if (field.expr == null || schemaField.type == null) {
+          continue;
+        }
+        var valueType = typeOfExpr(field.expr, ctx);
+        // 用 isSubtype 而非 equals：与 TS 的 isAssignable 一致，允许 Int → Float
+        // 等数值提升。unknown 一侧跳过——推断不出类型时报「不匹配」是误报，
+        // 那属于类型推断的问题，不该在这里制造噪声。
+        if (TypeSystem.isUnknown(valueType) || TypeSystem.isUnknown(schemaField.type)) {
+          continue;
+        }
+        // ★必须先展开类型别名再比较：本仓预置了 `Text = String` 这个历史别名
+        //   （见 TypeChecker 里的别名播种），字符串字面量推断出的是 String，
+        //   而 data 声明常写 Text——不展开就会对**完全正确**的构造器报
+        //   FIELD_TYPE_MISMATCH（实测确认过这个误报）。
+        //   同 checkAwait 的做法，用 ctx 的别名表展开两侧。
+        var aliases = ctx.getTypeAliases();
+        var expectedType = TypeSystem.expand(schemaField.type, aliases);
+        var actualType = TypeSystem.expand(valueType, aliases);
+        if (!TypeSystem.isSubtype(actualType, expectedType)) {
+          diagnostics.error(ErrorCode.FIELD_TYPE_MISMATCH,
+              Optional.ofNullable(field.expr instanceof CoreModel.Name n ? n.origin : construct.origin),
+              Map.of("field", field.name,
+                  "expected", TypeSystem.format(expectedType),
+                  "actual", TypeSystem.format(actualType)));
+        }
+      }
+    }
+
+    for (var schemaField : decl.fields) {
+      if (schemaField.name != null && !provided.contains(schemaField.name)) {
+        diagnostics.error(ErrorCode.MISSING_REQUIRED_FIELD, Optional.ofNullable(construct.origin),
+            Map.of("type", decl.name, "field", schemaField.name));
+      }
+    }
+
     return createTypeName(construct.typeName);
   }
 
