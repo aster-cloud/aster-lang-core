@@ -221,7 +221,29 @@ class LambdaCaptureParityTest {
     assertTrue(ctor.get(0).contains("prefix"),
         "case 体里的 prefix 是自由变量、必须捕获，实际=" + ctor.get(0));
 
-    // ④ 各 case 独立作用域：前一个 case 的绑定不得泄漏到后一个
+    // ④ **嵌套**构造器模式 —— 锁住 patternBindings 里对 args 的递归。
+    //
+    //    ★终审复核给出了比我原判更精确的结论：`names` 与 `args` 之所以等价，
+    //      根因是 AstBuilder:1024-1034 里 `names` **由 args 过滤派生**
+    //      （filter 出 PatternName 再取名），故 names ⊆ args 递归结果，
+    //      数学上不可能提供额外绑定 —— 这才是 JG 无法证伪的原因。
+    //
+    //      而真正**承重**的是 args 递归（变异 JI）：删掉它后
+    //      `When Ok(Some(inner))` 产出 [inner, outer]（正确为 [outer]），
+    //      而上面 ③ 用的 `User(id, name)` 是 names == args 的**平坦**形态，
+    //      锁不住嵌套递归。此处用嵌套形态补上。
+    var nested = allCapturesOf("Module probe.\n\nRule r given outer, produce:\n"
+        + "  Let f be function with value, produce:\n"
+        + "    Match value:\n"
+        + "      When Ok(Some(inner)), Return inner.\n"
+        + "      When other, Return outer.\n"
+        + "  Return f(outer).\n");
+    assertTrue(!nested.get(0).contains("inner"),
+        "嵌套构造器模式绑定的 inner 不得计入 captures（需 args 递归），实际=" + nested.get(0));
+    assertTrue(nested.get(0).contains("outer"),
+        "另一 case 里的 outer 仍须捕获，实际=" + nested.get(0));
+
+    // ⑤ 各 case 独立作用域：前一个 case 的绑定不得泄漏到后一个
     var leak = allCapturesOf("Module probe.\n\nRule r given bound, produce:\n"
         + "  Let f be function with x, produce:\n"
         + "    Match x:\n"
