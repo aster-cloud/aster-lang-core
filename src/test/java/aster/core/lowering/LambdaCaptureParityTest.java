@@ -152,6 +152,26 @@ class LambdaCaptureParityTest {
   }
 
   @Test
+  void letRightHandSideSeesOuterBindingNotItself() {
+    // ★复评发现（2026-08-18）：TS 侧为「先递归再绑定」专门加了用例并变异验证，
+    //   Java 侧同一逻辑（CoreLowering:804-807）**没有对应用例** ——
+    //   把 Stmt.Let 改成先绑定后递归，6 个用例全绿，而该变异实际造成
+    //   Java [[]] vs TS [["outer"]] 的分歧。两侧测试覆盖不对称。
+    //
+    //   `Let outer be outer.` 的右侧指的是**外层**的 outer（此时同名局部尚未生效），
+    //   故必须捕获；先绑定会把它误判成已绑定而漏掉。
+    String src = "Module probe.\n\nRule r given outer, produce:\n"
+        + "  Let f be function with x, produce:\n"
+        + "    Let outer be outer.\n"
+        + "    Return outer.\n"
+        + "  Return f(outer).\n";
+    var lambdas = allCapturesOf(src);
+    assertTrue(!lambdas.isEmpty(), "应解析出 Lambda，实际=" + lambdas);
+    assertTrue(lambdas.get(0).contains("outer"),
+        "Let 右侧引用的外层 outer 必须捕获（先递归后绑定），实际=" + lambdas.get(0));
+  }
+
+  @Test
   void lambdaParameterIsNotCaptured() {
     // ★同等重要的一半：反向断言。否则「把所有 Name 无条件塞进 captures」
     //   也能让上面四条通过——那是假修复，且会给 Truffle 多造出无用槽位。
