@@ -172,6 +172,67 @@ class LambdaCaptureParityTest {
   }
 
   @Test
+  void matchScrutineeAndPatternBindingsAreHandled() {
+    // ★终审发现（发现 B）：Java 侧的 Match 分支（CoreLowering:817-835）与
+    //   patternBindings（:942-965）**零用例覆盖** —— 对称变异实测：
+    //     JE（scrutinee 不递归）→ 7 绿逃逸
+    //     JG（PatternCtor names 不绑）→ 7 绿逃逸
+    //   上一轮修掉「Let 顺序两侧覆盖不对称」后，Match 上出现了同型的新不对称
+    //   （这次方向相反：TS 有、Java 无）。此处补齐。
+
+    // ① scrutinee 位的自由变量必须捕获（两个 case 都不引用 outer）
+    var scrutinee = allCapturesOf("Module probe.\n\nRule r given outer, produce:\n"
+        + "  Let f be function with x, produce:\n"
+        + "    Match outer:\n"
+        + "      When 1, Return x.\n"
+        + "      When rest, Return x.\n"
+        + "  Return f(outer).\n");
+    assertTrue(scrutinee.get(0).contains("outer"),
+        "Match 被匹配表达式里的 outer 必须捕获，实际=" + scrutinee.get(0));
+
+    // ② 模式绑定的名字不得计入 captures
+    var bound = allCapturesOf("Module probe.\n\nRule r given outer, produce:\n"
+        + "  Let f be function with x, produce:\n"
+        + "    Match x:\n"
+        + "      When bound, Return bound.\n"
+        + "  Return f(outer).\n");
+    assertTrue(!bound.get(0).contains("bound"),
+        "Match 绑定的 bound 不得计入 captures，实际=" + bound.get(0));
+
+    // ③ 构造器模式 `When User(id, name)` 绑定的字段名同样不得计入 captures。
+    //
+    //    ★关于终审提到的变异 JG（PatternCtor 不绑 names）：补了本用例后它**仍然全绿**，
+    //      我查证后确认这是**等价变异**而非测试缺口 —— 实测该模式的 AST 是
+    //        PatternCtor[names=[id,name], args=[PatternName(id), PatternName(name)]]
+    //      names 与 args 携带同一组名字，patternBindings 里 `names.addAll(ctor.names())`
+    //      与随后对 args 的递归**互为冗余**，杀掉任一条另一条都能绑上。
+    //      故 JG 不改变任何可观测行为，不存在能让它变红的用例。
+    //      （若将来 args 不再镜像 names，这条冗余才会变成真覆盖缺口。）
+    var ctor = allCapturesOf("Module probe.\n\n"
+        + "Define User has id, name.\n\n"
+        + "Rule r given prefix, produce:\n"
+        + "  Let f be function with value, produce:\n"
+        + "    Match value:\n"
+        + "      When User(id, name), Return Text.concat(prefix, name).\n"
+        + "      When other, Return prefix.\n"
+        + "  Return f(prefix).\n");
+    assertTrue(!ctor.get(0).contains("name"),
+        "构造器模式绑定的字段 name 不得计入 captures，实际=" + ctor.get(0));
+    assertTrue(ctor.get(0).contains("prefix"),
+        "case 体里的 prefix 是自由变量、必须捕获，实际=" + ctor.get(0));
+
+    // ④ 各 case 独立作用域：前一个 case 的绑定不得泄漏到后一个
+    var leak = allCapturesOf("Module probe.\n\nRule r given bound, produce:\n"
+        + "  Let f be function with x, produce:\n"
+        + "    Match x:\n"
+        + "      When bound, Return bound.\n"
+        + "      When other, Return bound.\n"
+        + "  Return f(bound).\n");
+    assertTrue(leak.get(0).contains("bound"),
+        "第二个 case 里的 bound 是自由变量、必须捕获，实际=" + leak.get(0));
+  }
+
+  @Test
   void lambdaParameterIsNotCaptured() {
     // ★同等重要的一半：反向断言。否则「把所有 Name 无条件塞进 captures」
     //   也能让上面四条通过——那是假修复，且会给 Truffle 多造出无用槽位。
