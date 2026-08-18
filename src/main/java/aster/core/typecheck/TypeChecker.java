@@ -90,13 +90,27 @@ public final class TypeChecker {
       // 【修复】注入类型别名映射，使下游检查器可以展开别名
       var typeAliases = symbolTable.getTypeAliases();
 
+      // data 声明表：构造器字段校验需要字段列表，而 SymbolTable 只登记类型名
+      // （defineDataType 丢弃了 fields）。★2026-08-17 审计：此前 checkConstruct
+      // 是空壳，FIELD_TYPE_MISMATCH / UNKNOWN_FIELD / MISSING_REQUIRED_FIELD
+      // 在 Java 侧 emit 站点数为 0，而 TS 侧全部实现。
+      var dataDecls = new java.util.HashMap<String, CoreModel.Data>();
+      if (module.decls != null) {
+        for (var decl : module.decls) {
+          if (decl instanceof CoreModel.Data data && data.name != null) {
+            dataDecls.put(data.name, data);
+          }
+        }
+      }
+
       // 创建访问上下文
       var ctx = new VisitorContext(
         symbolTable,
         diagnostics,
         typeAliases, // 传入实际的类型别名映射
         TypeSystem.unknown(),
-        VisitorContext.Effect.PURE
+        VisitorContext.Effect.PURE,
+        dataDecls
       );
 
       // 第二遍：检查所有声明
