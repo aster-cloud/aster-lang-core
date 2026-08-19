@@ -66,6 +66,36 @@ class IdentifierCharsetParityTest {
   }
 
   @Test
+  void japaneseKanaAndHangulAreRejected_matchingTs() {
+    // ★2026-08-19 产品决策（issue #107）：暂不支持日韩字符集，收窄到与 TS 一致。
+    //   此前 Java 的 CjkChar 收六段（含平假名/片假名/韩文音节/兼容汉字），
+    //   而 TS 的 isLetter 在**任何词法表下**都只收统一汉字 + 扩展 A。
+    //   于是同一份源码 Java 编译得过、TS 直接词法失败。
+    assertFalse(lexes("한글"), "韩文音节(U+AC00-D7AF) TS 拒绝，Java 也必须拒绝");
+    assertFalse(lexes("ひらがな"), "平假名(U+3040-309F) 同上");
+    assertFalse(lexes("カタカナ"), "片假名(U+30A0-30FF) 同上");
+  }
+
+  @Test
+  void compatibilityIdeographsStillWorkViaNfcNormalization() {
+    // ★兼容汉字段(U+F900-FAFF)虽已从 CjkChar 移除，但 `車`(U+F902) **仍然可用** ——
+    //   我最初把它写成「应被拒绝」，实测是**我判错了**：
+    //   Canonicalizer 的 NFC 规范化会把 U+F902 映射成 U+8ECA（统一汉字），
+    //   而 U+8ECA 在 TS 的中文模式里同样被接受（已实跑 node 确认）。
+    //   即两侧看到的都是规范化后的码点，行为一致 —— 这是**正确的 parity**，不是缺口。
+    assertTrue(lexes("車x"), "兼容汉字经 NFC 归一为统一汉字后应可用，与 TS 一致");
+  }
+
+  @Test
+  void chineseRangesRemainAccepted() {
+    // ★同等重要的一半：收窄不得误伤中文本身。
+    //   否则「把 CjkChar 删光」也能让上面那条通过，那是假修复。
+    assertTrue(lexes("金额"), "CJK 统一汉字(U+4E00-9FFF) 必须继续接受");
+    assertTrue(lexes("规则名称"), "常用中文标识符必须继续接受");
+    assertTrue(lexes("㐀丁"), "CJK 扩展 A(U+3400-4DBF) 必须继续接受——TS 中文模式含该段");
+  }
+
+  @Test
   void latinExtendedABoundaryIsStillAccepted() {
     // 边界值：U+0101（Extended-A 内）应接受，确认收窄没有多切
     assertTrue(lexes("āx"), "ā(U+0101) 在 Extended-A 内，两侧都应接受");
