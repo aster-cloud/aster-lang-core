@@ -24,7 +24,7 @@ jobs:
           path: aster-lang-core
 
       # 共享版本目录（aster-lang-platform，ADR 0012）—— core settings 依赖它。
-      - uses: actions/checkout@v6
+      - uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
         with:
           repository: aster-cloud/aster-lang-platform
           path: aster-lang-platform
