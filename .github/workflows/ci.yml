@@ -28,7 +28,7 @@ jobs:
       # 导入它，故必须在任何 core gradle 调用前发布到 Maven Local。
       # 兄弟仓用分支匹配 checkout（./.github/actions/checkout-sibling）：存在与本
       # PR 同名分支则用之，否则回退 main —— 让跨仓 PR 合并前即可联合验证。
-      - uses: ./.github/actions/checkout-sibling
+      - uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
         with:
           repository: aster-cloud/aster-lang-platform
           path: aster-lang-platform
@@ -45,7 +45,7 @@ jobs:
             --artifact core:maven --repo-root .
 
       # 语言包源：aster-lang-locales（现役，catalog 驱动）。旧独立 en/zh/de 仓已归档。
-      - uses: ./.github/actions/checkout-sibling
+      - uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
         with:
           repository: aster-cloud/aster-lang-locales
           path: aster-lang-locales
@@ -53,7 +53,7 @@ jobs:
 
       # aster-lang-hi 语言包：core 的 testRuntimeOnly(asterLibs.hi) + langPacks 依赖它，
       # 缺这步会让 :testRuntimeClasspath 解析 aster-lang-hi:<ver> 失败（干净 runner 无 hi）。
-      - uses: ./.github/actions/checkout-sibling
+      - uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
         with:
           repository: aster-cloud/aster-lang-hi
           path: aster-lang-hi
@@ -63,7 +63,7 @@ jobs:
       # testImplementation(asterLibs.test) 依赖它；GH Packages 未必有当前版本，
       # 故 sibling-checkout 后 publishToMavenLocal（与下方 parity job 同范式）。
       # 缺这步会让 :testCompileClasspath 解析 aster-lang-test:<ver> 失败。
-      - uses: ./.github/actions/checkout-sibling
+      - uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
         with:
           repository: aster-cloud/aster-lang-test
           path: aster-lang-test
@@ -149,7 +149,7 @@ jobs:
       # 否则回退 main —— 跨仓 PR 合并前联合验证。
       - name: Checkout aster-lang-platform
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: ./aster-lang-core/.github/actions/checkout-sibling
+        uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
         with:
           repository: aster-cloud/aster-lang-platform
           path: aster-lang-platform
@@ -157,7 +157,7 @@ jobs:
 
       - name: Checkout aster-lang-test
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: ./aster-lang-core/.github/actions/checkout-sibling
+        uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
         with:
           repository: aster-cloud/aster-lang-test
           path: aster-lang-test
@@ -165,7 +165,7 @@ jobs:
 
       - name: Checkout aster-lang-ts
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: ./aster-lang-core/.github/actions/checkout-sibling
+        uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
         with:
           repository: aster-cloud/aster-lang-ts
           path: aster-lang-ts
@@ -173,7 +173,7 @@ jobs:
 
       - name: Checkout aster-lang-locales
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: ./aster-lang-core/.github/actions/checkout-sibling
+        uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
         with:
           repository: aster-cloud/aster-lang-locales
           path: aster-lang-locales
@@ -183,7 +183,7 @@ jobs:
       # 的 langPacks classpath，才能校验 hi-IN 词法与 TS 同步（此前无守门）。
       - name: Checkout aster-lang-hi
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: ./aster-lang-core/.github/actions/checkout-sibling
+        uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
         with:
           repository: aster-cloud/aster-lang-hi
           path: aster-lang-hi
@@ -193,14 +193,14 @@ jobs:
       # Phase C evaluator step (CoreIrEvalCli lives in truffle).
       - name: Checkout aster-lang-runtime
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: ./aster-lang-core/.github/actions/checkout-sibling
+        uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
         with:
           repository: aster-cloud/aster-lang-runtime
           path: aster-lang-runtime
           token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
       - name: Checkout aster-lang-truffle
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
-        uses: ./aster-lang-core/.github/actions/checkout-sibling
+        uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
         with:
           repository: aster-cloud/aster-lang-truffle
           path: aster-lang-truffle

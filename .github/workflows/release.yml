@@ -44,7 +44,7 @@ jobs:
       # catalog-derived version（ADR 0023 §9）：version = asterLibs.findVersion("asterLang")，
       # 不再 sed 字面量。settings 只声明 mavenLocal+mavenCentral → 先 checkout platform 并
       # publishToMavenLocal，本仓 Gradle 才能解析 catalog 派生的 project version。与 hi/locales 同构。
-      - uses: actions/checkout@v6
+      - uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
         with:
           repository: aster-cloud/aster-lang-platform
           path: aster-lang-platform
@@ -87,7 +87,7 @@ jobs:
       - uses: actions/checkout@v6
 
       # 共享版本目录（aster-lang-platform，ADR 0012）—— core settings 依赖它。
-      - uses: actions/checkout@v6
+      - uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
         with:
           repository: aster-cloud/aster-lang-platform
           path: aster-lang-platform
@@ -96,7 +96,7 @@ jobs:
       # 语言包源：aster-lang-locales（多模块 en/zh/de，ADR-0011 后的现役源）。
       # 旧的独立 aster-lang-en/zh/de 仓已归档（read-only，硬编码 pin core:1.0.2）——
       # 不再用它们当 sibling，改用 locales（catalog 驱动，自动解析当前 core 版本）。
-      - uses: actions/checkout@v6
+      - uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
         with:
           repository: aster-cloud/aster-lang-locales
           path: aster-lang-locales
@@ -104,7 +104,7 @@ jobs:
 
       # 共享测试语料（cloud.aster-lang:aster-lang-test）—— core 的测试编译/运行
       # 依赖它。发布到 Maven Local 避免从 GitHub Packages 拉取（跨仓 401）。
-      - uses: actions/checkout@v6
+      - uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
         with:
           repository: aster-cloud/aster-lang-test
           path: aster-lang-test
