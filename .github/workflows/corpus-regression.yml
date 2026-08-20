@@ -37,14 +37,6 @@ jobs:
           ref: ${{ github.event.client_payload.sha || 'main' }}
           token: ${{ secrets.CROSS_REPO_TOKEN }}
 
-      # Lexicon siblings（与 ci.yml 一致）
-      - uses: actions/checkout@v6
-        with: { repository: aster-cloud/aster-lang-en, path: aster-lang-en, token: '${{ secrets.CROSS_REPO_TOKEN }}' }
-      - uses: actions/checkout@v6
-        with: { repository: aster-cloud/aster-lang-zh, path: aster-lang-zh, token: '${{ secrets.CROSS_REPO_TOKEN }}' }
-      - uses: actions/checkout@v6
-        with: { repository: aster-cloud/aster-lang-de, path: aster-lang-de, token: '${{ secrets.CROSS_REPO_TOKEN }}' }
-
       - uses: actions/setup-java@v5
         with:
           java-version: '25'
