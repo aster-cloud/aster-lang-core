@@ -492,6 +492,59 @@ class CanonicalizerTest {
     // 审计 #58：段感知 「」 转换 + 伪造 PUA 标记拒绝
     // ============================================================
 
+    /**
+     * #120：冠词作左操作数时被 removeArticles 吞掉。
+     * <p>
+     * 冠词移除仅 en-US 启用，语言特定用例通常在 aster-lang-en；但该仓 pin 的是
+     * aster-lang-core:1.0.2（见 aster-lang-en#? / 本仓 #120 讨论），测不到本仓改动，
+     * 故把回归锁在这里——本仓测试直接跑源码。
+     */
+    @Nested
+    @DisplayName("冠词标识符保护 #120")
+    class ArticleOperandTests {
+
+        /**
+         * 裸 {@code not equal to}（不带 {@code is}）是合法比较运算符，但
+         * IDENTIFIER_FOLLOW_WORDS 曾漏掉 {@code not}，导致左操作数被当冠词删掉：
+         * {@code Return a not equal to b.} → {@code Return not equal to b.}
+         * <p>
+         * ★本引擎的危害高于 TS 侧：该式**编译通过且恒返回 true**（一元 not 作用于
+         * 无关表达式），{@code 5 != 5} 得到 true——静默错答案；TS 侧是编译失败。
+         * <p>
+         * ★三个冠词逐一断言：正则用 {@code (a|an|the)} 交替，只测 {@code a}
+         * 会漏掉 {@code an}/{@code the} 各自的词边界情况。
+         */
+        @Test
+        @DisplayName("冠词作操作数后跟裸 not equal to 不吞")
+        void articleOperandBeforeBareNotEqualTo() {
+            for (String art : new String[] {"a", "an", "the"}) {
+                String out = canonicalizer.canonicalize("Return " + art + " not equal to b.");
+                assertTrue(out.startsWith("Return " + art + " "),
+                    "标识符 " + art + " 被当冠词吞掉了，实际输出: " + out);
+            }
+        }
+
+        /** 对照：{@code is not equal to} 本就正常（被已在列的 {@code is} 保护）。 */
+        @Test
+        @DisplayName("冠词作操作数后跟 is not equal to 保持正常")
+        void articleOperandBeforeIsNotEqualTo() {
+            String out = canonicalizer.canonicalize("Return a is not equal to b.");
+            assertTrue(out.startsWith("Return a "),
+                "标识符 a 被吞掉了，实际输出: " + out);
+        }
+
+        /**
+         * ★反向护栏：加 {@code not} 不能让**真冠词**逃过移除。
+         * 若哪天有人把 follow-set 放得更宽，这条会转红。
+         */
+        @Test
+        @DisplayName("真冠词后跟名词仍被移除（未因加 not 而放宽）")
+        void realArticlesStillRemoved() {
+            assertEquals("define function to return value",
+                canonicalizer.canonicalize("define the function to return a value"));
+        }
+    }
+
     @Nested
     @DisplayName("审计 #58 安全")
     class Audit58SecurityTests {
