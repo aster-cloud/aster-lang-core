@@ -545,9 +545,15 @@ public final class Canonicalizer {
      * 翻译（step 1，plus→+ 等）之后，故多数中缀运算符已是符号；逻辑连接词 and/or、
      * 声明/连接关键字（as be in of）仍是词。列出符号形态 + 残留词形态双保险。
      * 冠词移除仅对 en-US 启用，故此集与 en-US 对齐。
+     *
+     * ★`not` 必须在列（#120）：裸 `not equal to`（不带 `is`）是合法比较运算符，
+     * 漏掉它会让 `a not equal to b` 的左操作数被当冠词删掉，变成 `not equal to b`。
+     * 该式在本引擎**编译通过且恒返回 true**（一元 not 作用于无关表达式），
+     * `5 != 5` 得到 true——静默错答案，比 TS 侧的编译失败更难发现。
+     * 注：`a is not equal to b` 本就正常，因为 `is` 已在列。
      */
     private static final String IDENTIFIER_FOLLOW_WORDS =
-            "as|be|in|of|and|or|equals|is|at|greater|less|more|than|to|plus|minus|times|multiplied|divided|modulo";
+            "as|be|in|of|and|or|not|equals|is|at|greater|less|more|than|to|plus|minus|times|multiplied|divided|modulo";
     /** 运算符翻译后的符号形态（见 OPERATOR_SYMBOL_MAP）：+ - * / < > = 及其复合。 */
     private static final String IDENTIFIER_FOLLOW_SYMBOLS = "[-+*/<>=%]";
 
