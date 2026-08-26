@@ -80,6 +80,42 @@ class LiteralMacroTest {
         }
     }
 
+    /**
+     * 弯引号 “ ” ‘ ’ 必须与 TS 侧同样被拒（#119）。
+     *
+     * <p>此前本引擎放行、TS 拒绝——双引擎分叉，且两边测试**都没覆盖**这四个字符，
+     * 所以分叉长期无人发现。用显式 codepoint 构造，避免源文件编码或编辑器
+     * 智能引号替换把测试本身写歪（那会让它测的不是想测的字符）。
+     *
+     * <p>危害不是注入（Canonicalizer 的 isSafeLiteralContent 是第二道网），
+     * 而是**防线位置错了**：应当注册时就拒，实际变成注册通过、编译时才炸。
+     */
+    @Test
+    void rejectsCurlyQuotes() {
+        // ★用 Unicode 转义而非直接写字符：源文件编码、编辑器的"智能引号"替换
+        //   都可能把它悄悄换成别的字符，那样测试测的就不是想测的东西了。
+        //   （注意：Java 连**注释里**的 backslash-u 也会当转义处理，故此处不写出该序列。）
+        String[] curly = { "\u201C", "\u201D", "\u2018", "\u2019" };
+        for (String q : curly) {
+            String bad = "静夜" + q + "思";
+            assertFalse(DomainVocabulary.builder("b", "b", "zh-CN")
+                .addLiteral(bad, "注入").build().validate().valid(),
+                "含弯引号必须被拒（Canonicalizer:646 会把它归一化成 ASCII \"，"
+                    + "放行则展开非幂等）: U+" + Integer.toHexString(q.codePointAt(0)).toUpperCase());
+        }
+    }
+
+    /**
+     * 反向护栏：不能因为拒弯引号就误伤**正常的** CJK 内容。
+     * 上一条若写成「拒一切非 ASCII」也能通过，这条会把它抓出来。
+     */
+    @Test
+    void acceptsPlainCjkLiteralContent() {
+        assertTrue(DomainVocabulary.builder("b", "b", "zh-CN")
+            .addLiteral("静夜思", "思故乡").build().validate().valid(),
+            "不含引号定界符的普通 CJK 内容必须放行");
+    }
+
     @Test
     void literalTriggerCollidingWithIdentifierRejected() {
         // 「月」既是字面量宏触发词又是 struct localized → 展开歧义，必须被拒。
