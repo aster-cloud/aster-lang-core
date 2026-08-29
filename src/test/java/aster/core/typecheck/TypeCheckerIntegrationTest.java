@@ -719,6 +719,107 @@ class TypeCheckerIntegrationTest {
       "多分支各自绑同名变量不得互相干扰；实际：" + undefined);
   }
 
+  private CoreModel.Data dataDecl(String name) {
+    var d = new CoreModel.Data();
+    d.name = name;
+    d.fields = List.of();
+    return d;
+  }
+
+  private List<Diagnostic> duplicateSymbols(CoreModel.Module module) {
+    return checker.typecheckModule(module).stream()
+      .filter(d -> d.code() == ErrorCode.DUPLICATE_SYMBOL)
+      .toList();
+  }
+
+  @Test
+  void duplicateFunctionNamesReportDiagnostic_notThrow() {
+    // ★issue #139：同一模块内两个同名函数会让 SymbolTable.define 抛
+    //   DuplicateSymbolError，而 TypeChecker 全文无 catch —— 异常直接穿透
+    //   typecheckModule 的返回契约，用户得到的是**编译器崩溃**而不是可展示的错误。
+    //   ErrorCode.DUPLICATE_SYMBOL(E104) 早已定义好却零 emit 站点。
+    var module = new CoreModel.Module();
+    module.decls = List.of(intFunc("dup", createIntLiteral(1)), intFunc("dup", createIntLiteral(2)));
+
+    // 关键是「不抛异常」——assertDoesNotThrow 本身就是这条测试的一半
+    var dups = assertDoesNotThrow(() -> duplicateSymbols(module),
+      "同名函数必须返回诊断，不得让异常穿透 typecheckModule");
+    assertFalse(dups.isEmpty(), "必须报 DUPLICATE_SYMBOL");
+  }
+
+  @Test
+  void duplicateDataNamesReportDiagnostic_notThrow() {
+    // 同类形态之二：两个同名 Data。
+    var module = new CoreModel.Module();
+    module.decls = List.of(dataDecl("D"), dataDecl("D"));
+
+    var dups = assertDoesNotThrow(() -> duplicateSymbols(module));
+    assertFalse(dups.isEmpty(), "同名 Data 必须报 DUPLICATE_SYMBOL");
+  }
+
+  @Test
+  void functionCollidingWithDataNameReportsDiagnostic_notThrow() {
+    // ★同类形态之三：跨种类重名（Data 与函数同名）。三种形态实测**全部**抛异常，
+    //   只修其中一种另两种照样崩。
+    var module = new CoreModel.Module();
+    module.decls = List.of(dataDecl("X"), intFunc("X", createIntLiteral(1)));
+
+    var dups = assertDoesNotThrow(() -> duplicateSymbols(module));
+    assertFalse(dups.isEmpty(), "函数与 Data 同名必须报 DUPLICATE_SYMBOL");
+  }
+
+  @Test
+  void duplicateDiagnosticNamesTheOffendingSymbol() {
+    // ★只断言「报错了」不够：消息必须点名是哪个符号，否则用户无从定位。
+    //   E104 是少数本就用 {name} 命名占位符、渲染正常的码。
+    var module = new CoreModel.Module();
+    module.decls = List.of(intFunc("collide", createIntLiteral(1)),
+                           intFunc("collide", createIntLiteral(2)));
+
+    var dups = duplicateSymbols(module);
+    assertFalse(dups.isEmpty(), "前置条件：应有诊断");
+    assertTrue(dups.get(0).message().contains("collide"),
+      "诊断须点名重复的符号；实际：" + dups.get(0).message());
+  }
+
+  @Test
+  void distinctNamesProduceNoDuplicateDiagnostic() {
+    // ★反向护栏：没有这条，把 defineOrReportDuplicate 写成「总是报重复」
+    //   也能让上面几条变绿。
+    var module = new CoreModel.Module();
+    module.decls = List.of(intFunc("a", createIntLiteral(1)),
+                           intFunc("b", createIntLiteral(2)),
+                           dataDecl("C"));
+
+    assertTrue(duplicateSymbols(module).isEmpty(), "不同名的声明不得报重复");
+  }
+
+  @Test
+  void checkingContinuesAfterDuplicate() {
+    // ★降级的意义在于「继续检查其余声明」：一个重名不该让模块里其它错误都看不见。
+    //   第三个函数返回类型不符，必须仍被报出来。
+    var badReturn = new CoreModel.Func();
+    badReturn.name = "bad";
+    badReturn.params = List.of();
+    badReturn.ret = createTypeName("String");
+    badReturn.effects = List.of();
+    var body = new CoreModel.Block();
+    body.statements = List.of(createReturnStmt(createIntLiteral(1)));
+    badReturn.body = body;
+
+    var module = new CoreModel.Module();
+    module.decls = List.of(intFunc("dup", createIntLiteral(1)),
+                           intFunc("dup", createIntLiteral(2)),
+                           badReturn);
+
+    var all = checker.typecheckModule(module);
+    assertTrue(all.stream().anyMatch(d -> d.code() == ErrorCode.DUPLICATE_SYMBOL),
+      "应报重复符号");
+    assertTrue(all.stream().anyMatch(d -> d.code() == ErrorCode.RETURN_TYPE_MISMATCH),
+      "重名之后的声明仍须被检查——否则降级毫无意义；实际诊断："
+        + all.stream().map(d -> d.code().name()).toList());
+  }
+
   @Test
   void testEffectPropagationThroughCalls() {
     // func ioFunc(): Int [io] { return 42 }
