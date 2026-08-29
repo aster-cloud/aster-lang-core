@@ -240,6 +240,22 @@ structKeywordName
     // ADR 0027：APPLY 是无括号调用引入词的硬 token，但在标识符位置当软关键字——
     // 否则 `Rule apply given …`（函数名叫 apply）被卡。applyExpr 起点仍按 APPLY 分派。
     | APPLY
+    // issue #136：workflow 语法的硬 token 在标识符位置同样应当软关键字。
+    // 实测 `Return config.timeout.` 的 token 流是
+    //   RETURN IDENT(config) DOT TIMEOUT(timeout) DOT
+    // ——`timeout` 被词法成 TIMEOUT 而非 IDENT，而 MemberSuffix 只收
+    // `IDENT | TYPE_IDENT | structKeywordName`，于是 `.timeout` 匹配不上：
+    // 解析停在 `config`，尾部 token 落到块外被**静默丢弃**，既不报错也无诊断。
+    // 这与 MAX/ATTEMPTS 当年因 `List.max(xs)` 被卡而加入本集合是同一类问题
+    // （字段名撞语法关键词）。各自的语法起点仍按对应 token 分派，不受影响。
+    | WORKFLOW
+    | STEP
+    | RETRY
+    | TIMEOUT
+    | DEPENDS
+    | COMPENSATE
+    | BACKOFF
+    | SECONDS
     ;
 
 /**
