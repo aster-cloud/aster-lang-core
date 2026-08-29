@@ -576,6 +576,149 @@ class TypeCheckerIntegrationTest {
     );
   }
 
+  /** 构造 `case Ctor(names...) -> body` 的分支。 */
+  private CoreModel.Case ctorCase(String typeName, List<String> names, CoreModel.Stmt body) {
+    var ctor = new CoreModel.PatCtor();
+    ctor.typeName = typeName;
+    ctor.names = names;
+    var kase = new CoreModel.Case();
+    kase.pattern = ctor;
+    kase.body = body;
+    return kase;
+  }
+
+  private CoreModel.Match matchOn(String scrutinee, CoreModel.Case... cases) {
+    var match = new CoreModel.Match();
+    match.expr = createNameExpr(scrutinee);
+    match.cases = List.of(cases);
+    return match;
+  }
+
+  @Test
+  void ctorPatternBindingIsInScope() {
+    // ★issue #132 标题里的原始例子就是 `match x { case Some(v) -> v }`——PatCtor。
+    //   此前两条测试全用 PatName，PatCtor 整条路径零覆盖：
+    //   definePatternBindings 里 ctor.names 循环可以整块删掉而全绿。
+    var match = matchOn("x", ctorCase("Some", List.of("v"), createReturnStmt(createNameExpr("v"))));
+
+    var module = createModuleWithFunction(
+      "test", List.of(createParam("x", createTypeName("Int"))),
+      createTypeName("Int"), List.of(), match
+    );
+
+    var undefined = checker.typecheckModule(module).stream()
+      .filter(d -> d.code() == ErrorCode.UNDEFINED_VARIABLE).toList();
+    assertTrue(undefined.isEmpty(),
+      "PatCtor 绑定的 v 必须在分支体内可见；实际：" + undefined);
+  }
+
+  @Test
+  void nestedCtorPatternBindingIsInScope() {
+    // ★专杀「删掉 ctor.args 递归」这一变异：只有嵌套模式才会走那条路径。
+    //   match x { case Some(Some(inner)) -> inner }
+    var innerCtor = new CoreModel.PatCtor();
+    innerCtor.typeName = "Some";
+    innerCtor.names = List.of("inner");
+
+    var outerCtor = new CoreModel.PatCtor();
+    outerCtor.typeName = "Some";
+    outerCtor.names = List.of();
+    outerCtor.args = List.of(innerCtor);
+
+    var kase = new CoreModel.Case();
+    kase.pattern = outerCtor;
+    kase.body = createReturnStmt(createNameExpr("inner"));
+
+    var match = new CoreModel.Match();
+    match.expr = createNameExpr("x");
+    match.cases = List.of(kase);
+
+    var module = createModuleWithFunction(
+      "test", List.of(createParam("x", createTypeName("Int"))),
+      createTypeName("Int"), List.of(), match
+    );
+
+    var undefined = checker.typecheckModule(module).stream()
+      .filter(d -> d.code() == ErrorCode.UNDEFINED_VARIABLE).toList();
+    assertTrue(undefined.isEmpty(),
+      "嵌套 PatCtor 绑定的 inner 必须可见；实际：" + undefined);
+  }
+
+  @Test
+  void patNameBindingCarriesScrutineeType_notArbitraryType() {
+    // ★锁「绑定的**类型**」，而非仅「名字在不在」。
+    //   UNDEFINED_VARIABLE 只回答「名字在不在」，永远回答不了「类型对不对」——
+    //   把 PatName 绑成 String，前两条测试无一会红。
+    //
+    //   func test(x: Int): Int { match x { case v: return v } }
+    //   v 取被匹配值的类型 Int → return v 与返回类型 Int 相容 → 不得报 RETURN_TYPE_MISMATCH。
+    var patName = new CoreModel.PatName();
+    patName.name = "v";
+    var kase = new CoreModel.Case();
+    kase.pattern = patName;
+    kase.body = createReturnStmt(createNameExpr("v"));
+
+    var match = new CoreModel.Match();
+    match.expr = createNameExpr("x");
+    match.cases = List.of(kase);
+
+    var module = createModuleWithFunction(
+      "test", List.of(createParam("x", createTypeName("Int"))),
+      createTypeName("Int"), List.of(), match
+    );
+
+    var mismatches = checker.typecheckModule(module).stream()
+      .filter(d -> d.code() == ErrorCode.RETURN_TYPE_MISMATCH).toList();
+    assertTrue(mismatches.isEmpty(),
+      "v 应携带被匹配值类型 Int，返回它不得报类型不符；实际：" + mismatches);
+  }
+
+  @Test
+  void patNameBindingTypeIsRejectedWhenIncompatible() {
+    // ★与上一条成对的**正向**断言：只测「不报错」会被「把类型比较整个删掉」骗过。
+    //   func test(x: Int): String { match x { case v: return v } }
+    //   v 是 Int，函数声明返回 String → 必须报 RETURN_TYPE_MISMATCH。
+    //   若绑定类型退化成 unknown，此断言即失效——故它同时锁住了「不是 unknown」。
+    var patName = new CoreModel.PatName();
+    patName.name = "v";
+    var kase = new CoreModel.Case();
+    kase.pattern = patName;
+    kase.body = createReturnStmt(createNameExpr("v"));
+
+    var match = new CoreModel.Match();
+    match.expr = createNameExpr("x");
+    match.cases = List.of(kase);
+
+    var module = createModuleWithFunction(
+      "test", List.of(createParam("x", createTypeName("Int"))),
+      createTypeName("String"), List.of(), match
+    );
+
+    assertTrue(
+      checker.typecheckModule(module).stream()
+        .anyMatch(d -> d.code() == ErrorCode.RETURN_TYPE_MISMATCH),
+      "Int 绑定用作 String 返回值必须报 RETURN_TYPE_MISMATCH"
+    );
+  }
+
+  @Test
+  void multipleCasesEachGetOwnScope() {
+    // ★锁「每分支独立作用域」而非「整个 match 一个作用域」：
+    //   两个分支各自绑同名 v，若共用一个作用域，第二次 define 会撞重复定义。
+    var c1 = ctorCase("Some", List.of("v"), createReturnStmt(createIntLiteral(1)));
+    var c2 = ctorCase("None", List.of("v"), createReturnStmt(createIntLiteral(2)));
+
+    var module = createModuleWithFunction(
+      "test", List.of(createParam("x", createTypeName("Int"))),
+      createTypeName("Int"), List.of(), matchOn("x", c1, c2)
+    );
+
+    var undefined = checker.typecheckModule(module).stream()
+      .filter(d -> d.code() == ErrorCode.UNDEFINED_VARIABLE).toList();
+    assertTrue(undefined.isEmpty(),
+      "多分支各自绑同名变量不得互相干扰；实际：" + undefined);
+  }
+
   @Test
   void testEffectPropagationThroughCalls() {
     // func ioFunc(): Int [io] { return 42 }
