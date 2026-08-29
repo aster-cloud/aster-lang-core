@@ -460,6 +460,29 @@ class TypeCheckerIntegrationTest {
   }
 
   @Test
+  void listOverallTypeComesFromFirstElement_notLast() {
+    // ★上面几条只过滤 LIST_ELEMENT_TYPE_MISMATCH 一个码，只锁「诊断发出来了」，
+    //   从不锁「列表整体被定成什么类型」——这是两件事。实测：把 listType.type
+    //   改成取**最后一个**元素的类型，本类 29/29 全绿、全量 1541 条也全绿。
+    //
+    //   列表整体类型经由 RETURN_TYPE_MISMATCH 的 actual 参数可观测：
+    //   声明返回 List of String、实际 [1, "a"]，
+    //   整体类型若正确取首元素 → actual=List<Int> 与声明不符 → 报错；
+    //   若错误取末元素 → actual=List<String> 与声明相符 → 该诊断消失。
+    var declared = new CoreModel.ListT();
+    declared.type = createTypeName("String");
+    var module = createModuleWithFunction("test", List.of(), declared, List.of(),
+      createReturnStmt(listOf(createIntLiteral(1), createStringLiteral("a"))));
+
+    var ret = checker.typecheckModule(module).stream()
+      .filter(d -> d.code() == ErrorCode.RETURN_TYPE_MISMATCH).toList();
+    assertFalse(ret.isEmpty(),
+      "列表整体类型须取首元素类型 List<Int>，与声明的 List<String> 不符须报 RETURN_TYPE_MISMATCH");
+    assertEquals("List<Int>", String.valueOf(ret.get(0).data().get("actual")),
+      "actual 须为 List<Int>（首元素类型）而非 List<String>（末元素类型）");
+  }
+
+  @Test
   void unknownTypedElementDoesNotCascade() {
     // ★元素本身已出错（未定义变量 → unknown）时不得再叠一条列表元素不符——
     //   非 strict 比较下 unknown 与任何类型相容，正是为此。
