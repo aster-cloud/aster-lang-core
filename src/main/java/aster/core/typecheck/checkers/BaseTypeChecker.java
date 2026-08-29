@@ -600,6 +600,67 @@ public final class BaseTypeChecker {
   }
 
   /**
+   * 把一个模式引入的绑定变量定义进**当前**作用域。
+   *
+   * <p>★绑定名集合必须与 {@code CoreLowering.patternBindings}（该文件第 942 行）一致，
+   * 否则「lambda 捕获分析认为存在的绑定」与「类型检查器认为存在的绑定」会分叉，
+   * 出现一边报错一边不报的诡异行为。
+   *
+   * <p>{@code PatNull} / {@code PatInt} 不引入绑定。
+   *
+   * @param scrutineeType 被匹配表达式的类型；{@code PatName} 原样绑定整个值，故取此类型
+   */
+  private void definePatternBindings(
+    CoreModel.Pattern pattern,
+    Type scrutineeType,
+    Origin origin
+  ) {
+    if (pattern == null) {
+      return;
+    }
+    if (pattern instanceof CoreModel.PatName name) {
+      if (name.name != null) {
+        // ★整个被匹配值原样绑定到该名字，故其类型**就是**被匹配表达式的类型。
+        //   这个类型此前被算出来后直接丢弃（`var exprType = ...` 从未被使用）。
+        symbolTable.define(
+          name.name,
+          scrutineeType,
+          SymbolInfo.SymbolKind.VARIABLE,
+          SymbolTable.DefineOptions.immutable(origin)
+        );
+      }
+      return;
+    }
+    if (pattern instanceof CoreModel.PatCtor ctor) {
+      // ★构造器绑定只能记为 unknown：`CoreModel.Enum` 只有
+      //   `List<String> variants`，**不携带变体的载荷类型**（见 CoreModel:94）。
+      //   IR 层根本没有可供推导的字段类型，凭空编一个会让后续比较给出错误结论。
+      //   unknown 是本检查器既有的「类型不可确定，不要级联报错」哨兵
+      //   （typeOfExpr 对未知名称、Ok/Err 的 err 侧都用它）。
+      //   精确推导需先给 Enum 加载荷类型，那是独立的语言层变更。
+      if (ctor.names != null) {
+        for (String bound : ctor.names) {          // 遗留的位置绑定字段
+          if (bound != null) {
+            symbolTable.define(
+              bound,
+              TypeSystem.unknown(),
+              SymbolInfo.SymbolKind.VARIABLE,
+              SymbolTable.DefineOptions.immutable(origin)
+            );
+          }
+        }
+      }
+      if (ctor.args != null) {
+        for (CoreModel.Pattern arg : ctor.args) {
+          // 嵌套模式：载荷类型未知，故嵌套 PatName 也只能是 unknown
+          definePatternBindings(arg, TypeSystem.unknown(), origin);
+        }
+      }
+    }
+    // PatNull / PatInt 不引入绑定
+  }
+
+  /**
    * 检查 Match 语句
    */
   private Optional<Type> checkMatch(CoreModel.Match match, VisitorContext ctx) {
@@ -607,9 +668,26 @@ public final class BaseTypeChecker {
     var exprType = typeOfExpr(match.expr, ctx);
 
     // 检查所有分支
+    //
+    // ★每个分支必须在**独立作用域**里检查，并先把该分支模式引入的绑定变量
+    //   定义进去（issue #132）。此前这里直接 checkStatement(kase.body)，
+    //   全程不碰 kase.pattern —— 于是 `match x { case Some(v) -> v }` 里的 v
+    //   必然报假 UNDEFINED_VARIABLE，模式匹配这条路径实际不可用。
+    //
+    //   证据链：CoreLowering:822 的 lambda 捕获分析已经调用 patternBindings(kase.pattern())，
+    //   说明「模式会引入绑定」在 IR 层是既定事实，只是类型检查器没跟上。
     Type firstCaseType = null;
     for (var kase : match.cases) {
-      var caseType = checkStatement(kase.body, ctx);
+      symbolTable.enterScope(SymbolTable.ScopeType.BLOCK);
+      Optional<Type> caseType;
+      try {
+        definePatternBindings(kase.pattern, exprType, kase.origin);
+        caseType = checkStatement(kase.body, ctx);
+      } finally {
+        // finally：分支体检查抛异常也不能把作用域留在栈上，
+        // 否则后续所有检查都在错误的作用域里进行（毒化全局状态）。
+        symbolTable.exitScope();
+      }
       if (caseType.isPresent()) {
         if (firstCaseType == null) {
           firstCaseType = caseType.get();
