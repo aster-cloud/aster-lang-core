@@ -60,10 +60,14 @@ class TypeCheckerEdgeCaseTest {
     var module = new CoreModel.Module();
     module.decls = List.of(func1, func2);
 
-    // 应该捕获异常（SymbolTable.DuplicateSymbolError）或产生诊断
-    assertThrows(SymbolTable.DuplicateSymbolError.class, () -> {
-      checker.typecheckModule(module);
-    });
+    // ★改为断言**诊断**而非异常（issue #139）。
+    //   原断言把缺陷锁死了：注释自己写的是「或产生诊断」，断言却要求抛异常——
+    //   于是任何人把崩溃降级成诊断，反而会让这条测试变红。
+    //   typecheckModule 的契约是返回诊断列表；重名是普通用户输入，不该让编译器崩。
+    var diagnostics = assertDoesNotThrow(() -> checker.typecheckModule(module),
+      "重复声明必须返回诊断，不得让 DuplicateSymbolError 穿透返回契约");
+    assertTrue(diagnostics.stream().anyMatch(d -> d.code() == ErrorCode.DUPLICATE_SYMBOL),
+      "应报 DUPLICATE_SYMBOL；实际：" + diagnostics.stream().map(d -> d.code().name()).toList());
   }
 
   @Test
@@ -82,9 +86,14 @@ class TypeCheckerEdgeCaseTest {
     var module = new CoreModel.Module();
     module.decls = List.of(data1, data2);
 
-    assertThrows(SymbolTable.DuplicateSymbolError.class, () -> {
-      checker.typecheckModule(module);
-    });
+    // ★改为断言**诊断**而非异常（issue #139）。
+    //   原断言把缺陷锁死了：注释自己写的是「或产生诊断」，断言却要求抛异常——
+    //   于是任何人把崩溃降级成诊断，反而会让这条测试变红。
+    //   typecheckModule 的契约是返回诊断列表；重名是普通用户输入，不该让编译器崩。
+    var diagnostics = assertDoesNotThrow(() -> checker.typecheckModule(module),
+      "重复声明必须返回诊断，不得让 DuplicateSymbolError 穿透返回契约");
+    assertTrue(diagnostics.stream().anyMatch(d -> d.code() == ErrorCode.DUPLICATE_SYMBOL),
+      "应报 DUPLICATE_SYMBOL；实际：" + diagnostics.stream().map(d -> d.code().name()).toList());
   }
 
   @Test
