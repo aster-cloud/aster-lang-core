@@ -404,16 +404,24 @@ class TypeCheckerIntegrationTest {
   }
 
   @Test
-  void heterogeneousListLiteralNamesBothTypes() {
-    // ★只断言「报错了」不够：消息必须点明期望与实际类型，否则用户无从定位。
-    //   这条同时锁住了参数名 expected/actual 与 error_codes.json 的 {expected}/{actual} 对齐。
+  void heterogeneousListLiteralCarriesBothTypesAsParams() {
+    // ★只断言「报错了」不够：期望/实际类型必须真的被带上，否则用户无从定位。
+    //
+    //   ★这里断言的是 **params** 而非 message：ErrorCode.java 是由
+    //   aster-lang-ts/scripts/generate_error_codes.ts 自动生成的，其 toJavaTemplate
+    //   把 json 的 {name} 全替换成 %s，而 DiagnosticBuilder 只认 {name}——
+    //   于是 message 目前渲染出字面的 "%s"。那是全仓 23 个错误码共有的缺陷
+    //   （issue #137），不是本次修复能在生成物里手改掉的（手改会被重新生成覆盖）。
+    //   params 是不受该缺陷影响的那一层，锁它才锁得住「类型信息有没有被带上」。
     var mismatches = listElementMismatches(
       moduleReturningList(listOf(createIntLiteral(1), createStringLiteral("a")))
     );
     assertFalse(mismatches.isEmpty(), "前置条件：应有诊断");
-    var msg = mismatches.get(0).message();
-    assertTrue(msg.contains("Int") && msg.contains("String"),
-      "诊断须同时点明期望类型与实际类型；实际消息：" + msg);
+    var params = mismatches.get(0).data();
+    assertEquals("Int", String.valueOf(params.get("expected")),
+      "expected 须为首元素类型；实际 params：" + params);
+    assertEquals("String", String.valueOf(params.get("actual")),
+      "actual 须为不符元素的类型；实际 params：" + params);
   }
 
   @Test
