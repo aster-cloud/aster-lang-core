@@ -577,6 +577,86 @@ class TypeCheckerIntegrationTest {
   }
 
   @Test
+  void matchPatternBindingIsInScopeInsideBranch() {
+    // ★issue #132：checkMatch 全程不碰 kase.pattern，模式绑定的变量在分支体里
+    //   必然报假 UNDEFINED_VARIABLE —— 模式匹配这条路径实际不可用。
+    //
+    //   func test(x: Int): Int {
+    //     match x {
+    //       case v: return v      // v 由 PatName 绑定
+    //     }
+    //   }
+    var patName = new CoreModel.PatName();
+    patName.name = "v";
+
+    var kase = new CoreModel.Case();
+    kase.pattern = patName;
+    kase.body = createReturnStmt(createNameExpr("v"));   // 引用绑定变量
+
+    var match = new CoreModel.Match();
+    match.expr = createNameExpr("x");
+    match.cases = List.of(kase);
+
+    var module = createModuleWithFunction(
+      "test",
+      List.of(createParam("x", createTypeName("Int"))),
+      createTypeName("Int"),
+      List.of(),
+      match
+    );
+
+    var diagnostics = checker.typecheckModule(module);
+
+    // 断言具体错误码，而不是笼统的 isEmpty()——后者会被任何无关诊断干扰，
+    // 也说不清「到底是不是这个 bug」。
+    var undefined = diagnostics.stream()
+      .filter(d -> d.code() == ErrorCode.UNDEFINED_VARIABLE)
+      .toList();
+    assertTrue(
+      undefined.isEmpty(),
+      "模式绑定的变量 v 必须在分支体作用域内；实际诊断：" + undefined
+    );
+  }
+
+  @Test
+  void matchPatternBindingDoesNotLeakOutsideBranch() {
+    // ★与上一条成对：绑定必须**限定在该分支内**。
+    //   只测「能用」而不测「不外泄」，等于允许实现把绑定定义到外层作用域——
+    //   那样第一条会绿，但作用域语义是错的。
+    //
+    //   func test(x: Int): Int {
+    //     match x { case v: return 1 }
+    //     return v                      // v 在此处不应可见
+    //   }
+    var patName = new CoreModel.PatName();
+    patName.name = "v";
+
+    var kase = new CoreModel.Case();
+    kase.pattern = patName;
+    kase.body = createReturnStmt(createIntLiteral(1));
+
+    var match = new CoreModel.Match();
+    match.expr = createNameExpr("x");
+    match.cases = List.of(kase);
+
+    var module = createModuleWithFunction(
+      "test",
+      List.of(createParam("x", createTypeName("Int"))),
+      createTypeName("Int"),
+      List.of(),
+      match,
+      createReturnStmt(createNameExpr("v"))    // 分支外引用
+    );
+
+    var diagnostics = checker.typecheckModule(module);
+
+    assertTrue(
+      diagnostics.stream().anyMatch(d -> d.code() == ErrorCode.UNDEFINED_VARIABLE),
+      "分支外引用 v 必须报 UNDEFINED_VARIABLE（绑定不得外泄）"
+    );
+  }
+
+  @Test
   void testEffectPropagationThroughCalls() {
     // func ioFunc(): Int [io] { return 42 }
     // Simplified: just test that a function with IO effect is valid
