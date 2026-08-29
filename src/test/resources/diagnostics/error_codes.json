@@ -216,6 +216,13 @@
     "message": "Cannot combine Decimal and Double in '{operator}'. Double is binary floating-point and would inject rounding error into an exact Decimal. Use Decimal literals (e.g. 1.08m) on both sides, or Int/Long (exact promotion).",
     "help": "Make both operands Decimal (suffix m), or use Int/Long which promote exactly to Decimal."
   },
+  "CALL_ARITY_MISMATCH": {
+    "code": "E032",
+    "category": "type",
+    "severity": "error",
+    "message": "Function '{func}' expects {expected} argument(s), got {actual}.",
+    "help": "Adjust the call to pass exactly the declared number of arguments."
+  },
   "PII_ASSIGN_DOWNGRADE": {
     "code": "E070",
     "category": "pii",

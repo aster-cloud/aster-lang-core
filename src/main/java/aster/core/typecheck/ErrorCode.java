@@ -41,6 +41,7 @@ public enum ErrorCode {
   // ADR 0025：Decimal↔Double 混算编译期拦截（与 TS E031 对齐）。Double 是二进制浮点，
   // 与精确 Decimal 混算会注入舍入误差，破坏可证明性；Int/Long→Decimal 精确提升放行。
   DECIMAL_DOUBLE_MIXING("E031", Category.TYPE, Severity.ERROR, "Cannot combine Decimal and Double in '{operator}'. Double is binary floating-point and would inject rounding error into an exact Decimal. Use Decimal literals (e.g. 1.08m) on both sides, or Int/Long (exact promotion).", "Make both operands Decimal (suffix m), or use Int/Long which promote exactly to Decimal."),
+  CALL_ARITY_MISMATCH("E032", Category.TYPE, Severity.ERROR, "Function '{func}' expects {expected} argument(s), got {actual}.", "Adjust the call to pass exactly the declared number of arguments."),
   // P0-R3 (codex review High #3): 与 TS 端 ERROR_METADATA category 对齐——
   // 5 个核心 PII codes 从 Category.TYPE 改为 Category.PII。之前的 'TYPE'
   // 分类是历史包袱，让任何按 category 派生 PII 集合的代码（如跨语言
