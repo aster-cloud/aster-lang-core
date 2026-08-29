@@ -368,6 +368,134 @@ class TypeCheckerIntegrationTest {
     assertTrue(diagnostics.isEmpty(), "Match with consistent branch types should typecheck");
   }
 
+  /** 构造列表字面量 `[e1, e2, ...]`。 */
+  private CoreModel.ListE listOf(CoreModel.Expr... elements) {
+    var list = new CoreModel.ListE();
+    list.elements = List.of(elements);
+    return list;
+  }
+
+  /** 返回一个列表字面量的函数模块（返回类型 List of Int，仅为构造完整模块）。 */
+  private CoreModel.Module moduleReturningList(CoreModel.ListE list) {
+    var listType = new CoreModel.ListT();
+    listType.type = createTypeName("Int");
+    return createModuleWithFunction(
+      "test", List.of(), listType, List.of(), createReturnStmt(list)
+    );
+  }
+
+  private List<Diagnostic> listElementMismatches(CoreModel.Module module) {
+    return checker.typecheckModule(module).stream()
+      .filter(d -> d.code() == ErrorCode.LIST_ELEMENT_TYPE_MISMATCH)
+      .toList();
+  }
+
+  @Test
+  void heterogeneousListLiteralIsReported() {
+    // ★issue #128：注释声称「校验其余元素与首元素类型一致（不一致出诊断）」，
+    //   但循环里只调 typeOfExpr 丢弃返回值——既不比较也不发诊断。
+    //   `[1, "a"]` 被静默定型为 List<Int> 通过检查。
+    //   E020 LIST_ELEMENT_TYPE_MISMATCH 早在 ErrorCode / error_codes.json 里定义好，
+    //   但全仓 emit 站点数为 0。
+    var mismatches = listElementMismatches(
+      moduleReturningList(listOf(createIntLiteral(1), createStringLiteral("a")))
+    );
+    assertFalse(mismatches.isEmpty(), "[1, \"a\"] 必须报 LIST_ELEMENT_TYPE_MISMATCH");
+  }
+
+  @Test
+  void heterogeneousListLiteralCarriesBothTypesAsParams() {
+    // ★只断言「报错了」不够：期望/实际类型必须真的被带上，否则用户无从定位。
+    //
+    //   ★这里断言的是 **params** 而非 message：ErrorCode.java 是由
+    //   aster-lang-ts/scripts/generate_error_codes.ts 自动生成的，其 toJavaTemplate
+    //   把 json 的 {name} 全替换成 %s，而 DiagnosticBuilder 只认 {name}——
+    //   于是 message 目前渲染出字面的 "%s"。那是全仓 23 个错误码共有的缺陷
+    //   （issue #137），不是本次修复能在生成物里手改掉的（手改会被重新生成覆盖）。
+    //   params 是不受该缺陷影响的那一层，锁它才锁得住「类型信息有没有被带上」。
+    var mismatches = listElementMismatches(
+      moduleReturningList(listOf(createIntLiteral(1), createStringLiteral("a")))
+    );
+    assertFalse(mismatches.isEmpty(), "前置条件：应有诊断");
+    var params = mismatches.get(0).data();
+    assertEquals("Int", String.valueOf(params.get("expected")),
+      "expected 须为首元素类型；实际 params：" + params);
+    assertEquals("String", String.valueOf(params.get("actual")),
+      "actual 须为不符元素的类型；实际 params：" + params);
+  }
+
+  @Test
+  void everyMismatchedElementIsReported_notJustTheFirst() {
+    // ★`[1, "a", true]` 有两个元素与首元素不符，两个都要报——
+    //   只报第一个会让用户改完一处又撞下一处。
+    var mismatches = listElementMismatches(
+      moduleReturningList(listOf(
+        createIntLiteral(1), createStringLiteral("a"), createStringLiteral("b")
+      ))
+    );
+    assertEquals(2, mismatches.size(),
+      "两个不符元素须各报一条；实际：" + mismatches);
+  }
+
+  @Test
+  void homogeneousListLiteralIsAccepted() {
+    // ★反向护栏：同构列表不得误报。
+    //   没有这条，把比较改成「恒不相等」也能让上面三条变绿。
+    assertTrue(
+      listElementMismatches(
+        moduleReturningList(listOf(createIntLiteral(1), createIntLiteral(2)))
+      ).isEmpty(),
+      "[1, 2] 不得报元素类型不符"
+    );
+  }
+
+  @Test
+  void emptyAndSingletonListLiteralsAreAccepted() {
+    // 边界：空列表与单元素列表没有「其余元素」可比，不得进入比较分支。
+    assertTrue(listElementMismatches(moduleReturningList(listOf())).isEmpty(),
+      "空列表不得报错");
+    assertTrue(
+      listElementMismatches(moduleReturningList(listOf(createIntLiteral(1)))).isEmpty(),
+      "单元素列表不得报错");
+  }
+
+  @Test
+  void listOverallTypeComesFromFirstElement_notLast() {
+    // ★上面几条只过滤 LIST_ELEMENT_TYPE_MISMATCH 一个码，只锁「诊断发出来了」，
+    //   从不锁「列表整体被定成什么类型」——这是两件事。实测：把 listType.type
+    //   改成取**最后一个**元素的类型，本类 29/29 全绿、全量 1541 条也全绿。
+    //
+    //   列表整体类型经由 RETURN_TYPE_MISMATCH 的 actual 参数可观测：
+    //   声明返回 List of String、实际 [1, "a"]，
+    //   整体类型若正确取首元素 → actual=List<Int> 与声明不符 → 报错；
+    //   若错误取末元素 → actual=List<String> 与声明相符 → 该诊断消失。
+    var declared = new CoreModel.ListT();
+    declared.type = createTypeName("String");
+    var module = createModuleWithFunction("test", List.of(), declared, List.of(),
+      createReturnStmt(listOf(createIntLiteral(1), createStringLiteral("a"))));
+
+    var ret = checker.typecheckModule(module).stream()
+      .filter(d -> d.code() == ErrorCode.RETURN_TYPE_MISMATCH).toList();
+    assertFalse(ret.isEmpty(),
+      "列表整体类型须取首元素类型 List<Int>，与声明的 List<String> 不符须报 RETURN_TYPE_MISMATCH");
+    assertEquals("List<Int>", String.valueOf(ret.get(0).data().get("actual")),
+      "actual 须为 List<Int>（首元素类型）而非 List<String>（末元素类型）");
+  }
+
+  @Test
+  void unknownTypedElementDoesNotCascade() {
+    // ★元素本身已出错（未定义变量 → unknown）时不得再叠一条列表元素不符——
+    //   非 strict 比较下 unknown 与任何类型相容，正是为此。
+    //   否则一个笔误会同时炸出两条诊断，噪声掩盖真正的错误。
+    var module = moduleReturningList(listOf(createIntLiteral(1), createNameExpr("nope")));
+    var diags = checker.typecheckModule(module);
+
+    assertTrue(diags.stream().anyMatch(d -> d.code() == ErrorCode.UNDEFINED_VARIABLE),
+      "前置条件：未定义变量本身要报");
+    assertTrue(diags.stream().noneMatch(d -> d.code() == ErrorCode.LIST_ELEMENT_TYPE_MISMATCH),
+      "unknown 元素不得级联报元素类型不符");
+  }
+
   @Test
   void matchPatternBindingIsInScopeInsideBranch() {
     // ★issue #132：checkMatch 全程不碰 kase.pattern，模式绑定的变量在分支体里
