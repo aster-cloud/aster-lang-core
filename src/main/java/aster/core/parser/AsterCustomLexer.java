@@ -173,11 +173,60 @@ public class AsterCustomLexer extends AsterLexer {
     }
 
     /**
+     * 词法期括号嵌套深度上限——**先于 ANTLR 解析**生效（issue #140）。
+     *
+     * <p>★为什么必须在这一层：{@code AstBuilder.MAX_EXPR_DEPTH} 的守卫位于
+     * **AstBuilder 访问期**（{@code visitExpr}），而 ANTLR 生成解析器自身的
+     * 解析期递归发生得更早。嵌套足够深时 {@code parser.module()} 阶段就先抛
+     * {@code StackOverflowError}——那是 {@code Error} 级，**不是**可恢复的解析错误，
+     * 不会被转成 Diagnostic。
+     *
+     * <p>实测（修复前，默认栈）：
+     * <pre>
+     *   depth=500   srcBytes=1043  → IllegalStateException（AstBuilder 守卫生效）
+     *   depth=1000  srcBytes=2043  → IllegalStateException（生效）
+     *   depth=2000  srcBytes=4043  → StackOverflowError（守卫被绕过）
+     * </pre>
+     * **只需约 4KB 源码**即可让守卫失效并抛出 Error。
+     *
+     * <p>而 {@code AstBuilder} 注释里声称的兜底「64KB 源长度上限
+     * （SourcePolicyRequest @Size / CnlSourceLimits）」这两个类型**在本仓不存在**——
+     * 全仓 grep 只命中注释本身。那个上限由外部 aster-api 服务层实施，
+     * 直接使用本库的调用方（含本仓自带的 TypeCheckCli）不受任何限制。
+     *
+     * <p>本守卫放在 {@code nextToken} 的公共路径上：token 流是**所有**解析入口的必经之处
+     * （本仓无统一 parser facade，各调用方自行组装 lexer+parser），
+     * 放这里才能覆盖全部路径，而不是只覆盖某一个入口。
+     *
+     * <p>上限取与 {@code MAX_EXPR_DEPTH} 同量级：括号深度是表达式深度的下界，
+     * 深度 300 的括号必然对应至少 300 层表达式嵌套，故越过它的输入本就会被
+     * AstBuilder 拒绝——本守卫只是让拒绝**发生得更早**（在栈溢出之前）。
+     */
+    static final int MAX_NESTING_DEPTH = 300;
+
+    private int nestingDepth = 0;
+
+    private void trackNestingDepth(int type) {
+        if (type == AsterParser.LPAREN || type == AsterParser.LBRACKET) {
+            if (++nestingDepth > MAX_NESTING_DEPTH) {
+                // 与 AstBuilder 深度守卫同一机制：抛可恢复的解析错误，而非放任 Error 穿透。
+                throw new IllegalStateException(
+                    "括号嵌套过深（> " + MAX_NESTING_DEPTH + "），拒绝以防栈溢出");
+            }
+        } else if (type == AsterParser.RPAREN || type == AsterParser.RBRACKET) {
+            if (nestingDepth > 0) {
+                nestingDepth--;
+            }
+        }
+    }
+
+    /**
      * 记录上一个有意义 token 的小写文本（用于标记位置判定）。
      * 跳过 NEWLINE/INDENT/DEDENT/EOF/隐藏通道——它们不影响"前驱是否结构关键词"判定。
      */
     private void recordMeaningful(Token t) {
         int type = t.getType();
+        trackNestingDepth(type);
         if (type == NEWLINE || type == AsterParser.INDENT || type == AsterParser.DEDENT
                 || type == Token.EOF || t.getChannel() == Token.HIDDEN_CHANNEL) {
             return;
