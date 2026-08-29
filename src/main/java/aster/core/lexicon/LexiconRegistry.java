@@ -603,7 +603,14 @@ public final class LexiconRegistry {
                     register(lexicon);
                     loaded++;
                 } catch (Exception e) {
-                    // 单个文件加载失败不影响其他文件
+                    // ★不再空 catch（issue #130 body）。单个文件失败确实不该中断其余文件，
+                    //   但**静默吞掉**意味着：用户目录（~/.aster/lexicons/）里损坏或不合规的
+                    //   语言包 JSON 会无声消失——无日志、无失败清单，返回值只有成功计数，
+                    //   用户无从得知是哪个文件、为何失败。查起来只能靠猜。
+                    //   现记 WARNING 并带上文件名与原因；继续处理其余文件的行为不变。
+                    LOGGER.log(java.util.logging.Level.WARNING,
+                        "语言包加载失败，已跳过：" + jsonFile
+                            + "（" + e.getClass().getSimpleName() + ": " + e.getMessage() + "）", e);
                 }
             }
         } catch (IOException e) {
