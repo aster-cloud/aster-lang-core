@@ -113,6 +113,20 @@ public final class TypeChecker {
         dataDecls
       );
 
+      // 第一遍补充：预注册全部函数签名（issue #125 body）。
+      //
+      // ★必须先把**所有**函数签名入表，再检查任何一个函数体。否则符号可见性
+      //   取决于声明顺序：`main` 写在 `helper` 之前 → 检查 main 体时 helper 未入表
+      //   → 假 UNDEFINED_VARIABLE；互递归则无论怎么排序都必有一侧报错。
+      //   与 Data/Enum 的第一遍预扫描同理——签名先行，函数体后检查。
+      if (module.decls != null) {
+        for (var decl : module.decls) {
+          if (decl instanceof CoreModel.Func func) {
+            defineFunctionSignature(func);
+          }
+        }
+      }
+
       // 第二遍：检查所有声明
       if (module.decls != null) {
         for (var decl : module.decls) {
@@ -210,16 +224,21 @@ public final class TypeChecker {
   }
 
   /**
-   * 检查函数声明
+   * 把单个函数的签名注册进**模块作用域**。
+   *
+   * <p>★必须在检查任何函数体**之前**对全部函数跑完一轮，否则前向引用与互递归
+   * 必报假 {@code UNDEFINED_VARIABLE}（issue #125 body）：`main` 写在 `helper`
+   * 之前时，检查 main 体的那一刻 helper 还没入表；互递归则无论怎么排序都必有一侧报错。
+   *
+   * <p>只注册签名，不碰函数体——函数体在第二遍逐个检查。
    */
-  private void checkFunction(CoreModel.Func func, VisitorContext ctx) {
+  private void defineFunctionSignature(CoreModel.Func func) {
     // 构建函数类型
     var funcType = new CoreModel.FuncType();
     funcType.params = func.params.stream().map(p -> p.type).toList();
     funcType.ret = func.ret;
     funcType.origin = func.origin;
 
-    // 【修复】在模块作用域（当前作用域）注册函数符号，确保跨函数调用可见
     // 存储函数声明的最高级别效果，用于后续效果推断
     // 计算所有声明效果中的最大值（PURE < CPU < IO）
     Optional<String> declaredEffect;
@@ -242,6 +261,13 @@ public final class TypeChecker {
       SymbolInfo.SymbolKind.FUNCTION,
       new SymbolTable.DefineOptions(false, Optional.ofNullable(func.origin), false, Optional.empty(), declaredEffect)
     );
+  }
+
+  /**
+   * 检查函数声明
+   */
+  private void checkFunction(CoreModel.Func func, VisitorContext ctx) {
+    // 签名已在 collectFunctionSignatures 预扫描阶段注册，此处只检查函数体。
 
     // 进入函数作用域检查函数体
     symbolTable.enterScope(SymbolTable.ScopeType.FUNCTION);

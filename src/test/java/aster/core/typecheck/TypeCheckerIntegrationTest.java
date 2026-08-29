@@ -429,6 +429,89 @@ class TypeCheckerIntegrationTest {
       "Cross-function call should resolve (Fix #1: function symbols in module scope)");
   }
 
+  /** 构造一个无参、返回 Int、体为 `return <expr>` 的函数。 */
+  private CoreModel.Func intFunc(String name, CoreModel.Expr returned) {
+    var f = new CoreModel.Func();
+    f.name = name;
+    f.params = List.of();
+    f.ret = createTypeName("Int");
+    f.effects = List.of();
+    var body = new CoreModel.Block();
+    body.statements = List.of(createReturnStmt(returned));
+    f.body = body;
+    return f;
+  }
+
+  private CoreModel.Call callOf(String name) {
+    var call = new CoreModel.Call();
+    call.target = createNameExpr(name);
+    call.args = List.of();
+    return call;
+  }
+
+  private List<ErrorCode> undefinedCodes(CoreModel.Module module) {
+    return checker.typecheckModule(module).stream()
+      .map(d -> d.code())
+      .filter(c -> c == ErrorCode.UNDEFINED_VARIABLE)
+      .toList();
+  }
+
+  @Test
+  void forwardReferenceResolves_calleeDeclaredAfterCaller() {
+    // ★testCrossFunctionCall 的盲区：那条测试用 List.of(helperFunc, mainFunc)，
+    //   **被调方永远排在前面**，前向引用路径零覆盖（issue #125 body）。
+    //   这里把顺序反过来——修复前必报假 UNDEFINED_VARIABLE。
+    //
+    //   func main(): Int { return helper() }   // 先声明
+    //   func helper(): Int { return 42 }       // 后声明
+    var mainFunc = intFunc("main", callOf("helper"));
+    var helperFunc = intFunc("helper", createIntLiteral(42));
+
+    var module = new CoreModel.Module();
+    module.decls = List.of(mainFunc, helperFunc);   // 调用方在前
+
+    var undefined = undefinedCodes(module);
+    assertTrue(
+      undefined.isEmpty(),
+      "被调函数声明在调用方之后时仍须可见；实际 UNDEFINED_VARIABLE 数：" + undefined.size()
+    );
+  }
+
+  @Test
+  void mutualRecursionResolves_inBothDirections() {
+    // ★互递归无论怎么排序都必有一侧前向引用——这是「预注册签名」与
+    //   「边声明边检查」最本质的区别，声明顺序再怎么调也绕不过去。
+    //
+    //   func isEven(): Int { return isOdd() }
+    //   func isOdd(): Int { return isEven() }
+    var isEven = intFunc("isEven", callOf("isOdd"));
+    var isOdd = intFunc("isOdd", callOf("isEven"));
+
+    var module = new CoreModel.Module();
+    module.decls = List.of(isEven, isOdd);
+
+    var undefined = undefinedCodes(module);
+    assertTrue(
+      undefined.isEmpty(),
+      "互递归两侧都须解析成功；实际 UNDEFINED_VARIABLE 数：" + undefined.size()
+    );
+  }
+
+  @Test
+  void trulyUndefinedFunctionStillReported() {
+    // ★反向护栏：预注册签名不能退化成「什么名字都认」。
+    //   没有这条，把 undefinedVariable 整个删掉也能让上面两条变绿。
+    var mainFunc = intFunc("main", callOf("noSuchFunction"));
+
+    var module = new CoreModel.Module();
+    module.decls = List.of(mainFunc);
+
+    assertFalse(
+      undefinedCodes(module).isEmpty(),
+      "调用真正不存在的函数仍须报 UNDEFINED_VARIABLE"
+    );
+  }
+
   @Test
   void testEffectInferenceFromDeclaredEffect() {
     // 【修复 #2 验证】调用函数时应该读取声明的效果
