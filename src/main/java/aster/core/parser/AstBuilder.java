@@ -1674,8 +1674,21 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             Span nameSpan = mergeSpans(baseName.span(), members.get(members.size() - 1).span());
             return new Expr.Name(qualified, nameSpan);
         }
-        // 对非 Name 表达式的尾随成员暂时返回原表达式，后续阶段可扩展成员访问 AST 节点
-        return base;
+        // ★非 Name base 的尾随成员：报错，绝不静默丢弃（issue #127 body）。
+        //
+        //   文法 `postfixExpr: primaryExpr postfixSuffix*` 允许 MemberSuffix 跟在
+        //   CallSuffix 之后，于是 `getConfig().timeout` 能解析通过；但此处此前直接
+        //   `return base;`，把 `.timeout` 整个扔掉且不产生任何诊断——
+        //   `Let t be getConfig().timeout.` 会把 t 绑成整个 getConfig() 的值，
+        //   **语义无声改变**。实测 `Return double(x).bar.` 得到的 AST 里 `.bar` 不存在。
+        //
+        //   AST 暂无成员访问节点，无法正确表达该语义；在补上之前，唯一诚实的做法是
+        //   fail-fast。抛 IllegalStateException 与本文件既有的可恢复解析错误同一机制
+        //   （见 visitExpr 的表达式深度守卫）。
+        String dropped = combineName(null, members);
+        throw new IllegalStateException(
+            "暂不支持在调用/字面量等非名称表达式上做成员访问（`." + dropped + "`）。"
+                + "请先用 Let 绑定中间结果，再对其取成员。");
     }
 
     private Expr createCallExpression(Expr target, List<Expr> args, Span span) {
