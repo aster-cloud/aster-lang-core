@@ -62,6 +62,28 @@ class TrailingMemberAccessTest {
   }
 
   @Test
+  void withCallSuffixOnCallResultAlsoFailsFast() {
+    // ★applyTrailingMembers 有**两个**调用点：postfixExpr 收尾（:1290）与
+    //   applyWithCallSuffix（:1316）。上面几条只覆盖前者——把后者的委托改回
+    //   静默构造 Call，全部 1541 条测试仍全绿（实测）。这是「只查首次出现」模式：
+    //   修复被验证在第一个调用点上，第二个溜过去。
+    //   自然语言调用形式 `f(x).bar with y` 走的正是第二个调用点。
+    var ex = assertThrows(IllegalStateException.class,
+        () -> build("Module t.\n\nRule r given x:\n  Return double(x).bar with x."));
+    assertTrue(ex.getMessage() != null && ex.getMessage().contains("bar"),
+        "with 调用形式同样须 fail-fast 并点名成员；实际: " + ex.getMessage());
+  }
+
+  @Test
+  void withCallSuffixOnLiteralAlsoFailsFast() {
+    // 字面量 base 同样不是 Name，走同一分支。
+    var ex = assertThrows(IllegalStateException.class,
+        () -> build("Module t.\n\nRule r given x:\n  Return 5.bar with x."));
+    assertTrue(ex.getMessage() != null && ex.getMessage().contains("bar"),
+        "实际: " + ex.getMessage());
+  }
+
+  @Test
   void nameBaseTrailingMemberStillComposesQualifiedName() {
     // ★反向护栏：Name base 的尾随成员须合成限定名（`config.enabled`），
     //   这是 applyTrailingMembers 既有的合法分支，**不得**被本次 fail-fast 误伤。
