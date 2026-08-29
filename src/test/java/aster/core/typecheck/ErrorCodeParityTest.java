@@ -25,10 +25,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Java 枚举 {@link ErrorCode} 与该 json 的「结构字段」一致——name 集合、code、
  * category、severity。
  *
- * <p>为何不逐字节比对 message/help：Java 侧历史生成物的 message 模板用
- * {@code %s} 位置占位符（{@code String.format} 路径），而 json 用 {@code {name}}
- * 命名占位符（{@link DiagnosticBuilder#error} 的 Map 命名参数路径），两种表示无法逐字节
- * 相等。ts 侧 error-codes-parity 测试对同一份 json 做「含 message/help」的强校验，
+ * <p>★message/help 现在**也逐字节比对**（aster-lang-core#137 修复后）。
+ * 此前不比对的理由是「Java 用 {@code %s} 位置占位符、json 用 {@code {name}} 命名占位符，
+ * 两种表示无法逐字节相等」——那个描述准确，却掩盖了真正的问题：Java 的主渲染路径
+ * {@code DiagnosticBuilder.formatMessage} **只认 {@code {name}}**，对 {@code %s}
+ * 不做任何替换，于是 23 个已 emit 的码把字面的 {@code %s} 直接呈现给用户
+ * （实测 E101「Undefined variable: %s」连是哪个变量都不说）。
+ * 生成器不再把 {@code {name}} 改写成 {@code %s}，两端逐字对齐，这条强校验随之可以打开——
+ * 它同时是防该缺陷复发的守卫。ts 侧 error-codes-parity 测试对同一份 json 做同样的强校验，
  * 两份 json 的 byte-identical 由 ts 侧断言保证——传递性上确保 ts ↔ Java 码表一致。
  */
 class ErrorCodeParityTest {
@@ -69,6 +73,63 @@ class ErrorCodeParityTest {
 
         assertEquals(jsonNames, enumNames,
                 "ErrorCode 枚举名集合必须与 shared/error_codes.json 完全一致（防码表 drift）");
+    }
+
+    /**
+     * ★message/help 与 json 逐字节一致（aster-lang-core#137 的复发守卫）。
+     *
+     * <p>没有这条，生成器再把 {@code {name}} 改写回 {@code %s}（或有人手改生成物）
+     * 都不会有任何测试变红——那正是本缺陷能存活到 23 个码的原因。
+     */
+    @Test
+    void messageAndHelpMatchJsonByteForByte() throws Exception {
+        JsonNode table = loadTable();
+        Map<String, ErrorCode> byName = new HashMap<>();
+        for (ErrorCode ec : ErrorCode.values()) {
+            byName.put(ec.name(), ec);
+        }
+
+        List<String> mismatches = new ArrayList<>();
+        for (Iterator<Map.Entry<String, JsonNode>> it = table.fields(); it.hasNext(); ) {
+            Map.Entry<String, JsonNode> e = it.next();
+            ErrorCode ec = byName.get(e.getKey());
+            if (ec == null) {
+                continue;   // 名集合由 enumNameSetMatchesJson 单独守
+            }
+            String jsonMessage = e.getValue().get("message").asText();
+            if (!jsonMessage.equals(ec.messageTemplate())) {
+                mismatches.add(e.getKey() + ".message: json=" + jsonMessage
+                        + " | java=" + ec.messageTemplate());
+            }
+            String jsonHelp = e.getValue().get("help").asText();
+            if (!jsonHelp.equals(ec.help())) {
+                mismatches.add(e.getKey() + ".help: json=" + jsonHelp
+                        + " | java=" + ec.help());
+            }
+        }
+
+        assertTrue(mismatches.isEmpty(),
+                "message/help 必须与 shared/error_codes.json 逐字节一致（单一真源）：\n"
+                        + String.join("\n", mismatches));
+    }
+
+    /**
+     * ★没有任何模板会渲染出字面 {@code %s}。
+     *
+     * <p>与上一条互补：上一条守「Java == json」，本条守「模板本身不含 %s」。
+     * 两条都在，才既防生成器改写、也防有人往真源里写 %s。
+     */
+    @Test
+    void noTemplateContainsPositionalPlaceholder() {
+        List<String> offenders = new ArrayList<>();
+        for (ErrorCode ec : ErrorCode.values()) {
+            if (ec.messageTemplate() != null && ec.messageTemplate().contains("%s")) {
+                offenders.add(ec.name() + ": " + ec.messageTemplate());
+            }
+        }
+        assertTrue(offenders.isEmpty(),
+                "消息模板不得含 %s —— DiagnosticBuilder 只替换 {name}，%s 会原样呈现给用户：\n"
+                        + String.join("\n", offenders));
     }
 
     @Test

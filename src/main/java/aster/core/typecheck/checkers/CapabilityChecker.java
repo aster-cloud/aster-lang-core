@@ -103,10 +103,7 @@ public final class CapabilityChecker {
             "func", func.name,
             "capabilities", capNames,
             "calls", sampleCalls
-          ),
-          func.name,
-          capNames,
-          sampleCalls
+          )
         );
       }
 
@@ -118,9 +115,7 @@ public final class CapabilityChecker {
           Map.of(
             "func", func.name,
             "calls", sampleCalls
-          ),
-          func.name,
-          sampleCalls
+          )
         );
       }
     }
@@ -149,10 +144,7 @@ public final class CapabilityChecker {
             "func", func.name,
             "cap", name,
             "declared", declaredJoined
-          ),
-          func.name,
-          name,
-          declaredJoined
+          )
         );
       }
     }
@@ -165,9 +157,7 @@ public final class CapabilityChecker {
           Map.of(
             "func", func.name,
             "cap", cap
-          ),
-          func.name,
-          cap
+          )
         );
       }
     }
@@ -185,8 +175,7 @@ public final class CapabilityChecker {
       emit(
         ErrorCode.WORKFLOW_MISSING_IO_EFFECT,
         func.origin,
-        Map.of("func", func.name),
-        func.name
+        Map.of("func", func.name)
       );
     }
     var declaredCapabilityKinds = toCapabilityKinds(normalizeEffectCaps(func.effectCaps));
@@ -263,10 +252,7 @@ public final class CapabilityChecker {
             "func", func.name,
             "step", step.name,
             "capability", cap.displayName()
-          ),
-          func.name,
-          step.name,
-          cap.displayName()
+          )
         );
       }
     }
@@ -291,10 +277,7 @@ public final class CapabilityChecker {
             "func", func.name,
             "step", step.name,
             "capability", cap.displayName()
-          ),
-          step.name,
-          func.name,
-          cap.displayName()
+          )
         );
       }
     }
@@ -354,15 +337,18 @@ public final class CapabilityChecker {
     return normalized;
   }
 
-  private void emit(ErrorCode code, CoreModel.Origin origin, Map<String, Object> data, Object... args) {
+  private void emit(ErrorCode code, CoreModel.Origin origin, Map<String, Object> data) {
     var severity = switch (code.severity()) {
       case ERROR -> Diagnostic.Severity.ERROR;
       case WARNING -> Diagnostic.Severity.WARNING;
       case INFO -> Diagnostic.Severity.INFO;
     };
-    var message = args == null || args.length == 0
-      ? code.messageTemplate()
-      : code.format(args);
+    // ★命名渲染（aster-lang-core#137）：模板现与 shared/error_codes.json 逐字一致，
+    //   用 `{name}` 而非 `%s`。data 里本就带齐模板所需的全部键——此前调用方
+    //   把同一批值**传了两遍**（一遍命名 data、一遍位置 args），位置那遍还出现过
+    //   顺序与模板不符的情形（COMPENSATE_NEW_CAPABILITY 的 func/step 反了）。
+    //   改走 data 后顺序不再有意义，那类错误从根上消失。
+    var message = code.render(data);
     diagnostics.add(new Diagnostic(
       severity,
       code,
@@ -411,11 +397,9 @@ public final class CapabilityChecker {
             "func", func.name,
             "module", moduleName == null ? "" : moduleName,
             "cap", cap.displayName()
-          ),
-          // 格式串顺序：Function '%s' requires %s capability but manifest for module '%s' denies it.
-          func.name,
-          cap.displayName(),
-          moduleName == null ? "" : moduleName
+          )
+          // 位置参数已删除：模板改用命名占位符 {func}/{cap}/{module} 后，
+          // 上面 data 里的键就是渲染依据，不再需要「记住顺序」这件事。
         );
       }
     }

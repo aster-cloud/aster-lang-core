@@ -261,7 +261,7 @@ public final class PiiTypeChecker {
           "func", callee
         );
         var origin = argNodes.get(i) != null ? exprOrigin(argNodes.get(i)) : null;
-        emitDiagnostic(ErrorCode.PII_ARG_VIOLATION, origin, data, describeMeta(expected), describeMeta(actual));
+        emitDiagnostic(ErrorCode.PII_ARG_VIOLATION, origin, data);
       }
     }
   }
@@ -284,13 +284,13 @@ public final class PiiTypeChecker {
         "source", describeMeta(valueMeta),
         "target", describeMeta(targetMeta)
       );
-      emitDiagnostic(ErrorCode.PII_ASSIGN_DOWNGRADE, origin, data, describeMeta(valueMeta), describeMeta(targetMeta));
+      emitDiagnostic(ErrorCode.PII_ASSIGN_DOWNGRADE, origin, data);
     } else if (decision.warning) {
       var data = Map.<String, Object>of(
         "source", describeMeta(valueMeta),
         "target", describeMeta(targetMeta)
       );
-      emitDiagnostic(ErrorCode.PII_IMPLICIT_UPLEVEL, origin, data, describeMeta(valueMeta), describeMeta(targetMeta));
+      emitDiagnostic(ErrorCode.PII_IMPLICIT_UPLEVEL, origin, data);
     }
   }
 
@@ -333,7 +333,7 @@ public final class PiiTypeChecker {
   private void checkSinkAllowed(SinkDescriptor sink, PiiMeta meta, CoreModel.Expr argExpr, Map<String, PiiMeta> env, FunctionContext ctx) {
     if (meta == null) {
       if (argExpr instanceof CoreModel.Name name && !env.containsKey(name.name)) {
-        emitDiagnostic(ErrorCode.PII_SINK_UNKNOWN, exprOrigin(argExpr), Map.<String, Object>of("sinkKind", sink.label), sink.label);
+        emitDiagnostic(ErrorCode.PII_SINK_UNKNOWN, exprOrigin(argExpr), Map.<String, Object>of("sinkKind", sink.label));
       }
       return;
     }
@@ -342,7 +342,7 @@ public final class PiiTypeChecker {
       emitDiagnostic(ErrorCode.PII_SINK_UNSANITIZED, exprOrigin(argExpr), Map.<String, Object>of(
         "level", meta.getLevel().name(),
         "sinkKind", sink.label
-      ), meta.getLevel().name(), sink.label);
+      ));
       return;
     }
     // L2 在任何 sink（CONSOLE / NETWORK / DATABASE / EMIT）都同样需要脱敏；
@@ -351,7 +351,7 @@ public final class PiiTypeChecker {
       emitDiagnostic(ErrorCode.PII_SINK_UNSANITIZED, exprOrigin(argExpr), Map.<String, Object>of(
         "level", meta.getLevel().name(),
         "sinkKind", sink.label
-      ), meta.getLevel().name(), sink.label);
+      ));
     }
   }
 
@@ -553,15 +553,16 @@ public final class PiiTypeChecker {
     return null;
   }
 
-  private void emitDiagnostic(ErrorCode code, CoreModel.Origin origin, Map<String, Object> data, Object... args) {
+  private void emitDiagnostic(ErrorCode code, CoreModel.Origin origin, Map<String, Object> data) {
     var severity = switch (code.severity()) {
       case ERROR -> Diagnostic.Severity.ERROR;
       case WARNING -> Diagnostic.Severity.WARNING;
       case INFO -> Diagnostic.Severity.INFO;
     };
-    var message = args == null || args.length == 0
-      ? code.messageTemplate()
-      : String.format(Locale.ROOT, code.messageTemplate(), args);
+    // ★命名渲染（aster-lang-core#137）：模板与 shared/error_codes.json 逐字一致，
+    //   用 `{name}` 而非 `%s`。data 里本就带齐模板所需的键，此前位置 args 是同一批值
+    //   的第二份拷贝——删掉它即消除「两份可能不同步」的风险。
+    var message = code.render(data);
     var diagnostic = new Diagnostic(
       severity,
       code,
