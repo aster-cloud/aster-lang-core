@@ -103,6 +103,25 @@ class TsSampleParseInventoryTest {
             }
         }
         System.out.println();
+
+        // ★逐样本输出「已观测」清单（aster-lang-test#119）。
+        //
+        //   本测试只为**失败**样本打印表格行，于是下游 runner 只能用
+        //   「不在失败清单 = 通过」来判定。那在「Java 确实看过每个样本」的前提下成立，
+        //   但该前提此前只由 `Discovered N >= manifest size` 这条**超集比较**保证——
+        //   Discovered 统计的是 tier1 全量 + tier2/ts-only，是 manifest 的超集，
+        //   所以陈旧 Maven 语料**缺少某个新增 manifest 样本**时计数照样够，
+        //   那个新样本被静默判为 Java-pass。
+        //
+        //   现在逐条列出实际观测到的样本路径，runner 改用「逐样本已观测」判定，
+        //   未出现在本清单里的样本一律视为**未观测**而非通过。
+        System.out.println("=== Observed samples (one per line) ===");
+        for (CorpusLoader.Sample sample : samples) {
+            System.out.println("OBSERVED " + sample.resourcePath);
+        }
+        System.out.println("=== End observed samples ===");
+        System.out.println();
+
         System.out.printf("Total: %d, Pass: %d, Fail: %d, Pass-rate: %.1f%%%n",
             samples.size(), pass, fail,
             samples.isEmpty() ? 0.0 : (100.0 * pass / samples.size()));
