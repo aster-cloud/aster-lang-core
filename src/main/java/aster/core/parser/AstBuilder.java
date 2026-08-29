@@ -905,6 +905,22 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         if (seconds < 0) {
             throw new IllegalStateException("timeout 数值必须为非负整数");
         }
+        // ★秒→毫秒的溢出守卫（issue #131 body）——**纵深防御，非当前可达路径**。
+        //
+        //   issue 描述的机制属实：parseLong 允许到 Long.MAX_VALUE，
+        //   而 seconds > Long.MAX_VALUE/1000 时 `seconds * 1000L` 会静默回绕为负值，
+        //   把上一行的非负校验作废。
+        //
+        //   但实测**从源码走不到这里**：INT_LITERAL 在词法/字面量层就被限制在 Int 范围
+        //   （超出即报「out of range for Int … Add the 'L' suffix」），
+        //   而 2147483647 * 1000L 远不溢出 Long。
+        //   保留本守卫是因为它零成本，且一旦将来放宽 timeout 字面量（如允许 L 后缀）
+        //   缺口会立刻变成可达——但**不为它写测试**：写不出能失败的用例，
+        //   那种测试只会是假绿。
+        if (seconds > Long.MAX_VALUE / 1000L) {
+            throw new IllegalStateException(
+                "timeout 数值过大（" + seconds + " 秒换算为毫秒会溢出 Long）");
+        }
         return new Stmt.Timeout(seconds * 1000L);
     }
 
