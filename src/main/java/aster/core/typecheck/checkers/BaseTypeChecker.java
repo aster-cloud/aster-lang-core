@@ -126,10 +126,28 @@ public final class BaseTypeChecker {
         if (list.elements == null || list.elements.isEmpty()) {
           listType.type = TypeSystem.unknown();
         } else {
-          listType.type = typeOfExpr(list.elements.get(0), ctx);
-          // 校验其余元素与首元素类型一致（不一致出诊断，但不阻断——类型为首元素类型）。
+          var firstType = typeOfExpr(list.elements.get(0), ctx);
+          listType.type = firstType;
+          // ★校验其余元素与首元素类型一致（issue #128 body）。
+          //   此前这里只调 typeOfExpr 丢弃返回值——既不比较也不发诊断，
+          //   注释声称的「不一致出诊断」是空话，`[1, "a", true]` 被静默定型为 List<Int>。
+          //   E020 LIST_ELEMENT_TYPE_MISMATCH 早已在 ErrorCode 与 error_codes.json 里
+          //   定义好，但全仓 emit 站点数为 0——本次把它接上。
+          //
+          //   非 strict 比较：unknown 与任何类型相容，避免在元素本身已出错时级联报错。
+          //   不阻断——列表类型仍取首元素类型，与 IfE 分支不一致时取 then 分支同理。
           for (int i = 1; i < list.elements.size(); i++) {
-            typeOfExpr(list.elements.get(i), ctx);
+            var elemType = typeOfExpr(list.elements.get(i), ctx);
+            if (!TypeSystem.equals(firstType, elemType, false)) {
+              diagnostics.error(
+                ErrorCode.LIST_ELEMENT_TYPE_MISMATCH,
+                Optional.ofNullable(list.origin),
+                Map.of(
+                  "expected", TypeSystem.format(firstType),
+                  "actual", TypeSystem.format(elemType)
+                )
+              );
+            }
           }
         }
         yield listType;

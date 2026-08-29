@@ -28,7 +28,11 @@ public enum ErrorCode {
   NON_EXHAUSTIVE_MAYBE("E017", Category.TYPE, Severity.WARNING, "Non-exhaustive match on Maybe type; missing %s case.", "为 Maybe 匹配补齐 null 与非 null 分支。"),
   NON_EXHAUSTIVE_ENUM("E018", Category.TYPE, Severity.WARNING, "Non-exhaustive match on %s; missing: %s", "补充所有未覆盖的枚举分支，或添加通配符。"),
   AMBIGUOUS_INTEROP_NUMERIC("E019", Category.TYPE, Severity.WARNING, "Ambiguous interop call '%s': mixing numeric kinds (Int=%s, Long=%s, Double=%s). Overload resolution may widen/box implicitly.", "统一互操作调用的参数数值类型，避免隐式装箱与拓宽。"),
-  LIST_ELEMENT_TYPE_MISMATCH("E020", Category.TYPE, Severity.ERROR, "List literal element type mismatch: expected %s, got %s", "确保列表字面量中的所有元素类型一致。"),
+  // ★用 {name} 命名占位符而非 %s：DiagnosticBuilder 走的是 Map 命名参数路径
+  //   （PLACEHOLDER_PATTERN = \{(\w+)}），对 %s 不做任何替换——消息会原样渲染出
+  //   字面的 "%s"。本码此前 emit 站点数为 0，故无历史包袱，直接对齐 error_codes.json
+  //   的 {expected}/{actual}。其余 %s 码的同类问题见 issue #137。
+  LIST_ELEMENT_TYPE_MISMATCH("E020", Category.TYPE, Severity.ERROR, "List literal element type mismatch: expected {expected}, got {actual}", "确保列表字面量中的所有元素类型一致。"),
   OPTIONAL_EXPECTED("E021", Category.TYPE, Severity.ERROR, "Optional value required here: expected Maybe or Option, but got %s", "传入 Maybe/Option 类型或显式包装值。"),
   WORKFLOW_COMPENSATE_TYPE("E022", Category.TYPE, Severity.ERROR, "Compensate block for step '%s' must return Result<Unit, %s>, got %s", "确保补偿块返回 Result<Unit, E>，其中 E 为 step 错误类型。"),
   WORKFLOW_COMPENSATE_MISSING("E023", Category.EFFECT, Severity.WARNING, "Step '%s' performs side effects but does not define a compensate block.", "为包含 IO 副作用的 step 提供 compensate 块以便回滚。"),
