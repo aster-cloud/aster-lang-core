@@ -47,8 +47,7 @@ Core IR (类型安全)
 | 包                            | 职责                                      |
 |-------------------------------|-------------------------------------------|
 | `aster.core.canonicalizer`    | 多语言规范化：关键词翻译、全角转半角、冠词去除 |
-| `aster.core.lexer`            | 词法分析：Token 流生成、INDENT/DEDENT 处理   |
-| `aster.core.parser`           | ANTLR4 语法解析：生成 AST                   |
+| `aster.core.parser`           | ANTLR4 词法/语法解析：Token 流、INDENT/DEDENT 处理、生成 AST |
 | `aster.core.ir`               | Core IR 数据结构：模块、规则、表达式等         |
 | `aster.core.inference`        | 类型推断：约束求解与类型检查                   |
 | `aster.core.lexicon`          | 词法表定义：多语言关键词、标点、语法配置        |

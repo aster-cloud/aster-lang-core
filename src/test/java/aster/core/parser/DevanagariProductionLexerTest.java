@@ -18,11 +18,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 天城文标识符在**生产词法器**上的支持（2026-07-29 审计修复）。
  *
- * <h2>为什么已有 DevanagariLexerTest 还要再加一个</h2>
+ * <h2>为什么强调「生产」</h2>
  *
- * <p>{@code aster.core.lexer.DevanagariLexerTest} 测的是
- * {@code aster.core.lexer.Lexer}——那个类**零引用，是死代码**
- * （{@code grep -rl "import aster.core.lexer"} 在 src/main 下无结果）。
+ * <p>历史上另有一份 {@code aster.core.lexer.DevanagariLexerTest}，测的是手写的
+ * {@code aster.core.lexer.Lexer}——那个类**零引用，是死代码**，已随 issue #153 删除。
  * 生产路径走的是本包的 {@code AsterLexer}（ANTLR 由 AsterLexer.g4 生成，
  * 经 {@code AsterCustomLexer} 继承）。
  *
