@@ -95,10 +95,14 @@ public final class TypeChecker {
       // 是空壳，FIELD_TYPE_MISMATCH / UNKNOWN_FIELD / MISSING_REQUIRED_FIELD
       // 在 Java 侧 emit 站点数为 0，而 TS 侧全部实现。
       var dataDecls = new java.util.HashMap<String, CoreModel.Data>();
+      // enum 声明表同理：match 穷尽性检查需要变体列表，SymbolTable 未保留。
+      var enumDecls = new java.util.HashMap<String, CoreModel.Enum>();
       if (module.decls != null) {
         for (var decl : module.decls) {
           if (decl instanceof CoreModel.Data data && data.name != null) {
             dataDecls.put(data.name, data);
+          } else if (decl instanceof CoreModel.Enum enumDecl && enumDecl.name != null) {
+            enumDecls.put(enumDecl.name, enumDecl);
           }
         }
       }
@@ -110,7 +114,8 @@ public final class TypeChecker {
         typeAliases, // 传入实际的类型别名映射
         TypeSystem.unknown(),
         VisitorContext.Effect.PURE,
-        dataDecls
+        dataDecls,
+        enumDecls
       );
 
       // 第一遍补充：预注册全部函数签名（issue #125 body）。

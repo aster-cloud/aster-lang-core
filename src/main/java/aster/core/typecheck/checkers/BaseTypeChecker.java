@@ -722,7 +722,106 @@ public final class BaseTypeChecker {
       }
     }
 
+    checkMatchExhaustiveness(match, exprType, ctx);
+
     return firstCaseType != null ? Optional.of(firstCaseType) : Optional.empty();
+  }
+
+  /**
+   * match 穷尽性检查（issue #148），语义与 TS 侧 statement.ts 的 Match 分支逐条对齐。
+   *
+   * <p>★E016/E017/E018 早已定义并写进 error_codes.json，但 Java 侧此前 emit 站点数为 0——
+   * 同一段 CNL 在 TS 引擎有警告、在 Java 引擎静默通过，且码表 byte-identical 制造了
+   * 「表对齐 = 行为对齐」的假象。
+   *
+   * <p>只对可枚举的域做判断：Maybe（null / 非 null 两侧）与 enum（变体集合）。
+   * Int/String 等无穷域既不能列举也无通配概念，与 TS 一致不告警。
+   * 被匹配值类型 unknown 时不判——上游已经出错，不级联。
+   */
+  private void checkMatchExhaustiveness(CoreModel.Match match, Type scrutineeType, VisitorContext ctx) {
+    var type = expandType(scrutineeType);
+    if (type == null || TypeSystem.isUnknown(type) || match.cases == null) {
+      return;
+    }
+    if (type instanceof CoreModel.Maybe) {
+      checkMaybeExhaustiveness(match);
+      return;
+    }
+    if (type instanceof CoreModel.TypeName typeName) {
+      var enumDecl = ctx.getEnumDecls().get(typeName.name);
+      if (enumDecl != null && enumDecl.variants != null) {
+        checkEnumExhaustiveness(match, enumDecl);
+      }
+    }
+  }
+
+  /** Maybe 必须同时覆盖 null（PatNull）与非 null（其余任何模式）两侧。 */
+  private void checkMaybeExhaustiveness(CoreModel.Match match) {
+    boolean hasNullCase = false;
+    boolean hasNonNullCase = false;
+    for (var kase : match.cases) {
+      if (kase.pattern instanceof CoreModel.PatNull) {
+        hasNullCase = true;
+      } else {
+        hasNonNullCase = true;
+      }
+    }
+    if (hasNullCase && hasNonNullCase) {
+      return;
+    }
+    // missing 文案与 TS 侧逐字一致，双引擎诊断可直接对比
+    String missing = hasNullCase ? "non-null value" : hasNonNullCase ? "null" : "null and non-null";
+    diagnostics.warning(
+      ErrorCode.NON_EXHAUSTIVE_MAYBE,
+      Optional.ofNullable(match.origin),
+      Map.of("missing", missing)
+    );
+  }
+
+  /**
+   * enum：变体可用 PatCtor（{@code Red()}）或 PatName（{@code Red}）覆盖；
+   * 非变体名的 PatName 以及 PatNull/PatInt 视为通配，覆盖其余全部变体。
+   * 同一变体出现两次报 DUPLICATE_ENUM_CASE（不影响穷尽性结论）。
+   */
+  private void checkEnumExhaustiveness(CoreModel.Match match, CoreModel.Enum enumDecl) {
+    var seen = new LinkedHashSet<String>();
+    boolean hasWildcard = false;
+    for (var kase : match.cases) {
+      String variant = coveredVariant(kase.pattern, enumDecl);
+      if (variant == null) {
+        // PatCtor 写了非变体的构造器名：既不覆盖任何变体也不是通配（与 TS 一致）
+        hasWildcard |= !(kase.pattern instanceof CoreModel.PatCtor);
+        continue;
+      }
+      if (!seen.add(variant)) {
+        diagnostics.warning(
+          ErrorCode.DUPLICATE_ENUM_CASE,
+          Optional.ofNullable(kase.origin != null ? kase.origin : match.origin),
+          Map.of("case", variant, "type", enumDecl.name)
+        );
+      }
+    }
+    if (hasWildcard) {
+      return;
+    }
+    var missing = enumDecl.variants.stream().filter(v -> !seen.contains(v)).toList();
+    if (!missing.isEmpty()) {
+      diagnostics.warning(
+        ErrorCode.NON_EXHAUSTIVE_ENUM,
+        Optional.ofNullable(match.origin),
+        Map.of("type", enumDecl.name, "missing", String.join(", ", missing))
+      );
+    }
+  }
+
+  /** 模式覆盖的 enum 变体名；不覆盖任何变体时返回 null。 */
+  private static String coveredVariant(CoreModel.Pattern pattern, CoreModel.Enum enumDecl) {
+    String name = switch (pattern) {
+      case CoreModel.PatName patName -> patName.name;
+      case CoreModel.PatCtor patCtor -> patCtor.typeName;
+      case null, default -> null;
+    };
+    return name != null && enumDecl.variants.contains(name) ? name : null;
   }
 
   /**
