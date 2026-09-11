@@ -1620,11 +1620,66 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
      */
     private Span spanFrom(ParserRuleContext ctx) {
         Token start = ctx.getStart();
-        Token stop = ctx.getStop();
+        Token stop = lastNonLayoutToken(ctx);
         return new Span(
             new Span.Position(start.getLine(), start.getCharPositionInLine() + 1),
             new Span.Position(stop.getLine(), stop.getCharPositionInLine() + stop.getText().length() + 1)
         );
+    }
+
+    /**
+     * 取 ctx 的结束 token，但**跳过尾随的布局 token**（NEWLINE / INDENT / DEDENT）。
+     *
+     * <p>★为什么需要：{@code ctx.getStop()} 对一个声明返回的往往是尾随的 NEWLINE 或
+     * DEDENT，而这些 token 位于声明**之后**的行上（空行、注释行都会产生 NEWLINE）。
+     * 于是 span 会一路吞到下一个声明的起点——实测 hipaa-validation-demo 里
+     * {@code Define AccessLevel} 真实占 canonical 第 9–14 行，却报成 9–17，
+     * 而 17 正是下一个声明 {@code Define PHICategory} 的**起始行**：相邻声明的
+     * span 互相**重叠**。
+     *
+     * <p>后果不只是数字难看：ADR 0032 要把执行 trace 锚定到源码位置、ADR 0037 要在
+     * 其上建 OriginMap（文本 span ↔ IR 节点双向导航）。span 重叠会让「按位置反查是
+     * 哪个声明」出现歧义——同一行同时属于两个声明。
+     *
+     * <p>TS 侧一直是对的（报 14），本方法让 Java 与之对齐。
+     *
+     * <p>若整个 ctx 全是布局 token（理论上不会发生，但不做空指针假设），回退到
+     * 原本的 {@code getStop()}。
+     */
+    private Token lastNonLayoutToken(ParserRuleContext ctx) {
+        Token stop = ctx.getStop();
+        if (stop == null) {
+            return ctx.getStart();
+        }
+        if (!isLayoutToken(stop)) {
+            return stop;
+        }
+        // 沿解析树回溯：取 ctx 子树中**最后一个非布局终结符**。
+        // 不依赖 TokenStream（AstBuilder 不持有它），只用 ANTLR 的解析树结构。
+        Token found = lastNonLayoutTerminal(ctx);
+        return found != null ? found : stop;
+    }
+
+    /** 深度优先自右向左，找子树里最后一个非布局终结符；没有则返回 null。 */
+    private Token lastNonLayoutTerminal(org.antlr.v4.runtime.tree.ParseTree node) {
+        if (node instanceof org.antlr.v4.runtime.tree.TerminalNode terminal) {
+            Token t = terminal.getSymbol();
+            return (t != null && !isLayoutToken(t)) ? t : null;
+        }
+        for (int i = node.getChildCount() - 1; i >= 0; i--) {
+            Token t = lastNonLayoutTerminal(node.getChild(i));
+            if (t != null) {
+                return t;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isLayoutToken(Token t) {
+        int type = t.getType();
+        return type == AsterParser.NEWLINE
+            || type == AsterParser.INDENT
+            || type == AsterParser.DEDENT;
     }
 
     /**
