@@ -49,6 +49,10 @@ public record ModuleGraph(
   /**
    * 返回依赖优先的拓扑序；检测到环时抛 LinkException。
    */
+  /** 拓扑遍历起点的确定性排序：先按模块名，再按版本号。 */
+  private static final Comparator<ModuleKey> MODULE_KEY_ORDER =
+    Comparator.comparing(ModuleKey::moduleName).thenComparingInt(ModuleKey::version);
+
   public List<ModuleKey> topologicalOrder() {
     var byFrom = new HashMap<ModuleKey, List<ModuleKey>>();
     for (var edge : imports) {
@@ -59,7 +63,14 @@ public record ModuleGraph(
     var state = new HashMap<ModuleKey, VisitState>();
     var stack = new ArrayDeque<ModuleKey>();
 
-    for (var key : modules.keySet()) {
+    // ★遍历起点必须有确定顺序：modules 是 Map.copyOf（不可变 Map），其迭代序按
+    //   启动期 SALT 随机化。拓扑排序在**等价解**之间的选择由起点顺序决定，于是
+    //   同一组模块每次编译可能得到不同（但都合法）的拓扑序 → 合并后 decls 漂移
+    //   → 同一份源码产出字节不同的 IR。先按 ModuleKey 排序再遍历即可消除该自由度。
+    //   ★这不改变拓扑正确性：任何起点顺序产出的都是合法拓扑序，这里只是固定选哪一个。
+    var startOrder = new ArrayList<>(modules.keySet());
+    startOrder.sort(MODULE_KEY_ORDER);
+    for (var key : startOrder) {
       visit(key, byFrom, state, stack, order);
     }
     return List.copyOf(order);

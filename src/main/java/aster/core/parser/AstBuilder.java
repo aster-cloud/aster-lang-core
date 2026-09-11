@@ -527,7 +527,16 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                 }
             }
         }
-        Map<String, Object> finalParams = params.isEmpty() ? Map.of() : Map.copyOf(params);
+        // ★不可用 Map.copyOf：JDK 不可变 Map 的迭代序按启动期 SALT 随机化，会让
+        //   CoreModel.Annotation.params 的序列化顺序**每次 JVM 启动都可能不同**，
+        //   于是同一份源码两次编译产出字节不同的 IR JSON（实测 6 次 JVM 出现 4 种顺序）。
+        //   上面刚用 LinkedHashMap 按源码顺序收集好，copyOf 会当场把它打乱。
+        //   ★下游 CoreLowering 那次 `new LinkedHashMap<>(...)` 拷贝**救不回来**——
+        //     它忠实保存的是一个已经乱掉的顺序（「看起来在保序，实际无效」）。
+        //   改用 unmodifiableMap 包装：既保持不可变语义，又保住插入序。
+        //   IR 的可复现性是 OriginMap / IR hash / 回归比对的前置条件，见 IrDeterminismTest。
+        Map<String, Object> finalParams =
+            params.isEmpty() ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(params));
         return new Annotation(name, finalParams);
     }
 
