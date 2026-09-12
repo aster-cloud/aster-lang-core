@@ -46,14 +46,16 @@ class OperatorColumnPreservationTest {
     @DisplayName("英语词形运算符经 canonicalize 后行长度不变（列位未被移动）")
     void wordOperatorsMustNotShortenTheLine() {
         Canonicalizer canon = new Canonicalizer();
-        // ★不含可选 `is` 前缀：`is greater than` 会被 IsComparatorTransformer 去掉
-        //   `is`（同样缩短 3 字符、同样移动列位），那是**另一个**独立的列偏来源，
-        //   不在本次改动范围内。已在 ADR 0037 记为残留项；此处只钉住「运算符翻译」
-        //   这一条，避免测试名承诺的范围超出它实际守住的东西。
+        // ★含可选 `is` 前缀：曾由 IsComparatorTransformer 去掉 `is`（同样缩 3 字符、
+        //   同样移动列位）。实测 lexer 本就吸收该前缀（7 个比较词带/不带 is 的 IR
+        //   逐字节相同），故该 transformer 已从 en-US 链上移除；此处一并钉住。
         String[] bodies = {
             "x plus y", "x minus y", "x times y", "x divided by y",
             "x greater than y", "x less than y",
             "x at least y", "x at most y",
+            "x is greater than y", "x is less than y",
+            "x is at least y", "x is at most y",
+            "x is more than y", "x is under y", "x is over y",
         };
         for (String body : bodies) {
             String line = "  Return " + body + ".";
