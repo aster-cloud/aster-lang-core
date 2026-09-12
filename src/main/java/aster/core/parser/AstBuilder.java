@@ -1227,10 +1227,20 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             Token opToken = allOperators.get(i - 1);
             String op = normalizeOperator(opToken.getText());
 
+            // ★span 取「左操作数 ∪ 右操作数」，不能用 spanFrom(ctx)。
+            //   `a plus b plus c` 被左结合地建成 Call(Call(a,b), c)。若每个中间
+            //   节点都用整条表达式的 span，内层 Call(a,b) 会**继承外层的结束位置**。
+            //   多行续行时尤其明显：
+            //     Return "Hello, "   ← L4
+            //     plus name          ← L5
+            //     plus "!".          ← L6
+            //   内层 Call 真实占 L4..L5，却被报成 L4..L6（TS 报 5，是对的）。
+            //   ADR 0032 的 trace 锚点与 ADR 0037 的 OriginMap 都按位置反查节点，
+            //   内层节点虚报范围会让反查落到错误的子表达式上。
             result = new Expr.Call(
                 new Expr.Name(op, spanFrom(opToken)),
                 List.of(result, right),
-                spanFrom(ctx)
+                mergeSpans(result.span(), right.span())
             );
         }
         return result;
@@ -1263,10 +1273,20 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             Token opToken = allOperators.get(i - 1);
             String op = normalizeOperator(opToken.getText());
 
+            // ★span 取「左操作数 ∪ 右操作数」，不能用 spanFrom(ctx)。
+            //   `a plus b plus c` 被左结合地建成 Call(Call(a,b), c)。若每个中间
+            //   节点都用整条表达式的 span，内层 Call(a,b) 会**继承外层的结束位置**。
+            //   多行续行时尤其明显：
+            //     Return "Hello, "   ← L4
+            //     plus name          ← L5
+            //     plus "!".          ← L6
+            //   内层 Call 真实占 L4..L5，却被报成 L4..L6（TS 报 5，是对的）。
+            //   ADR 0032 的 trace 锚点与 ADR 0037 的 OriginMap 都按位置反查节点，
+            //   内层节点虚报范围会让反查落到错误的子表达式上。
             result = new Expr.Call(
                 new Expr.Name(op, spanFrom(opToken)),
                 List.of(result, right),
-                spanFrom(ctx)
+                mergeSpans(result.span(), right.span())
             );
         }
         return result;
