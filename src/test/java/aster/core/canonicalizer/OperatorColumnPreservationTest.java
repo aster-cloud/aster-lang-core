@@ -92,4 +92,46 @@ class OperatorColumnPreservationTest {
                 + "\n实际 " + rightOperand.origin.start.col
                 + "。若偏小，说明 canonicalize 缩短了该行（例如把 plus 翻成 +）。");
     }
+
+    @Test
+    @DisplayName("`!=` 前的空格不得被标点归一化吃掉（它是运算符，不是句末标点）")
+    void notEqualOperatorMustKeepItsLeadingSpace() {
+        // ★PUNCT_FINAL_RE 的本意是「去掉句末标点前的空白」（`Wait ! now` → `Wait! now`）。
+        //   但它的字符类里含 `!`，于是 `x != y` 也被当成「空白 + 标点」，改写成 `x!= y`
+        //   —— 缩短一个字符、移动其后所有 token 的列位。
+        //   实证：语料中**裸** `!`（不在字符串字面量内）只以 `!=` 形态出现；真正作
+        //   感叹号用的 `!` 全在字符串里，已由 segmenter 保护。
+        Canonicalizer canon = new Canonicalizer();
+        String line = "  Return x != y.";
+        String src = "Module m.\n\nRule f given x, y, produce:\n" + line + "\n";
+        String out = canon.canonicalize(src).split("\n", -1)[3];
+
+        assertEquals(line, out,
+            "`!=` 前的空格被吃掉了：\n  原 [" + line + "]\n  规 [" + out + "]"
+                + "\n★这会让 `y` 及其后所有 token 的 origin.col 左移一位。");
+    }
+
+    @Test
+    @DisplayName("真正的句末标点仍被归一化（本修复未放宽该行为）")
+    void realSentencePunctuationIsStillNormalized() {
+        // 反向守卫：确认修复只排除了 `!=`，没有顺手关掉整条标点归一化规则。
+        //
+        // ★必须用 `;` `?` `!` —— 这三个字符**只**由 PUNCT_FINAL_RE 处理。
+        //   `.` `,` `:` 在更早的 PUNCT_NORMAL_RE（本文件另一处）就已归一化，
+        //   拿它们做断言，即使把 PUNCT_FINAL_RE 整条删掉本测试也照样绿
+        //   （实测：从字符类里去掉 `.` 后本用例仍通过 = 结构上无法变红的假门禁）。
+        Canonicalizer canon = new Canonicalizer();
+        record Case(String input, String expected) {}
+        for (Case c : new Case[]{
+                new Case("  Return x ;", "  Return x;"),
+                new Case("  Return x ?", "  Return x?"),
+                new Case("  Return x !", "  Return x!"),
+        }) {
+            String src = "Module m.\n\nRule f given x, produce:\n" + c.input() + "\n";
+            String out = canon.canonicalize(src).split("\n", -1)[3];
+            assertEquals(c.expected(), out,
+                "标点前的空格应被归一化掉：原 [" + c.input() + "] 实际 [" + out + "]。"
+                    + "\n★若本用例变红，说明修复把整条标点归一化规则也削弱了。");
+        }
+    }
 }
