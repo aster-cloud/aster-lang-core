@@ -336,7 +336,9 @@ class TypeCheckerIntegrationTest {
   }
 
   @Test
-  void testMatchPatternExhaustiveness() {
+  void testMatchBranchTypesConsistent() {
+    // 原名 testMatchPatternExhaustiveness 名不副实：Int 被匹配值不做穷尽性判断，
+    // 这里锁的只是「各分支返回类型一致时无诊断」。穷尽性测试见下方 issue #148 一节。
     // func test(x: Int): Int {
     //   match x {
     //     case 1: return 10
@@ -717,6 +719,175 @@ class TypeCheckerIntegrationTest {
       .filter(d -> d.code() == ErrorCode.UNDEFINED_VARIABLE).toList();
     assertTrue(undefined.isEmpty(),
       "多分支各自绑同名变量不得互相干扰；实际：" + undefined);
+  }
+
+  // ========== match 穷尽性（issue #148）==========
+  //
+  // ★E016/E017/E018 早在 ErrorCode 与 error_codes.json 里定义好，且 TS 侧
+  //   statement.ts 全部实现，但 Java 侧 emit 站点数为 0——同一份源码两引擎给出
+  //   不同诊断。下列测试与 TS 的语义逐条对齐：
+  //   - Maybe：必须同时有 PatNull 分支与非 null 分支；
+  //   - Enum：所有变体都被 PatName/PatCtor 覆盖，或存在通配（非变体名的 PatName）；
+  //   - 同一变体出现两次报 DUPLICATE_ENUM_CASE。
+
+  private CoreModel.Enum enumDecl(String name, String... variants) {
+    var e = new CoreModel.Enum();
+    e.name = name;
+    e.variants = List.of(variants);
+    return e;
+  }
+
+  private CoreModel.Case nameCase(String name, CoreModel.Stmt body) {
+    var pat = new CoreModel.PatName();
+    pat.name = name;
+    var kase = new CoreModel.Case();
+    kase.pattern = pat;
+    kase.body = body;
+    return kase;
+  }
+
+  private CoreModel.Case nullCase(CoreModel.Stmt body) {
+    var kase = new CoreModel.Case();
+    kase.pattern = new CoreModel.PatNull();
+    kase.body = body;
+    return kase;
+  }
+
+  /** `func test(x: <scrutineeType>): Int { match x { cases } }`，可附带额外顶层声明。 */
+  private CoreModel.Module matchModule(
+    CoreModel.Type scrutineeType, List<CoreModel.Decl> extraDecls, CoreModel.Case... cases
+  ) {
+    var func = new CoreModel.Func();
+    func.name = "test";
+    func.params = List.of(createParam("x", scrutineeType));
+    func.ret = createTypeName("Int");
+    func.effects = List.of();
+    var body = new CoreModel.Block();
+    body.statements = List.of(matchOn("x", cases));
+    func.body = body;
+
+    var decls = new java.util.ArrayList<CoreModel.Decl>(extraDecls);
+    decls.add(func);
+    var module = new CoreModel.Module();
+    module.decls = decls;
+    return module;
+  }
+
+  private List<Diagnostic> withCode(CoreModel.Module module, ErrorCode code) {
+    return checker.typecheckModule(module).stream().filter(d -> d.code() == code).toList();
+  }
+
+  @Test
+  void maybeMatchMissingNonNullBranchWarns() {
+    var module = matchModule(
+      createMaybeType(createTypeName("Int")), List.of(),
+      nullCase(createReturnStmt(createIntLiteral(0)))
+    );
+
+    var warnings = withCode(module, ErrorCode.NON_EXHAUSTIVE_MAYBE);
+    assertEquals(1, warnings.size(), "只有 null 分支的 Maybe match 必须报 E017；实际：" + warnings);
+    assertEquals(Diagnostic.Severity.WARNING, warnings.get(0).severity());
+    assertEquals("non-null value", warnings.get(0).data().get("missing"),
+      "missing 参数须与 TS 侧文案一致");
+  }
+
+  @Test
+  void maybeMatchMissingNullBranchWarns() {
+    var module = matchModule(
+      createMaybeType(createTypeName("Int")), List.of(),
+      nameCase("v", createReturnStmt(createIntLiteral(0)))
+    );
+
+    var warnings = withCode(module, ErrorCode.NON_EXHAUSTIVE_MAYBE);
+    assertEquals(1, warnings.size(), "缺 null 分支的 Maybe match 必须报 E017；实际：" + warnings);
+    assertEquals("null", warnings.get(0).data().get("missing"));
+  }
+
+  @Test
+  void maybeMatchWithBothBranchesIsExhaustive() {
+    var module = matchModule(
+      createMaybeType(createTypeName("Int")), List.of(),
+      nullCase(createReturnStmt(createIntLiteral(0))),
+      nameCase("v", createReturnStmt(createIntLiteral(1)))
+    );
+
+    assertTrue(withCode(module, ErrorCode.NON_EXHAUSTIVE_MAYBE).isEmpty(),
+      "null + 非 null 两个分支齐全时不得报 E017");
+  }
+
+  @Test
+  void enumMatchMissingVariantWarnsWithMissingList() {
+    var color = enumDecl("Color", "Red", "Green", "Blue");
+    var module = matchModule(
+      createTypeName("Color"), List.of(color),
+      ctorCase("Red", List.of(), createReturnStmt(createIntLiteral(1))),
+      nameCase("Green", createReturnStmt(createIntLiteral(2)))
+    );
+
+    var warnings = withCode(module, ErrorCode.NON_EXHAUSTIVE_ENUM);
+    assertEquals(1, warnings.size(), "漏掉 Blue 的枚举 match 必须报 E018；实际：" + warnings);
+    assertEquals(Diagnostic.Severity.WARNING, warnings.get(0).severity());
+    assertEquals("Color", warnings.get(0).data().get("type"));
+    assertEquals("Blue", warnings.get(0).data().get("missing"),
+      "missing 须列出未覆盖的变体（PatCtor 与 PatName 两种写法都算覆盖）");
+  }
+
+  @Test
+  void enumMatchCoveringAllVariantsIsExhaustive() {
+    var color = enumDecl("Color", "Red", "Green");
+    var module = matchModule(
+      createTypeName("Color"), List.of(color),
+      ctorCase("Red", List.of(), createReturnStmt(createIntLiteral(1))),
+      ctorCase("Green", List.of(), createReturnStmt(createIntLiteral(2)))
+    );
+
+    assertTrue(withCode(module, ErrorCode.NON_EXHAUSTIVE_ENUM).isEmpty(),
+      "全部变体已覆盖时不得报 E018");
+  }
+
+  @Test
+  void enumMatchWithWildcardIsExhaustive() {
+    // 非变体名的 PatName 是通配（绑定整个值），覆盖其余全部变体。
+    var color = enumDecl("Color", "Red", "Green", "Blue");
+    var module = matchModule(
+      createTypeName("Color"), List.of(color),
+      ctorCase("Red", List.of(), createReturnStmt(createIntLiteral(1))),
+      nameCase("other", createReturnStmt(createIntLiteral(0)))
+    );
+
+    assertTrue(withCode(module, ErrorCode.NON_EXHAUSTIVE_ENUM).isEmpty(),
+      "存在通配分支时不得报 E018");
+  }
+
+  @Test
+  void enumMatchDuplicateVariantWarns() {
+    var color = enumDecl("Color", "Red", "Green");
+    var module = matchModule(
+      createTypeName("Color"), List.of(color),
+      ctorCase("Red", List.of(), createReturnStmt(createIntLiteral(1))),
+      ctorCase("Red", List.of(), createReturnStmt(createIntLiteral(2))),
+      ctorCase("Green", List.of(), createReturnStmt(createIntLiteral(3)))
+    );
+
+    var warnings = withCode(module, ErrorCode.DUPLICATE_ENUM_CASE);
+    assertEquals(1, warnings.size(), "同一变体出现两次必须报 E016；实际：" + warnings);
+    assertEquals("Red", warnings.get(0).data().get("case"));
+    assertTrue(withCode(module, ErrorCode.NON_EXHAUSTIVE_ENUM).isEmpty(),
+      "重复不影响穷尽性判断");
+  }
+
+  @Test
+  void nonEnumNonMaybeScrutineeNeverWarnsExhaustiveness() {
+    // Int 等无穷域类型不做穷尽性判断（与 TS 一致）：既不能列举也无通配概念。
+    var module = matchModule(
+      createTypeName("Int"), List.of(),
+      ctorCase("Some", List.of("v"), createReturnStmt(createIntLiteral(1)))
+    );
+
+    var diags = checker.typecheckModule(module);
+    assertTrue(diags.stream().noneMatch(d ->
+        d.code() == ErrorCode.NON_EXHAUSTIVE_ENUM || d.code() == ErrorCode.NON_EXHAUSTIVE_MAYBE),
+      "Int 被匹配值不得报穷尽性警告；实际：" + diags);
   }
 
   private CoreModel.Data dataDecl(String name) {

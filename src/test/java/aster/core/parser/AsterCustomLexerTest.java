@@ -257,4 +257,117 @@ class AsterCustomLexerTest {
         assertEquals(AsterLexer.LBRACKET, tokens.get(5).getType());
         assertEquals(AsterLexer.RBRACKET, tokens.get(6).getType());
     }
+
+    // ============================================================
+    // 从已删除的手写 aster.core.lexer.Lexer 测试迁移而来（issue #153）
+    // ============================================================
+    //
+    // ★那份 Lexer 在 src/main 零引用，但 LexerTest / DevanagariLexerTest 一直打在它
+    //   身上形成假覆盖，且它与生产词法器已实际分叉（`//` 注释、CRLF 空行）。下列测试把
+    //   仍有意义的行为钉在**真正被执行**的 AsterCustomLexer 上，并把两处分叉点锁成
+    //   生产语义，防止再有人按死代码的行为去「修」生产。
+
+    /** 收集全部通道的 token（含 HIDDEN 注释），并统计词法错误数。 */
+    private record LexAll(List<Token> tokens, int errors) {}
+
+    private LexAll lexAll(String input) {
+        AsterCustomLexer lexer = new AsterCustomLexer(CharStreams.fromString(input));
+        int[] errors = {0};
+        lexer.removeErrorListeners();
+        lexer.addErrorListener(new BaseErrorListener() {
+            @Override
+            public void syntaxError(Recognizer<?, ?> r, Object offending, int line,
+                                    int col, String msg, RecognitionException e) {
+                errors[0]++;
+            }
+        });
+        List<Token> tokens = new ArrayList<>();
+        Token token;
+        while ((token = lexer.nextToken()).getType() != Token.EOF) {
+            tokens.add(token);
+        }
+        return new LexAll(tokens, errors[0]);
+    }
+
+    @Test
+    void testEmptyInputYieldsOnlyEof() {
+        List<Token> tokens = lex("");
+        assertEquals(1, tokens.size());
+        assertEquals(Token.EOF, tokens.get(0).getType());
+    }
+
+    @Test
+    void testStringLiteralWithEscapedQuoteStaysOneToken() {
+        // 转义引号不得提前终止字面量（解转义由 AstBuilder/StringEscapes 负责，
+        // 见 AstBuilderTest.testStringLiteralEscapesInAst）
+        List<Token> tokens = lex("\"hello \\\"world\\\"\"");
+        assertEquals(2, tokens.size(), "STRING_LITERAL + EOF");
+        assertEquals(AsterLexer.STRING_LITERAL, tokens.get(0).getType());
+        assertEquals("\"hello \\\"world\\\"\"", tokens.get(0).getText());
+    }
+
+    @Test
+    void testUnterminatedStringReportsLexError_notStringToken() {
+        LexAll r = lexAll("\"unterminated");
+        assertTrue(r.errors() > 0, "未闭合字符串必须产生词法错误");
+        assertTrue(r.tokens().stream().noneMatch(t -> t.getType() == AsterLexer.STRING_LITERAL),
+            "未闭合字符串不得被当成完整 STRING_LITERAL；实际 tokens=" + r.tokens());
+    }
+
+    @Test
+    void testDoubleSlashIsIntegerDivision_notComment() {
+        // ★分叉点 1：死 Lexer 把 `//` 当注释；生产文法只有 `#` 注释，`//` 是整除运算符。
+        List<Token> tokens = lex("a // b");
+        assertEquals(AsterLexer.IDENT, tokens.get(0).getType());
+        assertEquals(AsterLexer.INTEGER_DIVIDED_BY_WORD, tokens.get(1).getType(),
+            "`//` 必须是整除运算符而非注释；实际 tokens=" + tokens);
+        assertEquals(AsterLexer.IDENT, tokens.get(2).getType());
+        assertEquals(Token.EOF, tokens.get(3).getType());
+    }
+
+    @Test
+    void testHashCommentGoesToHiddenChannel() {
+        LexAll r = lexAll("a # note\nb");
+        Token comment = r.tokens().stream()
+            .filter(t -> t.getType() == AsterLexer.COMMENT)
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("应有 COMMENT token；实际 " + r.tokens()));
+        assertEquals(Token.HIDDEN_CHANNEL, comment.getChannel(), "注释必须在 HIDDEN 通道");
+        assertEquals("# note", comment.getText());
+        // 默认通道上注释不可见，b 紧跟 NEWLINE
+        List<Token> visible = lex("a # note\nb");
+        assertEquals(AsterLexer.NEWLINE, visible.get(1).getType());
+        assertEquals(AsterLexer.IDENT, visible.get(2).getType());
+    }
+
+    @Test
+    void testCrlfBlankLineDoesNotEmitSpuriousDedent() {
+        // ★分叉点 2：死 Lexer 的空行跳过只认 '\n'，CRLF 空行会产出伪 DEDENT 拆块；
+        //   生产 handleIndentation 对 '\r' 同样视为空行。
+        List<Token> tokens = lex("a\r\n  b\r\n\r\n  c");
+        long dedents = tokens.stream().filter(t -> t.getType() == AsterParser.DEDENT).count();
+        assertEquals(1, dedents, "只应有 EOF 前的一个 DEDENT；实际 tokens=" + tokens);
+        // c 仍在缩进块内：其前一个非 NEWLINE token 不是 DEDENT
+        int cIdx = -1;
+        for (int i = 0; i < tokens.size(); i++) {
+            if ("c".equals(tokens.get(i).getText())) cIdx = i;
+        }
+        assertTrue(cIdx > 0, "应有 token c");
+        assertEquals(AsterLexer.NEWLINE, tokens.get(cIdx - 1).getType());
+        assertEquals(AsterLexer.NEWLINE, tokens.get(cIdx - 2).getType());
+        assertEquals(AsterParser.DEDENT, tokens.get(cIdx + 1).getType());
+    }
+
+    @Test
+    void testTokenPositionsTrackLines() {
+        List<Token> tokens = lex("line1\nline2");
+        assertEquals(1, tokens.get(0).getLine());
+        assertEquals(0, tokens.get(0).getCharPositionInLine());
+        Token second = tokens.stream()
+            .filter(t -> "line2".equals(t.getText()))
+            .findFirst()
+            .orElseThrow();
+        assertEquals(2, second.getLine());
+        assertEquals(0, second.getCharPositionInLine());
+    }
 }

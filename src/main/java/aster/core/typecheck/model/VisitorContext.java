@@ -64,6 +64,14 @@ public final class VisitorContext {
   private final Map<String, CoreModel.Data> dataDecls;
 
   /**
+   * enum 声明表（类型名 → 声明），用于 match 穷尽性检查。
+   *
+   * <p>与 {@link #dataDecls} 同理：SymbolTable 的 defineEnumType 只登记类型名，
+   * 变体列表被丢弃，而判断「哪些变体没被 case 覆盖」必须拿到完整的 variants。
+   */
+  private final Map<String, CoreModel.Enum> enumDecls;
+
+  /**
    * 预期返回类型（用于检查 return 语句）
    */
   private Type expectedReturnType;
@@ -103,6 +111,18 @@ public final class VisitorContext {
     Effect currentEffect,
     Map<String, CoreModel.Data> dataDecls
   ) {
+    this(symbolTable, diagnostics, typeAliases, expectedReturnType, currentEffect, dataDecls, Map.of());
+  }
+
+  public VisitorContext(
+    SymbolTable symbolTable,
+    DiagnosticBuilder diagnostics,
+    Map<String, Type> typeAliases,
+    Type expectedReturnType,
+    Effect currentEffect,
+    Map<String, CoreModel.Data> dataDecls,
+    Map<String, CoreModel.Enum> enumDecls
+  ) {
     if (symbolTable == null) {
       throw new IllegalArgumentException("symbolTable cannot be null");
     }
@@ -118,6 +138,7 @@ public final class VisitorContext {
     this.expectedReturnType = expectedReturnType;
     this.currentEffect = currentEffect != null ? currentEffect : Effect.PURE;
     this.dataDecls = dataDecls != null ? Map.copyOf(dataDecls) : Map.of();
+    this.enumDecls = enumDecls != null ? Map.copyOf(enumDecls) : Map.of();
   }
 
   // ========== Getters ==========
@@ -133,6 +154,10 @@ public final class VisitorContext {
   /** data 声明表（类型名 → 声明）。空表表示调用方未提供，构造器字段校验将跳过。 */
   public Map<String, CoreModel.Data> getDataDecls() {
     return dataDecls;
+  }
+
+  public Map<String, CoreModel.Enum> getEnumDecls() {
+    return enumDecls;
   }
 
   public Map<String, Type> getTypeAliases() {
