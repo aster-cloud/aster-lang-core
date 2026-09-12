@@ -453,7 +453,31 @@ public final class CoreModel {
 
   @JsonTypeName("Long")
   public static final class LongE implements Expr {
-    public long value;      // 64 位整数
+    /**
+     * 64 位整数。
+     *
+     * <p>★序列化为 <b>JSON string</b>（{@code @JsonFormat NUMBER→STRING}），而不是
+     * JSON number。原因是 JSON number 在 JS 侧只能安全表示 |n| ≤ 2^53−1：
+     *
+     * <pre>
+     *   Long 字面量 9007199254740993L
+     *   → 若写成 number，JS 侧 JSON.parse 得到 9007199254740992  ← 静默差 1
+     * </pre>
+     *
+     * <p>这不只是「表示差异」，有两个实打实的后果：
+     * <ul>
+     *   <li>TS 引擎侧 {@code value} 本就是 string（{@code core_ir.ts}），两侧因此
+     *       在所有含 Long 的样本上跨引擎分叉；</li>
+     *   <li>{@code CanonicalJson} 明确规定「非 Decimal number 只允许 safe integer」，
+     *       于是超范围的 Long 会让 canonicalHash <b>直接抛 NON_INTEGER_NUMBER</b>——
+     *       即 ADR 0037 的 Stable Node ID / change impact 在这类程序上<b>完全不可用</b>。</li>
+     * </ul>
+     *
+     * <p>内存表示仍是 {@code long}（不影响求值与类型检查）；只有 JSON 边界改成 string。
+     * 消费侧 Jackson 反序列化 string→long 精度无损（已实测 9007199254740993 往返一致）。
+     */
+    @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    public long value;
     public Origin origin;
   }
 

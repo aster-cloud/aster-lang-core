@@ -818,13 +818,26 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     public Stmt.Start visitStartStmt(AsterParser.StartStmtContext ctx) {
         String name = nameIdentText(ctx.nameIdent());
         Expr task = (Expr) visit(ctx.expr());
-        if (ctx.ASYNC() != null) {
-            Span asyncSpan = spanFrom(ctx.ASYNC().getSymbol());
-            Span taskSpan = task.span();
-            Span callSpan = mergeSpans(asyncSpan, taskSpan);
-            Expr.Name asyncName = new Expr.Name("async", asyncSpan);
-            task = new Expr.Call(asyncName, List.of(task), callSpan);
-        }
+
+        // ★`async` 是**修饰符**，不是函数——不再把任务体包成 `Call(Name("async"), [task])`。
+        //
+        //   原实现见 grammar `startStmt : START nameIdent AS ASYNC? expr DOT`：
+        //   识别到 ASYNC 就合成一个名为 `async` 的调用。于是
+        //
+        //     Start profile as async ProfileSvc.load(u.id).
+        //       → Start{ expr: Call(Name "async", [Call(Name "ProfileSvc.load", [u.id])]) }
+        //
+        //   两个问题：
+        //   1. **异步语义本就由 Start 承载**。truffle 的 `StartNode` 自己检查 Async
+        //      effect、materialize frame、把子表达式包成 Runnable 提交调度器——
+        //      它只需要任务体本身。外面那层 `async(...)` 是多余的。
+        //   2. **运行时会炸**。`async` 没有任何内建或用户定义，`Loader` 对未定义的
+        //      命名空间函数直接报「未定义」（不退化成成员访问，见 Loader:510）。
+        //      该样本目前只解析、从不执行（语料无对应 eval 输入），所以这是**潜伏**
+        //      缺陷——一旦有人真的跑带 `as async` 的策略就会失败。
+        //
+        //   TS 引擎一直是对的（`Start{ expr: <任务体> }`，不加包装），本改动与其对齐。
+        //   ASYNC token 仍被 grammar 消费（语法上合法），只是不再进入 IR。
         return new Stmt.Start(name, task, spanFrom(ctx));
     }
 
@@ -1067,10 +1080,27 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Stmt visitExprStmt(AsterParser.ExprStmtContext ctx) {
-        // 表达式语句：将表达式包装为 Return 语句
-        // 注意：Aster CNL 中表达式语句实际上被当作隐式返回
+        // 裸表达式语句（`File.write("...").`）降为 `Let "_" be expr`：**求值并丢弃结果**。
+        //
+        // ★原实现包装成 Stmt.Return，注释写着「表达式语句实际上被当作隐式返回」。
+        //   该说法只对**函数体最后一条**语句成立；出现在中间时，它会让函数**当场返回**，
+        //   其后的语句永不执行。parser 看不到自己是不是最后一条，所以这个判断
+        //   在这一层根本做不了。
+        //
+        //   实证（tier1 语料 eff_valid_all_caps.aster）：
+        //     Let key be Secrets.get(...).      → Let
+        //     File.write("/tmp/data.txt", resp). → Return   ← 函数在此结束
+        //     Db.insert("logs", timestamp).      → Return   ← 永不执行
+        //     Return AiModel.generate(resp).     → Return   ← 永不执行
+        //   truffle 的 ReturnNode 抛 ReturnException 真正中断控制流，已实测三条连续
+        //   Return 的模块求值结果为第一条的值。即这是**执行期行为错误**，不只是 IR 分叉。
+        //
+        //   TS 引擎一直是对的（`lower_to_core.ts` 降为 `Let name:"_"`），本改动与其对齐；
+        //   两侧 IR 也因此在该样本上收敛。
+        //
+        // ★用 "_" 作绑定名与 TS 完全一致：它不是合法标识符，不会与用户变量冲突。
         Expr expr = (Expr) visit(ctx.expr());
-        return new Stmt.Return(expr, spanFrom(ctx));
+        return new Stmt.Let("_", expr, spanFrom(ctx));
     }
 
     // ============================================================

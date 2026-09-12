@@ -725,8 +725,16 @@ class AstBuilderTest {
 
         Stmt.Start start = (Stmt.Start) body.statements().get(0);
         assertEquals("task", start.name());
-        Expr.Call asyncCall = (Expr.Call) start.expr();
-        assertEquals("async", ((Expr.Name) asyncCall.target()).name());
+
+        // ★`async` 是修饰符，任务体**不**被包成 `Call(Name("async"), [task])`。
+        //   原断言要求 target 为 "async"，锁死的是一个**运行时会炸**的形态：
+        //   `async` 没有任何内建或用户定义，Loader 对未定义的命名空间函数直接报
+        //   「未定义」（Loader:510）。异步语义本就由 StartNode 承载（它自己检查
+        //   Async effect、materialize frame、把子表达式包成 Runnable 提交调度器），
+        //   外面那层包装是多余且有害的。TS 引擎一直是 `Start{expr: <任务体>}`。
+        Expr.Call taskCall = (Expr.Call) start.expr();
+        assertEquals("load", ((Expr.Name) taskCall.target()).name(),
+            "Start 的 expr 应直接是任务体调用本身，而不是被 async(...) 包一层。");
 
         Stmt.Wait wait = (Stmt.Wait) body.statements().get(1);
         assertEquals(List.of("task"), wait.names());
