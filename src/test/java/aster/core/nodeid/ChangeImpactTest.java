@@ -182,4 +182,49 @@ class ChangeImpactTest {
             }
         }
     }
+
+    @Test
+    @DisplayName("★`_` 是占位符不是名字：多条裸表达式语句不得塌成同一个 nodeId")
+    void placeholderNameMustNotCollapseDistinctStatements() {
+        // 裸表达式语句一律降为 `Let "_" be expr`（求值并丢弃结果）。若拿 `_` 当
+        // 路径段，同一函数体里的多条会全部变成 `statements{_}` —— nodeId 撞车，
+        // Map 只保留最后一条，**其余节点的身份静默消失**。
+        // 实测（修复前）：tier1 语料上 1 个样本丢了 4 个节点的身份。
+        String src = """
+            Module m.
+
+            Rule f, produce. It performs io:
+              Io.write("a").
+              Io.write("b").
+              Return 1.
+            """;
+
+        var ids = idsOf(src);
+
+        // 真实节点数（IR 里带 kind 的对象）必须与 nodeId 数相等——少了就是碰撞。
+        int realNodes = countKindNodes(new ObjectMapper().valueToTree(coreOf(src)));
+
+        assertEquals(realNodes, ids.size(),
+            "nodeId 数少于真实节点数 —— 存在身份碰撞，有节点的身份被静默覆盖了。");
+    }
+
+    private static int countKindNodes(com.fasterxml.jackson.databind.JsonNode n) {
+        int c = 0;
+        if (n.isObject()) {
+            if (n.hasNonNull("kind")) c++;
+            for (var x : n) c += countKindNodes(x);
+        } else if (n.isArray()) {
+            for (var x : n) c += countKindNodes(x);
+        }
+        return c;
+    }
+
+    private static CoreModel.Module coreOf(String src) {
+        String canonical = new Canonicalizer().canonicalize(src);
+        AsterCustomLexer lexer = new AsterCustomLexer(CharStreams.fromString(canonical));
+        lexer.removeErrorListeners();
+        AsterParser parser = new AsterParser(new CommonTokenStream(lexer));
+        parser.removeErrorListeners();
+        return new CoreLowering().lowerModule(new AstBuilder().visitModule(parser.module()));
+    }
 }
