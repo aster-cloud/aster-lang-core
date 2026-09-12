@@ -1067,10 +1067,27 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Stmt visitExprStmt(AsterParser.ExprStmtContext ctx) {
-        // 表达式语句：将表达式包装为 Return 语句
-        // 注意：Aster CNL 中表达式语句实际上被当作隐式返回
+        // 裸表达式语句（`File.write("...").`）降为 `Let "_" be expr`：**求值并丢弃结果**。
+        //
+        // ★原实现包装成 Stmt.Return，注释写着「表达式语句实际上被当作隐式返回」。
+        //   该说法只对**函数体最后一条**语句成立；出现在中间时，它会让函数**当场返回**，
+        //   其后的语句永不执行。parser 看不到自己是不是最后一条，所以这个判断
+        //   在这一层根本做不了。
+        //
+        //   实证（tier1 语料 eff_valid_all_caps.aster）：
+        //     Let key be Secrets.get(...).      → Let
+        //     File.write("/tmp/data.txt", resp). → Return   ← 函数在此结束
+        //     Db.insert("logs", timestamp).      → Return   ← 永不执行
+        //     Return AiModel.generate(resp).     → Return   ← 永不执行
+        //   truffle 的 ReturnNode 抛 ReturnException 真正中断控制流，已实测三条连续
+        //   Return 的模块求值结果为第一条的值。即这是**执行期行为错误**，不只是 IR 分叉。
+        //
+        //   TS 引擎一直是对的（`lower_to_core.ts` 降为 `Let name:"_"`），本改动与其对齐；
+        //   两侧 IR 也因此在该样本上收敛。
+        //
+        // ★用 "_" 作绑定名与 TS 完全一致：它不是合法标识符，不会与用户变量冲突。
         Expr expr = (Expr) visit(ctx.expr());
-        return new Stmt.Return(expr, spanFrom(ctx));
+        return new Stmt.Let("_", expr, spanFrom(ctx));
     }
 
     // ============================================================
