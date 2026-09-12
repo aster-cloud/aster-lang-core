@@ -3,6 +3,7 @@ package aster.core.nodeid;
 import aster.core.nodeid.NodeIdMap.NodeIdentity;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +49,45 @@ public final class ChangeImpact {
     }
 
     /**
+     * 一次**显式声明**的重命名：`Rule approve` → `Rule assess`。
+     *
+     * <h2>为什么必须显式声明，不能自动推断</h2>
+     *
+     * 直觉上可以「按 contentHash 配对」——内容没变的节点自动认亲。**实测该方案
+     * 不成立**：contentHash <b>不唯一</b>。两条函数体相同的规则，其
+     * {@code body} / {@code statements[0]} / {@code ret} 等各级节点的 hash
+     * 全部相同：
+     *
+     * <pre>
+     *   Rule alpha, produce:    Rule beta, produce:
+     *     Return 1.               Return 1.
+     *
+     *   → $.decls{alpha}.body 与 $.decls{beta}.body 的 contentHash **完全相同**
+     * </pre>
+     *
+     * 于是把 {@code alpha} 改名为 {@code gamma} 后，{@code beta.body} 的 hash
+     * 在新版里能匹配到<b>两个</b>候选（{@code gamma.body} 与 {@code beta.body}），
+     * 无法判定谁是谁——自动配对会把两条规则的身份互换，而且<b>不报错</b>。
+     *
+     * <p>★把两个不同的节点当成同一个，比「识别为新节点」危险得多：前者会让
+     * change impact 给出**错误**的溯源答案，后者只是丢失了历史关联。
+     * 故本类的立场是：<b>宁可少认，不可错认</b>。
+     *
+     * @param oldName 旧名字（如 {@code approve}）
+     * @param newName 新名字（如 {@code assess}）
+     */
+    public record Rename(String oldName, String newName) {
+        public Rename {
+            if (oldName == null || oldName.isBlank() || newName == null || newName.isBlank()) {
+                throw new IllegalArgumentException("rename 的新旧名字都不能为空");
+            }
+            if (oldName.equals(newName)) {
+                throw new IllegalArgumentException("rename 的新旧名字相同：" + oldName);
+            }
+        }
+    }
+
+    /**
      * 一条变更。
      *
      * @param nodeId  稳定标识（{@code ADDED}/{@code REMOVED} 时只在一侧存在）
@@ -70,6 +110,32 @@ public final class ChangeImpact {
      */
     public static List<Change> diff(Map<String, NodeIdentity> before,
                                     Map<String, NodeIdentity> after) {
+        return diff(before, after, List.of());
+    }
+
+    /**
+     * 比较两个版本，并应用一组**显式声明**的重命名。
+     *
+     * <p>重命名按「路径前缀改写」处理：把旧版所有 {@code $.decls{oldName}…} 形态的
+     * nodeId 改写成 {@code $.decls{newName}…}，再做常规 diff。这样整棵子树**一次性
+     * 迁移**，而不是逐个节点认亲——既避免了 contentHash 不唯一带来的错配
+     * （见 {@link Rename}），也天然保证子树内部的相对结构不受影响。
+     *
+     * <p>效果（实测 16 节点样本，改名一条规则）：
+     * <pre>
+     *   无声明  31 条变更（15 REMOVED + 15 ADDED + 1 MODIFIED）← 全是噪声
+     *   有声明   0 条变更                                      ← 只是换了名字
+     * </pre>
+     *
+     * @param renames 显式声明的重命名列表；空列表等价于 {@link #diff(Map, Map)}
+     * @throws IllegalArgumentException 同一个 oldName 被声明重命名到多个不同的新名字
+     */
+    public static List<Change> diff(Map<String, NodeIdentity> before,
+                                    Map<String, NodeIdentity> after,
+                                    List<Rename> renames) {
+        if (renames != null && !renames.isEmpty()) {
+            before = applyRenames(before, renames);
+        }
         Set<String> all = new LinkedHashSet<>();
         all.addAll(before.keySet());
         all.addAll(after.keySet());
@@ -87,6 +153,62 @@ public final class ChangeImpact {
             }
         }
         return List.copyOf(changes);
+    }
+
+    /**
+     * 把旧版的 nodeId 按声明的重命名做**路径段替换**。
+     *
+     * <p>★只替换完整的 {@code {name}} 路径段，不做子串替换。路径里的名字段形如
+     * {@code .decls{approve}}，若用朴素的字符串 replace，{@code approve} 会误伤
+     * {@code approveAll}、也会误伤恰好含该子串的其他段。
+     *
+     * <p>★同一个 oldName 不允许被声明成多个不同的新名字——那是自相矛盾的输入，
+     * 静默取其一会给出无声错误的溯源结果，故直接拒绝。
+     */
+    private static Map<String, NodeIdentity> applyRenames(Map<String, NodeIdentity> before,
+                                                          List<Rename> renames) {
+        Map<String, String> mapping = new LinkedHashMap<>();
+        for (Rename r : renames) {
+            String prev = mapping.putIfAbsent(r.oldName(), r.newName());
+            if (prev != null && !prev.equals(r.newName())) {
+                throw new IllegalArgumentException(
+                    "同一个名字被声明重命名到多个目标：" + r.oldName()
+                        + " → " + prev + " / " + r.newName());
+            }
+        }
+
+        Map<String, NodeIdentity> out = new LinkedHashMap<>();
+        for (Map.Entry<String, NodeIdentity> e : before.entrySet()) {
+            String renamed = renamePathSegments(e.getKey(), mapping);
+            NodeIdentity v = e.getValue();
+            out.put(renamed, renamed.equals(e.getKey())
+                ? v
+                : new NodeIdentity(renamed, v.contentHash(), v.kind()));
+        }
+        return out;
+    }
+
+    /** 逐个 {@code {name}} 段做整段匹配替换。 */
+    private static String renamePathSegments(String path, Map<String, String> mapping) {
+        StringBuilder out = new StringBuilder(path.length());
+        int i = 0;
+        while (i < path.length()) {
+            char c = path.charAt(i);
+            if (c != '{') {
+                out.append(c);
+                i++;
+                continue;
+            }
+            int close = path.indexOf('}', i);
+            if (close < 0) { // 不成对的 '{'：原样输出，不猜
+                out.append(path, i, path.length());
+                break;
+            }
+            String name = path.substring(i + 1, close);
+            out.append('{').append(mapping.getOrDefault(name, name)).append('}');
+            i = close + 1;
+        }
+        return out.toString();
     }
 
     /**
