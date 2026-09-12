@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -83,12 +84,56 @@ class IsComparatorParserTest {
     }
 
     @Test
-    void full_canonicalize_path_lowers_under_over_to_symbols() {
-        // 互补验证：完整 canonicalize 链下 under/over/is at least 归一为符号，
-        // 与裸 parser 路径殊途同归（两条路径都被支持，行为一致）。
+    void full_canonicalize_path_gives_under_over_the_same_meaning_as_canonical_spelling() {
+        // 互补验证：完整 canonicalize 链下，`under`/`over` 与其规范拼写
+        // （`less than`/`greater than`）**语义等价**——与裸 parser 路径殊途同归。
+        //
+        // ★本断言测的是 IR 等价，不是 canonical 文本形态（ADR 0037 步骤 2）。
+        //   原断言写的是 `out.contains("s < 700")`，即要求 canonical 文本里出现符号 `<`。
+        //   那锁住的是**实现细节**而非契约：英语规范拼写现已不再被翻译成符号
+        //   （grammar 本就认 PLUS_WORD/LT_WORD 等词形；翻译唯一的作用是让行变短、
+        //   使 origin.col 偏离用户原文，见 Canonicalizer 中的说明）。
+        //   真正要守的契约是「两种写法产出同一个程序」，故改为逐字段比对 Core IR。
         Canonicalizer canon = new Canonicalizer(LexiconRegistry.getInstance().getDefault());
-        String out = canon.canonicalize(rule("s is under 700") + "\n" + rule("s is over 700"));
-        assertTrue(out.contains("s < 700"), "is under → <, got:\n" + out);
-        assertTrue(out.contains("s > 700"), "is over → >, got:\n" + out);
+
+        assertSameIr(canon, "s is under 700", "s is less than 700");
+        assertSameIr(canon, "s is over 700", "s is greater than 700");
+    }
+
+    /** 断言两种写法经完整 canonicalize→parse→lower 后产出相同的 Core IR（位置信息除外）。 */
+    private static void assertSameIr(Canonicalizer canon, String aliasForm, String canonicalForm) {
+        String aliasIr = irOfRule(canon, aliasForm);
+        String canonicalIr = irOfRule(canon, canonicalForm);
+        assertEquals(canonicalIr, aliasIr,
+            "`" + aliasForm + "` 与 `" + canonicalForm + "` 应产出相同的 Core IR。"
+                + "\n★若不同，说明软关键字 under/over 的语义与其规范拼写发生了分叉——"
+                + "\n  这会让同一段逻辑因写法不同而执行出不同结果。");
+    }
+
+    /** 完整链路：canonicalize → parse → lower → JSON（剥掉 origin，只比结构/语义）。 */
+    private static String irOfRule(Canonicalizer canon, String body) {
+        String canonical = canon.canonicalize(rule(body));
+        AsterCustomLexer lexer = new AsterCustomLexer(CharStreams.fromString(canonical));
+        lexer.removeErrorListeners();
+        AsterParser parser = new AsterParser(new CommonTokenStream(lexer));
+        parser.removeErrorListeners();
+        parser.addErrorListener(new BaseErrorListener() {
+            @Override
+            public void syntaxError(Recognizer<?, ?> r, Object o, int line, int col,
+                                    String msg, RecognitionException e) {
+                throw new IllegalStateException("解析失败 @" + line + ":" + col + " " + msg
+                    + "\n源：" + canonical);
+            }
+        });
+        var core = new aster.core.lowering.CoreLowering()
+            .lowerModule(new AstBuilder().visitModule(parser.module()));
+        try {
+            String json = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(core);
+            // 剥掉 origin：本测试只关心语义是否一致，位置本就随写法长度不同而不同。
+            return json.replaceAll("\"origin\":\\{[^{}]*\\{[^{}]*\\}[^{}]*\\{[^{}]*\\}[^{}]*\\}",
+                "\"origin\":null");
+        } catch (Exception e) {
+            throw new IllegalStateException("IR 序列化失败", e);
+        }
     }
 }

@@ -393,16 +393,45 @@ public final class Canonicalizer {
             String symbol = symbolEntry.getValue();
 
             // 添加源语言关键词到符号的映射
+            //
+            // ★英语的**规范拼写**不翻译（ADR 0037 步骤 2）。
+            //
+            //   grammar 本就认词形 token —— AsterParser.g4:643 的 PLUS_WORD/MINUS_WORD、
+            //   :647 的 TIMES_WORD/DIVIDED_BY_WORD/INTEGER_DIVIDED_BY_WORD/MODULO_WORD。
+            //   所以对英语规范拼写，这步翻译是**冗余**的：它不影响能否解析，也不影响 IR
+            //   （已实测 8 个运算符的「词形 vs 符号」IR 逐字节相同）。
+            //
+            //   它唯一的副作用是**让行变短**：`x plus y` → `x + y` 缩 3 字符。而 Core IR 的
+            //   origin.col 记的是 canonical 文本的列，于是 Java 报的列与**用户原文**不符——
+            //   实测 `  Return x plus y.` 中 `y` 在原文第 17 列，Java 报 14，TS 报 17（对）。
+            //   ADR 0032 要把 trace 锚到源码位置、ADR 0037 要建 OriginMap，列偏会让
+            //   「点击某个 token 高亮到精确字符」落在错误位置。
+            //
+            //   实测收益：tier1 语料中「列位被改动」的样本 80 → 6（降 92%）。
+            //
+            //   ★非英语必须继续翻译：中文「加上」、德文等没有对应的 lexer 词规则
+            //     （AsterLexer.g4 里只有英语词形），不翻译就无法解析。
+            final boolean skipCanonicalOperatorTranslation = "en-US".equals(sourceLexicon.getId());
             String sourceKeyword = sourceLexicon.getKeywords().get(kind);
-            if (sourceKeyword != null && !sourceKeyword.equals(symbol)) {
+            if (!skipCanonicalOperatorTranslation
+                && sourceKeyword != null && !sourceKeyword.equals(symbol)) {
                 translationMap.put(applyCustomRulesToKey(sourceKeyword), symbol);
             }
 
-            // 运算符别名也翻成同一符号（ADR 0022，识别侧）。别名与规范拼写共享输出符号，
+            // 运算符别名也翻成同一目标（ADR 0022，识别侧）。别名与规范拼写共享输出，
             // 故 IR 不受影响。含已有运算符子串的多词别名靠最长匹配整体消费。
+            //
+            // ★英语路径下别名翻成**规范词形**（multiplied by → times）而非符号（*）。
+            //   必须如此：规范拼写已不再翻译，若别名仍翻成符号，「别名源」与「规范源」
+            //   canonicalize 后就不再逐字节相同，直接破坏 ADR 0022 的核心不变式
+            //   （KeywordAliasTest.aliasSourceCanonicalizesIdenticallyToCanonical）。
+            //   翻成规范词形后两者仍然同形，且规范拼写保持原样、不缩行、不偏列。
+            String aliasTarget = skipCanonicalOperatorTranslation && sourceKeyword != null
+                ? sourceKeyword
+                : symbol;
             for (String alias : sourceLexicon.getAliases().getOrDefault(kind, List.of())) {
-                if (alias != null && !alias.isBlank() && !alias.equals(symbol)) {
-                    translationMap.putIfAbsent(applyCustomRulesToKey(alias), symbol);
+                if (alias != null && !alias.isBlank() && !alias.equals(aliasTarget)) {
+                    translationMap.putIfAbsent(applyCustomRulesToKey(alias), aliasTarget);
                 }
             }
 
