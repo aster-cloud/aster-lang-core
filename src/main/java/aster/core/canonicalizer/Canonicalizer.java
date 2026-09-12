@@ -167,7 +167,14 @@ public final class Canonicalizer {
      */
     private static final Pattern SPACE_RUN_RE = Pattern.compile("[ \\t]+");
     private static final Pattern PUNCT_NORMAL_RE = Pattern.compile("\\s+([.,:。：，])");
-    private static final Pattern PUNCT_FINAL_RE = Pattern.compile("\\s+([.,:!;?。：，！；？])");
+    // ★`!` 后跟 `=` 时不参与「去掉标点前空白」——那是**不等号运算符** `!=`，不是句末标点。
+    //   原式 `\\s+([.,:!;?…])` 会把 `x != y` 改写成 `x!= y`，缩短一个字符，使其后
+    //   所有 token 的 origin.col 左移、偏离用户原文（ADR 0032 的 trace 锚点与
+    //   ADR 0037 的 OriginMap 都按列定位）。
+    //   实证：语料中**裸** `!`（不在字符串字面量里）只以 `!=` 形态出现；作为真正
+    //   感叹号的 `!` 全部位于字符串内，已由 segmenter 保护，不受本式影响。
+    //   故用 `(?!=)` 负向先行断言把 `!=` 排除，其余标点行为不变。
+    private static final Pattern PUNCT_FINAL_RE = Pattern.compile("\\s+([.,:;?。：，！；？]|!(?!=))");
     private static final Pattern TRAILING_SPACE_RE = Pattern.compile("\\s+$");
 
     /**
