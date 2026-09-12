@@ -7,6 +7,7 @@ import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -134,6 +135,26 @@ class IsComparatorParserTest {
                 "\"origin\":null");
         } catch (Exception e) {
             throw new IllegalStateException("IR 序列化失败", e);
+        }
+    }
+
+    @Test
+    @DisplayName("可选 is 前缀：带与不带产出相同 IR（lexer 已吸收，无需 transformer 改写）")
+    void optional_is_prefix_is_semantically_transparent() {
+        // ★这条锁住「移除 IsComparatorTransformer 是安全的」这一前提。
+        //   该 transformer 原本把 `x is at least y` 改写成 `x at least y`，理由是
+        //   「让两种写法走同一条比较路径」。但 lexer 本就吸收可选 `is` 前缀
+        //   （见本类 is_prefix_comparators_parse_on_bare_parser），改写因此是冗余的，
+        //   唯一效果是**缩短行 3 个字符**、使 origin.col 偏离用户原文
+        //   （ADR 0032 的 trace 锚点 / ADR 0037 的 OriginMap 都按列定位）。
+        //   故 transformer 已从 en-US 的 preTranslationTransformers 链移除。
+        //   ★若将来有人想把它加回去，本测试不会变红——变红的是
+        //     OperatorColumnPreservationTest（列位被移动）。两者分工：
+        //     这里守语义等价，那里守列位不变。
+        Canonicalizer canon = new Canonicalizer(LexiconRegistry.getInstance().getDefault());
+        for (String cmp : new String[]{
+                "at least", "at most", "greater than", "less than", "more than", "under", "over"}) {
+            assertSameIr(canon, "s is " + cmp + " 700", "s " + cmp + " 700");
         }
     }
 }
