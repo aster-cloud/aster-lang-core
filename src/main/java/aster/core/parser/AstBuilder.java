@@ -818,13 +818,26 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     public Stmt.Start visitStartStmt(AsterParser.StartStmtContext ctx) {
         String name = nameIdentText(ctx.nameIdent());
         Expr task = (Expr) visit(ctx.expr());
-        if (ctx.ASYNC() != null) {
-            Span asyncSpan = spanFrom(ctx.ASYNC().getSymbol());
-            Span taskSpan = task.span();
-            Span callSpan = mergeSpans(asyncSpan, taskSpan);
-            Expr.Name asyncName = new Expr.Name("async", asyncSpan);
-            task = new Expr.Call(asyncName, List.of(task), callSpan);
-        }
+
+        // ★`async` 是**修饰符**，不是函数——不再把任务体包成 `Call(Name("async"), [task])`。
+        //
+        //   原实现见 grammar `startStmt : START nameIdent AS ASYNC? expr DOT`：
+        //   识别到 ASYNC 就合成一个名为 `async` 的调用。于是
+        //
+        //     Start profile as async ProfileSvc.load(u.id).
+        //       → Start{ expr: Call(Name "async", [Call(Name "ProfileSvc.load", [u.id])]) }
+        //
+        //   两个问题：
+        //   1. **异步语义本就由 Start 承载**。truffle 的 `StartNode` 自己检查 Async
+        //      effect、materialize frame、把子表达式包成 Runnable 提交调度器——
+        //      它只需要任务体本身。外面那层 `async(...)` 是多余的。
+        //   2. **运行时会炸**。`async` 没有任何内建或用户定义，`Loader` 对未定义的
+        //      命名空间函数直接报「未定义」（不退化成成员访问，见 Loader:510）。
+        //      该样本目前只解析、从不执行（语料无对应 eval 输入），所以这是**潜伏**
+        //      缺陷——一旦有人真的跑带 `as async` 的策略就会失败。
+        //
+        //   TS 引擎一直是对的（`Start{ expr: <任务体> }`，不加包装），本改动与其对齐。
+        //   ASYNC token 仍被 grammar 消费（语法上合法），只是不再进入 IR。
         return new Stmt.Start(name, task, spanFrom(ctx));
     }
 
