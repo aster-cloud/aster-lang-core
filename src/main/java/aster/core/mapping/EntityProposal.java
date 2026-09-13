@@ -40,6 +40,34 @@ public final class EntityProposal {
     /** 一条未经校验的原始提案（由 LLM 输出解析而来）。 */
     public record RawProposal(String text, String kind, int start) {}
 
+    /**
+     * 类别名长度上限。★不是性能考虑——是防「LLM 把整段文本塞进 kind」这类输出，
+     * 它会让 reason 变成一大段不可控内容。合法类别名都很短（Role / 角色）。
+     */
+    private static final int MAX_KIND_LENGTH = 64;
+
+    /**
+     * 单次提案的条目数上限。★防「LLM 返回巨量条目」耗尽下游内存。
+     * 真实文档的实体数远小于此。超出部分<b>如实报告</b>，不静默截断。
+     */
+    private static final int MAX_PROPOSALS = 1000;
+
+    /**
+     * 类别名禁止的字符：HTML 标签符、引号、控制字符。
+     *
+     * <p>★{@code kind} 是 <b>LLM 完全可控</b>的自由字符串，且原样进入
+     * {@code reason}（人类可读文本，可能被 UI 渲染）。本仓存在
+     * {@code dangerouslySetInnerHTML} 用法——一旦有人把 reason 接进去就是
+     * 存储型 XSS。
+     *
+     * <p>★但<b>不能</b>在此做 HTML 转义：转义会改变 kind 的值，而 ADR §12.4
+     * 的约定是「proposedKind 原样保留，由第③段的人判断」。转义等于替 LLM
+     * 改写了它的输出。正确做法是<b>在源头限制形态</b>——合法类别名本就不含
+     * 这些字符。渲染方仍应自行转义（纵深防御）。
+     */
+    private static final java.util.regex.Pattern CONTROL_OR_MARKUP =
+        java.util.regex.Pattern.compile("[<>\"'\\u0000-\\u001f\\u007f]");
+
     private EntityProposal() {}
 
     /**
@@ -58,12 +86,29 @@ public final class EntityProposal {
         List<EntityCandidate> candidates = new ArrayList<>();
         List<Rejection> rejected = new ArrayList<>();
 
+        if (proposals.size() > MAX_PROPOSALS) {
+            // ★不静默截断：调用方必须知道「LLM 返回量异常」这件事。
+            return new ValidationResult(List.of(), List.of(new Rejection(
+                "<" + proposals.size() + " 条>",
+                "条目数超上限（> " + MAX_PROPOSALS + "）——整批拒绝")));
+        }
+
         for (RawProposal p : proposals) {
             String asText = "{text=" + p.text() + ", kind=" + p.kind() + ", start=" + p.start() + "}";
 
             if (p.text() == null || p.text().isEmpty()
                 || p.kind() == null || p.kind().isEmpty()) {
                 rejected.add(new Rejection(asText, "缺少 text 或 kind"));
+                continue;
+            }
+            if (CONTROL_OR_MARKUP.matcher(p.kind()).find()) {
+                rejected.add(new Rejection(asText,
+                    "kind 含标签或控制字符——类别名不应包含这类字符"));
+                continue;
+            }
+            if (p.kind().length() > MAX_KIND_LENGTH) {
+                rejected.add(new Rejection(asText,
+                    "kind 过长（" + p.kind().length() + " > " + MAX_KIND_LENGTH + "）"));
                 continue;
             }
 

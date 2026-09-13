@@ -145,4 +145,55 @@ class EntityProposalTest {
         assertEquals(1, r.candidates().size(), "自由类别不应被拒。");
         assertEquals("某个前所未见的类别", r.candidates().get(0).proposedKind());
     }
+
+    @Test
+    @DisplayName("★注入守卫：kind 含标签字符 → 丢弃（防 reason 被渲染成 HTML）")
+    void markupInKindIsRejected() {
+        // kind 是 **LLM 完全可控**的自由字符串，且原样进入 reason。
+        // 本仓存在 dangerouslySetInnerHTML——接进去就是存储型 XSS。
+        // ★不做 HTML 转义（那会改变 kind 的值，违反 §12.4），而是在源头限制形态。
+        ValidationResult r = EntityProposal.validateProposals(
+            List.of(new RawProposal("财务经理", "<img src=x onerror=alert(1)>", DOC.indexOf("财务经理"))),
+            DOC, 0, BY);
+
+        assertEquals(0, r.candidates().size(), "含标签字符的 kind 必须丢弃。");
+        assertTrue(r.rejected().get(0).why().contains("标签或控制字符"));
+    }
+
+    @Test
+    @DisplayName("★合法类别（中英文）不得被注入守卫误伤")
+    void legitimateKindsAreNotRejected() {
+        // 反向守卫：若字符白名单收得过紧，正常类别会被拒——那比不设防更糟，
+        // 因为它会**静默丢掉真实候选**。
+        for (String kind : new String[]{"Role", "Obligation", "角色", "义务主体", "Party_A"}) {
+            ValidationResult r = EntityProposal.validateProposals(
+                List.of(new RawProposal("财务经理", kind, DOC.indexOf("财务经理"))), DOC, 0, BY);
+            assertEquals(1, r.candidates().size(),
+                "合法类别 " + kind + " 被误拒：" + r.rejected());
+        }
+    }
+
+    @Test
+    @DisplayName("★资源上限：条目数超限整批拒绝，且如实报告")
+    void tooManyProposalsAreRejectedWholesale() {
+        List<RawProposal> many = new java.util.ArrayList<>();
+        for (int i = 0; i < 5000; i++) {
+            many.add(new RawProposal("财务经理", "Role", DOC.indexOf("财务经理")));
+        }
+        ValidationResult r = EntityProposal.validateProposals(many, DOC, 0, BY);
+
+        assertEquals(0, r.candidates().size(), "超限应整批拒绝。");
+        assertEquals(1, r.rejected().size());
+        assertTrue(r.rejected().get(0).why().contains("条目数超上限"));
+    }
+
+    @Test
+    @DisplayName("★超长 kind → 丢弃（防 reason 变成一大段不可控内容）")
+    void overlongKindIsRejected() {
+        ValidationResult r = EntityProposal.validateProposals(
+            List.of(new RawProposal("财务经理", "x".repeat(200), DOC.indexOf("财务经理"))), DOC, 0, BY);
+
+        assertEquals(0, r.candidates().size());
+        assertTrue(r.rejected().get(0).why().contains("过长"));
+    }
 }
