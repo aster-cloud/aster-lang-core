@@ -25,7 +25,9 @@ class RegexGuardAdjacentTest {
             //   24 字符输入 1720ms / 1720ms / 640ms，与已修的 a*a*b 同级）
             "(a)*(a)*b", "(?:a)*(?:a)*b", "a*?a*?b",
             // ★字符类里的括号会骗过深度扫描（加分组支持时新引入的漏判）
-            "([)])*([)])*b", "([(])*([(])*b"}) {
+            "([)])*([)])*b", "([(])*([(])*b",
+            // ★原子内「字符类 + 普通字符」混排，覆盖面比上两条更宽
+            "([)]a)*([)]a)*b"}) {
             List<String> errs = RegexGuard.screen(evil);
             assertFalse(errs.isEmpty(), "相邻量词模式未被拒绝: " + evil);
             assertTrue(errs.stream().anyMatch(e -> e.contains("adjacent-ambiguous-quantifier")),
@@ -42,7 +44,11 @@ class RegexGuardAdjacentTest {
             "\\bfoo\\b", "greater\\s+than", "x{2,5}y", "a*a", "aa*",
             "\\s+\\S+", "^(#{1,6})\\s",
             // ★反向：不同原子的相邻量词、含分组的合法模式不得被误伤
-            "(a)(b)*c", "(?:ab)*(?:cd)*e", "a*?b*?c", "([)])(a)*b"}) {
+            "(a)(b)*c", "(?:ab)*(?:cd)*e", "a*?b*?c",
+            // ★`([)])(a)*b` 是**非回归样本**而非「字符类跳过」的守卫：
+            //   它在「跳过/不跳过」两态下判定相同（均 false），变异时照样绿。
+            //   保留只为确认含字符类的合法模式不被误伤，不得计入反向守卫证据。
+            "([)])(a)*b"}) {
             assertTrue(RegexGuard.screen(ok).isEmpty(),
                 "合法模式被误伤: " + ok + " -> " + RegexGuard.screen(ok));
         }
