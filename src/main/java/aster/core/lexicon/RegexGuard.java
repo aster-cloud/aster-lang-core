@@ -142,11 +142,23 @@ public final class RegexGuard {
             //   第一版在此直接 return null、注释「交给 NESTED_QUANTIFIER」，但那个
             //   检查只看**分组内部**有无量词——`(a)*(a)*` 两侧内部都没有，无人负责。
             //   实测：两者 24 字符输入均 1720ms。
+            // ★必须跳过**字符类**：`[)]` 里的括号不是分组括号。
+            //   不跳会把 `([)])*([)])*b` 的深度算错而放行（实测 22 字符 794ms）
+            //   ——这是加分组支持时新引入的漏判，与 TS 侧同源。
             int depth = 0;
             j = i;
             while (j < s.length()) {
                 char d = s.charAt(j);
                 if (d == '\\') { j += 2; continue; }
+                if (d == '[') {                       // 字符类：整体跳过
+                    j++;
+                    while (j < s.length() && s.charAt(j) != ']') {
+                        if (s.charAt(j) == '\\') j++;
+                        j++;
+                    }
+                    j++;
+                    continue;
+                }
                 if (d == '(') depth++;
                 else if (d == ')') { depth--; if (depth == 0) { j++; break; } }
                 j++;
