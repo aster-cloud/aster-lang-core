@@ -187,4 +187,39 @@ class QuantityIrTest {
         assertEquals(List.of(golden), actual,
             "与 TS 引擎输出不一致 —— §7 的双引擎一致性不成立。");
     }
+
+    @Test
+    @DisplayName("★ReDoS 守卫：长数字串不得触发二次回溯")
+    void longDigitRunDoesNotTriggerQuadraticBacktracking() {
+        // 本模块吃的是**人类文档**——攻击者可控的输入。
+        // 没有 `(?<![\\d.])` 左锚时呈二次增长，实测 Java 侧比 TS 严重约 17 倍：
+        //   5000→656ms / 10000→2471ms / 20000→9988ms / 40000→39830ms
+        // 一份构造过的文档就能把抽取线程钉死 40 秒。加锚后降到毫秒级。
+        String evil = "$" + "1".repeat(40000);
+
+        long t = System.currentTimeMillis();
+        QuantityIr.extract(evil);
+        long ms = System.currentTimeMillis() - t;
+
+        assertTrue(ms < 1000,
+            "40000 长度的数字串耗时 " + ms + "ms —— 应 <1000ms。"
+                + "\n★超时说明 PERCENT/DURATION 的左锚被去掉了，二次回溯回来了。");
+    }
+
+    @Test
+    @DisplayName("★加锚后语义不变（左锚是 ReDoS 修复，不得改变匹配结果）")
+    void anchorDoesNotChangeMatching() {
+        // 反向守卫：若有人为了「更快」改写锚点而改变了语义，这条会红。
+        assertEquals(List.of("1.5%"), textsOf("抽 1.5% 起"));
+        assertEquals(List.of("30 天"), textsOf("30 天内"));
+        assertEquals(List.of("1.5%", "24小时"), textsOf("1.5%和24小时"));
+        assertEquals(List.of("0.5天"), textsOf("0.5天"));
+        assertEquals(List.of("100%"), textsOf("100%"));
+    }
+
+    private static List<String> textsOf(String doc) {
+        return QuantityIr.extract(doc).stream()
+            .filter(q -> q.kind() == QuantityKind.PERCENT || q.kind() == QuantityKind.DURATION)
+            .map(Quantity::text).toList();
+    }
 }
