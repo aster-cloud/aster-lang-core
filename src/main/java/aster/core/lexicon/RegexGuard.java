@@ -137,8 +137,23 @@ public final class RegexGuard {
                 j++;
             }
             j++;
-        } else if (c == '(' || c == ')' || c == '|') {
-            return null;                                // 分组交给 NESTED_QUANTIFIER
+        } else if (c == '(') {
+            // ★分组也是原子：`(a)*(a)*b` / `(?:a)*(?:a)*b` 与 `a*a*b` 同样指数。
+            //   第一版在此直接 return null、注释「交给 NESTED_QUANTIFIER」，但那个
+            //   检查只看**分组内部**有无量词——`(a)*(a)*` 两侧内部都没有，无人负责。
+            //   实测：两者 24 字符输入均 1720ms。
+            int depth = 0;
+            j = i;
+            while (j < s.length()) {
+                char d = s.charAt(j);
+                if (d == '\\') { j += 2; continue; }
+                if (d == '(') depth++;
+                else if (d == ')') { depth--; if (depth == 0) { j++; break; } }
+                j++;
+            }
+            if (depth != 0) return null;                // 不平衡，交给 Pattern.compile 报错
+        } else if (c == ')' || c == '|') {
+            return null;
         } else {
             j = i + 1;                                  // 单字符原子
         }
@@ -147,14 +162,21 @@ public final class RegexGuard {
         int atomEnd = j;
         if (j < s.length()) {
             char q = s.charAt(j);
-            if (q == '*' || q == '+') return new int[]{atomEnd, j + 1};
+            // ★惰性量词 `*?` / `+?` 同样有歧义切分（实测 `a*?×10` 24 字符 640ms），
+            //   故读完量词后要把可选的 `?` 一并吃掉。
+            if (q == '*' || q == '+') return new int[]{atomEnd, lazyEnd(s, j + 1)};
             if (q == '{') {
                 java.util.regex.Matcher m =
                     OPEN_REPETITION.matcher(s.substring(j));
-                if (m.lookingAt()) return new int[]{atomEnd, j + m.end()};
+                if (m.lookingAt()) return new int[]{atomEnd, lazyEnd(s, j + m.end())};
             }
         }
         return null;
+    }
+
+    /** 量词后若跟 {@code ?}（惰性），把它一并算进量词长度。 */
+    private static int lazyEnd(String s, int k) {
+        return (k < s.length() && s.charAt(k) == '?') ? k + 1 : k;
     }
 
     /** 开区间重复 {@code {n,}} / {@code {n,m}} —— 只有这类才产生歧义切分。 */

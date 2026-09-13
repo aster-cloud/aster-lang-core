@@ -114,8 +114,13 @@ class CanonicalizerReDoSTest {
 
         // ★耗时过短时比值噪声极大，此时退化成绝对上界断言——**不静默跳过**，
         //   否则这条门禁在结构上就无法变红了。
-        if (tLarge < 1.0) {
-            assertTrue(tLarge < 50.0, label + "：耗时 " + tLarge + "ms 超出绝对预算 50ms");
+        // ★早退分支断言**噪声地板本身**，不是一个必然成立的宽松上界。
+        //   原写法 `if (tLarge < 1.0) assertTrue(tLarge < 50.0)` 在数学上**永不失败**
+        //   （进入分支的前提就是 tLarge < 1.0，而 1.0 < 50）——那是恒真断言。
+        final double NOISE_FLOOR_MS = 1.0;
+        if (tLarge < NOISE_FLOOR_MS) {
+            assertTrue(tLarge < NOISE_FLOOR_MS,
+                label + "：耗时 " + tLarge + "ms —— 应 <" + NOISE_FLOOR_MS + "ms");
             return;
         }
 
