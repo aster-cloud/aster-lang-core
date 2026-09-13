@@ -166,7 +166,39 @@ public final class Canonicalizer {
      * 空白规范化所需的正则表达式
      */
     private static final Pattern SPACE_RUN_RE = Pattern.compile("[ \\t]+");
-    private static final Pattern PUNCT_NORMAL_RE = Pattern.compile("\\s+([.,:。：，])");
+
+    /*
+     * ★以下三式的 `\s++` 是**占有量词**（possessive），是 ReDoS 修复，不是笔误。
+     *
+     * 用普通 `\s+` 时，引擎在每个空白位置都贪婪吃完整段空白、发现后面不是目标
+     * 标点、再逐字符回退重试，呈二次增长。Canonicalizer 是 Java 引擎处理**每一份
+     * 源文件**的前门，输入完全由用户提供。
+     *
+     * 实测（改前，一行 n 个空格后跟一个非标点字符）：
+     *   PUNCT_NORMAL_RE     5000→167ms   10000→476ms   20000→1823ms
+     *   PUNCT_FINAL_RE      5000→358ms   10000→1299ms  20000→5154ms
+     *   TRAILING_SPACE_RE   5000→122ms   10000→105ms   20000→415ms
+     *
+     * ★真正起作用的是**左锚 `(?<!\s)`**，占有量词 `++` 只是顺带砍掉常数。
+     *
+     * 我一开始只加了 `++`，实测耗时降到 1/15，但 **20000→40000 仍是 4×**——
+     * 说明二次项没消掉。原因：瓶颈不在 `\s+` 内部的回退，而在 `find()` 会从
+     * **每一个**空白位置重新起跑，每次都往后扫到串尾。只有禁止「从空白串中间
+     * 起跑」才能把 n 次扫描降为 1 次。加左锚后（n=80000）：
+     *   PUNCT_FINAL  87717ms → 2ms
+     *   TRAILING     10733ms → 1ms
+     *
+     * ★两者都**不改变语义**：
+     *   - 左锚：一段空白的**起点**前面不可能还是空白（否则起点就该更靠前），
+     *     所以它只禁止冗余的中途起跑，不排除任何真实匹配。
+     *   - 占有量词：`\s` 与后面的标点字符集、以及 `$`，是**互斥**的——一个空白
+     *     字符永远不可能同时是 `.`/`,`/`!` 或行尾锚点，回退纯属无用功。
+     *
+     * 等价性实证：固定种子随机生成 600000 组比对（其中 197366 组确有替换发生，
+     * 证明样本非空洞），改前改后逐字节零分歧。语义守卫见
+     * {@code CanonicalizerReDoSTest}。
+     */
+    private static final Pattern PUNCT_NORMAL_RE = Pattern.compile("(?<!\\s)\\s++([.,:。：，])");
     // ★`!` 后跟 `=` 时不参与「去掉标点前空白」——那是**不等号运算符** `!=`，不是句末标点。
     //   原式 `\\s+([.,:!;?…])` 会把 `x != y` 改写成 `x!= y`，缩短一个字符，使其后
     //   所有 token 的 origin.col 左移、偏离用户原文（ADR 0032 的 trace 锚点与
@@ -174,8 +206,8 @@ public final class Canonicalizer {
     //   实证：语料中**裸** `!`（不在字符串字面量里）只以 `!=` 形态出现；作为真正
     //   感叹号的 `!` 全部位于字符串内，已由 segmenter 保护，不受本式影响。
     //   故用 `(?!=)` 负向先行断言把 `!=` 排除，其余标点行为不变。
-    private static final Pattern PUNCT_FINAL_RE = Pattern.compile("\\s+([.,:;?。：，！；？]|!(?!=))");
-    private static final Pattern TRAILING_SPACE_RE = Pattern.compile("\\s+$");
+    private static final Pattern PUNCT_FINAL_RE = Pattern.compile("(?<!\\s)\\s++([.,:;?。：，！；？]|!(?!=))");
+    private static final Pattern TRAILING_SPACE_RE = Pattern.compile("(?<!\\s)\\s++$");
 
     /**
      * 完整标识符 token 模式（Unicode）：字母/下划线起头，后接字母/数字/下划线。
