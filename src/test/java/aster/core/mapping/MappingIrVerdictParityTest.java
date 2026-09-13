@@ -36,10 +36,34 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class MappingIrVerdictParityTest {
 
-    /** 兄弟仓语料路径。CI 通过 checkout-sibling 保证其存在。 */
-    private static final Path CORPUS = Path.of(
-        System.getProperty("user.dir"), "..", "aster-lang-test",
-        "corpus", "mapping-verdict", "cases.json").normalize();
+    /**
+     * 共享语料路径。★<b>两种布局都要支持</b>：
+     *
+     * <ul>
+     *   <li><b>本地开发</b>：兄弟仓并列 → {@code ../aster-lang-test/...}</li>
+     *   <li><b>CI</b>：{@code checkout-sibling} 用 {@code path: aster-lang-test}
+     *       把它检出到<b>工作区内</b> → {@code ./aster-lang-test/...}</li>
+     * </ul>
+     *
+     * <p>★我第一版只写了 {@code ../}，本地通过但<b>在 CI 上必然失败</b>
+     * ——两种布局不同，而我只验证了自己机器上的那种。
+     * 这类"本地能跑"的路径假设是本仓记过的高频坑。
+     */
+    private static final Path CORPUS = resolveCorpus();
+
+    private static Path resolveCorpus() {
+        Path cwd = Path.of(System.getProperty("user.dir"));
+        Path rel = Path.of("corpus", "mapping-verdict", "cases.json");
+        for (Path base : new Path[]{
+            cwd.resolve("aster-lang-test"),          // CI：检出到工作区内
+            cwd.resolve("..").resolve("aster-lang-test"),  // 本地：兄弟仓并列
+        }) {
+            Path p = base.resolve(rel).normalize();
+            if (Files.exists(p)) return p;
+        }
+        // 都找不到时返回本地布局的路径，让 corpusExists() 报出明确的缺失信息。
+        return cwd.resolve("..").resolve("aster-lang-test").resolve(rel).normalize();
+    }
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
