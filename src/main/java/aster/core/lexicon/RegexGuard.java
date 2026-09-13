@@ -73,8 +73,126 @@ public final class RegexGuard {
             errors.add("regex pattern has nested-quantifier ReDoS shape "
                 + "(e.g. (...+)+, (...*)*, (...+)*): " + pattern);
         }
+        if (hasAdjacentAmbiguousQuantifier(pattern)) {
+            errors.add("regex pattern has adjacent-ambiguous-quantifier ReDoS shape "
+                + "(e.g. a*a*b, a+a+b): two quantifiers over the same atom make the "
+                + "split exponential: " + pattern);
+        }
         return errors;
     }
+
+    /**
+     * 检测<b>相邻量词</b>歧义：{@code a*a*b}、{@code a+a+b}、{@code \d*\d*x}。
+     *
+     * <h2>★为什么 {@link #NESTED_QUANTIFIER} 抓不到</h2>
+     *
+     * 那条只看「被量词修饰的<b>分组</b>」，而歧义<b>不需要分组</b>即可产生：
+     * 两个相邻、匹配<b>同一原子</b>的量词，会让「这个字符归左边还是右边」
+     * 产生 2^n 种切分，后缀失配时全部被穷举。
+     *
+     * <p>实测（改前两侧守卫都 ACCEPTED）：
+     * {@code a*a*a*a*a*a*a*a*a*a*b} 在 24 字符输入上耗时 1705ms，每 +2 字符翻倍。
+     *
+     * <p>Java 侧有 {@link #replaceAllWithTimeout} 看门狗兜底（降级为超时异常），
+     * 但静态拒绝更好——它在<b>加载期</b>就挡住，而不是每次匹配都赌看门狗。
+     *
+     * <p>★判据保守：只认<b>文本完全相同</b>的相邻原子，不做字符集交集分析。
+     * 这样 {@code a*b*c} 这类不同原子的模式不会被误伤
+     * （误伤会静默丢掉用户的合法 overlay 规则，比漏网更难发现）。
+     * 实证：扫两仓 79 条生产词典正则，零误伤。
+     */
+    static boolean hasAdjacentAmbiguousQuantifier(String p) {
+        int i = 0;
+        while (i < p.length()) {
+            int[] first = readQuantifiedAtom(p, i);
+            if (first == null) {
+                i += (p.charAt(i) == '\\') ? 2 : 1;
+                continue;
+            }
+            int[] second = readQuantifiedAtom(p, first[1]);
+            if (second != null
+                && p.substring(i, first[0]).equals(p.substring(first[1], second[0]))) {
+                return true;
+            }
+            i = first[1];
+        }
+        return false;
+    }
+
+    /**
+     * 从 {@code i} 处解析一个「原子 + 开区间量词」。
+     *
+     * @return {@code [原子结束位置, 量词结束位置]}；若此处不是「原子+量词」则返回 null
+     */
+    private static int[] readQuantifiedAtom(String s, int i) {
+        if (i >= s.length()) return null;
+        char c = s.charAt(i);
+        int j;
+        if (c == '\\') {
+            j = i + 2;                                  // 转义原子，如 \d \w \.
+        } else if (c == '[') {                          // 字符类
+            j = i + 1;
+            while (j < s.length() && s.charAt(j) != ']') {
+                if (s.charAt(j) == '\\') j++;
+                j++;
+            }
+            j++;
+        } else if (c == '(') {
+            // ★分组也是原子：`(a)*(a)*b` / `(?:a)*(?:a)*b` 与 `a*a*b` 同样指数。
+            //   第一版在此直接 return null、注释「交给 NESTED_QUANTIFIER」，但那个
+            //   检查只看**分组内部**有无量词——`(a)*(a)*` 两侧内部都没有，无人负责。
+            //   实测：两者 24 字符输入均 1720ms。
+            // ★必须跳过**字符类**：`[)]` 里的括号不是分组括号。
+            //   不跳会把 `([)])*([)])*b` 的深度算错而放行（实测 22 字符 794ms）
+            //   ——这是加分组支持时新引入的漏判，与 TS 侧同源。
+            int depth = 0;
+            j = i;
+            while (j < s.length()) {
+                char d = s.charAt(j);
+                if (d == '\\') { j += 2; continue; }
+                if (d == '[') {                       // 字符类：整体跳过
+                    j++;
+                    while (j < s.length() && s.charAt(j) != ']') {
+                        if (s.charAt(j) == '\\') j++;
+                        j++;
+                    }
+                    j++;
+                    continue;
+                }
+                if (d == '(') depth++;
+                else if (d == ')') { depth--; if (depth == 0) { j++; break; } }
+                j++;
+            }
+            if (depth != 0) return null;                // 不平衡，交给 Pattern.compile 报错
+        } else if (c == ')' || c == '|') {
+            return null;
+        } else {
+            j = i + 1;                                  // 单字符原子
+        }
+        if (j > s.length()) return null;
+
+        int atomEnd = j;
+        if (j < s.length()) {
+            char q = s.charAt(j);
+            // ★惰性量词 `*?` / `+?` 同样有歧义切分（实测 `a*?×10` 24 字符 640ms），
+            //   故读完量词后要把可选的 `?` 一并吃掉。
+            if (q == '*' || q == '+') return new int[]{atomEnd, lazyEnd(s, j + 1)};
+            if (q == '{') {
+                java.util.regex.Matcher m =
+                    OPEN_REPETITION.matcher(s.substring(j));
+                if (m.lookingAt()) return new int[]{atomEnd, lazyEnd(s, j + m.end())};
+            }
+        }
+        return null;
+    }
+
+    /** 量词后若跟 {@code ?}（惰性），把它一并算进量词长度。 */
+    private static int lazyEnd(String s, int k) {
+        return (k < s.length() && s.charAt(k) == '?') ? k + 1 : k;
+    }
+
+    /** 开区间重复 {@code {n,}} / {@code {n,m}} —— 只有这类才产生歧义切分。 */
+    private static final Pattern OPEN_REPETITION = Pattern.compile("\\{\\d*,\\d*}");
 
     /**
      * 筛查并编译一个不可信正则。

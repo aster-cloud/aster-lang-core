@@ -154,7 +154,18 @@ class CoreIrFingerprintCli {
             for (JsonNode decl : decls) {
                 String kind = decl.path("kind").asText("Unknown");
                 kindCounts.merge(kind, 1, Integer::sum);
+                // ★Import 在两引擎里字段名不同：TS 用 `name`/`asName`，
+                //   Java 用 `path`/`alias`（见类注释）。此处**只取名字**做指纹，
+                //   故必须把两种写法都认出来，否则 Java 侧 Import 恒不入
+                //   declNames，浅层指纹会**凭空报出 tsOnly 分歧**。
+                //
+                //   ★这正是 2026-09-13 审计里 eff_alias_import /
+                //   eff_alias_unmapped 两个样本"分歧"的**全部成因**——
+                //   底层 IR 其实一致（字段级 `--full` 口径 223/223 identical，
+                //   因为 ir-normalize.ts 已有 `Import.name→path` 别名表）。
+                //   是**量具**没跟上，不是引擎分叉。
                 JsonNode name = decl.path("name");
+                if (!name.isTextual()) name = decl.path("path");   // Java 侧 Import
                 if (name.isTextual()) names.add(name.asText());
             }
         }
