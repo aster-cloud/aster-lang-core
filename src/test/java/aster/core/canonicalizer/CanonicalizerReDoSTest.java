@@ -65,7 +65,19 @@ class CanonicalizerReDoSTest {
         "\\s+$",
     };
 
-    /** ★从生产类反射读出真正在用的 Pattern —— 不是副本。 */
+    /**
+     * ★从生产类反射读出真正在用的 Pattern —— 不是副本。
+     *
+     * <p><b>但反射本身有一个它证明不了的东西</b>，由独立审查者用变异找出：
+     * 保留 {@code PUNCT_FINAL_RE} 字段（值仍安全）不动，另加一个脆弱孪生字段
+     * {@code PUNCT_FINAL_ACTIVE_RE}，把<b>生产调用点</b>改指向它——
+     * <b>4/4 依然全绿</b>，而那条脆弱模式实测 {@code n=40000 → 21256ms}。
+     *
+     * <p>★反射只证明「<b>这个名字</b>下挂着一条安全正则」，
+     * <b>不证明「生产真的在用它」</b>——验了对象，没验连线。
+     * 兜底见 {@link #patternFieldCountIsPinned()}（诱饵字段会让总数变化）
+     * 与 {@link #canonicalizeIsSubQuadratic()}（打真入口，不看字段）。
+     */
     private static Pattern productionPattern(String fieldName) {
         try {
             java.lang.reflect.Field f = Canonicalizer.class.getDeclaredField(fieldName);
@@ -161,6 +173,41 @@ class CanonicalizerReDoSTest {
         assertSubQuadratic("canonicalize / CR 填充源文件",
             n -> "Let x be 1" + String.valueOf((char) 0x0d).repeat(n) + ".",
             s -> c.canonicalize(s), 20000);
+    }
+
+    @Test
+    @DisplayName("★结构守卫：Pattern 静态字段总数被钉死（挡「诱饵字段」）")
+    void patternFieldCountIsPinned() {
+        // ★这条补的是反射读字段的结构性盲区（独立审查者用变异证明）：
+        //
+        //   保留 PUNCT_FINAL_RE 不动（反射照样读到安全值），另加一个脆弱孪生
+        //   字段 PUNCT_FINAL_ACTIVE_RE，把**生产调用点**改指向它——
+        //   原门禁 4/4 全绿，而脆弱模式实测 n=40000 → 21256ms。
+        //
+        //   反射验的是「对象」，没验「连线」。此处从另一个角度兜底：
+        //   **任何新增/删除 Pattern 字段都会让这条变红**，迫使改动者
+        //   解释「新字段是什么、生产用的到底是哪一条」。
+        //
+        // ★这不是万无一失（把脆弱值直接写进现有字段就绕过了它），
+        //   但那种改法会被语义守卫与计时门禁抓到。三条防线**互补**，
+        //   各自都有缺口，合起来才盖住诱饵字段这一类。
+        java.util.List<String> patternFields = new java.util.ArrayList<>();
+        for (java.lang.reflect.Field f : Canonicalizer.class.getDeclaredFields()) {
+            if (f.getType() == Pattern.class
+                && java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+                patternFields.add(f.getName());
+            }
+        }
+        java.util.Collections.sort(patternFields);
+
+        assertEquals(
+            java.util.List.of("PUNCT_FINAL_RE", "PUNCT_NORMAL_RE", "SPACE_RUN_RE",
+                              "TRAILING_SPACE_RE", "WORD_PATTERN"),
+            patternFields,
+            "Canonicalizer 的 Pattern 静态字段清单变了。\n"
+            + "★若这是新增字段：请确认它不是「诱饵」——即生产调用点是否被改指向了\n"
+            + "  一条未加 ReDoS 防护的孪生模式（审查者实证过这种绕过手法）。\n"
+            + "  确认无误后更新本清单，并为新字段补上对应的增长率门禁。");
     }
 
     @Test
