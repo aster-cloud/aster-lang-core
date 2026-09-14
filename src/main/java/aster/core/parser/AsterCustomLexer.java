@@ -261,9 +261,16 @@ public class AsterCustomLexer extends AsterLexer {
                 throw new IllegalStateException(
                     "not 链过长（> " + MAX_NESTING_DEPTH + "），拒绝以防栈溢出");
             }
-        } else if (type != NEWLINE && type != AsterParser.INDENT
+        } else if (type != AsterParser.INDENT
                    && type != AsterParser.DEDENT && type != Token.EOF) {
-            // 换行/缩进不打断 not 链（`not\n  not x` 仍是一条链），其余一律清零。
+            // 缩进不打断 not 链（`not\n        not x` 仍是一条链），其余一律清零。
+            //
+            // ★这里**不列 NEWLINE**：实测它根本到不了本方法——`nextToken()`
+            //   对 NEWLINE 提前 return，从不调用 recordMeaningful。
+            //   列上去会是一条**永远为真、无法被证伪**的条款：单删它没有任何
+            //   用例变红（已实测），读代码的人却会以为它在起作用。
+            //   跨行 not 链之所以仍被计入，靠的是 INDENT 豁免——
+            //   单删 INDENT 豁免，CrossLineNotTest 立刻变红（已实测）。
             consecutiveNotDepth = 0;
         }
     }
