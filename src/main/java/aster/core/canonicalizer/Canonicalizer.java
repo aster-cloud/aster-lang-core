@@ -1241,9 +1241,12 @@ public final class Canonicalizer {
         //   WORD_PATTERN 早已含 \p{M}（`[\p{L}_][\p{L}\p{M}\p{Nd}_]*`），
         //   本处是同一修复漏掉的另一半——分词对了，词边界判定没跟上。
         int type = Character.getType(ch);
+        // ★只收 Mn 与 Mc。**不收 ENCLOSING_MARK(Me)**：全 Unicode 仅 13 个 Me 码点
+        //   （U+0488/0489、U+20DD-20E4、U+A670-A672，西里尔与包围记号），
+        //   BMP 外 0 个，没有任何书写系统用它构成标识符——列进来是凑数，
+        //   会让「为什么是这几类」这个判断失去依据。
         if (type == Character.NON_SPACING_MARK
-                || type == Character.COMBINING_SPACING_MARK
-                || type == Character.ENCLOSING_MARK) {
+                || type == Character.COMBINING_SPACING_MARK) {
             return true;
         }
         return false;
