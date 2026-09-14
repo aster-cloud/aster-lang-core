@@ -47,6 +47,24 @@ class CrossLineNotTest {
     }
 
     @Test
+    void 交替缩进的not链也必须计入深度守卫() {
+        // ★钉住 **DEDENT** 豁免。上一条只产生 INDENT，于是删掉 DEDENT 豁免
+        //   也不会有任何用例变红（复审实测：DEDENT 在 core 全量里命中 794 次，
+        //   是**可达的活代码**，与 NEWLINE 那条已删的死条款性质不同）。
+        //
+        //   实测：删 DEDENT 豁免 → 本用例红、上一条仍绿，
+        //   证明两条各自锁住一个方向，不是互相背书。
+        StringBuilder sb = new StringBuilder("Module m.\n\nDefine rule r:\n    Return ");
+        for (int i = 0; i < AsterCustomLexer.MAX_NESTING_DEPTH + 1; i++) {
+            sb.append(i % 2 == 0 ? "not\n        " : "not\n    ");
+        }
+        sb.append("true.\n");
+
+        assertThrows(IllegalStateException.class, () -> parse(sb.toString()),
+            "交替缩进（反复 INDENT/DEDENT）不得成为绕过深度守卫的手段");
+    }
+
+    @Test
     void 跨行但未超限的not链必须放行() {
         // 反向守卫：别把上一条修成「见到 INDENT 就拒」。
         assertDoesNotThrow(() -> parse(crossLineNots(10)),
