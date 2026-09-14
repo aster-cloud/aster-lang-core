@@ -1225,6 +1225,27 @@ public final class Canonicalizer {
         if (isSpacelessScript(ch) && !isPunctuation(ch)) {
             return true;
         }
+        // ★组合记号（Unicode \p{M}）也是标识符的组成部分。
+        //
+        //   天城文是 abugida：辅音 + 元音符号（matra，如 ◌ी ◌ु ◌ा）+ virama（◌्）。
+        //   这些记号是 NON_SPACING_MARK / COMBINING_SPACING_MARK，
+        //   `Character.isLetterOrDigit` 对它们一律返回 false，也不属
+        //   isSpacelessScript ——于是词边界检测把它们当成「非标识符字符」，
+        //   认定关键词后面已到词尾，放行了**词内替换**。
+        //
+        //   实测后果：Hindi 关键词 `पर`（ON）会吃掉任何含 `पर` 的标识符——
+        //     परीक्षण（examination） → onीक्षण
+        //     आयुपरीक्षण（age-check） → आयुonीक्षण
+        //   用户的标识符被静默改写成半英半印的乱码，且不报任何错。
+        //
+        //   WORD_PATTERN 早已含 \p{M}（`[\p{L}_][\p{L}\p{M}\p{Nd}_]*`），
+        //   本处是同一修复漏掉的另一半——分词对了，词边界判定没跟上。
+        int type = Character.getType(ch);
+        if (type == Character.NON_SPACING_MARK
+                || type == Character.COMBINING_SPACING_MARK
+                || type == Character.ENCLOSING_MARK) {
+            return true;
+        }
         return false;
     }
 
