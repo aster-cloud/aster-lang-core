@@ -89,6 +89,33 @@ public class AsterCustomLexer extends AsterLexer {
     public AsterCustomLexer(CharStream input) {
         super(input);
         indentStack.push(0); // 初始缩进为 0
+        skipLeadingBom();
+    }
+
+    /**
+     * 消费首字符的 UTF-8 BOM（U+FEFF）。
+     *
+     * <p>Windows 记事本等编辑器默认给 UTF-8 文件加 BOM。不剥离的话首 token 会以
+     * U+FEFF 开头：{@code Module} 变成 {@code ﻿Module}，要么报「未知标识符」，
+     * 要么被 {@code Character.isUnicodeIdentifierPart} 放行而**静默生成错误的模块名**
+     * ——后者更坏，因为它不报错。
+     *
+     * <p>★这里是**跨引擎对等**修复：TS 侧 {@code src/frontend/lexer.ts} 一直在剥
+     * （`input.charCodeAt(0) === 0xfeff` 时 `i++; col++`），Java 侧从未剥过。
+     * 同一份源文件在两个引擎上解析结果不同，属于双引擎分叉。
+     * 早先的死 Lexer 里有这段逻辑但零引用，删除它只是把「看起来有」变成「确实没有」。
+     *
+     * <p>放在构造器而不是某个上层入口：{@code CharStream} 由仓外调用方构造，
+     * 本类是所有解析路径的**唯一收口点**，在这里剥才不会漏掉某条入口。
+     *
+     * <p>列号口径与 TS 一致：BOM 占一列（consume 后 charPositionInLine 前进），
+     * 因此带 BOM 与不带 BOM 的源码，其后续 token 列号会相差 1。这是 TS 侧的既有
+     * 行为，此处刻意对齐而非「修正」——两引擎一致比绝对列号更要紧。
+     */
+    private void skipLeadingBom() {
+        if (getInputStream() != null && getInputStream().LA(1) == 0xFEFF) {
+            getInputStream().consume();
+        }
     }
 
     @Override
