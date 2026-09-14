@@ -206,6 +206,40 @@ public class AsterCustomLexer extends AsterLexer {
 
     private int nestingDepth = 0;
 
+    /**
+     * 连续 {@code not} 的计数（issue #157）。
+     *
+     * <p>括号深度守卫看不见 {@code not not not …}——这条链**全程零括号**。
+     * 而 {@code AstBuilder} 的 {@code MAX_EXPR_DEPTH} 只在 {@code visitExpr}
+     * 入口递增，属**访问期**；{@code notExpr : NOT notExpr} 的右递归在 ANTLR
+     * **解析期**就已经递归下去了，还没轮到访问期。两道防线中间恰好漏了这一类。
+     *
+     * <p>★实测复现（默认栈的 Gradle test worker）：
+     * <pre>
+     *   n=12000 → OK
+     *   n=15000 → StackOverflowError
+     * </pre>
+     * issue 估计约 1 万触发，实测阈值在 12000–15000 之间。阈值随栈大小浮动，
+     * 生产环境栈更小则更容易触发，所以不能拿「实测要 1.2 万」当作不修的理由。
+     *
+     * <p>为什么与括号共用 {@code MAX_NESTING_DEPTH}：N 个连续 {@code not}
+     * 强制 N 层解析期递归，与 N 层括号同量级；且深度 300 的 not 链必然对应
+     * 至少 300 层表达式嵌套，本就会被 AstBuilder 拒绝——本守卫只是让拒绝
+     * **发生得更早**（在栈溢出之前）。
+     *
+     * <p>★这是**单侧守卫**，不是双引擎分叉的新增项。实测：TS 引擎的 parser
+     * 是迭代式的，50 万个 {@code not} 用时 521ms 正常返回，本就不会栈溢出；
+     * 而既有的括号守卫同样是 Java-only（TS 侧 400 层括号照常解析）。
+     * 也就是说「Java 有解析期深度上限、TS 没有」是**既定先例**，
+     * 本守卫与之一致，而非引入新的不对称。
+     *
+     * <p>代价是：深度介于 300 与 TS 实际上限之间的输入，在两个引擎上
+     * 一个被拒一个通过。考虑到这类输入没有任何真实用途（300 层 not 不是
+     * 人写得出来的），且放任 Java 侧栈溢出的后果更坏（{@code StackOverflowError}
+     * 是 Error 级，穿透一切 {@code catch (Exception)}），取「宁可拒绝」。
+     */
+    private int consecutiveNotDepth = 0;
+
     private void trackNestingDepth(int type) {
         if (type == AsterParser.LPAREN || type == AsterParser.LBRACKET) {
             if (++nestingDepth > MAX_NESTING_DEPTH) {
@@ -217,6 +251,20 @@ public class AsterCustomLexer extends AsterLexer {
             if (nestingDepth > 0) {
                 nestingDepth--;
             }
+        }
+
+        // ★连续 NOT 计数：只有**紧挨着**的 not 才累加，任何其他有意义 token 都清零。
+        //   `not not x` 累加，`not x and not y` 不累加——后者是正常写法，
+        //   把它算进去会误伤合法代码。
+        if (type == AsterParser.NOT) {
+            if (++consecutiveNotDepth > MAX_NESTING_DEPTH) {
+                throw new IllegalStateException(
+                    "not 链过长（> " + MAX_NESTING_DEPTH + "），拒绝以防栈溢出");
+            }
+        } else if (type != NEWLINE && type != AsterParser.INDENT
+                   && type != AsterParser.DEDENT && type != Token.EOF) {
+            // 换行/缩进不打断 not 链（`not\n  not x` 仍是一条链），其余一律清零。
+            consecutiveNotDepth = 0;
         }
     }
 
