@@ -89,6 +89,43 @@ public class AsterCustomLexer extends AsterLexer {
     public AsterCustomLexer(CharStream input) {
         super(input);
         indentStack.push(0); // 初始缩进为 0
+        skipLeadingBom();
+    }
+
+    /**
+     * 消费首字符的 UTF-8 BOM（U+FEFF）。
+     *
+     * <p>Windows 记事本等编辑器默认给 UTF-8 文件加 BOM。不剥离的话首 token 会以
+     * U+FEFF 开头：{@code Module} 变成 {@code ﻿Module}，要么报「未知标识符」，
+     * 要么被 {@code Character.isUnicodeIdentifierPart} 放行而**静默生成错误的模块名**
+     * ——后者更坏，因为它不报错。
+     *
+     * <p>★这里是**跨引擎对等**修复：TS 侧 {@code src/frontend/lexer.ts} 一直在剥
+     * （`input.charCodeAt(0) === 0xfeff` 时 `i++; col++`），Java 侧从未剥过。
+     * 同一份源文件在两个引擎上解析结果不同，属于双引擎分叉。
+     * 早先的死 Lexer 里有这段逻辑但零引用，删除它只是把「看起来有」变成「确实没有」。
+     *
+     * <p>放在构造器而不是某个上层入口：{@code CharStream} 由仓外调用方构造，
+     * 本类是所有解析路径的**唯一收口点**，在这里剥才不会漏掉某条入口。
+     *
+     * <p>★列号**不偏移**：BOM 是编码标记、不是源码内容，不该占一列。
+     * 实测（本类构造后）：
+     * <pre>
+     *   不带 BOM: 首 token col=0
+     *   带 BOM:   首 token col=0
+     * </pre>
+     * 这正是同 PR 的 {@code BomStrippingTest.BOM不得让首token的列号偏移()} 所断言的。
+     *
+     * <p>★TS 侧原本是**会偏移**的（{@code lexer.ts} 里 `i++; col++`，实测首 token
+     * col 由 1 变 2）。本修复消除了 Java 侧的偏移，因而**与当时的 TS 产生了分叉**，
+     * 故同时提交了 TS 侧的配套修复（去掉 `col++`）把两边都收敛到「不占列」。
+     * 列号偏移会带歪诊断位置、span 与 IDE 高亮——而 ProofIR 的 span 是签字锚定
+     * 的一部分，不是可以随手偏一列的东西。
+     */
+    private void skipLeadingBom() {
+        if (getInputStream() != null && getInputStream().LA(1) == 0xFEFF) {
+            getInputStream().consume();
+        }
     }
 
     @Override
