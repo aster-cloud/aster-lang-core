@@ -202,6 +202,30 @@ class ModuleGraphLinkerTest {
     assertThrows(LinkException.class, graph::topologicalOrder);
   }
 
+  @Test
+  void traceNamesAreOrderedByModuleThenName() {
+    // issue #188：renameMaps 来自 Map.copyOf，迭代顺序随 JVM 启动盐值变化；traceNames 必须稳定。
+    var rootKey = new ModuleKey("app", 1);
+    var zetaKey = new ModuleKey("zeta", 1);
+    var alphaKey = new ModuleKey("alpha", 2);
+    var root = module("app", List.of(
+      importDecl("zeta", 1, "Z"), importDecl("alpha", 2, "A"), func("main", ret(intE(0)))));
+    var zeta = module("zeta", List.of(func("z2", ret(intE(1))), func("z1", ret(intE(2)))));
+    var alpha = module("alpha", List.of(func("b", ret(intE(3))), func("a", ret(intE(4))), func("c", ret(intE(5)))));
+    var graph = new ModuleGraph(
+      rootKey,
+      Map.of(rootKey, root, zetaKey, zeta, alphaKey, alpha),
+      List.of(new ModuleGraph.ImportEdge(rootKey, "Z", zetaKey), new ModuleGraph.ImportEdge(rootKey, "A", alphaKey))
+    );
+
+    var linked = new ModuleGraphLinker().link(graph);
+
+    assertEquals(
+      List.of("alpha_v2__a", "alpha_v2__b", "alpha_v2__c", "zeta_v1__z1", "zeta_v1__z2"),
+      new ArrayList<>(linked.traceNames().keySet()));
+    assertEquals("alpha.c", linked.traceNames().get("alpha_v2__c"));
+  }
+
   private ModuleGraph graph(ModuleKey rootKey, CoreModel.Module root, ModuleKey libKey, CoreModel.Module lib) {
     return new ModuleGraph(
       rootKey,
