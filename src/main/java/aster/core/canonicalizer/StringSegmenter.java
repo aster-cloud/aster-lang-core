@@ -103,9 +103,12 @@ public final class StringSegmenter {
     /**
      * 便捷方法：对源码的非字符串部分应用正则替换，可选 ReDoS 看门狗。
      * <p>
+     * ★正则在<b>整个源码</b>上匹配，只把字符串字面量之外的区间交给
+     * {@link RegexGuard#replaceRegions}：这样 {@code MULTILINE ^}、{@code $} 与 lookbehind
+     * 看到的是真实上下文，不会把字符串字面量之后的行中文本当成"行首"改写。
+     * <p>
      * 当 {@code guarded} 为 {@code true} 时（用于来自不可信 lexicon 配置的正则），
-     * 每段替换经 {@link RegexGuard#replaceAllWithTimeout} 在看门狗超时内执行，
-     * 灾难性回溯会被中断并抛出 {@link RegexGuard.RegexTimeoutException}。
+     * 替换在看门狗超时内执行，灾难性回溯会被中断并抛出 {@link RegexGuard.RegexTimeoutException}。
      *
      * @param source      源码文本
      * @param pattern     正则表达式
@@ -114,18 +117,24 @@ public final class StringSegmenter {
      * @return 替换后的文本（字符串字面量内容不变）
      */
     public String replaceOutsideStrings(String source, Pattern pattern, String replacement, boolean guarded) {
-        List<Segment> segments = segment(source);
-        StringBuilder result = new StringBuilder(source.length());
-        for (Segment seg : segments) {
-            if (seg.inString) {
-                result.append(seg.text);
-            } else if (guarded) {
-                result.append(RegexGuard.replaceAllWithTimeout(pattern, seg.text, replacement));
-            } else {
-                result.append(pattern.matcher(seg.text).replaceAll(replacement));
+        List<RegexGuard.Region> regions = outsideStringRegions(source);
+        return guarded
+            ? RegexGuard.replaceRegionsWithTimeout(pattern, source, regions, replacement, RegexGuard.DEFAULT_TIMEOUT_MS)
+            : RegexGuard.replaceRegions(pattern, source, regions, replacement);
+    }
+
+    /** 字符串字面量之外的区间（升序、互不重叠）；分段拼接即原文，故偏移可累加得到。 */
+    private List<RegexGuard.Region> outsideStringRegions(String source) {
+        List<RegexGuard.Region> regions = new ArrayList<>();
+        int offset = 0;
+        for (Segment seg : segment(source)) {
+            int end = offset + seg.text.length();
+            if (!seg.inString) {
+                regions.add(new RegexGuard.Region(offset, end));
             }
+            offset = end;
         }
-        return result.toString();
+        return regions;
     }
 
     /**

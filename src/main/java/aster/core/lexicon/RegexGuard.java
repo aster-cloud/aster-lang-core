@@ -207,23 +207,134 @@ public final class RegexGuard {
         }
     }
 
+    /** 待替换的半开区间 {@code [start, end)}，用于跳过字符串字面量等不可改写区域。 */
+    public record Region(int start, int end) {}
+
     /**
-     * 在看门狗超时内对整个 {@code input} 执行 {@code pattern} 的全量替换。
+     * 只在 {@code regions} 内查找并替换，区间之外的文本原样保留。
+     * <p>
+     * ★整个输入只建<b>一个</b> {@link Matcher}，逐区间 {@link Matcher#region}：
+     * 配合 {@code useAnchoringBounds(false)} 与 {@code useTransparentBounds(true)}，
+     * {@code ^}/{@code $}/{@code \b} 与 lookbehind 看到的是真实上下文，而不是每段
+     * 子串各自的"开头"——否则 {@code MULTILINE ^} 会在字符串字面量之后的行中触发。
+     * 区间必须升序且互不重叠。
+     *
+     * @param pattern     已编译正则
+     * @param input       完整输入
+     * @param regions     允许改写的区间
+     * @param replacement 替换串（{@link Matcher#appendReplacement} 模板语法）
+     * @return 替换后的文本
+     */
+    public static String replaceRegions(Pattern pattern, CharSequence input, List<Region> regions, String replacement) {
+        Matcher matcher = pattern.matcher(input)
+            .useAnchoringBounds(false)
+            .useTransparentBounds(true);
+        StringBuilder out = new StringBuilder(input.length());
+        int copied = 0;
+        for (Region region : regions) {
+            matcher.region(region.start(), region.end());
+            while (matcher.find()) {
+                out.append(input, copied, matcher.start());
+                appendExpandedReplacement(matcher, replacement, out);
+                copied = matcher.end();
+            }
+        }
+        out.append(input, copied, input.length());
+        return out.toString();
+    }
+
+    /**
+     * 按 {@link Matcher#appendReplacement} 的模板语法展开替换串
+     * （{@code $n}、{@code ${name}}、{@code \x} 转义）。
+     * <p>
+     * 不能直接用 {@code appendReplacement}：{@link Matcher#region} 会把它的追加游标重置为 0，
+     * 跨区间复用同一 Matcher 时前一区间的文本会被重复追加。
+     */
+    private static void appendExpandedReplacement(Matcher matcher, String replacement, StringBuilder out) {
+        int i = 0;
+        int n = replacement.length();
+        while (i < n) {
+            char c = replacement.charAt(i++);
+            if (c == '\\') {
+                if (i >= n) {
+                    throw new IllegalArgumentException("character to be escaped is missing");
+                }
+                out.append(replacement.charAt(i++));
+            } else if (c == '$') {
+                i = appendGroupReference(matcher, replacement, i, out);
+            } else {
+                out.append(c);
+            }
+        }
+    }
+
+    /** 解析 {@code $} 之后的组引用，返回引用结束后的下标。 */
+    private static int appendGroupReference(Matcher matcher, String replacement, int i, StringBuilder out) {
+        int n = replacement.length();
+        if (i >= n) {
+            throw new IllegalArgumentException("Illegal group reference: group index is missing");
+        }
+        String group;
+        if (replacement.charAt(i) == '{') {
+            int close = replacement.indexOf('}', i + 1);
+            if (close < 0) {
+                throw new IllegalArgumentException("named capturing group is missing trailing '}'");
+            }
+            group = matcher.group(replacement.substring(i + 1, close));
+            i = close + 1;
+        } else {
+            int refNum = replacement.charAt(i) - '0';
+            if (refNum < 0 || refNum > 9) {
+                throw new IllegalArgumentException("Illegal group reference");
+            }
+            i++;
+            // 与 JDK 一致：只要更长的数字仍是合法组号就继续吃，否则余下数字是字面量。
+            while (i < n) {
+                int digit = replacement.charAt(i) - '0';
+                if (digit < 0 || digit > 9 || refNum * 10 + digit > matcher.groupCount()) {
+                    break;
+                }
+                refNum = refNum * 10 + digit;
+                i++;
+            }
+            group = matcher.group(refNum);
+        }
+        if (group != null) {
+            out.append(group);
+        }
+        return i;
+    }
+
+    /**
+     * 在看门狗超时内对 {@code input} 的 {@code regions} 执行 {@code pattern} 的全量替换。
      * <p>
      * ★超时不靠线程：输入被包装成带截止时间的 {@link CharSequence}，正则引擎的每一步
      * 回溯都要经过 {@code charAt}，超过截止时间即抛错打断回溯。匹配就在调用线程上跑，
      * 没有线程创建、任务提交与结果交接——逐词热路径上每词每条规则各调一次也不再付这笔开销。
      *
      * @param pattern     已编译正则
-     * @param input       目标文本
+     * @param input       完整输入
+     * @param regions     允许改写的区间
      * @param replacement 替换串
      * @param timeoutMs   超时毫秒数
      * @return 替换后的文本
      * @throws RegexTimeoutException 超时
      */
-    public static String replaceAllWithTimeout(Pattern pattern, String input, String replacement, long timeoutMs) {
-        return pattern.matcher(new DeadlineCharSequence(input, pattern, timeoutMs)).replaceAll(replacement);
+    public static String replaceRegionsWithTimeout(
+        Pattern pattern, String input, List<Region> regions, String replacement, long timeoutMs
+    ) {
+        return replaceRegions(pattern, new DeadlineCharSequence(input, pattern, timeoutMs), regions, replacement);
     }
+
+    /**
+     * 在看门狗超时内对整个 {@code input} 执行 {@code pattern} 的全量替换。
+     *
+     * @throws RegexTimeoutException 超时
+     */
+    public static String replaceAllWithTimeout(Pattern pattern, String input, String replacement, long timeoutMs) {
+        return replaceRegionsWithTimeout(pattern, input, List.of(new Region(0, input.length())), replacement, timeoutMs);
+    }
+
     /**
      * 便捷重载，使用 {@link #DEFAULT_TIMEOUT_MS}。
      */
