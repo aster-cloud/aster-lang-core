@@ -260,6 +260,36 @@ dependencies {
     langPacks(asterLibs.hi)
 }
 
+// 语言包热插拔验证（scripts/HotPlugTest.java，java 源码启动模式）。
+// ★classpath 与 zh/de jar 全部由 catalog 解析：制品名与版本只有 catalog 一处事实源，
+//   不再手写 ~/.m2 路径（曾硬编码已废弃的 aster-lang-{en,zh,de}:0.0.1，干净机器必然 FATAL）。
+//   启动 classpath 只有 core + en，zh/de 以参数传入、由测试在运行期经 URLClassLoader 插入。
+val hotPlugBackbone = configurations.create("hotPlugBackbone") { isTransitive = false }
+val hotPlugZh = configurations.create("hotPlugZh") { isTransitive = false }
+val hotPlugDe = configurations.create("hotPlugDe") { isTransitive = false }
+dependencies {
+    hotPlugBackbone(asterLibs.en)
+    hotPlugZh(asterLibs.zh)
+    hotPlugDe(asterLibs.de)
+}
+tasks.register<Exec>("hotPlugTest") {
+    group = "verification"
+    description = "Verify lexicon hot-plug: start with core + en only, then plug zh/de jars at runtime"
+    dependsOn("classes")
+
+    val launcher = javaToolchains.launcherFor(java.toolchain)
+    val startupClasspath = sourceSets.main.get().runtimeClasspath + hotPlugBackbone
+    val source = layout.projectDirectory.file("scripts/HotPlugTest.java")
+    inputs.files(startupClasspath, hotPlugZh, hotPlugDe, source)
+
+    // 用 Provider 延迟解析并让 lambda 只捕获可序列化对象，兼容 configuration cache。
+    val zhJar = hotPlugZh.elements.map { it.single().asFile.absolutePath }
+    val deJar = hotPlugDe.elements.map { it.single().asFile.absolutePath }
+    executable(launcher.get().executablePath.asFile.absolutePath)
+    args("--source", "25", "-cp", startupClasspath.asPath, source.asFile.absolutePath)
+    argumentProviders.add(CommandLineArgumentProvider { listOf(zhJar.get(), deJar.get()) })
+}
+
 // Lexicon JSON 导出任务（供 aster-lang-ts / aster-cloud 代码生成消费）
 tasks.register<JavaExec>("exportLexicons") {
     group = "codegen"

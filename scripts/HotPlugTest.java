@@ -1,23 +1,17 @@
 // HotPlugTest.java —— 单文件 Java 程序，验证 aster-lang 语言包真热插拔。
 //
 // 测试场景：
-//   T0：仅 aster-lang-core + aster-lang-en 在 classpath。
-//       LexiconRegistry.get("zh-CN") → 应返回 FallbackLexicon（target.id=zh-CN，
-//       但其 keyword 由于无 zh 包仍来自 en）。
-//   T1：运行时通过 URLClassLoader 加载 aster-lang-zh-0.0.1.jar，
+//   T0：仅 aster-lang-core + aster-lang-locales-en 在 classpath。
+//       LexiconRegistry.get("zh-CN") → 应返回 empty（插件未上线时 registry 不假装它在）。
+//   T1：运行时通过 URLClassLoader 加载 aster-lang-locales-zh jar，
 //       setContextClassLoader 后调 discoverPlugins()。
 //       LexiconRegistry.get("zh-CN") → 现在 target 真是 zh，
 //       keyword 是中文（"模块"、"规则" 等）。
-//   T2：再加 aster-lang-de-0.0.1.jar，验证 de-DE 同样接入。
+//   T2：再加 aster-lang-locales-de jar，验证 de-DE 同样接入。
 //
-// 用法（macOS）：
-//   java --enable-native-access=ALL-UNNAMED \
-//        -cp ~/.m2/repository/cloud/aster-lang/aster-lang-core/0.0.1/aster-lang-core-0.0.1.jar:\
-//$HOME/.m2/repository/cloud/aster-lang/aster-lang-en/0.0.1/aster-lang-en-0.0.1.jar:\
-//$HOME/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.18.2/jackson-databind-2.18.2.jar:... \
-//        scripts/HotPlugTest.java
-//
-// 由 scripts/run-hot-plug-test.sh 包装，自动展开 classpath。
+// 参数：args[0] = zh 语言包 jar 路径，args[1] = de 语言包 jar 路径。
+// 用法：./gradlew hotPlugTest（或 scripts/run-hot-plug-test.sh）——classpath 与 jar 路径
+// 由 Gradle 从共享 catalog 解析，不要手写 ~/.m2 路径。
 
 import java.io.File;
 import java.lang.reflect.Method;
@@ -39,15 +33,17 @@ public class HotPlugTest {
     private static int fail = 0;
 
     public static void main(String[] args) throws Exception {
-        String m2 = System.getProperty("user.home") + "/.m2/repository/cloud/aster-lang";
-        Path zhJar = Path.of(m2, "aster-lang-zh", "0.0.1", "aster-lang-zh-0.0.1.jar");
-        Path deJar = Path.of(m2, "aster-lang-de", "0.0.1", "aster-lang-de-0.0.1.jar");
+        if (args.length != 2) {
+            die("usage: HotPlugTest <zh-jar> <de-jar> (run via `./gradlew hotPlugTest`)");
+        }
+        Path zhJar = Path.of(args[0]);
+        Path deJar = Path.of(args[1]);
 
         if (!Files.isRegularFile(zhJar)) {
-            die("ZH jar missing at " + zhJar + "; run `./gradlew publishToMavenLocal` in aster-lang-zh first");
+            die("ZH jar missing at " + zhJar);
         }
         if (!Files.isRegularFile(deJar)) {
-            die("DE jar missing at " + deJar + "; run `./gradlew publishToMavenLocal` in aster-lang-de first");
+            die("DE jar missing at " + deJar);
         }
 
         LexiconRegistry registry = LexiconRegistry.getInstance();
