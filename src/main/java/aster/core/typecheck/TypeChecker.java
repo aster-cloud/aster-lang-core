@@ -306,18 +306,27 @@ public final class TypeChecker {
 
     // 进入函数作用域检查函数体
     symbolTable.enterScope(SymbolTable.ScopeType.FUNCTION);
-
-    // 定义参数符号（在函数作用域内）
-    for (var param : func.params) {
-      symbolTable.define(
-        param.name,
-        param.type,
-        SymbolInfo.SymbolKind.PARAMETER,
-        new SymbolTable.DefineOptions(false, Optional.ofNullable(func.origin), false, Optional.empty(), Optional.empty())
-      );
+    // ★finally 退出作用域：函数体检查中任何异常都不能把作用域栈留在函数层，
+    //   否则后续声明会在被污染的作用域里检查，报出一堆假诊断。
+    try {
+      // 形参重名与顶层重名同属普通用户输入，走同一条诊断降级路径（E104），
+      // 与 TS 侧 defineSymbol 对 param 报 DUPLICATE_SYMBOL 的行为对齐。
+      for (var param : func.params) {
+        defineOrReportDuplicate(param.name, func.origin, () -> symbolTable.define(
+          param.name,
+          param.type,
+          SymbolInfo.SymbolKind.PARAMETER,
+          new SymbolTable.DefineOptions(false, Optional.ofNullable(func.origin), false, Optional.empty(), Optional.empty())
+        ));
+      }
+      checkFunctionBody(func, ctx);
+    } finally {
+      symbolTable.exitScope();
     }
+  }
 
-    // 检查函数体
+  /** 检查函数体：返回类型、效果兼容性与异步纪律（调用方已进入函数作用域）。 */
+  private void checkFunctionBody(CoreModel.Func func, VisitorContext ctx) {
     if (func.body != null) {
       var bodyReturnType = baseChecker.checkBlock(func.body, ctx);
 
@@ -359,8 +368,6 @@ public final class TypeChecker {
       // 检查异步纪律
       asyncChecker.checkFunction(func);
     }
-
-    symbolTable.exitScope();
   }
 
   /**
