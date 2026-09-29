@@ -32,15 +32,23 @@ public final class EnglishPossessiveTransformer implements SyntaxTransformer {
      *
      * <p>实证（TS 侧同款模式，随机 300000 组、16715 组确有替换）：
      * {@code (?<!\p{L})} 分歧 0；{@code (?<![\p{L}0-9_])} 分歧 1895。
+     *
+     * <p>★右侧用前瞻 {@code (?=[\p{L}])} 而非捕获整个后续标识符：后续标识符不被
+     * 消费，链式所有格 {@code driver's car's color} 在同一次 replaceAll 里就能把
+     * 每一处 {@code 's} 都改写成 {@code .}（一次替换即达不动点）。若把后续标识符
+     * 吃掉，{@code car} 就成了上一匹配的一部分，第二处 {@code 's} 永远轮不到。
+     *
+     * <p>★空白只认 {@code [ \t]}，不认 {@code \s}：{@code \s} 会跨行把行尾所有格
+     * 与下一行行首标识符静默拼成成员访问；与兄弟类 SetTo/IsComparator 同一取舍。
      */
     private static final Pattern POSSESSIVE = Pattern.compile(
-            "(?<!\\p{L})([\\p{L}][\\p{L}0-9_]*)'s\\s+([\\p{L}][\\p{L}0-9_]*)"
+            "(?<!\\p{L})([\\p{L}][\\p{L}0-9_]*)'s[ \\t]+(?=[\\p{L}])"
     );
 
     private EnglishPossessiveTransformer() {}
 
     @Override
     public String transform(String source, CanonicalizationConfig config, StringSegmenter segmenter) {
-        return segmenter.replaceOutsideStrings(source, POSSESSIVE, "$1.$2");
+        return segmenter.replaceOutsideStrings(source, POSSESSIVE, "$1.");
     }
 }
