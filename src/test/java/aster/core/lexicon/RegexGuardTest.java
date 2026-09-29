@@ -76,4 +76,27 @@ class RegexGuardTest {
     assertThat(RegexGuard.replaceAllWithTimeout(p, "blue glue", "ü", 1500))
       .isEqualTo("blü glü");
   }
+
+  @Test
+  @Timeout(value = 10, unit = TimeUnit.SECONDS)
+  void shortInputsAreStillGuardedByDeadline() {
+    // 看门狗不依赖输入长度：单个"词"也能触发指数回溯，逐词热路径同样受保护。
+    Pattern evil = Pattern.compile("(.*a){20}$");
+    String word = "a".repeat(28) + "!";
+    assertThatThrownBy(() -> RegexGuard.replaceAllWithTimeout(evil, word, "X", 300))
+      .isInstanceOf(RegexGuard.RegexTimeoutException.class)
+      .hasMessageContaining("300ms");
+  }
+
+  @Test
+  void hotPathDoesNotSpawnWatchdogThreads() {
+    // issue #186：逐词 × 逐规则调用曾为每次调用新建线程池；看门狗改为调用线程上的截止时间，
+    // 任何调用都不得再创建线程。
+    Pattern p = Pattern.compile("ue");
+    for (int i = 0; i < 5000; i++) {
+      assertThat(RegexGuard.replaceAllWithTimeout(p, "blue", "ü")).isEqualTo("blü");
+    }
+    assertThat(Thread.getAllStackTraces().keySet())
+      .noneMatch(t -> t.getName().startsWith("aster-regex-watchdog"));
+  }
 }

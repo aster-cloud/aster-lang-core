@@ -2,14 +2,7 @@ package aster.core.lexicon;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -24,9 +17,9 @@ import java.util.regex.PatternSyntaxException;
  *   <li><b>注册/校验期静态筛查</b> —— {@link #screen(String)} 拒绝超长正则以及明显的
  *       嵌套量词 ReDoS 形状（{@code (...+)+}、{@code (...*)*}、{@code (...+)*} 等）。
  *       这是一个保守的启发式：可能漏判某些刁钻的形状，但不会误伤常见的良性正则。</li>
- *   <li><b>匹配期超时</b> —— {@link #matcherFor(Pattern, CharSequence)} 把输入包装成可被
- *       中断的 {@link CharSequence}，{@link #replaceAllWithTimeout} 在独立线程上运行
- *       正则并设置看门狗超时（{@link #DEFAULT_TIMEOUT_MS}），超时即抛出清晰的 lexicon 错误。</li>
+ *   <li><b>匹配期超时</b> —— {@link #matcherFor(Pattern, CharSequence)} 与
+ *       {@link #replaceAllWithTimeout} 把输入包装成带截止时间的 {@link CharSequence}，
+ *       正则在调用线程上运行，超过看门狗超时（{@link #DEFAULT_TIMEOUT_MS}）即抛出清晰的 lexicon 错误。</li>
  * </ul>
  */
 public final class RegexGuard {
@@ -214,19 +207,12 @@ public final class RegexGuard {
         }
     }
 
-    private static final AtomicLong THREAD_SEQ = new AtomicLong();
-
-    private static final ThreadFactory WATCHDOG_THREADS = runnable -> {
-        Thread t = new Thread(runnable, "aster-regex-watchdog-" + THREAD_SEQ.incrementAndGet());
-        t.setDaemon(true);
-        return t;
-    };
-
     /**
-     * 在看门狗超时内对 {@code input} 的非字符串部分执行 {@code pattern} 的全量替换。
+     * 在看门狗超时内对整个 {@code input} 执行 {@code pattern} 的全量替换。
      * <p>
-     * 输入被包装成可中断的 {@link CharSequence}：匹配运行在独立 daemon 线程上，
-     * 超时则中断该线程并抛错，避免灾难性回溯把编译线程挂死。
+     * ★超时不靠线程：输入被包装成带截止时间的 {@link CharSequence}，正则引擎的每一步
+     * 回溯都要经过 {@code charAt}，超过截止时间即抛错打断回溯。匹配就在调用线程上跑，
+     * 没有线程创建、任务提交与结果交接——逐词热路径上每词每条规则各调一次也不再付这笔开销。
      *
      * @param pattern     已编译正则
      * @param input       目标文本
@@ -236,32 +222,8 @@ public final class RegexGuard {
      * @throws RegexTimeoutException 超时
      */
     public static String replaceAllWithTimeout(Pattern pattern, String input, String replacement, long timeoutMs) {
-        ExecutorService executor = Executors.newSingleThreadExecutor(WATCHDOG_THREADS);
-        Future<String> future = executor.submit(() -> {
-            Matcher matcher = pattern.matcher(new InterruptibleCharSequence(input));
-            return matcher.replaceAll(replacement);
-        });
-        try {
-            return future.get(timeoutMs, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-            future.cancel(true);
-            throw new RegexTimeoutException(
-                "Lexicon regex exceeded " + timeoutMs + "ms (possible ReDoS): /" + pattern.pattern() + "/", e);
-        } catch (InterruptedException e) {
-            future.cancel(true);
-            Thread.currentThread().interrupt();
-            throw new RegexTimeoutException("Interrupted while running lexicon regex: /" + pattern.pattern() + "/", e);
-        } catch (ExecutionException e) {
-            var cause = e.getCause();
-            if (cause instanceof RuntimeException re) {
-                throw re;
-            }
-            throw new IllegalStateException("Lexicon regex failed: /" + pattern.pattern() + "/", cause);
-        } finally {
-            executor.shutdownNow();
-        }
+        return pattern.matcher(new DeadlineCharSequence(input, pattern, timeoutMs)).replaceAll(replacement);
     }
-
     /**
      * 便捷重载，使用 {@link #DEFAULT_TIMEOUT_MS}。
      */
@@ -270,10 +232,11 @@ public final class RegexGuard {
     }
 
     /**
-     * 在看门狗超时内创建一个可中断的 {@link Matcher}（用于只判定 {@code find()} 的场景）。
+     * 创建一个带 {@link #DEFAULT_TIMEOUT_MS} 截止时间的 {@link Matcher}（用于只判定 {@code find()} 的场景）。
+     * 超时后任一匹配操作抛出 {@link RegexTimeoutException}。
      */
     public static Matcher matcherFor(Pattern pattern, CharSequence input) {
-        return pattern.matcher(new InterruptibleCharSequence(input));
+        return pattern.matcher(new DeadlineCharSequence(input, pattern, DEFAULT_TIMEOUT_MS));
     }
 
     /** 超时抛出的运行期异常。 */
@@ -284,23 +247,40 @@ public final class RegexGuard {
     }
 
     /**
-     * 可被线程中断打断的 {@link CharSequence} 包装。
+     * 带截止时间的 {@link CharSequence} 包装。
      * <p>
-     * {@link Matcher} 在回溯过程中会频繁调用 {@link #charAt(int)}；当看门狗线程
-     * 取消任务（{@code interrupt()}）时，下一次 {@code charAt} 抛出
-     * {@link RuntimeException}，从而打破灾难性回溯循环。
+     * {@link Matcher} 在回溯过程中会频繁调用 {@link #charAt(int)}；每 {@link #CHECK_INTERVAL}
+     * 次访问核对一次时钟，超过截止时间即抛出 {@link RegexTimeoutException}，
+     * 从而在调用线程上直接打破灾难性回溯循环。
      */
-    private static final class InterruptibleCharSequence implements CharSequence {
-        private final CharSequence delegate;
+    private static final class DeadlineCharSequence implements CharSequence {
+        private static final int CHECK_INTERVAL = 4096;
 
-        InterruptibleCharSequence(CharSequence delegate) {
+        private final CharSequence delegate;
+        private final Pattern pattern;
+        private final long timeoutMs;
+        private final long deadlineNanos;
+        private int accessesSinceCheck;
+
+        DeadlineCharSequence(CharSequence delegate, Pattern pattern, long timeoutMs) {
+            this(delegate, pattern, timeoutMs, System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs));
+        }
+
+        private DeadlineCharSequence(CharSequence delegate, Pattern pattern, long timeoutMs, long deadlineNanos) {
             this.delegate = delegate;
+            this.pattern = pattern;
+            this.timeoutMs = timeoutMs;
+            this.deadlineNanos = deadlineNanos;
         }
 
         @Override
         public char charAt(int index) {
-            if (Thread.currentThread().isInterrupted()) {
-                throw new RuntimeException("regex matching interrupted (watchdog timeout)");
+            if (++accessesSinceCheck >= CHECK_INTERVAL) {
+                accessesSinceCheck = 0;
+                if (System.nanoTime() - deadlineNanos > 0) {
+                    throw new RegexTimeoutException(
+                        "Lexicon regex exceeded " + timeoutMs + "ms (possible ReDoS): /" + pattern.pattern() + "/", null);
+                }
             }
             return delegate.charAt(index);
         }
@@ -312,7 +292,7 @@ public final class RegexGuard {
 
         @Override
         public CharSequence subSequence(int start, int end) {
-            return new InterruptibleCharSequence(delegate.subSequence(start, end));
+            return new DeadlineCharSequence(delegate.subSequence(start, end), pattern, timeoutMs, deadlineNanos);
         }
 
         @Override
