@@ -82,7 +82,7 @@ Core IR (类型安全)
 ## 跨项目关系
 
 ```
-aster-lang-en/zh/de  (语言包，通过 SPI 插件机制加载)
+aster-lang-locales  (en/zh/de 语言包，通过 SPI 插件机制加载)
        |
        v
 aster-lang-core  <--- 本项目
@@ -92,7 +92,7 @@ aster-lang-core  <--- 本项目
        +---> aster-lang-ts       (TypeScript 移植版，对齐的解析器实现)
 ```
 
-语言包通过 `publishToMavenLocal` 发布后，core 在测试和导出任务中通过 SPI 自动发现并加载。
+语言包通过 `publishToMavenLocal` 发布后，core 在测试和导出任务中通过 SPI 自动发现并加载；`./gradlew hotPlugTest` 是语言包热插拔的验证入口。
 
 ## 依赖
 
