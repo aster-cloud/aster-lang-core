@@ -45,7 +45,8 @@ public final class ModuleGraphLinker {
       }
     }
 
-    return new LinkedProgram(merged, Map.copyOf(traceNames));
+    // 不用 Map.copyOf：它会丢掉上面刻意排好的插入顺序。
+    return new LinkedProgram(merged, Collections.unmodifiableMap(traceNames));
   }
 
   private Map<ModuleKey, Set<String>> collectTopLevelNames(Map<ModuleKey, CoreModel.Module> modules) {
@@ -119,13 +120,20 @@ public final class ModuleGraphLinker {
     }
   }
 
+  /**
+   * mangled 名 → 「模块名.原名」的回溯表，按模块名再按原名排序插入。
+   * <p>
+   * {@code renameMaps} 与其内层都是 {@link Map#copyOf} 的产物，迭代顺序随每次 JVM 启动的
+   * 盐值变化；不排序的话 traceNames 的顺序（进而任何按它生成的诊断/产物）逐次运行都不同。
+   */
   private Map<String, String> buildTraceNames(Map<ModuleKey, Map<String, String>> renameMaps) {
     var trace = new LinkedHashMap<String, String>();
-    for (var entry : renameMaps.entrySet()) {
-      for (var rename : entry.getValue().entrySet()) {
-        trace.put(rename.getValue(), entry.getKey().moduleName() + "." + rename.getKey());
-      }
-    }
+    var moduleOrder = Comparator.comparing(ModuleKey::moduleName).thenComparing(ModuleKey::mangle);
+    renameMaps.entrySet().stream()
+      .sorted(Map.Entry.comparingByKey(moduleOrder))
+      .forEach(entry -> entry.getValue().entrySet().stream()
+        .sorted(Map.Entry.comparingByKey())
+        .forEach(rename -> trace.put(rename.getValue(), entry.getKey().moduleName() + "." + rename.getKey())));
     return trace;
   }
 

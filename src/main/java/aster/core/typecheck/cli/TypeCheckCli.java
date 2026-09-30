@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -30,6 +31,9 @@ public final class TypeCheckCli {
     .setSerializationInclusion(JsonInclude.Include.NON_NULL)
     .enable(SerializationFeature.INDENT_OUTPUT)
     .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+  /** emit-core 单文件解析通常秒级完成；超时只为兜底 node 挂死，避免 CLI 永久等待。 */
+  private static final Duration EMIT_CORE_TIMEOUT = Duration.ofSeconds(60);
 
   public static void main(String[] args) {
     try {
@@ -100,29 +104,27 @@ public final class TypeCheckCli {
       throw new CliException("无法启动 Node 进程，请确认已安装 Node.js: " + ex.getMessage(), 1);
     }
 
-    byte[] stdout;
-    byte[] stderr;
-    try (var out = process.getInputStream(); var err = process.getErrorStream()) {
-      stdout = out.readAllBytes();
-      stderr = err.readAllBytes();
-    }
-
+    ProcessOutput output;
     try {
-      int exit = process.waitFor();
-      if (exit != 0) {
-        String errorText = new String(stderr, StandardCharsets.UTF_8).trim();
-        if (errorText.isEmpty()) {
-          errorText = "emit-core 返回非零退出码: " + exit;
-        }
-        throw new CliException(errorText, exit);
-      }
+      output = ProcessOutput.capture(process, EMIT_CORE_TIMEOUT);
+    } catch (IOException ex) {
+      throw new CliException("emit-core " + ex.getMessage(), 1);
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
+      process.destroyForcibly();
       throw new CliException("等待 emit-core 结果时被中断", 1);
     }
 
+    if (output.exitCode() != 0) {
+      String errorText = new String(output.stderr(), StandardCharsets.UTF_8).trim();
+      if (errorText.isEmpty()) {
+        errorText = "emit-core 返回非零退出码: " + output.exitCode();
+      }
+      throw new CliException(errorText, output.exitCode());
+    }
+
     try {
-      return MAPPER.readValue(stdout, CoreModel.Module.class);
+      return MAPPER.readValue(output.stdout(), CoreModel.Module.class);
     } catch (IOException ex) {
       throw new CliException("无法解析 emit-core 输出: " + ex.getMessage(), 1);
     }

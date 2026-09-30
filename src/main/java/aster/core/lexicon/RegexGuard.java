@@ -2,14 +2,7 @@ package aster.core.lexicon;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -24,9 +17,9 @@ import java.util.regex.PatternSyntaxException;
  *   <li><b>注册/校验期静态筛查</b> —— {@link #screen(String)} 拒绝超长正则以及明显的
  *       嵌套量词 ReDoS 形状（{@code (...+)+}、{@code (...*)*}、{@code (...+)*} 等）。
  *       这是一个保守的启发式：可能漏判某些刁钻的形状，但不会误伤常见的良性正则。</li>
- *   <li><b>匹配期超时</b> —— {@link #matcherFor(Pattern, CharSequence)} 把输入包装成可被
- *       中断的 {@link CharSequence}，{@link #replaceAllWithTimeout} 在独立线程上运行
- *       正则并设置看门狗超时（{@link #DEFAULT_TIMEOUT_MS}），超时即抛出清晰的 lexicon 错误。</li>
+ *   <li><b>匹配期超时</b> —— {@link #matcherFor(Pattern, CharSequence)} 与
+ *       {@link #replaceAllWithTimeout} 把输入包装成带截止时间的 {@link CharSequence}，
+ *       正则在调用线程上运行，超过看门狗超时（{@link #DEFAULT_TIMEOUT_MS}）即抛出清晰的 lexicon 错误。</li>
  * </ul>
  */
 public final class RegexGuard {
@@ -214,52 +207,132 @@ public final class RegexGuard {
         }
     }
 
-    private static final AtomicLong THREAD_SEQ = new AtomicLong();
-
-    private static final ThreadFactory WATCHDOG_THREADS = runnable -> {
-        Thread t = new Thread(runnable, "aster-regex-watchdog-" + THREAD_SEQ.incrementAndGet());
-        t.setDaemon(true);
-        return t;
-    };
+    /** 待替换的半开区间 {@code [start, end)}，用于跳过字符串字面量等不可改写区域。 */
+    public record Region(int start, int end) {}
 
     /**
-     * 在看门狗超时内对 {@code input} 的非字符串部分执行 {@code pattern} 的全量替换。
+     * 只在 {@code regions} 内查找并替换，区间之外的文本原样保留。
      * <p>
-     * 输入被包装成可中断的 {@link CharSequence}：匹配运行在独立 daemon 线程上，
-     * 超时则中断该线程并抛错，避免灾难性回溯把编译线程挂死。
+     * ★整个输入只建<b>一个</b> {@link Matcher}，逐区间 {@link Matcher#region}：
+     * 配合 {@code useAnchoringBounds(false)} 与 {@code useTransparentBounds(true)}，
+     * {@code ^}/{@code $}/{@code \b} 与 lookbehind 看到的是真实上下文，而不是每段
+     * 子串各自的"开头"——否则 {@code MULTILINE ^} 会在字符串字面量之后的行中触发。
+     * 区间必须升序且互不重叠。
      *
      * @param pattern     已编译正则
-     * @param input       目标文本
+     * @param input       完整输入
+     * @param regions     允许改写的区间
+     * @param replacement 替换串（{@link Matcher#appendReplacement} 模板语法）
+     * @return 替换后的文本
+     */
+    public static String replaceRegions(Pattern pattern, CharSequence input, List<Region> regions, String replacement) {
+        Matcher matcher = pattern.matcher(input)
+            .useAnchoringBounds(false)
+            .useTransparentBounds(true);
+        StringBuilder out = new StringBuilder(input.length());
+        int copied = 0;
+        for (Region region : regions) {
+            matcher.region(region.start(), region.end());
+            while (matcher.find()) {
+                out.append(input, copied, matcher.start());
+                appendExpandedReplacement(matcher, replacement, out);
+                copied = matcher.end();
+            }
+        }
+        out.append(input, copied, input.length());
+        return out.toString();
+    }
+
+    /**
+     * 按 {@link Matcher#appendReplacement} 的模板语法展开替换串
+     * （{@code $n}、{@code ${name}}、{@code \x} 转义）。
+     * <p>
+     * 不能直接用 {@code appendReplacement}：{@link Matcher#region} 会把它的追加游标重置为 0，
+     * 跨区间复用同一 Matcher 时前一区间的文本会被重复追加。
+     */
+    private static void appendExpandedReplacement(Matcher matcher, String replacement, StringBuilder out) {
+        int i = 0;
+        int n = replacement.length();
+        while (i < n) {
+            char c = replacement.charAt(i++);
+            if (c == '\\') {
+                if (i >= n) {
+                    throw new IllegalArgumentException("character to be escaped is missing");
+                }
+                out.append(replacement.charAt(i++));
+            } else if (c == '$') {
+                i = appendGroupReference(matcher, replacement, i, out);
+            } else {
+                out.append(c);
+            }
+        }
+    }
+
+    /** 解析 {@code $} 之后的组引用，返回引用结束后的下标。 */
+    private static int appendGroupReference(Matcher matcher, String replacement, int i, StringBuilder out) {
+        int n = replacement.length();
+        if (i >= n) {
+            throw new IllegalArgumentException("Illegal group reference: group index is missing");
+        }
+        String group;
+        if (replacement.charAt(i) == '{') {
+            int close = replacement.indexOf('}', i + 1);
+            if (close < 0) {
+                throw new IllegalArgumentException("named capturing group is missing trailing '}'");
+            }
+            group = matcher.group(replacement.substring(i + 1, close));
+            i = close + 1;
+        } else {
+            int refNum = replacement.charAt(i) - '0';
+            if (refNum < 0 || refNum > 9) {
+                throw new IllegalArgumentException("Illegal group reference");
+            }
+            i++;
+            // 与 JDK 一致：只要更长的数字仍是合法组号就继续吃，否则余下数字是字面量。
+            while (i < n) {
+                int digit = replacement.charAt(i) - '0';
+                if (digit < 0 || digit > 9 || refNum * 10 + digit > matcher.groupCount()) {
+                    break;
+                }
+                refNum = refNum * 10 + digit;
+                i++;
+            }
+            group = matcher.group(refNum);
+        }
+        if (group != null) {
+            out.append(group);
+        }
+        return i;
+    }
+
+    /**
+     * 在看门狗超时内对 {@code input} 的 {@code regions} 执行 {@code pattern} 的全量替换。
+     * <p>
+     * ★超时不靠线程：输入被包装成带截止时间的 {@link CharSequence}，正则引擎的每一步
+     * 回溯都要经过 {@code charAt}，超过截止时间即抛错打断回溯。匹配就在调用线程上跑，
+     * 没有线程创建、任务提交与结果交接——逐词热路径上每词每条规则各调一次也不再付这笔开销。
+     *
+     * @param pattern     已编译正则
+     * @param input       完整输入
+     * @param regions     允许改写的区间
      * @param replacement 替换串
      * @param timeoutMs   超时毫秒数
      * @return 替换后的文本
      * @throws RegexTimeoutException 超时
      */
+    public static String replaceRegionsWithTimeout(
+        Pattern pattern, String input, List<Region> regions, String replacement, long timeoutMs
+    ) {
+        return replaceRegions(pattern, new DeadlineCharSequence(input, pattern, timeoutMs), regions, replacement);
+    }
+
+    /**
+     * 在看门狗超时内对整个 {@code input} 执行 {@code pattern} 的全量替换。
+     *
+     * @throws RegexTimeoutException 超时
+     */
     public static String replaceAllWithTimeout(Pattern pattern, String input, String replacement, long timeoutMs) {
-        ExecutorService executor = Executors.newSingleThreadExecutor(WATCHDOG_THREADS);
-        Future<String> future = executor.submit(() -> {
-            Matcher matcher = pattern.matcher(new InterruptibleCharSequence(input));
-            return matcher.replaceAll(replacement);
-        });
-        try {
-            return future.get(timeoutMs, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-            future.cancel(true);
-            throw new RegexTimeoutException(
-                "Lexicon regex exceeded " + timeoutMs + "ms (possible ReDoS): /" + pattern.pattern() + "/", e);
-        } catch (InterruptedException e) {
-            future.cancel(true);
-            Thread.currentThread().interrupt();
-            throw new RegexTimeoutException("Interrupted while running lexicon regex: /" + pattern.pattern() + "/", e);
-        } catch (ExecutionException e) {
-            var cause = e.getCause();
-            if (cause instanceof RuntimeException re) {
-                throw re;
-            }
-            throw new IllegalStateException("Lexicon regex failed: /" + pattern.pattern() + "/", cause);
-        } finally {
-            executor.shutdownNow();
-        }
+        return replaceRegionsWithTimeout(pattern, input, List.of(new Region(0, input.length())), replacement, timeoutMs);
     }
 
     /**
@@ -270,10 +343,11 @@ public final class RegexGuard {
     }
 
     /**
-     * 在看门狗超时内创建一个可中断的 {@link Matcher}（用于只判定 {@code find()} 的场景）。
+     * 创建一个带 {@link #DEFAULT_TIMEOUT_MS} 截止时间的 {@link Matcher}（用于只判定 {@code find()} 的场景）。
+     * 超时后任一匹配操作抛出 {@link RegexTimeoutException}。
      */
     public static Matcher matcherFor(Pattern pattern, CharSequence input) {
-        return pattern.matcher(new InterruptibleCharSequence(input));
+        return pattern.matcher(new DeadlineCharSequence(input, pattern, DEFAULT_TIMEOUT_MS));
     }
 
     /** 超时抛出的运行期异常。 */
@@ -284,23 +358,40 @@ public final class RegexGuard {
     }
 
     /**
-     * 可被线程中断打断的 {@link CharSequence} 包装。
+     * 带截止时间的 {@link CharSequence} 包装。
      * <p>
-     * {@link Matcher} 在回溯过程中会频繁调用 {@link #charAt(int)}；当看门狗线程
-     * 取消任务（{@code interrupt()}）时，下一次 {@code charAt} 抛出
-     * {@link RuntimeException}，从而打破灾难性回溯循环。
+     * {@link Matcher} 在回溯过程中会频繁调用 {@link #charAt(int)}；每 {@link #CHECK_INTERVAL}
+     * 次访问核对一次时钟，超过截止时间即抛出 {@link RegexTimeoutException}，
+     * 从而在调用线程上直接打破灾难性回溯循环。
      */
-    private static final class InterruptibleCharSequence implements CharSequence {
-        private final CharSequence delegate;
+    private static final class DeadlineCharSequence implements CharSequence {
+        private static final int CHECK_INTERVAL = 4096;
 
-        InterruptibleCharSequence(CharSequence delegate) {
+        private final CharSequence delegate;
+        private final Pattern pattern;
+        private final long timeoutMs;
+        private final long deadlineNanos;
+        private int accessesSinceCheck;
+
+        DeadlineCharSequence(CharSequence delegate, Pattern pattern, long timeoutMs) {
+            this(delegate, pattern, timeoutMs, System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs));
+        }
+
+        private DeadlineCharSequence(CharSequence delegate, Pattern pattern, long timeoutMs, long deadlineNanos) {
             this.delegate = delegate;
+            this.pattern = pattern;
+            this.timeoutMs = timeoutMs;
+            this.deadlineNanos = deadlineNanos;
         }
 
         @Override
         public char charAt(int index) {
-            if (Thread.currentThread().isInterrupted()) {
-                throw new RuntimeException("regex matching interrupted (watchdog timeout)");
+            if (++accessesSinceCheck >= CHECK_INTERVAL) {
+                accessesSinceCheck = 0;
+                if (System.nanoTime() - deadlineNanos > 0) {
+                    throw new RegexTimeoutException(
+                        "Lexicon regex exceeded " + timeoutMs + "ms (possible ReDoS): /" + pattern.pattern() + "/", null);
+                }
             }
             return delegate.charAt(index);
         }
@@ -312,7 +403,7 @@ public final class RegexGuard {
 
         @Override
         public CharSequence subSequence(int start, int end) {
-            return new InterruptibleCharSequence(delegate.subSequence(start, end));
+            return new DeadlineCharSequence(delegate.subSequence(start, end), pattern, timeoutMs, deadlineNanos);
         }
 
         @Override

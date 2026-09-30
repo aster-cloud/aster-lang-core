@@ -116,9 +116,43 @@ class TypeCheckerEdgeCaseTest {
     var module = new CoreModel.Module();
     module.decls = List.of(func);
 
-    assertThrows(SymbolTable.DuplicateSymbolError.class, () -> {
-      checker.typecheckModule(module);
-    });
+    // ★形参重名同样必须降级为诊断（issue #183）：原断言 assertThrows 把
+    //   「异常穿透公开 API」这一缺陷锁死；typecheckModule 的契约是返回诊断列表。
+    var diagnostics = assertDoesNotThrow(() -> checker.typecheckModule(module),
+      "重复形参必须返回诊断，不得让 DuplicateSymbolError 穿透返回契约");
+    assertTrue(diagnostics.stream().anyMatch(d -> d.code() == ErrorCode.DUPLICATE_SYMBOL),
+      "应报 DUPLICATE_SYMBOL；实际：" + diagnostics.stream().map(d -> d.code().name()).toList());
+  }
+
+  @Test
+  void testDuplicateParameterDoesNotPolluteScopeForLaterFunctions() {
+    // func bad(x: Int, x: String): Int { return 42 }
+    // func good(y: Int): Int { return y }   // 作用域栈若未回退，y 会在错误层级定义
+    var bad = new CoreModel.Func();
+    bad.name = "bad";
+    bad.params = List.of(createParam("x", createTypeName("Int")), createParam("x", createTypeName("String")));
+    bad.ret = createTypeName("Int");
+    bad.effects = List.of();
+    var badBody = new CoreModel.Block();
+    badBody.statements = List.of(createReturnStmt(createIntLiteral(42)));
+    bad.body = badBody;
+
+    var good = new CoreModel.Func();
+    good.name = "good";
+    good.params = List.of(createParam("y", createTypeName("Int")));
+    good.ret = createTypeName("Int");
+    good.effects = List.of();
+    var goodBody = new CoreModel.Block();
+    goodBody.statements = List.of(createReturnStmt(createIntLiteral(1)));
+    good.body = goodBody;
+
+    var module = new CoreModel.Module();
+    module.decls = List.of(bad, good);
+
+    var diagnostics = assertDoesNotThrow(() -> checker.typecheckModule(module));
+    var codes = diagnostics.stream().map(d -> d.code()).toList();
+    assertEquals(List.of(ErrorCode.DUPLICATE_SYMBOL), codes,
+      "只应有一条形参重名诊断，后续函数不得受作用域污染而产生假诊断；实际：" + codes);
   }
 
   // ========== 效果系统边界测试 ==========
