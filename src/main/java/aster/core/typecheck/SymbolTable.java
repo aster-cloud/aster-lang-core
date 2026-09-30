@@ -6,7 +6,6 @@ import aster.core.ir.CoreModel.Type;
 import aster.core.typecheck.model.SymbolInfo;
 import aster.core.typecheck.model.SymbolInfo.SymbolKind;
 
-import java.io.Serial;
 import java.util.*;
 import java.util.function.BiConsumer;
 
@@ -42,26 +41,6 @@ public final class SymbolTable {
     LAMBDA
   }
 
-  // ========== 异常定义 ==========
-
-  /**
-   * 重复符号定义异常
-   */
-  public static final class DuplicateSymbolError extends RuntimeException {
-    @Serial
-    private static final long serialVersionUID = 1L;
-    private final transient SymbolInfo symbol;
-
-    public DuplicateSymbolError(SymbolInfo symbol) {
-      super("Duplicate symbol '" + symbol.name() + "' declared in the same scope");
-      this.symbol = symbol;
-    }
-
-    public SymbolInfo getSymbol() {
-      return symbol;
-    }
-  }
-
   // ========== 内部类：作用域 ==========
 
   /**
@@ -83,13 +62,10 @@ public final class SymbolTable {
     /**
      * 在当前作用域定义符号
      *
-     * @throws DuplicateSymbolError 如果符号已存在
+     * @return true 表示定义成功；false 表示同名符号已存在（原符号保持不变）
      */
-    void define(SymbolInfo symbol) {
-      if (symbols.containsKey(symbol.name())) {
-        throw new DuplicateSymbolError(symbol);
-      }
-      symbols.put(symbol.name(), symbol);
+    boolean define(SymbolInfo symbol) {
+      return symbols.putIfAbsent(symbol.name(), symbol) == null;
     }
 
     /**
@@ -281,15 +257,19 @@ public final class SymbolTable {
   // ========== 符号管理 ==========
 
   /**
-   * 在当前作用域定义符号
+   * 在当前作用域定义符号；当前作用域已有同名符号时不抛异常，返回 false。
+   *
+   * <p>类型检查器面对的重名（同名 Let、形参后再 Let、Lambda 形参重名、模式绑定重名）
+   * 都是普通用户输入，应转成诊断而不是异常；调用方据返回值决定是否报 E104。
+   * 重名检查只在 {@link Scope#define} 的 putIfAbsent 中做一次。
    *
    * @param name    符号名称
    * @param type    符号类型
    * @param kind    符号种类
    * @param options 定义选项
-   * @throws DuplicateSymbolError 如果符号已存在于当前作用域
+   * @return true 表示定义成功；false 表示当前作用域已存在同名符号（未做任何修改，不触发遮蔽回调）
    */
-  public void define(String name, Type type, SymbolKind kind, DefineOptions options) {
+  public boolean define(String name, Type type, SymbolKind kind, DefineOptions options) {
     // 查找被遮蔽的符号
     var shadowed = current.findShadowed(name);
 
@@ -305,28 +285,14 @@ public final class SymbolTable {
       options.declaredEffect() // 传递声明的效果
     );
 
-    // 定义符号（可能抛出 DuplicateSymbolError）
-    current.define(symbol);
+    if (!current.define(symbol)) {
+      return false;
+    }
 
     // 触发遮蔽回调
     if (shadowed.isPresent() && options.onShadow().isPresent()) {
       options.onShadow().get().accept(symbol, shadowed.get());
     }
-  }
-
-  /**
-   * 在当前作用域定义符号；当前作用域已有同名符号时不抛异常，返回 false。
-   *
-   * <p>类型检查器面对的重名（同名 Let、形参后再 Let、Lambda 形参重名、模式绑定重名）
-   * 都是普通用户输入，应转成诊断而不是异常；调用方据返回值决定是否报 E104。
-   *
-   * @return true 表示定义成功；false 表示当前作用域已存在同名符号（未做任何修改）
-   */
-  public boolean tryDefine(String name, Type type, SymbolKind kind, DefineOptions options) {
-    if (current.lookupLocal(name).isPresent()) {
-      return false;
-    }
-    define(name, type, kind, options);
     return true;
   }
 

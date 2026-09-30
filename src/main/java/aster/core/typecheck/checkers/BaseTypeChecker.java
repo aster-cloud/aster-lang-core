@@ -49,11 +49,12 @@ public final class BaseTypeChecker {
    *
    * <p>★{@code typecheckModule} 的公开契约是返回诊断列表。重名（同名函数/Data/Enum、
    * 形参重名、形参后再 Let、同名 Let、Lambda 形参重名、{@code Ctor(x, x)} 模式绑定）
-   * 都是最普通的用户输入，让 {@link SymbolTable.DuplicateSymbolError} 穿透会把整个模块
+   * 都是最普通的用户输入，若以异常形式穿透会把整个模块
    * 的其它诊断一并吞掉，CLI 端只剩一段 Java 栈。所有符号定义站点必须统一走这里，
    * 与 TS 侧 {@code defineSymbol} 报 DUPLICATE_SYMBOL 后跳过定义的行为对齐。
    *
-   * <p>ErrorCode.DUPLICATE_SYMBOL(E104) 本就用 {name} 占位符渲染，此处直接复用。
+   * <p>ErrorCode.DUPLICATE_SYMBOL(E104) 本就用 {name} 占位符渲染，此处直接复用；
+   * 诊断位置取 {@code options.span()}，与符号自身记录的位置一致。
    *
    * @return true 表示定义成功；false 表示重名（已记录诊断，符号表未改动）
    */
@@ -61,15 +62,14 @@ public final class BaseTypeChecker {
     String name,
     Type type,
     SymbolInfo.SymbolKind kind,
-    SymbolTable.DefineOptions options,
-    Origin origin
+    SymbolTable.DefineOptions options
   ) {
-    if (symbolTable.tryDefine(name, type, kind, options)) {
+    if (symbolTable.define(name, type, kind, options)) {
       return true;
     }
     diagnostics.error(
       ErrorCode.DUPLICATE_SYMBOL,
-      Optional.ofNullable(origin),
+      options.span(),
       Map.of("name", name)
     );
     return false;
@@ -226,8 +226,7 @@ public final class BaseTypeChecker {
           let.name,
           exprType,
           SymbolInfo.SymbolKind.VARIABLE,
-          SymbolTable.DefineOptions.immutable(let.origin),
-          let.origin
+          SymbolTable.DefineOptions.immutable(let.origin)
         );
         yield Optional.empty();
       }
@@ -474,8 +473,7 @@ public final class BaseTypeChecker {
           param.name,
           param.type,
           SymbolInfo.SymbolKind.PARAMETER,
-          SymbolTable.DefineOptions.immutable(lambda.origin),
-          lambda.origin
+          SymbolTable.DefineOptions.immutable(lambda.origin)
         );
       }
 
@@ -683,8 +681,7 @@ public final class BaseTypeChecker {
           name.name,
           scrutineeType,
           SymbolInfo.SymbolKind.VARIABLE,
-          SymbolTable.DefineOptions.immutable(origin),
-          origin
+          SymbolTable.DefineOptions.immutable(origin)
         );
       }
       return;
@@ -703,8 +700,7 @@ public final class BaseTypeChecker {
               bound,
               TypeSystem.unknown(),
               SymbolInfo.SymbolKind.VARIABLE,
-              SymbolTable.DefineOptions.immutable(origin),
-              origin
+              SymbolTable.DefineOptions.immutable(origin)
             );
           }
         }

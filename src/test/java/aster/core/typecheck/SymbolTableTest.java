@@ -166,11 +166,12 @@ class SymbolTableTest {
     symbolTable.define("x", createTypeName("Int"), SymbolInfo.SymbolKind.VARIABLE,
       new SymbolTable.DefineOptions(false, Optional.empty(), false, Optional.empty(), Optional.empty()));
 
-    // 在同一作用域中定义相同名称的符号应该抛出异常
-    assertThrows(SymbolTable.DuplicateSymbolError.class, () -> {
-      symbolTable.define("x", createTypeName("String"), SymbolInfo.SymbolKind.VARIABLE,
-        new SymbolTable.DefineOptions(false, Optional.empty(), false, Optional.empty(), Optional.empty()));
-    });
+    // 在同一作用域中定义相同名称的符号应返回 false，且原符号保持不变
+    assertFalse(symbolTable.define("x", createTypeName("String"), SymbolInfo.SymbolKind.VARIABLE,
+      new SymbolTable.DefineOptions(false, Optional.empty(), false, Optional.empty(), Optional.empty())));
+    var kept = symbolTable.lookupInCurrentScope("x");
+    assertTrue(kept.isPresent());
+    assertEquals("Int", ((CoreModel.TypeName) kept.get().type()).name);
   }
 
   // ========== 类型别名测试 ==========

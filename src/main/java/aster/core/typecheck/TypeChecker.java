@@ -194,8 +194,7 @@ public final class TypeChecker {
       data.name,
       typeName,
       SymbolInfo.SymbolKind.DATA_TYPE,
-      new SymbolTable.DefineOptions(false, Optional.ofNullable(data.origin), false, Optional.empty(), Optional.empty()),
-      data.origin
+      new SymbolTable.DefineOptions(false, Optional.ofNullable(data.origin), false, Optional.empty(), Optional.empty())
     );
   }
 
@@ -211,8 +210,7 @@ public final class TypeChecker {
       enumDecl.name,
       typeName,
       SymbolInfo.SymbolKind.DATA_TYPE,
-      new SymbolTable.DefineOptions(false, Optional.ofNullable(enumDecl.origin), false, Optional.empty(), Optional.empty()),
-      enumDecl.origin
+      new SymbolTable.DefineOptions(false, Optional.ofNullable(enumDecl.origin), false, Optional.empty(), Optional.empty())
     );
   }
 
@@ -270,8 +268,7 @@ public final class TypeChecker {
       func.name,
       funcType,
       SymbolInfo.SymbolKind.FUNCTION,
-      new SymbolTable.DefineOptions(false, Optional.ofNullable(func.origin), false, Optional.empty(), declaredEffect),
-      func.origin
+      new SymbolTable.DefineOptions(false, Optional.ofNullable(func.origin), false, Optional.empty(), declaredEffect)
     );
   }
 
@@ -293,8 +290,7 @@ public final class TypeChecker {
           param.name,
           param.type,
           SymbolInfo.SymbolKind.PARAMETER,
-          new SymbolTable.DefineOptions(false, Optional.ofNullable(func.origin), false, Optional.empty(), Optional.empty()),
-          func.origin
+          new SymbolTable.DefineOptions(false, Optional.ofNullable(func.origin), false, Optional.empty(), Optional.empty())
         );
       }
       checkFunctionBody(func, ctx);
