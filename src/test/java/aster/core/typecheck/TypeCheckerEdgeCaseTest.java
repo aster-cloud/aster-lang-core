@@ -1,6 +1,7 @@
 package aster.core.typecheck;
 
 import aster.core.ir.CoreModel;
+import aster.core.typecheck.model.Diagnostic;
 import aster.core.typecheck.model.SymbolInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -301,10 +302,142 @@ class TypeCheckerEdgeCaseTest {
     var module = new CoreModel.Module();
     module.decls = List.of(func);
 
-    // 当前实现：参数和 Let 都在函数作用域，重复定义会抛出异常
-    assertThrows(SymbolTable.DuplicateSymbolError.class, () -> {
-      checker.typecheckModule(module);
-    }, "Duplicate symbol in same scope should throw DuplicateSymbolError");
+    // ★改为断言**诊断**而非异常（issue #194）。
+    //   原断言与 #183 修复前 testDuplicateParameterInFunction 的反模式一模一样：
+    //   把「形参后再 Let」这种最普通的用户输入锁死成编译器崩溃。
+    assertDuplicateSymbolDiagnostic(module, "参数与 Let 同名");
+  }
+
+  @Test
+  void testDuplicateLetInSameScope() {
+    // func test(): Int {
+    //   let x = 1
+    //   let x = 2   // Error: duplicate symbol in same scope
+    //   return x
+    // }
+    var let1 = new CoreModel.Let();
+    let1.name = "x";
+    let1.expr = createIntLiteral(1);
+    let1.origin = createOrigin();
+
+    var let2 = new CoreModel.Let();
+    let2.name = "x";
+    let2.expr = createIntLiteral(2);
+    let2.origin = createOrigin();
+
+    var func = new CoreModel.Func();
+    func.name = "test";
+    func.params = List.of();
+    func.ret = createTypeName("Int");
+    func.effects = List.of();
+
+    var body = new CoreModel.Block();
+    body.statements = List.of(let1, let2, createReturnStmt(createNameExpr("x")));
+    func.body = body;
+
+    var module = new CoreModel.Module();
+    module.decls = List.of(func);
+
+    var diagnostics = assertDuplicateSymbolDiagnostic(module, "同名 Let");
+    // 第一个 x 仍在作用域里，Return x 不得级联报 UNDEFINED_VARIABLE
+    assertFalse(diagnostics.stream().anyMatch(d -> d.code() == ErrorCode.UNDEFINED_VARIABLE),
+      "重名 Let 后首个定义应保留，不得级联 UNDEFINED_VARIABLE；实际：" + codesOf(diagnostics));
+  }
+
+  @Test
+  void testDuplicateLambdaParams() {
+    // func test(): Int {
+    //   let f = (y: Int, y: Int): Int => y   // Error: duplicate lambda param
+    //   return 42
+    // }
+    var lambda = new CoreModel.Lambda();
+    lambda.params = List.of(createParam("y", createTypeName("Int")), createParam("y", createTypeName("Int")));
+    lambda.ret = createTypeName("Int");
+    lambda.origin = createOrigin();
+    var lambdaBody = new CoreModel.Block();
+    lambdaBody.statements = List.of(createReturnStmt(createNameExpr("y")));
+    lambda.body = lambdaBody;
+
+    var letF = new CoreModel.Let();
+    letF.name = "f";
+    letF.expr = lambda;
+    letF.origin = createOrigin();
+
+    // Lambda 之后再定义一个变量：若 LAMBDA 作用域没有正确退出，
+    // 这个 Let 会落进 Lambda 作用域，暴露作用域栈失衡。
+    var letAfter = new CoreModel.Let();
+    letAfter.name = "y";
+    letAfter.expr = createIntLiteral(1);
+    letAfter.origin = createOrigin();
+
+    var func = new CoreModel.Func();
+    func.name = "test";
+    func.params = List.of();
+    func.ret = createTypeName("Int");
+    func.effects = List.of();
+
+    var body = new CoreModel.Block();
+    body.statements = List.of(letF, letAfter, createReturnStmt(createIntLiteral(42)));
+    func.body = body;
+
+    var module = new CoreModel.Module();
+    module.decls = List.of(func);
+
+    var diagnostics = assertDuplicateSymbolDiagnostic(module, "Lambda 形参重名");
+    assertEquals(1, diagnostics.stream().filter(d -> d.code() == ErrorCode.DUPLICATE_SYMBOL).count(),
+      "只有 Lambda 形参重名一处应报 DUPLICATE_SYMBOL，外层 `let y` 属函数作用域不重名；实际：" + codesOf(diagnostics));
+  }
+
+  @Test
+  void testDuplicatePatternBinding() {
+    // func test(p: Pair): Int {
+    //   match p { case Pair(x, x) -> return 1 }   // Error: duplicate binding x
+    // }
+    var pattern = new CoreModel.PatCtor();
+    pattern.typeName = "Pair";
+    pattern.names = List.of("x", "x");
+    pattern.args = List.of();
+    pattern.origin = createOrigin();
+
+    var kase = new CoreModel.Case();
+    kase.pattern = pattern;
+    kase.body = createReturnStmt(createIntLiteral(1));
+    kase.origin = createOrigin();
+
+    var match = new CoreModel.Match();
+    match.expr = createNameExpr("p");
+    match.cases = List.of(kase);
+    match.origin = createOrigin();
+
+    var func = new CoreModel.Func();
+    func.name = "test";
+    func.params = List.of(createParam("p", createTypeName("Pair")));
+    func.ret = createTypeName("Int");
+    func.effects = List.of();
+
+    var body = new CoreModel.Block();
+    body.statements = List.of(match);
+    func.body = body;
+
+    var module = new CoreModel.Module();
+    module.decls = List.of(func);
+
+    assertDuplicateSymbolDiagnostic(module, "模式绑定 Ctor(x, x)");
+  }
+
+  /** 重名属普通用户输入：必须返回 DUPLICATE_SYMBOL 诊断，不得让 DuplicateSymbolError 穿透。 */
+  private List<Diagnostic> assertDuplicateSymbolDiagnostic(
+    CoreModel.Module module, String scenario
+  ) {
+    var diagnostics = assertDoesNotThrow(() -> checker.typecheckModule(module),
+      scenario + "：必须返回诊断，不得让 DuplicateSymbolError 穿透 typecheckModule");
+    assertTrue(diagnostics.stream().anyMatch(d -> d.code() == ErrorCode.DUPLICATE_SYMBOL),
+      scenario + "：应报 DUPLICATE_SYMBOL；实际：" + codesOf(diagnostics));
+    return diagnostics;
+  }
+
+  private static List<String> codesOf(List<Diagnostic> diagnostics) {
+    return diagnostics.stream().map(d -> d.code().name()).toList();
   }
 
   @Test

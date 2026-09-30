@@ -42,6 +42,39 @@ public final class BaseTypeChecker {
     this.genericChecker = genericChecker;
   }
 
+  // ========== 符号定义 ==========
+
+  /**
+   * 在当前作用域定义符号；重名时报 E104 DUPLICATE_SYMBOL 并继续，绝不抛异常。
+   *
+   * <p>★{@code typecheckModule} 的公开契约是返回诊断列表。重名（同名函数/Data/Enum、
+   * 形参重名、形参后再 Let、同名 Let、Lambda 形参重名、{@code Ctor(x, x)} 模式绑定）
+   * 都是最普通的用户输入，让 {@link SymbolTable.DuplicateSymbolError} 穿透会把整个模块
+   * 的其它诊断一并吞掉，CLI 端只剩一段 Java 栈。所有符号定义站点必须统一走这里，
+   * 与 TS 侧 {@code defineSymbol} 报 DUPLICATE_SYMBOL 后跳过定义的行为对齐。
+   *
+   * <p>ErrorCode.DUPLICATE_SYMBOL(E104) 本就用 {name} 占位符渲染，此处直接复用。
+   *
+   * @return true 表示定义成功；false 表示重名（已记录诊断，符号表未改动）
+   */
+  public boolean defineOrReportDuplicate(
+    String name,
+    Type type,
+    SymbolInfo.SymbolKind kind,
+    SymbolTable.DefineOptions options,
+    Origin origin
+  ) {
+    if (symbolTable.tryDefine(name, type, kind, options)) {
+      return true;
+    }
+    diagnostics.error(
+      ErrorCode.DUPLICATE_SYMBOL,
+      Optional.ofNullable(origin),
+      Map.of("name", name)
+    );
+    return false;
+  }
+
   // ========== 核心方法：表达式类型推断 ==========
 
   /**
@@ -189,12 +222,12 @@ public final class BaseTypeChecker {
     return switch (stmt) {
       case CoreModel.Let let -> {
         var exprType = typeOfExpr(let.expr, ctx);
-        // 定义符号
-        symbolTable.define(
+        defineOrReportDuplicate(
           let.name,
           exprType,
           SymbolInfo.SymbolKind.VARIABLE,
-          SymbolTable.DefineOptions.immutable(let.origin)
+          SymbolTable.DefineOptions.immutable(let.origin),
+          let.origin
         );
         yield Optional.empty();
       }
@@ -227,13 +260,17 @@ public final class BaseTypeChecker {
       case CoreModel.Scope scope -> {
         symbolTable.enterScope(SymbolTable.ScopeType.BLOCK);
         var result = Optional.<Type>empty();
-        for (var s : scope.statements) {
-          var stmtType = checkStatement(s, ctx);
-          if (stmtType.isPresent()) {
-            result = stmtType;
+        try {
+          for (var s : scope.statements) {
+            var stmtType = checkStatement(s, ctx);
+            if (stmtType.isPresent()) {
+              result = stmtType;
+            }
           }
+        } finally {
+          // 块体检查抛异常也不能把作用域留在栈上，否则后续检查都在错误的作用域里进行
+          symbolTable.exitScope();
         }
-        symbolTable.exitScope();
         yield result;
       }
 
@@ -429,38 +466,40 @@ public final class BaseTypeChecker {
    */
   private Type checkLambda(CoreModel.Lambda lambda, VisitorContext ctx) {
     symbolTable.enterScope(SymbolTable.ScopeType.LAMBDA);
-
-    // 定义参数符号
-    for (var param : lambda.params) {
-      symbolTable.define(
-        param.name,
-        param.type,
-        SymbolInfo.SymbolKind.PARAMETER,
-        SymbolTable.DefineOptions.immutable(lambda.origin)
-      );
-    }
-
-    // 检查函数体
-    var bodyType = checkBlock(lambda.body, ctx);
-
-    // 【关键修复】验证返回类型前先展开别名
-    if (bodyType.isPresent()) {
-      var expandedBodyType = expandType(bodyType.get());
-      var expandedDeclaredType = expandType(lambda.ret);
-      
-      if (!TypeSystem.equals(expandedBodyType, expandedDeclaredType, false)) {
-        diagnostics.error(
-          ErrorCode.RETURN_TYPE_MISMATCH,
-          Optional.ofNullable(lambda.origin),
-          Map.of(
-            "expected", TypeSystem.format(lambda.ret),
-            "actual", TypeSystem.format(bodyType.get())
-          )
+    // finally 退出作用域：与 checkFunction 一致，形参重名或函数体检查抛异常
+    // 都不能把 LAMBDA 作用域留在栈上，否则外层后续语句全在错误作用域里检查。
+    try {
+      for (var param : lambda.params) {
+        defineOrReportDuplicate(
+          param.name,
+          param.type,
+          SymbolInfo.SymbolKind.PARAMETER,
+          SymbolTable.DefineOptions.immutable(lambda.origin),
+          lambda.origin
         );
       }
-    }
 
-    symbolTable.exitScope();
+      var bodyType = checkBlock(lambda.body, ctx);
+
+      // 验证返回类型前先展开别名
+      if (bodyType.isPresent()) {
+        var expandedBodyType = expandType(bodyType.get());
+        var expandedDeclaredType = expandType(lambda.ret);
+
+        if (!TypeSystem.equals(expandedBodyType, expandedDeclaredType, false)) {
+          diagnostics.error(
+            ErrorCode.RETURN_TYPE_MISMATCH,
+            Optional.ofNullable(lambda.origin),
+            Map.of(
+              "expected", TypeSystem.format(lambda.ret),
+              "actual", TypeSystem.format(bodyType.get())
+            )
+          );
+        }
+      }
+    } finally {
+      symbolTable.exitScope();
+    }
 
     // 返回函数类型
     var funcType = new CoreModel.FuncType();
@@ -640,11 +679,12 @@ public final class BaseTypeChecker {
       if (name.name != null) {
         // ★整个被匹配值原样绑定到该名字，故其类型**就是**被匹配表达式的类型。
         //   这个类型此前被算出来后直接丢弃（`var exprType = ...` 从未被使用）。
-        symbolTable.define(
+        defineOrReportDuplicate(
           name.name,
           scrutineeType,
           SymbolInfo.SymbolKind.VARIABLE,
-          SymbolTable.DefineOptions.immutable(origin)
+          SymbolTable.DefineOptions.immutable(origin),
+          origin
         );
       }
       return;
@@ -659,11 +699,12 @@ public final class BaseTypeChecker {
       if (ctor.names != null) {
         for (String bound : ctor.names) {          // 遗留的位置绑定字段
           if (bound != null) {
-            symbolTable.define(
+            defineOrReportDuplicate(
               bound,
               TypeSystem.unknown(),
               SymbolInfo.SymbolKind.VARIABLE,
-              SymbolTable.DefineOptions.immutable(origin)
+              SymbolTable.DefineOptions.immutable(origin),
+              origin
             );
           }
         }

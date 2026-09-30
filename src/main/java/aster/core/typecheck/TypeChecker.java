@@ -127,7 +127,7 @@ public final class TypeChecker {
       if (module.decls != null) {
         for (var decl : module.decls) {
           if (decl instanceof CoreModel.Func func) {
-            defineOrReportDuplicate(func.name, func.origin, () -> defineFunctionSignature(func));
+            defineFunctionSignature(func);
           }
         }
       }
@@ -169,10 +169,8 @@ public final class TypeChecker {
     if (module == null || module.decls == null) return;
     for (var decl : module.decls) {
       switch (decl) {
-        case CoreModel.Data data ->
-          defineOrReportDuplicate(data.name, data.origin, () -> defineDataType(data));
-        case CoreModel.Enum enumDecl ->
-          defineOrReportDuplicate(enumDecl.name, enumDecl.origin, () -> defineEnumType(enumDecl));
+        case CoreModel.Data data -> defineDataType(data);
+        case CoreModel.Enum enumDecl -> defineEnumType(enumDecl);
         default -> {
           // Func 和 Import 在第二遍处理
         }
@@ -181,46 +179,23 @@ public final class TypeChecker {
   }
 
   /**
-   * 定义数据类型（product type）
+   * 定义数据类型（product type）。
+   *
+   * <p>模块作用域重名（同名函数、同名 Data、函数与 Data 同名）与所有其它符号定义
+   * 一样走 {@link BaseTypeChecker#defineOrReportDuplicate} 报 E104 后继续（issue #139），
+   * 一个重名不该让整个模块的其它错误都看不见。
    */
-  /**
-   * 把「模块作用域重复声明」从**抛异常**降级为诊断（issue #139）。
-   *
-   * <p>★此前 SymbolTable.define 的 DuplicateSymbolError 会直接穿透 typecheckModule
-   * 的返回契约——同一模块内写两个同名函数，用户得到的是**编译器崩溃**而不是一条
-   * 可展示的错误。实测三种形态全部抛出：同名函数、同名 Data、函数与 Data 同名。
-   *
-   * <p>ErrorCode.DUPLICATE_SYMBOL(E104) 早已定义好（且是少数本就用 {name} 命名
-   * 占位符、渲染正常的码之一），只是从来没有 emit 站点——与 E020 此前的处境相同。
-   *
-   * <p>降级后继续检查其余声明：一个重名不该让整个模块的其它错误都看不见。
-   *
-   * @return true 表示定义成功；false 表示重名（已记录诊断）
-   */
-  private boolean defineOrReportDuplicate(String name, CoreModel.Origin origin, Runnable define) {
-    try {
-      define.run();
-      return true;
-    } catch (SymbolTable.DuplicateSymbolError dup) {
-      diagnostics.error(
-        ErrorCode.DUPLICATE_SYMBOL,
-        Optional.ofNullable(origin),
-        Map.of("name", name)
-      );
-      return false;
-    }
-  }
-
   private void defineDataType(CoreModel.Data data) {
     var typeName = new CoreModel.TypeName();
     typeName.name = data.name;
     typeName.origin = data.origin;
 
-    symbolTable.define(
+    baseChecker.defineOrReportDuplicate(
       data.name,
       typeName,
       SymbolInfo.SymbolKind.DATA_TYPE,
-      new SymbolTable.DefineOptions(false, Optional.ofNullable(data.origin), false, Optional.empty(), Optional.empty())
+      new SymbolTable.DefineOptions(false, Optional.ofNullable(data.origin), false, Optional.empty(), Optional.empty()),
+      data.origin
     );
   }
 
@@ -232,11 +207,12 @@ public final class TypeChecker {
     typeName.name = enumDecl.name;
     typeName.origin = enumDecl.origin;
 
-    symbolTable.define(
+    baseChecker.defineOrReportDuplicate(
       enumDecl.name,
       typeName,
       SymbolInfo.SymbolKind.DATA_TYPE,
-      new SymbolTable.DefineOptions(false, Optional.ofNullable(enumDecl.origin), false, Optional.empty(), Optional.empty())
+      new SymbolTable.DefineOptions(false, Optional.ofNullable(enumDecl.origin), false, Optional.empty(), Optional.empty()),
+      enumDecl.origin
     );
   }
 
@@ -290,11 +266,12 @@ public final class TypeChecker {
       declaredEffect = Optional.of(maxEffect.name());
     }
 
-    symbolTable.define(
+    baseChecker.defineOrReportDuplicate(
       func.name,
       funcType,
       SymbolInfo.SymbolKind.FUNCTION,
-      new SymbolTable.DefineOptions(false, Optional.ofNullable(func.origin), false, Optional.empty(), declaredEffect)
+      new SymbolTable.DefineOptions(false, Optional.ofNullable(func.origin), false, Optional.empty(), declaredEffect),
+      func.origin
     );
   }
 
@@ -312,12 +289,13 @@ public final class TypeChecker {
       // 形参重名与顶层重名同属普通用户输入，走同一条诊断降级路径（E104），
       // 与 TS 侧 defineSymbol 对 param 报 DUPLICATE_SYMBOL 的行为对齐。
       for (var param : func.params) {
-        defineOrReportDuplicate(param.name, func.origin, () -> symbolTable.define(
+        baseChecker.defineOrReportDuplicate(
           param.name,
           param.type,
           SymbolInfo.SymbolKind.PARAMETER,
-          new SymbolTable.DefineOptions(false, Optional.ofNullable(func.origin), false, Optional.empty(), Optional.empty())
-        ));
+          new SymbolTable.DefineOptions(false, Optional.ofNullable(func.origin), false, Optional.empty(), Optional.empty()),
+          func.origin
+        );
       }
       checkFunctionBody(func, ctx);
     } finally {

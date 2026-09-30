@@ -315,6 +315,22 @@ public final class SymbolTable {
   }
 
   /**
+   * 在当前作用域定义符号；当前作用域已有同名符号时不抛异常，返回 false。
+   *
+   * <p>类型检查器面对的重名（同名 Let、形参后再 Let、Lambda 形参重名、模式绑定重名）
+   * 都是普通用户输入，应转成诊断而不是异常；调用方据返回值决定是否报 E104。
+   *
+   * @return true 表示定义成功；false 表示当前作用域已存在同名符号（未做任何修改）
+   */
+  public boolean tryDefine(String name, Type type, SymbolKind kind, DefineOptions options) {
+    if (current.lookupLocal(name).isPresent()) {
+      return false;
+    }
+    define(name, type, kind, options);
+    return true;
+  }
+
+  /**
    * 查找符号（递归查找所有作用域）
    */
   public Optional<SymbolInfo> lookup(String name) {
