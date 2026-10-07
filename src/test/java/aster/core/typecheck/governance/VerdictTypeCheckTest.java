@@ -1,38 +1,15 @@
 package aster.core.typecheck.governance;
 
-import aster.core.canonicalizer.Canonicalizer;
-import aster.core.lowering.CoreLowering;
-import aster.core.parser.AstBuilder;
-import aster.core.parser.AsterCustomLexer;
-import aster.core.parser.AsterParser;
 import aster.core.typecheck.ErrorCode;
-import aster.core.typecheck.TypeChecker;
 import aster.core.typecheck.model.Diagnostic;
-import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.CommonTokenStream;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
+import static aster.core.typecheck.governance.GovernanceTestSupport.diagnose;
+import static aster.core.typecheck.governance.GovernanceTestSupport.has;
 import static org.junit.jupiter.api.Assertions.*;
 
 /** Verdict 内置模块的类型检查（ADR 0039 §2）。 */
 class VerdictTypeCheckTest {
-
-  private static List<Diagnostic> diagnose(String body) {
-    String src = "Module probe.\n\n" + body + "\n";
-    String canonical = new Canonicalizer().canonicalize(src);
-    var lexer = new AsterCustomLexer(CharStreams.fromString(canonical));
-    var tokens = new CommonTokenStream(lexer); tokens.fill(); tokens.seek(0);
-    var parser = new AsterParser(tokens); parser.removeErrorListeners();
-    var ast = new AstBuilder().visitModule(parser.module());
-    var core = new CoreLowering().lowerModule(ast);
-    return new TypeChecker().typecheckModule(core);
-  }
-
-  private static boolean has(List<Diagnostic> d, ErrorCode code) {
-    return d.stream().anyMatch(x -> x.code() == code);
-  }
 
   @Test void produceVerdict不被当成类型参数() {
     var diags = diagnose("@id(\"R-1\")\nRule main produce Verdict:\n  Return Verdict.allow().");
