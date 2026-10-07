@@ -5,6 +5,8 @@ import aster.core.ir.CoreModel.*;
 import aster.core.typecheck.capability.ManifestConfig;
 import aster.core.typecheck.capability.ManifestReader;
 import aster.core.typecheck.checkers.*;
+import aster.core.typecheck.governance.GovernanceChecker;
+import aster.core.typecheck.governance.VerdictSignatures;
 import aster.core.typecheck.pii.PiiTypeChecker;
 import aster.core.typecheck.model.Diagnostic;
 import aster.core.typecheck.model.SymbolInfo;
@@ -41,6 +43,7 @@ public final class TypeChecker {
   private final AsyncDisciplineChecker asyncChecker;
   private final PiiTypeChecker piiChecker;
   private final CapabilityChecker capabilityChecker;
+  private final GovernanceChecker governanceChecker = new GovernanceChecker();
   private final java.util.Set<String> importAliases = new HashSet<>();
   private final java.util.Set<String> moduleTopLevelNames = new HashSet<>();
 
@@ -155,6 +158,8 @@ public final class TypeChecker {
       // 与 TypeScript 端 typecheckModule / typecheckBrowser 保持一致语义。
       // PII flow 分析本身 environment-agnostic（PiiChecker 不读 env / fs）。
       baseDiagnostics.addAll(piiChecker.checkModule(funcs));
+      // ADR 0039：规则元数据注解与 Verdict 规则身份（W700/E701/E702）
+      baseDiagnostics.addAll(governanceChecker.checkModule(module));
     }
 
     return List.copyOf(baseDiagnostics);
@@ -167,6 +172,8 @@ public final class TypeChecker {
    */
   private void collectTypeDefinitions(CoreModel.Module module) {
     if (module == null || module.decls == null) return;
+    // 内置 Verdict 先于用户声明入表：用户 `Define Verdict …` 走既有 DUPLICATE_SYMBOL 路径（ADR 0039 §2）
+    defineOrReportDuplicate(VerdictSignatures.TYPE_NAME, null, this::defineBuiltinVerdictType);
     for (var decl : module.decls) {
       switch (decl) {
         case CoreModel.Data data -> defineDataType(data);
@@ -195,6 +202,20 @@ public final class TypeChecker {
       typeName,
       SymbolInfo.SymbolKind.DATA_TYPE,
       new SymbolTable.DefineOptions(false, Optional.ofNullable(data.origin), false, Optional.empty(), Optional.empty())
+    );
+  }
+
+  /**
+   * 预占内置 Verdict 类型名（无源码位置）。
+   */
+  private void defineBuiltinVerdictType() {
+    var typeName = new CoreModel.TypeName();
+    typeName.name = VerdictSignatures.TYPE_NAME;
+    symbolTable.define(
+      VerdictSignatures.TYPE_NAME,
+      typeName,
+      SymbolInfo.SymbolKind.DATA_TYPE,
+      new SymbolTable.DefineOptions(false, Optional.empty(), false, Optional.empty(), Optional.empty())
     );
   }
 

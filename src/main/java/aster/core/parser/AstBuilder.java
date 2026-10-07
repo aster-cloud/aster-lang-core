@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     private static final Set<String> BUILTIN_TYPE_NAMES = Set.of(
-        "Int", "Bool", "Text", "Long", "Double", "Decimal", "Number", "Float", "Option", "Result", "List", "Map"
+        "Int", "Bool", "Text", "Long", "Double", "Decimal", "Number", "Float", "Option", "Result", "List", "Map", "Verdict"
     );
 
     private final Set<String> declaredTypeNames = new HashSet<>();

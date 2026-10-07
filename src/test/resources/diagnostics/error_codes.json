@@ -502,5 +502,33 @@
     "severity": "warning",
     "message": "Workflow timeout configuration may be unreasonable: {reason}",
     "help": "Check whether the timeout value is too large or too small."
+  },
+  "GOV_VERDICT_RULE_MISSING_ID": {
+    "code": "W700",
+    "category": "governance",
+    "severity": "warning",
+    "message": "Rule '{rule}' returns Verdict but has no @id annotation",
+    "help": "Add @id(\"RULE-001\") so every decision can be traced to a stable rule identity."
+  },
+  "GOV_DUPLICATE_RULE_ID": {
+    "code": "E701",
+    "category": "governance",
+    "severity": "error",
+    "message": "Duplicate rule @id '{id}' on rules: {rules}",
+    "help": "Rule ids must be unique within a module. Give each rule its own @id."
+  },
+  "GOV_ANNOTATION_ARG_INVALID": {
+    "code": "E702",
+    "category": "governance",
+    "severity": "error",
+    "message": "Annotation @{annotation} on rule '{rule}' expects exactly one string literal argument",
+    "help": "Write @id(\"RULE-001\"), @reason(\"...\") or @control(\"EU_AI_ACT:ART14\")."
+  },
+  "GOV_VERDICT_CALL_ARITY": {
+    "code": "E703",
+    "category": "governance",
+    "severity": "error",
+    "message": "{func} expects {expected} argument(s), got {actual}",
+    "help": "Verdict.allow() takes no arguments; Verdict.deny(reason) and Verdict.escalate(reason) take one Text; Verdict.require_approval(role, reason) takes two Text."
   }
 }
