@@ -3,6 +3,7 @@ package aster.core.typecheck.checkers;
 import aster.core.ir.CoreModel;
 import aster.core.ir.CoreModel.*;
 import aster.core.typecheck.*;
+import aster.core.typecheck.governance.VerdictSignatures;
 import aster.core.typecheck.model.SymbolInfo;
 import aster.core.typecheck.model.VisitorContext;
 
@@ -330,6 +331,29 @@ public final class BaseTypeChecker {
               Map.of("operator", fn.name));
         }
       }
+    }
+
+    // Verdict 内置模块（ADR 0039）：返回 Verdict 名义类型，参数全部 Text，个数固定。
+    if (call.target instanceof CoreModel.Name vn && VerdictSignatures.hasVerdictPrefix(vn.name)) {
+      var arity = VerdictSignatures.arityOf(vn.name);
+      if (arity.isEmpty()) {
+        diagnostics.undefinedVariable(vn.name, Optional.ofNullable(call.origin));
+        return TypeSystem.unknown();
+      }
+      int actual = call.args == null ? 0 : call.args.size();
+      if (actual != arity.getAsInt()) {
+        diagnostics.error(ErrorCode.GOV_VERDICT_CALL_ARITY, Optional.ofNullable(call.origin),
+            Map.of("func", vn.name, "expected", arity.getAsInt(), "actual", actual));
+      } else {
+        var text = createTypeName("String");
+        for (var arg : call.args) {
+          var argType = typeOfExpr(arg, ctx);
+          if (!TypeSystem.equals(argType, text, false)) {
+            diagnostics.typeMismatch(text, argType, Optional.ofNullable(call.origin));
+          }
+        }
+      }
+      return createTypeName(VerdictSignatures.TYPE_NAME);
     }
 
     // 如果不是函数类型，返回 unknown

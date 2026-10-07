@@ -39,6 +39,9 @@ public final class BuiltinTypes {
   /** 数字类型（映射为 Double） */
   public static final String NUMBER = "Number";
 
+  /** 治理裁决类型（ADR 0039，由 Verdict.allow/deny/require_approval/escalate 构造） */
+  public static final String VERDICT = "Verdict";
+
   // ========== 辅助方法 ==========
 
   /**
@@ -64,7 +67,8 @@ public final class BuiltinTypes {
         || DOUBLE.equals(typeName)
         || DECIMAL.equals(typeName)
         || isStringType(typeName)
-        || NUMBER.equals(typeName);
+        || NUMBER.equals(typeName)
+        || VERDICT.equals(typeName);
   }
 
   /**
