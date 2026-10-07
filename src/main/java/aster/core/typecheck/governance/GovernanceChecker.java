@@ -19,7 +19,8 @@ import java.util.Set;
  * 声明返回类型为 TypeName Verdict，或函数体任一 Return 的表达式是 Verdict.* 的直接调用。
  *
  * <p>注解参数约定：位置参数在 {@code Annotation.params} 中以 "$0"、"$1"… 为键；
- * 治理注解只接受恰好一个位置字符串参数，命名参数或非字符串一律视为非法（E702）。
+ * 治理注解只接受恰好一个非空白位置字符串参数，命名参数、非字符串或空白字符串一律视为非法（E702）。
+ * 同一规则出现多个 @id 也报 E702。
  */
 public final class GovernanceChecker {
   private static final Set<String> STRING_ARG_ANNOTATIONS = Set.of("id", "reason", "control");
@@ -45,9 +46,13 @@ public final class GovernanceChecker {
   private static void checkFunc(CoreModel.Func func, Map<String, List<CoreModel.Func>> idOwners, List<Diagnostic> out) {
     String rule = String.valueOf(func.name);
     for (CoreModel.Annotation a : annotationsOf(func)) {
-      if (STRING_ARG_ANNOTATIONS.contains(a.name) && !isSingleStringArg(a)) {
+      if (a.name != null && STRING_ARG_ANNOTATIONS.contains(a.name) && !isSingleStringArg(a)) {
         out.add(diag(ErrorCode.GOV_ANNOTATION_ARG_INVALID, func.origin, Map.of("annotation", a.name, "rule", rule)));
       }
+    }
+    // 同一规则只允许一个 @id（@control 可重复）
+    if (countIdAnnotations(func) > 1) {
+      out.add(diag(ErrorCode.GOV_ANNOTATION_ARG_INVALID, func.origin, Map.of("annotation", "id", "rule", rule)));
     }
     Optional<String> id = ruleId(func);
     if (id.isPresent()) {
@@ -57,12 +62,20 @@ public final class GovernanceChecker {
     }
   }
 
-  /** 规则 @id：恰好一个位置字符串参数时返回其值；否则 empty（E702 另行报告）。 */
+  /**
+   * 规则 @id：规则上恰好一个 @id 且其为单个非空白位置字符串参数时返回其值；
+   * 否则 empty（E702 另行报告，返回 Verdict 的规则因此同时报 W700）。
+   */
   public static Optional<String> ruleId(CoreModel.Func func) {
-    for (CoreModel.Annotation a : annotationsOf(func)) {
-      if ("id".equals(a.name) && isSingleStringArg(a)) return Optional.of((String) a.params.get("$0"));
-    }
-    return Optional.empty();
+    if (countIdAnnotations(func) != 1) return Optional.empty();
+    return annotationsOf(func).stream()
+        .filter(a -> "id".equals(a.name) && isSingleStringArg(a))
+        .map(a -> (String) a.params.get("$0"))
+        .findFirst();
+  }
+
+  private static long countIdAnnotations(CoreModel.Func func) {
+    return annotationsOf(func).stream().filter(a -> "id".equals(a.name)).count();
   }
 
   /** 规则 @control 列表，按源码顺序；参数非法的条目跳过。 */
@@ -102,8 +115,10 @@ public final class GovernanceChecker {
         && VerdictSignatures.isVerdictCall(n.name);
   }
 
+  /** 恰好一个位置参数 $0，且为非空白字符串。 */
   private static boolean isSingleStringArg(CoreModel.Annotation a) {
-    return a.params != null && a.params.size() == 1 && a.params.get("$0") instanceof String;
+    return a.params != null && a.params.size() == 1
+        && a.params.get("$0") instanceof String s && !s.isBlank();
   }
 
   private static List<CoreModel.Annotation> annotationsOf(CoreModel.Func f) {

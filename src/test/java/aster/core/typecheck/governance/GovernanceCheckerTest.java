@@ -36,8 +36,48 @@ class GovernanceCheckerTest {
   }
 
   @Test void 重复id报E701() {
-    var diags = diagnose("@id(\"R-1\")\nRule a produce Verdict:\n  Return Verdict.allow().\n\n@id(\"R-1\")\nRule b produce Verdict:\n  Return Verdict.allow().");
+    // 规则名不用 a/b：规范化器会删除冠词 a，导致 `Rule a produce …` 被解析成名为 produceVerdict 的规则
+    var diags = diagnose("@id(\"R-1\")\nRule alpha produce Verdict:\n  Return Verdict.allow().\n\n@id(\"R-1\")\nRule beta produce Verdict:\n  Return Verdict.allow().");
     assertTrue(has(diags, ErrorCode.GOV_DUPLICATE_RULE_ID), diags.toString());
+    var e701 = diags.stream().filter(x -> x.code() == ErrorCode.GOV_DUPLICATE_RULE_ID).toList();
+    assertEquals(1, e701.size(), diags.toString());
+    assertEquals("alpha, beta", e701.get(0).data().get("rules"));
+  }
+
+  @Test void 空白id报E702且仍报W700() {
+    var diags = diagnose("@id(\"\")\nRule main produce Verdict:\n  Return Verdict.allow().");
+    assertTrue(has(diags, ErrorCode.GOV_ANNOTATION_ARG_INVALID), diags.toString());
+    assertTrue(has(diags, ErrorCode.GOV_VERDICT_RULE_MISSING_ID), diags.toString());
+  }
+
+  @Test void 同一规则多个id报E702() {
+    var diags = diagnose("@id(\"A\")\n@id(\"B\")\nRule main produce Verdict:\n  Return Verdict.allow().");
+    assertTrue(has(diags, ErrorCode.GOV_ANNOTATION_ARG_INVALID), diags.toString());
+  }
+
+  @Test void reason非字符串报E702() {
+    var diags = diagnose("@id(\"R-1\")\n@reason(42)\nRule main produce Verdict:\n  Return Verdict.allow().");
+    assertTrue(has(diags, ErrorCode.GOV_ANNOTATION_ARG_INVALID), diags.toString());
+  }
+
+  @Test void Scope内的Verdict返回也被识别() {
+    // 手工构造 Func：body = Block[ Scope[ Return Verdict.deny("no") ] ]，无声明返回类型
+    var name = new CoreModel.Name(); name.name = "Verdict.deny";
+    var reason = new CoreModel.StringE(); reason.value = "no";
+    var call = new CoreModel.Call(); call.target = name; call.args = List.of(reason);
+    var ret = new CoreModel.Return(); ret.expr = call;
+    var scope = new CoreModel.Scope(); scope.statements = List.of(ret);
+    var body = new CoreModel.Block(); body.statements = List.of(scope);
+    var f = new CoreModel.Func(); f.name = "main"; f.body = body;
+    assertTrue(GovernanceChecker.returnsVerdict(f));
+  }
+
+  @Test void 注解名为null不抛异常() {
+    var a = new CoreModel.Annotation();
+    var f = new CoreModel.Func(); f.name = "main"; f.annotations = List.of(a);
+    var m = new CoreModel.Module(); m.decls = List.of(f);
+    assertDoesNotThrow(() -> new GovernanceChecker().checkModule(m));
+    assertEquals(Optional.empty(), GovernanceChecker.ruleId(f));
   }
 
   @Test void id非字符串报E702() {
