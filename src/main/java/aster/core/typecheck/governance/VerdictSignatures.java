@@ -2,6 +2,7 @@ package aster.core.typecheck.governance;
 
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.Set;
 
 /**
  * Verdict 内置模块的签名表（ADR 0039 §2.2）。
@@ -19,6 +20,13 @@ public final class VerdictSignatures {
       "Verdict.deny", 1,
       "Verdict.require_approval", 2,
       "Verdict.escalate", 1);
+
+  /** Verdict 值上可读取的字段（全部为 Text；值形状见 ADR 0039 §2.1，TS 侧同表）。 */
+  private static final Set<String> FIELDS = Set.of("outcome", "role", "reason");
+
+  public static boolean isVerdictField(String field) {
+    return field != null && FIELDS.contains(field);
+  }
 
   public static boolean isVerdictCall(String qualifiedName) {
     return qualifiedName != null && ARITY.containsKey(qualifiedName);

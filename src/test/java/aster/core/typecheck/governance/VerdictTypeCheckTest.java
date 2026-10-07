@@ -48,4 +48,51 @@ class VerdictTypeCheckTest {
     var diags = diagnose("@id(\"R-1\")\nRule main produce Verdict:\n  Return Verdict.require_approval(\"Senior Underwriter\", \"amount over cap\").");
     assertFalse(diags.stream().anyMatch(x -> x.severity() == Diagnostic.Severity.ERROR), diags.toString());
   }
+
+  // ===== Verdict 不可当布尔用（ADR 0039 §2.2，评审 C1）=====
+
+  @Test void If条件为Verdict报类型不匹配() {
+    var diags = diagnose("@id(\"R-1\")\nRule main produce Text:\n  Let v be Verdict.deny(\"x\").\n  If v:\n    Return \"yes\".\n  Return \"no\".");
+    assertTrue(has(diags, ErrorCode.TYPE_MISMATCH), diags.toString());
+  }
+
+  @Test void not作用于Verdict报类型不匹配() {
+    var diags = diagnose("@id(\"R-1\")\nRule main produce Bool:\n  Let v be Verdict.deny(\"x\").\n  Return not v.");
+    assertTrue(has(diags, ErrorCode.TYPE_MISMATCH), diags.toString());
+  }
+
+  @Test void Verdict与true相等比较报类型不匹配() {
+    var diags = diagnose("@id(\"R-1\")\nRule main produce Bool:\n  Let v be Verdict.deny(\"x\").\n  Return v equals to true.");
+    assertTrue(has(diags, ErrorCode.TYPE_MISMATCH), diags.toString());
+  }
+
+  // ===== Text 形参可作 reason/role（评审 I1）=====
+
+  @Test void Text形参作reason通过() {
+    var diags = diagnose("@id(\"R-1\")\nRule main given reason as Text, produce Verdict:\n  Return Verdict.deny(reason).");
+    assertFalse(diags.stream().anyMatch(x -> x.severity() == Diagnostic.Severity.ERROR), diags.toString());
+  }
+
+  @Test void Text形参作role与reason通过() {
+    var diags = diagnose("@id(\"R-1\")\nRule main given role as Text, reason as Text, produce Verdict:\n  Return Verdict.require_approval(role, reason).");
+    assertFalse(diags.stream().anyMatch(x -> x.severity() == Diagnostic.Severity.ERROR), diags.toString());
+  }
+
+  @Test void 个数不符时仍检查参数内未定义名() {
+    var diags = diagnose("@id(\"R-1\")\nRule main produce Verdict:\n  Return Verdict.allow(missing_name).");
+    assertTrue(has(diags, ErrorCode.GOV_VERDICT_CALL_ARITY), diags.toString());
+    assertTrue(has(diags, ErrorCode.UNDEFINED_VARIABLE), diags.toString());
+  }
+
+  // ===== Verdict 字段 outcome/role/reason 为 Text（评审 I2）=====
+
+  @Test void 读取outcome得到Text() {
+    var diags = diagnose("Rule main produce Text:\n  Let d be Verdict.deny(\"x\").\n  Return d.outcome.");
+    assertFalse(diags.stream().anyMatch(x -> x.severity() == Diagnostic.Severity.ERROR), diags.toString());
+  }
+
+  @Test void Verdict字段类型为Text而非Unknown() {
+    var diags = diagnose("Rule main produce Int:\n  Let d be Verdict.require_approval(\"r\", \"x\").\n  Return d.role.");
+    assertTrue(has(diags, ErrorCode.RETURN_TYPE_MISMATCH), diags.toString());
+  }
 }

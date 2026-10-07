@@ -70,7 +70,7 @@ public final class BaseTypeChecker {
           if (!name.name.contains(".")) {
             diagnostics.undefinedVariable(name.name, Optional.ofNullable(name.origin));
           }
-          yield TypeSystem.unknown();
+          yield verdictFieldType(name.name);
         }
         yield symbol.get().type();
       }
@@ -292,7 +292,7 @@ public final class BaseTypeChecker {
           Map.of()
         );
       } else {
-        typeOfExpr(call.args.get(0), ctx);
+        rejectVerdictInBoolContext(typeOfExpr(call.args.get(0), ctx), call.origin);
       }
       return createTypeName("Bool");
     }
@@ -306,6 +306,10 @@ public final class BaseTypeChecker {
         && (isArithmeticOperator(opName.name) || isComparisonOperator(opName.name)) && call.args.size() == 2) {
       var lt = typeOfExpr(call.args.get(0), ctx);
       var rt = typeOfExpr(call.args.get(1), ctx);
+      if (isEqualityOperator(opName.name)) {
+        rejectVerdictInBoolContext(lt, call.origin);
+        rejectVerdictInBoolContext(rt, call.origin);
+      }
       boolean lDec = isTypeNamed(lt, "Decimal"), rDec = isTypeNamed(rt, "Decimal");
       boolean lDbl = isTypeNamed(lt, "Double"), rDbl = isTypeNamed(rt, "Double");
       if ((lDec && rDbl) || (lDbl && rDec)) {
@@ -340,17 +344,19 @@ public final class BaseTypeChecker {
         diagnostics.undefinedVariable(vn.name, Optional.ofNullable(call.origin));
         return TypeSystem.unknown();
       }
-      int actual = call.args == null ? 0 : call.args.size();
-      if (actual != arity.getAsInt()) {
+      var args = call.args == null ? List.<Expr>of() : call.args;
+      // 个数不符时仍逐个推断参数类型，保证参数内的未定义名照常报告（与 TS 对齐）
+      var argTypes = args.stream().map(arg -> expandType(typeOfExpr(arg, ctx))).toList();
+      if (args.size() != arity.getAsInt()) {
         diagnostics.error(ErrorCode.GOV_VERDICT_CALL_ARITY, Optional.ofNullable(call.origin),
-            Map.of("func", vn.name, "expected", arity.getAsInt(), "actual", actual));
-      } else {
-        var text = createTypeName("String");
-        for (var arg : call.args) {
-          var argType = typeOfExpr(arg, ctx);
-          if (!TypeSystem.equals(argType, text, false)) {
-            diagnostics.typeMismatch(text, argType, Optional.ofNullable(call.origin));
-          }
+            Map.of("func", vn.name, "expected", arity.getAsInt(), "actual", args.size()));
+        return createTypeName(VerdictSignatures.TYPE_NAME);
+      }
+      // 参数类型先展开别名再比较：Text 是 String 的内置别名，`reason as Text` 必须放行
+      var text = createTypeName("String");
+      for (var argType : argTypes) {
+        if (!TypeSystem.equals(argType, text, false)) {
+          diagnostics.typeMismatch(text, argType, Optional.ofNullable(call.origin));
         }
       }
       return createTypeName(VerdictSignatures.TYPE_NAME);
@@ -867,6 +873,40 @@ public final class BaseTypeChecker {
   private boolean isComparisonOperator(String op) {
     return "==".equals(op) || "!=".equals(op) || "<".equals(op)
         || "<=".equals(op) || ">".equals(op) || ">=".equals(op);
+  }
+
+  /** 相等运算符（lower 后的 Call target Name）：== !=。 */
+  private boolean isEqualityOperator(String op) {
+    return "==".equals(op) || "!=".equals(op);
+  }
+
+  /**
+   * Verdict 不可当布尔用（ADR 0039 §2.2）：出现在 not 操作数或相等比较操作数位时报 TYPE_MISMATCH(expected Bool)。
+   * 只针对 Verdict，避免影响既有语料中其它类型的相等比较。
+   */
+  private void rejectVerdictInBoolContext(Type type, Origin origin) {
+    if (isTypeNamed(type, VerdictSignatures.TYPE_NAME)) {
+      diagnostics.typeMismatch(createTypeName("Bool"), type, Optional.ofNullable(origin));
+    }
+  }
+
+  /**
+   * 点号名（如 {@code d.outcome}）的类型：首段为 Verdict 值且字段为 outcome/role/reason 时为 Text，
+   * 其余维持 Unknown（与既有行为一致）。
+   */
+  private Type verdictFieldType(String dotted) {
+    int dot = dotted.indexOf('.');
+    if (dot <= 0) {
+      return TypeSystem.unknown();
+    }
+    var head = symbolTable.lookup(dotted.substring(0, dot));
+    var field = dotted.substring(dot + 1);
+    if (head.isPresent() && isTypeNamed(head.get().type(), VerdictSignatures.TYPE_NAME)
+        && VerdictSignatures.isVerdictField(field)) {
+      // 与字符串字面量同用规范名 String（Text 是其内置别名）
+      return createTypeName("String");
+    }
+    return TypeSystem.unknown();
   }
 
   /** 类型是否为指定名的 TypeName（如 "Decimal"/"Double"/"Int"/"Long"）。 */
