@@ -173,7 +173,7 @@ public final class TypeChecker {
   private void collectTypeDefinitions(CoreModel.Module module) {
     if (module == null || module.decls == null) return;
     // 内置 Verdict 先于用户声明入表：用户 `Define Verdict …` 走既有 DUPLICATE_SYMBOL 路径（ADR 0039 §2）
-    defineOrReportDuplicate(VerdictSignatures.TYPE_NAME, null, this::defineBuiltinVerdictType);
+    defineBuiltinVerdictType();
     for (var decl : module.decls) {
       switch (decl) {
         case CoreModel.Data data -> defineDataType(data);
@@ -211,7 +211,7 @@ public final class TypeChecker {
   private void defineBuiltinVerdictType() {
     var typeName = new CoreModel.TypeName();
     typeName.name = VerdictSignatures.TYPE_NAME;
-    symbolTable.define(
+    baseChecker.defineOrReportDuplicate(
       VerdictSignatures.TYPE_NAME,
       typeName,
       SymbolInfo.SymbolKind.DATA_TYPE,
