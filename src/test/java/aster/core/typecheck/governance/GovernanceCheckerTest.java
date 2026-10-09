@@ -127,4 +127,19 @@ class GovernanceCheckerTest {
     var diags = new GovernanceChecker(empty).checkModule(core);
     assertTrue(has(diags, ErrorCode.GOV_CONTROL_UNREGISTERED), diags.toString());
   }
+
+  /** 与 aster-lang-test tier3 type-checker/governance_control_unregistered.aster 同源（去掉 Module 行），两侧守同一组码（ADR 0045 §3）。 */
+  @Test void 诊断黄金同源用例恰好一条W704() {
+    var diags = diagnose("""
+        @id("GC-001")
+        @control("EU_AI_ACT:ART14")
+        @control("ACME:ART1")
+        Rule decide given amount, produce Verdict:
+          If amount at least 100:
+            Return Verdict.require_approval("Reviewer", "large").
+          Return Verdict.allow().""");
+    var w704 = diags.stream().filter(d -> d.code() == ErrorCode.GOV_CONTROL_UNREGISTERED).toList();
+    assertEquals(1, w704.size(), diags.toString());
+    assertEquals("Control 'ACME:ART1' on rule 'decide' is not registered (controls registry 1.0.0)", w704.get(0).message());
+  }
 }
