@@ -1,6 +1,7 @@
 package aster.core.typecheck.governance;
 
 import aster.core.canonicalizer.Canonicalizer;
+import aster.core.ir.CoreModel;
 import aster.core.lowering.CoreLowering;
 import aster.core.parser.AstBuilder;
 import aster.core.parser.AsterCustomLexer;
@@ -17,15 +18,22 @@ import java.util.List;
 final class GovernanceTestSupport {
   private GovernanceTestSupport() {}
 
-  static List<Diagnostic> diagnose(String body) {
+  static CoreModel.Module lower(String body) {
     String src = "Module probe.\n\n" + body + "\n";
     String canonical = new Canonicalizer().canonicalize(src);
     var lexer = new AsterCustomLexer(CharStreams.fromString(canonical));
     var tokens = new CommonTokenStream(lexer); tokens.fill(); tokens.seek(0);
     var parser = new AsterParser(tokens); parser.removeErrorListeners();
     var ast = new AstBuilder().visitModule(parser.module());
-    var core = new CoreLowering().lowerModule(ast);
-    return new TypeChecker().typecheckModule(core);
+    return new CoreLowering().lowerModule(ast);
+  }
+
+  static List<Diagnostic> diagnose(String body) {
+    return new TypeChecker().typecheckModule(lower(body));
+  }
+
+  static long count(List<Diagnostic> d, ErrorCode code) {
+    return d.stream().filter(x -> x.code() == code).count();
   }
 
   static boolean has(List<Diagnostic> d, ErrorCode code) {

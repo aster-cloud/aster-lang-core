@@ -110,4 +110,21 @@ class GovernanceCheckerTest {
     assertEquals(Optional.of("R-9"), GovernanceChecker.ruleId(f));
     assertEquals(List.of("A", "B"), GovernanceChecker.controls(f));
   }
+
+  @Test void 已登记控制点无W704() {
+    var diags = diagnose("@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule main produce Verdict:\n  Return Verdict.allow().");
+    assertFalse(has(diags, ErrorCode.GOV_CONTROL_UNREGISTERED), diags.toString());
+  }
+
+  @Test void 未登记与形态非法都报W704且同键只报一次() {
+    var diags = diagnose("@id(\"R-1\")\n@control(\"ACME:ART1\")\n@control(\"ACME:ART1\")\n@control(\"eu_ai_act:art14\")\nRule main produce Verdict:\n  Return Verdict.allow().");
+    assertEquals(2, GovernanceTestSupport.count(diags, ErrorCode.GOV_CONTROL_UNREGISTERED), diags.toString());
+  }
+
+  @Test void 注入空注册表时全部报W704() {
+    var empty = new ControlRegistry("0.0.0", java.util.Set.of());
+    var core = GovernanceTestSupport.lower("@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule main produce Verdict:\n  Return Verdict.allow().");
+    var diags = new GovernanceChecker(empty).checkModule(core);
+    assertTrue(has(diags, ErrorCode.GOV_CONTROL_UNREGISTERED), diags.toString());
+  }
 }

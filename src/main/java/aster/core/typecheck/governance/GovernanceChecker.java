@@ -6,6 +6,7 @@ import aster.core.typecheck.model.Diagnostic;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,6 +26,17 @@ import java.util.Set;
 public final class GovernanceChecker {
   private static final Set<String> STRING_ARG_ANNOTATIONS = Set.of("id", "reason", "control");
 
+  private final ControlRegistry registry;
+
+  /** 默认使用 classpath 注册表（ADR 0045）。 */
+  public GovernanceChecker() {
+    this(ControlRegistry.loadDefault());
+  }
+
+  public GovernanceChecker(ControlRegistry registry) {
+    this.registry = registry;
+  }
+
   /** 检查整个模块：E702 注解参数、W700 缺 @id、E701 模块内 @id 重复。 */
   public List<Diagnostic> checkModule(CoreModel.Module module) {
     List<Diagnostic> out = new ArrayList<>();
@@ -43,7 +55,7 @@ public final class GovernanceChecker {
     return out;
   }
 
-  private static void checkFunc(CoreModel.Func func, Map<String, List<CoreModel.Func>> idOwners, List<Diagnostic> out) {
+  private void checkFunc(CoreModel.Func func, Map<String, List<CoreModel.Func>> idOwners, List<Diagnostic> out) {
     String rule = String.valueOf(func.name);
     for (CoreModel.Annotation a : annotationsOf(func)) {
       if (a.name != null && STRING_ARG_ANNOTATIONS.contains(a.name) && !isSingleStringArg(a)) {
@@ -59,6 +71,12 @@ public final class GovernanceChecker {
       idOwners.computeIfAbsent(id.get(), k -> new ArrayList<>()).add(func);
     } else if (returnsVerdict(func)) {
       out.add(diag(ErrorCode.GOV_VERDICT_RULE_MISSING_ID, func.origin, Map.of("rule", rule)));
+    }
+    // ADR 0045：未登记或形态非法的控制键给 W704；同一规则同键只报一次，永不阻断
+    for (String key : new LinkedHashSet<>(controls(func))) {
+      if (registry.has(key)) continue;
+      out.add(diag(ErrorCode.GOV_CONTROL_UNREGISTERED, func.origin,
+          Map.of("control", key, "rule", rule, "version", registry.version())));
     }
   }
 
