@@ -107,6 +107,7 @@ public enum ErrorCode {
   GOV_DUPLICATE_RULE_ID("E701", Category.GOVERNANCE, Severity.ERROR, "Duplicate rule @id '{id}' on rules: {rules}", "Rule ids must be unique within a module. Give each rule its own @id."),
   GOV_ANNOTATION_ARG_INVALID("E702", Category.GOVERNANCE, Severity.ERROR, "Annotation @{annotation} on rule '{rule}' expects exactly one string literal argument", "Write @id(\"RULE-001\"), @reason(\"...\") or @control(\"EU_AI_ACT:ART14\")."),
   GOV_VERDICT_CALL_ARITY("E703", Category.GOVERNANCE, Severity.ERROR, "{func} expects {expected} argument(s), got {actual}", "Verdict.allow() takes no arguments; Verdict.deny(reason) and Verdict.escalate(reason) take one Text; Verdict.require_approval(role, reason) takes two Text."),
+  GOV_CONTROL_UNREGISTERED("W704", Category.GOVERNANCE, Severity.WARNING, "Control '{control}' on rule '{rule}' is not registered (controls registry {version})", "Use a registered key such as EU_AI_ACT:ART14, or add it to aster-lang-locales controls/registry.json (format FRAMEWORK:ARTICLE, at most 64 characters)."),
   ;
 
   private final String code;

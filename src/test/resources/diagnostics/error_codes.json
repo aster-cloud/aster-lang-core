@@ -530,5 +530,12 @@
     "severity": "error",
     "message": "{func} expects {expected} argument(s), got {actual}",
     "help": "Verdict.allow() takes no arguments; Verdict.deny(reason) and Verdict.escalate(reason) take one Text; Verdict.require_approval(role, reason) takes two Text."
+  },
+  "GOV_CONTROL_UNREGISTERED": {
+    "code": "W704",
+    "category": "governance",
+    "severity": "warning",
+    "message": "Control '{control}' on rule '{rule}' is not registered (controls registry {version})",
+    "help": "Use a registered key such as EU_AI_ACT:ART14, or add it to aster-lang-locales controls/registry.json (format FRAMEWORK:ARTICLE, at most 64 characters)."
   }
 }
