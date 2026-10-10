@@ -5,6 +5,7 @@ import aster.core.inference.TypeInference;
 import aster.core.util.StringEscapes;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.ArrayList;
@@ -838,7 +839,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     private Stmt.Return verdictReturn(AsterParser.SugarOutcomeContext ctx) {
         List<String> shape = new ArrayList<>();
         List<Expr> args = new ArrayList<>();
-        for (var child : ctx.children) {
+        // 空结论没有子节点，查表同样落空
+        List<ParseTree> children = ctx.children == null ? List.of() : ctx.children;
+        for (var child : children) {
             TerminalNode token = (TerminalNode) child;
             if (token.getSymbol().getType() == AsterParser.STRING_LITERAL) {
                 shape.add("_");

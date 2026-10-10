@@ -119,6 +119,15 @@ class GovernanceSugarParseTest {
     }
   }
 
+  @Test void 空结论报结论错误而非语法错误() {
+    for (String stmt : List.of("  When n at least 1, .", "  Otherwise.")) {
+      var ex = assertThrows(RuntimeException.class, () -> lower(String.join("\n", "Module m.", "",
+        "Rule r given n, produce Verdict:", stmt, "")), stmt);
+      assertTrue(ex.getMessage().contains(
+        "Expected allow, deny, escalate or require approval by … because … after When/Otherwise"), ex.getMessage());
+    }
+  }
+
   @Test void 结论中的句点结束语句() {
     var when = assertThrows(RuntimeException.class, () -> lower(String.join("\n", "Module m.", "",
       "Rule r given n, produce Verdict:", "  When n at least 1, deny x.y.", "  Otherwise allow.", "")));
