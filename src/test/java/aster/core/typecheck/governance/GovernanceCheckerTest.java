@@ -140,6 +140,6 @@ class GovernanceCheckerTest {
           Return Verdict.allow().""");
     var w704 = diags.stream().filter(d -> d.code() == ErrorCode.GOV_CONTROL_UNREGISTERED).toList();
     assertEquals(1, w704.size(), diags.toString());
-    assertEquals("Control 'ACME:ART1' on rule 'decide' is not registered (controls registry 1.0.0)", w704.get(0).message());
+    assertEquals("Control 'ACME:ART1' on rule 'decide' is not registered (controls registry 1.1.0)", w704.get(0).message());
   }
 }
