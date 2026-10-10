@@ -84,7 +84,7 @@ class CoreIrSchemaAbiTest {
         mapper.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
 
         Span span = new Span(new Span.Position(1, 0), new Span.Position(1, 10));
-        Module module = new Module("demo.abi", List.of(), span);
+        Module module = new Module("demo.abi", null, List.of(), span);
 
         @SuppressWarnings("unchecked")
         Map<String, Object> json = mapper.convertValue(module, Map.class);
@@ -111,7 +111,7 @@ class CoreIrSchemaAbiTest {
         // 与 golden 清单比对。新增节点：必须同步加进 V1_NODE_KINDS（只增不删）；
         // 删除/改 kind：本测试失败 → 强制确认 breaking change + bump schema 版本。
         Set<String> actual = new TreeSet<>();
-        actual.add(new Module("", List.of(), null).kind());
+        actual.add(new Module("", null, List.of(), null).kind());
         for (Class<?> sealed : List.of(Decl.class, Expr.class, Stmt.class, Type.class)) {
             collectKinds(sealed, actual);
         }

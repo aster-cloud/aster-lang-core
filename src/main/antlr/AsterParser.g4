@@ -29,7 +29,17 @@ tokens { INDENT, DEDENT }
  *     Return "Hello, world!".
  */
 module
-    : NEWLINE* moduleHeader? NEWLINE* (topLevelDecl NEWLINE*)* EOF
+    : NEWLINE* (moduleHeader NEWLINE* profileDecl?)? NEWLINE* (topLevelDecl NEWLINE*)* EOF
+    ;
+
+/**
+ * ADR 0046：治理档案声明，紧跟模块头、至多一条:
+ *   Profile "eu-ai-act-high-risk".
+ * 不引入硬词法记号——TYPE_IDENT 文本须为 Profile，id 形态由 AstBuilder 校验；
+ * 顶层声明无以 TYPE_IDENT 开头者，故不夺走用户的 profile 参数名或 Profile 类型名。
+ */
+profileDecl
+    : TYPE_IDENT STRING_LITERAL DOT
     ;
 
 /**
@@ -402,6 +412,8 @@ stmt
     | waitStmt
     | workflowStmt
     | returnStmt
+    | whenStmt
+    | otherwiseStmt
     | inlineIfStmt
     | ifStmt
     | matchStmt
@@ -476,6 +488,33 @@ timeoutSection
  */
 returnStmt
     : RETURN expr DOT
+    ;
+
+/**
+ * ADR 0046：语句级 When 简写，降糖为 If + Return Verdict.*:
+ *   When amount at least 100, deny "too_large".
+ * 与 matchCase 的 WHEN 互不干扰：matchCase 只出现在 matchStmt 内部。
+ */
+whenStmt
+    : WHEN expr COMMA sugarOutcome DOT
+    ;
+
+/**
+ * ADR 0046：Otherwise 简写，降糖为 Return Verdict.*:
+ *   Otherwise allow.
+ * 与 ifStmt 的 else 分支区别在于 ELSE 之后直接是结论词（else 分支 ELSE 后须换行），
+ * ALL(*) 前瞻据此消歧，无需改动 ifStmt。
+ */
+otherwiseStmt
+    : ELSE sugarOutcome DOT
+    ;
+
+/**
+ * 结论词经 Canonicalizer 规范化为英文后以普通标识符出现（allow / deny / escalate /
+ * require approval by / because 均无词法记号）；词序列由 AstBuilder 校验并报错。
+ */
+sugarOutcome
+    : nameIdent+ (STRING_LITERAL (nameIdent+ STRING_LITERAL)?)?
     ;
 
 /**

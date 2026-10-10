@@ -35,7 +35,7 @@ class AstSerializationTest {
     @Test
     void testModuleSerialization() throws Exception {
         // 创建一个简单的模块
-        Module module = new Module("test", List.of(), createSpan(1, 1, 1, 10));
+        Module module = new Module("test", null, List.of(), createSpan(1, 1, 1, 10));
 
         // 序列化
         String json = mapper.writeValueAsString(module);
