@@ -89,28 +89,50 @@ class CanonicalizerReDoSTest {
         }
     }
 
-    private static double minMillis(Runnable r, int repeats) {
-        double best = Double.MAX_VALUE;
-        for (int i = 0; i < repeats; i++) {
-            long t = System.nanoTime();
-            r.run();
-            best = Math.min(best, (System.nanoTime() - t) / 1e6);
-        }
-        return best;
+    /** 单次计时（毫秒）。先 GC：让每次测量都从干净的堆开始，大输入不再替前面的垃圾买单。 */
+    private static double millis(Runnable r) {
+        System.gc();
+        long t = System.nanoTime();
+        r.run();
+        return (System.nanoTime() - t) / 1e6;
     }
+
+    /**
+     * 墙钟增长率门禁的规模倍数与判据。
+     *
+     * <p>★原先只把输入<b>翻倍</b>：线性 ≈2×、二次 ≈4×，门槛 3× 两侧各只有 1.5 倍的缝，
+     * 一次调度突发或 JIT 升层就能跨过去。本地满载实测：自检（已知二次）30 轮误判 15 轮。
+     *
+     * <p>×8 后线性 ≈8×、二次 ≈64×；判据改用<b>增长指数</b>（log 比值 / log 倍数：
+     * 线性=1，二次=2），门槛取中点 1.5（比值 &lt;8^1.5≈22.6），两侧都有约 2.8 倍余量。
+     */
+    private static final int SCALE = 8;
+    private static final double EXPONENT_LIMIT = 1.5;
+    private static final int ROUNDS = 7;
 
     /**
      * 断言呈<b>次二次</b>增长。★量增长率而非绝对耗时：绝对阈值在共享 CI 上
      * 要么抖动成 flaky，要么定得太松而形同虚设；增长率对机器速度不敏感。
+     *
+     * <p>★量法：两种规模<b>各自</b>预热（只预热一次时小规模可能停在低 JIT 层级，
+     * 比值被系统性压低），再<b>交替</b>测量，各取最小值。调度、GC 噪声只会让一次
+     * 测量变慢、不会变快，所以最小值最接近真实计算量；交替则让噪声突发两组均摊。
      */
     private static void assertSubQuadratic(String label, IntFunction<String> build,
                                            java.util.function.Consumer<String> fn, int base) {
-        fn.accept(build.apply(base / 4));   // 预热，避免 JIT 编译开销污染比值
-
         String small = build.apply(base);
-        String large = build.apply(base * 2);
-        double tSmall = minMillis(() -> fn.accept(small), 3);
-        double tLarge = minMillis(() -> fn.accept(large), 3);
+        String large = build.apply(base * SCALE);
+        for (int i = 0; i < 3; i++) {
+            fn.accept(small);
+            fn.accept(large);
+        }
+
+        double tSmall = Double.MAX_VALUE;
+        double tLarge = Double.MAX_VALUE;
+        for (int i = 0; i < ROUNDS; i++) {
+            tSmall = Math.min(tSmall, millis(() -> fn.accept(small)));
+            tLarge = Math.min(tLarge, millis(() -> fn.accept(large)));
+        }
 
         // ★耗时过短时比值噪声极大，此时退化成绝对上界断言——**不静默跳过**，
         //   否则这条门禁在结构上就无法变红了。
@@ -125,21 +147,84 @@ class CanonicalizerReDoSTest {
         }
 
         double ratio = tLarge / Math.max(tSmall, 0.001);
+        double exponent = Math.log(ratio) / Math.log(SCALE);
+        assertTrue(exponent < EXPONENT_LIMIT, String.format(
+            "%s：输入 %d→%d（×%d）耗时最小值 %.2fms→%.2fms，增长 %.1f×、指数 %.2f —— 应 <%.1f。%n"
+            + "★指数接近 2 意味着二次增长：正则在每个起始位置都重新扫描到串尾。%n"
+            + "  源文件是用户提供的输入，一份构造过的文件就能钉死编译线程。",
+            label, base, base * SCALE, SCALE, tSmall, tLarge, ratio, exponent, EXPONENT_LIMIT));
+    }
+
+    /**
+     * 统计读取次数的输入包装。★java.util.regex 只经由 {@code charAt} 读取输入，
+     * 所以读取次数就是匹配器工作量的<b>确定性</b>度量：与机器快慢、调度抖动、
+     * JIT 时机都无关，同一输入永远得到同一个数。
+     *
+     * <p>{@code subSequence}/{@code toString} 只用于拼装替换结果（线性），不计数。
+     */
+    private static final class CountingCharSequence implements CharSequence {
+        private final String s;
+        private long reads;
+
+        CountingCharSequence(String s) { this.s = s; }
+
+        @Override public int length() { return s.length(); }
+        @Override public char charAt(int i) { reads++; return s.charAt(i); }
+        @Override public CharSequence subSequence(int a, int b) { return s.subSequence(a, b); }
+        @Override public String toString() { return s; }
+    }
+
+    /** 跑一次 replaceAll，返回匹配器读取输入字符的总次数。 */
+    private static long regexReads(Pattern re, String replacement, String input) {
+        CountingCharSequence cs = new CountingCharSequence(input);
+        re.matcher(cs).replaceAll(replacement);
+        return cs.reads;
+    }
+
+    /** 计数门禁的规模：二次的原式在此规模下约 400 万次读取，毫秒级跑完。 */
+    private static final int READS_BASE = 2000;
+
+    /**
+     * 断言正则在「n 个空白 + 非标点字符」上的读取次数呈<b>次二次</b>增长。
+     *
+     * <p>★仍然量<b>增长率</b>（类注释的教训不变），只是把「耗时」换成「读取次数」。
+     * 线性模式翻倍得 ≈2×，二次模式得 ≈4×；读数是确定的，3× 门槛两侧都没有噪声。
+     */
+    private static void assertSubQuadraticReads(String label, Pattern re, String replacement) {
+        IntFunction<String> build = n -> " ".repeat(n) + "x";
+        long small = regexReads(re, replacement, build.apply(READS_BASE));
+        long large = regexReads(re, replacement, build.apply(READS_BASE * 2));
+        double ratio = (double) large / Math.max(small, 1);
         assertTrue(ratio < 3.0, String.format(
-            "%s：输入 %d→%d（翻倍）耗时 %.2fms→%.2fms，增长 %.1f× —— 应 <3×。%n"
+            "%s：输入 %d→%d（翻倍）读取次数 %d→%d，增长 %.2f× —— 应 <3×。%n"
             + "★接近 4× 意味着二次增长：正则在每个起始位置都重新扫描到串尾。%n"
             + "  源文件是用户提供的输入，一份构造过的文件就能钉死编译线程。",
-            label, base, base * 2, tSmall, tLarge, ratio));
+            label, READS_BASE, READS_BASE * 2, small, large, ratio));
     }
 
     @Test
     @DisplayName("★三条空白正则都必须呈次二次增长（模式由反射从生产类读取）")
     void whitespacePatternsAreSubQuadratic() {
+        // ★量的是 charAt 读取次数而非墙钟耗时。墙钟比值在 GitHub 托管 runner 上
+        //   曾无相关改动地两次误红（2026-10-10）——那是在量调度器，不是在量正则。
+        //   读取次数是确定的：同一模式永远给出同一个比值，红即真回归。
         for (String[] f : FIELDS) {
             Pattern re = productionPattern(f[0]);
-            assertSubQuadratic(f[0] + " = " + re.pattern(),
-                n -> " ".repeat(n) + "x",
-                s -> re.matcher(s).replaceAll(f[1]), 20000);
+            assertSubQuadraticReads(f[0] + " = " + re.pattern(), re, f[1]);
+        }
+    }
+
+    @Test
+    @DisplayName("★计数量具自身可变红 —— 改前的三条贪婪原式必须被判为二次")
+    void readCountGateCanFail() {
+        // ★换了量具就必须重新证明它能变红：把改前**真实存在过**的三条二次正则
+        //   喂给同一个判定，任何一条被放行，说明计数没连上正则引擎，上面的门禁是假绿。
+        for (int k = 0; k < GREEDY.length; k++) {
+            Pattern re = Pattern.compile(GREEDY[k]);
+            String rep = FIELDS[k][1];
+            assertThrows(AssertionError.class,
+                () -> assertSubQuadraticReads("贪婪原式 " + re.pattern(), re, rep),
+                "改前的二次正则 " + GREEDY[k] + " 未被判为超线性 —— 计数量具失效。");
         }
     }
 
@@ -170,14 +255,17 @@ class CanonicalizerReDoSTest {
         //
         //   ★教训：凭「哪条正则看起来危险」去构造载荷会找错方向；
         //     必须实测 + 采样。我前后猜错了四次。
+        //
+        // ★规模 5000→40000（×8）：修复态满载指数 ≤1.02；撤掉 SetTo 修复后实测
+        //   53.86ms→3388.67ms、指数 1.99 —— 缺陷态几十秒内必红，不会挂死。
         assertSubQuadratic("canonicalize / 全空行源文件",
             n -> "Let x be 1" + "\n".repeat(n) + ".",
-            s -> c.canonicalize(s), 20000);
+            s -> c.canonicalize(s), 5000);
 
         // \r 路径：不被 SPACE_RUN_RE 折叠，会被规范化成 \n 后走同一条路。
         assertSubQuadratic("canonicalize / CR 填充源文件",
             n -> "Let x be 1" + String.valueOf((char) 0x0d).repeat(n) + ".",
-            s -> c.canonicalize(s), 20000);
+            s -> c.canonicalize(s), 5000);
     }
 
     @Test
@@ -279,7 +367,7 @@ class CanonicalizerReDoSTest {
                     }
                     sink = acc;   // ★volatile 写：禁止 JIT 消除上面的循环
                 },
-                4000),
+                2000),
             "已知二次算法未被判定为超线性 —— assertSubQuadratic 失效，本文件所有门禁都是假绿。");
     }
 
