@@ -108,6 +108,8 @@ public enum ErrorCode {
   GOV_ANNOTATION_ARG_INVALID("E702", Category.GOVERNANCE, Severity.ERROR, "Annotation @{annotation} on rule '{rule}' expects exactly one string literal argument", "Write @id(\"RULE-001\"), @reason(\"...\") or @control(\"EU_AI_ACT:ART14\")."),
   GOV_VERDICT_CALL_ARITY("E703", Category.GOVERNANCE, Severity.ERROR, "{func} expects {expected} argument(s), got {actual}", "Verdict.allow() takes no arguments; Verdict.deny(reason) and Verdict.escalate(reason) take one Text; Verdict.require_approval(role, reason) takes two Text."),
   GOV_CONTROL_UNREGISTERED("W704", Category.GOVERNANCE, Severity.WARNING, "Control '{control}' on rule '{rule}' is not registered (controls registry {version})", "Use a registered key such as EU_AI_ACT:ART14, or add it to aster-lang-locales controls/registry.json (format FRAMEWORK:ARTICLE, at most 64 characters)."),
+  GOV_PROFILE_UNKNOWN("E705", Category.GOVERNANCE, Severity.ERROR, "Module '{module}' declares unknown profile '{profile}' (controls registry {version})", "Use a profile defined in aster-lang-locales controls/registry.json, such as governed or eu-ai-act-high-risk."),
+  GOV_PROFILE_VIOLATION("E706", Category.GOVERNANCE, Severity.ERROR, "Rule '{rule}' violates profile '{profile}': {requirement}", "Satisfy the profile requirement or remove the Profile declaration."),
   ;
 
   private final String code;
