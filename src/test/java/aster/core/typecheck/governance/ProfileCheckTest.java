@@ -64,4 +64,20 @@ class ProfileCheckTest {
     var diags = diagnoseSource("Module m.\n\nRule r produce Verdict:\n  Return Verdict.allow().\n");
     assertEquals(0, count(diags, ErrorCode.GOV_PROFILE_VIOLATION) + count(diags, ErrorCode.GOV_PROFILE_UNKNOWN));
   }
+
+  @Test void 未知档案下缺id的Verdict规则只报E705与W700() {
+    var diags = diagnoseSource("Module m.\nProfile \"nope\".\n\nRule r produce Verdict:\n  Return Verdict.allow().\n");
+    assertEquals(1, count(diags, ErrorCode.GOV_PROFILE_UNKNOWN), diags.toString());
+    assertEquals(0, count(diags, ErrorCode.GOV_PROFILE_VIOLATION), diags.toString());
+    assertEquals(1, count(diags, ErrorCode.GOV_VERDICT_RULE_MISSING_ID), diags.toString());
+  }
+
+  @Test void 高风险档案下未登记的同框架键同时违反两条要求() {
+    var diags = diagnoseSource(profiled("eu-ai-act-high-risk",
+        "@id(\"R-1\")\n@control(\"EU_AI_ACT:ART99\")\nRule r produce Verdict:\n  Return Verdict.allow()."));
+    var e706 = messages(diags, ErrorCode.GOV_PROFILE_VIOLATION);
+    assertTrue(e706.contains("unregistered control EU_AI_ACT:ART99"), diags.toString());
+    assertTrue(e706.contains("no registered control from framework EU_AI_ACT"), diags.toString());
+    assertEquals(1, count(diags, ErrorCode.GOV_CONTROL_UNREGISTERED), diags.toString());
+  }
 }
