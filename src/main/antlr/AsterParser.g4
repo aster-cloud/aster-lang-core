@@ -511,10 +511,12 @@ otherwiseStmt
 
 /**
  * 结论词经 Canonicalizer 规范化为英文后以普通标识符出现（allow / deny / escalate /
- * require approval by / because 均无词法记号）；词序列由 AstBuilder 校验并报错。
+ * require approval by / because 均无词法记号）。语法层收下句点前的任意记号（不跨行），
+ * 词序列统一由 AstBuilder 校验，使数字、运算符等非单词记号也得到同一条结论错误而非 ANTLR 语法错误。
+ * 句点是语句终结符，因而结论内出现的句点仍按语法错误报告。
  */
 sugarOutcome
-    : nameIdent+ (STRING_LITERAL (nameIdent+ STRING_LITERAL)?)?
+    : ~(DOT | NEWLINE | INDENT | DEDENT | EOF)+
     ;
 
 /**

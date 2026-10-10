@@ -834,16 +834,17 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         return verdictReturn(ctx.sugarOutcome());
     }
 
-    // 结论词序列（小写、单空格、字符串记为 _）查表得目标，字符串依次作为实参
+    // 结论记号序列（小写、单空格、字符串记为 _）查表得目标，字符串依次作为实参；任何其它记号都使查表落空
     private Stmt.Return verdictReturn(AsterParser.SugarOutcomeContext ctx) {
         List<String> shape = new ArrayList<>();
         List<Expr> args = new ArrayList<>();
         for (var child : ctx.children) {
-            if (child instanceof TerminalNode literal) {
+            TerminalNode token = (TerminalNode) child;
+            if (token.getSymbol().getType() == AsterParser.STRING_LITERAL) {
                 shape.add("_");
-                args.add(new Expr.String(parseStringLiteral(literal), spanFrom(literal)));
+                args.add(new Expr.String(parseStringLiteral(token), spanFrom(token)));
             } else {
-                shape.add(child.getText().toLowerCase(Locale.ROOT));
+                shape.add(token.getText().toLowerCase(Locale.ROOT));
             }
         }
         String target = SUGAR_OUTCOMES.get(String.join(" ", shape));

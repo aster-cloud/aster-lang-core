@@ -107,6 +107,18 @@ class GovernanceSugarParseTest {
     }
   }
 
+  @Test void 结论含非单词记号同样报结论错误而非语法错误() {
+    for (String outcome : List.of("deny 42", "deny \"a\" + \"b\"", "escalate (\"x\")", "allow, deny \"x\"",
+        "deny \"x\" because 1", "require approval by \"a\" because \"b\" now", "allow 1.5")) {
+      for (String stmt : List.of("  When n at least 1, " + outcome + ".", "  Otherwise " + outcome + ".")) {
+        var ex = assertThrows(RuntimeException.class, () -> lower(String.join("\n", "Module m.", "",
+          "Rule r given n, produce Verdict:", stmt, "")), stmt);
+        assertTrue(ex.getMessage().contains(
+          "Expected allow, deny, escalate or require approval by … because … after When/Otherwise"), ex.getMessage());
+      }
+    }
+  }
+
   @Test void If块后的Otherwise换行块仍是else分支() {
     var core = lower(String.join("\n", "Module m.", "", "Rule r given n, produce Int:",
       "  If n at least 1:", "    Return 1.", "  Otherwise:", "    Return 2.", ""));
