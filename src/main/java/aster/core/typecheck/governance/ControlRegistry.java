@@ -80,12 +80,26 @@ public record ControlRegistry(String version, Set<String> keys, Map<String, Stri
         keys.add(key);
         if (c.hasNonNull("framework")) frameworkOf.put(key, c.get("framework").asText());
       }
-      Set<String> frameworkIds = new HashSet<>();
-      root.path("frameworks").forEach(f -> frameworkIds.add(f.path("id").asText("")));
-      return new ControlRegistry(version, keys, frameworkOf, readProfiles(root.path("profiles"), frameworkIds));
+      return new ControlRegistry(version, keys, frameworkOf,
+          readProfiles(root.path("profiles"), frameworkIdsOf(root.path("frameworks"))));
     } catch (IOException e) {
       throw new UncheckedIOException("控制注册表解析失败", e);
     }
+  }
+
+  /**
+   * 已登记框架 id（与 TS controls.ts 同一规则）：根不是数组即为空集；只计对象条目中的字符串 id，
+   * 非字符串 id 跳过而不转成字符串；只含 ASCII 空白（Java 正则 \s）的 id 跳过；其余原样计入，不 trim。
+   */
+  private static Set<String> frameworkIdsOf(JsonNode frameworks) {
+    Set<String> ids = new HashSet<>();
+    if (!frameworks.isArray()) return ids;
+    for (JsonNode f : frameworks) {
+      // 非对象条目的 path("id") 是 MissingNode，同样不是字符串
+      JsonNode id = f.path("id");
+      if (id.isTextual() && !id.asText().matches("\\s*")) ids.add(id.asText());
+    }
+    return ids;
   }
 
   /**

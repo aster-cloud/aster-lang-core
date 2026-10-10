@@ -102,4 +102,37 @@ class ControlRegistryTest {
   @Test void profiles不是数组抛出() {
     assertThrows(IllegalStateException.class, () -> registryWithProfiles("{}"));
   }
+
+  // 辅助：给定根 frameworks 原文，返回引用 framework 的档案是否登记
+  private static boolean profileRegistered(String frameworksJson, String frameworkJson) {
+    String json = "{\"version\":\"9\",\"frameworks\":" + frameworksJson + ",\"controls\":[],"
+        + "\"profiles\":[" + profileJson("\"p\"", "true", "true", "[" + frameworkJson + "]") + "]}";
+    var r = ControlRegistry.fromJson(new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8)));
+    return r.profile("p").isPresent();
+  }
+
+  @Test void 根frameworks不是数组时已登记框架为空() {
+    for (String root : java.util.List.of("{\"a\":{\"id\":\"EU_AI_ACT\"}}", "\"EU_AI_ACT\"", "null", "7")) {
+      assertFalse(profileRegistered(root, "\"EU_AI_ACT\""), root);
+    }
+  }
+
+  @Test void 根frameworks只计对象条目的字符串id() {
+    String root = "[null, 7, \"EU_AI_ACT\", [\"GDPR\"], {\"id\":3}, {\"id\":null}, {\"id\":true}, {\"x\":1}]";
+    for (String ref : java.util.List.of("\"EU_AI_ACT\"", "\"GDPR\"", "\"3\"", "\"null\"", "\"true\"", "\"\"")) {
+      assertFalse(profileRegistered(root, ref), ref);
+    }
+    assertTrue(profileRegistered("[null, {\"id\":3}, {\"id\":\"SOX\"}]", "\"SOX\""));
+  }
+
+  @Test void 根frameworks中只含ASCII空白的id不计入() {
+    for (String id : java.util.List.of("", " ", "\\t\\n\\u000b\\f\\r ")) {
+      String quoted = "\"" + id + "\"";
+      assertFalse(profileRegistered("[{\"id\":" + quoted + "}]", quoted), quoted);
+    }
+    // NBSP 不是 ASCII 空白，照常计入且不 trim
+    assertTrue(profileRegistered("[{\"id\":\"\\u00a0\"}]", "\"\\u00a0\""));
+    assertTrue(profileRegistered("[{\"id\":\" EU \"}]", "\" EU \""));
+    assertFalse(profileRegistered("[{\"id\":\" EU \"}]", "\"EU\""));
+  }
 }
