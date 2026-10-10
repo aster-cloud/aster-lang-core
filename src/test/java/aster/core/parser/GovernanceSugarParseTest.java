@@ -119,6 +119,16 @@ class GovernanceSugarParseTest {
     }
   }
 
+  @Test void If块后Otherwise紧跟逗号或冒号是普通语法错误() {
+    for (String tail : List.of("  Otherwise, Return Verdict.allow().", "  Otherwise: Return Verdict.allow().")) {
+      var ex = assertThrows(RuntimeException.class, () -> lower(String.join("\n", "Module m.", "",
+        "Rule r given n, produce Verdict:", "  If n at least 1:", "    Return Verdict.deny(\"x\").", tail, "")), tail);
+      assertTrue(ex.getMessage().startsWith("syntax errors"), ex.getMessage());
+      assertFalse(ex.getMessage().contains("after When/Otherwise"), ex.getMessage());
+      assertFalse(ex.getMessage().contains("Otherwise must be the last statement"), ex.getMessage());
+    }
+  }
+
   @Test void If块后的Otherwise换行块仍是else分支() {
     var core = lower(String.join("\n", "Module m.", "", "Rule r given n, produce Int:",
       "  If n at least 1:", "    Return 1.", "  Otherwise:", "    Return 2.", ""));
