@@ -514,7 +514,8 @@ otherwiseStmt
  * require approval by / because 均无词法记号）。语法层收下句点前的任意记号（不跨行），
  * 词序列统一由 AstBuilder 校验，使数字、运算符等非单词记号也得到同一条结论错误而非 ANTLR 语法错误。
  * 首个记号不得是冒号或逗号：`Otherwise:` / `Otherwise,` 属于 If 的 else 分支写法，写错时应得到普通语法错误。
- * 句点是语句终结符，因而结论内出现的句点仍按语法错误报告。
+ * 句点是语句终结符，语句在结论中的第一个句点处结束：`When c, deny x.y.` 的结论只剩 `deny x`，
+ * 得到结论错误；`Otherwise deny x.y.` 之后的 `y.` 成为下一条语句，得到 "Otherwise must be the last statement"。
  */
 sugarOutcome
     : ~(DOT | NEWLINE | INDENT | DEDENT | EOF | COLON | COMMA) ~(DOT | NEWLINE | INDENT | DEDENT | EOF)*

@@ -119,6 +119,17 @@ class GovernanceSugarParseTest {
     }
   }
 
+  @Test void 结论中的句点结束语句() {
+    var when = assertThrows(RuntimeException.class, () -> lower(String.join("\n", "Module m.", "",
+      "Rule r given n, produce Verdict:", "  When n at least 1, deny x.y.", "  Otherwise allow.", "")));
+    assertTrue(when.getMessage().contains(
+      "Expected allow, deny, escalate or require approval by … because … after When/Otherwise"), when.getMessage());
+    var otherwise = assertThrows(RuntimeException.class, () -> lower(String.join("\n", "Module m.", "",
+      "Rule r given n, produce Verdict:", "  Otherwise deny x.y.", "")));
+    assertTrue(otherwise.getMessage().contains("Otherwise must be the last statement of its block"),
+      otherwise.getMessage());
+  }
+
   @Test void If块后Otherwise紧跟逗号或冒号是普通语法错误() {
     for (String tail : List.of("  Otherwise, Return Verdict.allow().", "  Otherwise: Return Verdict.allow().")) {
       var ex = assertThrows(RuntimeException.class, () -> lower(String.join("\n", "Module m.", "",
