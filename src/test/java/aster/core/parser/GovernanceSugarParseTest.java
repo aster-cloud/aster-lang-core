@@ -215,9 +215,12 @@ class GovernanceSugarParseTest {
   @Test void 印地语档案与语法糖同样降糖() {
     var registry = LexiconRegistry.getInstance();
     // hi 包是独立发布的制品：发版列车里 core 先于 hi 发布，此时 classpath 上仍是不含治理语法糖词的旧 hi 包，
-    // 按 ADR 0029 的 OPTIONAL_KINDS 先例跳过；hi 新版发布并被 pin 后此用例照常执行
-    assumeTrue(registry.getOrThrow("hi-IN").getKeywords().containsKey(SemanticTokenKind.PROFILE),
-      "classpath 上的 hi-IN 包尚不含 PROFILE 等治理语法糖词");
+    // 按 ADR 0029 的 OPTIONAL_KINDS 先例跳过；hi 新版发布并被 pin 后此用例照常执行。
+    // 缺失的可选词会被 en-US 回填，故以「hi 的 PROFILE 词与 en-US 不同」判定包内确有该词
+    String enProfile = registry.getOrThrow("en-US").getKeywords().get(SemanticTokenKind.PROFILE);
+    String hiProfile = registry.getOrThrow("hi-IN").getKeywords().get(SemanticTokenKind.PROFILE);
+    assumeTrue(hiProfile != null && !hiProfile.equals(enProfile),
+      "classpath 上的 hi-IN 包尚不含 PROFILE 等治理语法糖词（取到的是 en-US 回填值）");
     // 用词取自真实 hi-IN 词法包（暂定，待母语审校）；与中德用例同一策略与期望
     Lexicon en = derived(registry.getOrThrow("en-US"), Map.of(), CanonicalizationConfig.defaults());
     JsonNode expected = json(lower(String.join("\n", "Module m.", "Profile \"governed\".", "",
