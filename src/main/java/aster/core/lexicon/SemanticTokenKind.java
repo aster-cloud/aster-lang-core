@@ -106,6 +106,24 @@ public enum SemanticTokenKind {
     /** 集合成员 - "in" / "在" */
     IN,
 
+    /** 治理档案声明（ADR 0046 §2）- "Profile" / "档案"。软关键词：仅在 Module 行之后的声明位置生效 */
+    PROFILE,
+
+    /** 语法糖结论词：放行（ADR 0046 §5）- "allow" / "允许"。软关键词，不影响 Verdict.allow() 成员名 */
+    ALLOW,
+
+    /** 语法糖结论词：拒绝（ADR 0046 §5）- "deny" / "拒绝" */
+    DENY,
+
+    /** 语法糖结论词：升级处理（ADR 0046 §5）- "escalate" / "升级" */
+    ESCALATE,
+
+    /** 语法糖结论词：需人工审批，后接审批角色（ADR 0046 §5）- "require approval by" / "需审批人" */
+    REQUIRE_APPROVAL_BY,
+
+    /** 语法糖原因连接词，用于审批结论（ADR 0046 §5）- "because" / "因为" */
+    BECAUSE,
+
     // ============================================================
     // 变量操作
     // ============================================================
@@ -328,7 +346,8 @@ public enum SemanticTokenKind {
         Map.entry("module", Arrays.asList(MODULE_DECL, IMPORT, IMPORT_ALIAS, IMPORT_VERSION)),
         Map.entry("type", Arrays.asList(TYPE_DEF, TYPE_WITH, TYPE_HAS, TYPE_ONE_OF)),
         Map.entry("function", Arrays.asList(FUNC_TO, FUNC_GIVEN, FUNC_PRODUCE, FUNC_PERFORMS, APPLY)),
-        Map.entry("control", Arrays.asList(IF, OTHERWISE, THEN, MATCH, WHEN, RETURN, RESULT_IS, FOR_EACH, IN)),
+        Map.entry("control", Arrays.asList(IF, OTHERWISE, THEN, MATCH, WHEN, RETURN, RESULT_IS, FOR_EACH, IN,
+            PROFILE, ALLOW, DENY, ESCALATE, REQUIRE_APPROVAL_BY, BECAUSE)),
         Map.entry("variable", Arrays.asList(LET, BE, SET, TO_WORD)),
         Map.entry("boolean", Arrays.asList(OR, AND, NOT)),
         Map.entry("arithmetic", Arrays.asList(PLUS, MINUS_WORD, TIMES, DIVIDED_BY, INTEGER_DIVIDED_BY, MODULO)),
