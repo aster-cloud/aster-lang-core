@@ -181,6 +181,27 @@ class GovernanceSugarParseTest {
     assertEquals(expected, json(de), "de-DE");
   }
 
+  @Test void 印地语档案与语法糖同样降糖() {
+    var registry = LexiconRegistry.getInstance();
+    // 用词取自真实 hi-IN 词法包（暂定，待母语审校）；与中德用例同一策略与期望
+    Lexicon en = derived(registry.getOrThrow("en-US"), Map.of(), CanonicalizationConfig.defaults());
+    JsonNode expected = json(lower(String.join("\n", "Module m.", "Profile \"governed\".", "",
+      "Rule r given a produce Verdict:",
+      "  If a at least 100:", "    Return Verdict.require_approval(\"Officer\", \"large\").",
+      "  If a at least 50:", "    Return Verdict.escalate(\"review\").",
+      "  If a at least 1:", "    Return Verdict.deny(\"x\").",
+      "  Return Verdict.allow().", ""), en));
+    String hiSrc = String.join("\n", "मॉड्यूल m।", "प्रोफ़ाइल \"governed\"।", "",
+      "नियम r दिया गया a उत्पन्न Verdict:",
+      "  जब a कम से कम 100, अनुमोदक \"Officer\" क्योंकि \"large\"।",
+      "  जब a कम से कम 50, आगे बढ़ाएँ \"review\"।",
+      "  जब a कम से कम 1, अस्वीकार \"x\"।",
+      "  अन्यथा अनुमति।", "");
+    var hi = lower(hiSrc, registry.getOrThrow("hi-IN"));
+    assertEquals("governed", hi.profile);
+    assertEquals(expected, json(hi), "hi-IN");
+  }
+
   // 辅助：英文默认词法包的完整管线
   private static CoreModel.Module lower(String src) {
     return lower(src, LexiconRegistry.getInstance().getOrThrow("en-US"));
