@@ -32,6 +32,7 @@ public final class CoreLowering {
     Objects.requireNonNull(ast, "ast");
     CoreModel.Module module = new CoreModel.Module();
     module.name = ast.name();
+    module.profile = ast.profile();
     module.decls = new ArrayList<>();
     if (ast.decls() != null) {
       for (Decl decl : ast.decls()) {

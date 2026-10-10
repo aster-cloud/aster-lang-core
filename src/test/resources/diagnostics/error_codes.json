@@ -530,5 +530,33 @@
     "severity": "error",
     "message": "{func} expects {expected} argument(s), got {actual}",
     "help": "Verdict.allow() takes no arguments; Verdict.deny(reason) and Verdict.escalate(reason) take one Text; Verdict.require_approval(role, reason) takes two Text."
+  },
+  "GOV_CONTROL_UNREGISTERED": {
+    "code": "W704",
+    "category": "governance",
+    "severity": "warning",
+    "message": "Control '{control}' on rule '{rule}' is not registered (controls registry {version})",
+    "help": "Use a registered key such as EU_AI_ACT:ART14, or add it to aster-lang-locales controls/registry.json (format FRAMEWORK:ARTICLE, at most 64 characters)."
+  },
+  "GOV_PROFILE_UNKNOWN": {
+    "code": "E705",
+    "category": "governance",
+    "severity": "error",
+    "message": "Module '{module}' declares unknown profile '{profile}' (controls registry {version})",
+    "help": "Use a profile defined in aster-lang-locales controls/registry.json, such as governed or eu-ai-act-high-risk."
+  },
+  "GOV_PROFILE_VIOLATION": {
+    "code": "E706",
+    "category": "governance",
+    "severity": "error",
+    "message": "Rule '{rule}' violates profile '{profile}': {requirement}",
+    "help": "Satisfy the profile requirement or remove the Profile declaration."
+  },
+  "GOV_CHECK_UNAVAILABLE": {
+    "code": "E707",
+    "category": "governance",
+    "severity": "error",
+    "message": "Governance check could not run for module '{module}' (profile '{profile}'); saving is blocked until it succeeds",
+    "help": "Retry later; this is a service fault, not a policy violation."
   }
 }

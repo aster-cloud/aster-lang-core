@@ -317,7 +317,11 @@ public final class BaseTypeChecker {
    * 检查函数调用
    */
   private Type checkCall(CoreModel.Call call, VisitorContext ctx) {
-    var funcType = typeOfExpr(call.target, ctx);
+    // 运算符在 lower 后是 Call{Name(op)}，并非变量；跳过变量名查找，避免 UNDEFINED_VARIABLE 误报。
+    // 与查找失败时的结果一致，目标类型视为 Unknown，由下方运算符分支各自决定返回类型。
+    Type funcType = isOperatorTarget(call.target)
+        ? TypeSystem.unknown()
+        : typeOfExpr(call.target, ctx);
 
     // 特殊处理：not(x)
     if (call.target instanceof CoreModel.Name name && "not".equals(name.name)) {
@@ -898,6 +902,17 @@ public final class BaseTypeChecker {
     var type = new CoreModel.TypeName();
     type.name = name;
     return type;
+  }
+
+  /** 调用目标是否为内置运算符名（与 AstBuilder 产出的 Name 拼写一致）。 */
+  private boolean isOperatorTarget(CoreModel.Expr target) {
+    return target instanceof CoreModel.Name name && isBuiltinOperator(name.name);
+  }
+
+  /** 内置运算符：算术、比较，以及逻辑 not/and/or。 */
+  private boolean isBuiltinOperator(String op) {
+    return isArithmeticOperator(op) || isComparisonOperator(op)
+        || "not".equals(op) || "and".equals(op) || "or".equals(op);
   }
 
   /** 算术运算符（lower 后的 Call target Name）：+/-/*///%。 */

@@ -5,6 +5,7 @@ import aster.core.inference.TypeInference;
 import aster.core.util.StringEscapes;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.ArrayList;
@@ -28,6 +29,18 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     private static final Set<String> BUILTIN_TYPE_NAMES = Set.of(
         "Int", "Bool", "Text", "Long", "Double", "Decimal", "Number", "Float", "Option", "Result", "List", "Map", "Verdict"
+    );
+
+    // ADR 0046：档案 id 形态（与注册表 profiles[].id 校验一致）
+    private static final String PROFILE_ID_REGEX = "^[a-z][a-z0-9-]{0,63}$";
+    private static final java.util.regex.Pattern PROFILE_ID = java.util.regex.Pattern.compile(PROFILE_ID_REGEX);
+
+    // ADR 0046：结论词序列（字符串参数记为 _）→ 降糖目标 Verdict 构造函数
+    private static final Map<String, String> SUGAR_OUTCOMES = Map.of(
+        "allow", "Verdict.allow",
+        "deny _", "Verdict.deny",
+        "escalate _", "Verdict.escalate",
+        "require approval by _ because _", "Verdict.require_approval"
     );
 
     private final Set<String> declaredTypeNames = new HashSet<>();
@@ -67,6 +80,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             // 新旧语法均通过 qualifiedName 提取模块名
             name = visitQualifiedName(ctx.moduleHeader().qualifiedName());
         }
+        String profile = ctx.profileDecl() == null ? null : profileId(ctx.profileDecl());
 
         declaredTypeNames.clear();
         declaredRecordTypeNames.clear();
@@ -110,7 +124,19 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             .map(obj -> (Decl) obj)
             .collect(Collectors.toList());
 
-        return new aster.core.ast.Module(name, decls, spanFrom(ctx));
+        return new aster.core.ast.Module(name, profile, decls, spanFrom(ctx));
+    }
+
+    // ADR 0046：Profile 声明——关键词文本须为 Profile（经 Canonicalizer 规范化后），id 须合形态
+    private String profileId(AsterParser.ProfileDeclContext ctx) {
+        if (!"Profile".equals(ctx.TYPE_IDENT().getText())) {
+            throw new IllegalStateException("Expected 'Profile' declaration after Module header");
+        }
+        String id = parseStringLiteral(ctx.STRING_LITERAL());
+        if (!PROFILE_ID.matcher(id).matches()) {
+            throw new IllegalStateException("Profile id must match " + PROFILE_ID_REGEX + ": " + id);
+        }
+        return id;
     }
 
     @Override
@@ -744,6 +770,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Block visitBlock(AsterParser.BlockContext ctx) {
+        requireOtherwiseLast(ctx.stmt());
         List<Stmt> stmts = ctx.stmt().stream()
             .map(this::visitStmt)
             .map(obj -> (Stmt) obj)
@@ -764,6 +791,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     // 编译到字节级一致的 Core IR（与 TS 引擎对齐）。
     @Override
     public Block visitExplicitBlock(AsterParser.ExplicitBlockContext ctx) {
+        requireOtherwiseLast(ctx.stmt());
         List<Stmt> stmts = ctx.stmt().stream()
             .map(this::visitStmt)
             .map(obj -> (Stmt) obj)
@@ -782,6 +810,54 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     @Override
     public Stmt visitStmt(AsterParser.StmtContext ctx) {
         return (Stmt) super.visitStmt(ctx);
+    }
+
+    // ADR 0046：Otherwise 简写只能收尾所在块（其后语句不可达）
+    private static void requireOtherwiseLast(List<AsterParser.StmtContext> stmts) {
+        for (int i = 0; i < stmts.size() - 1; i++) {
+            if (stmts.get(i).otherwiseStmt() != null) {
+                throw new IllegalStateException("Otherwise must be the last statement of its block");
+            }
+        }
+    }
+
+    // ADR 0046：`When c, outcome.` 降糖为 `If c: Return Verdict.*(...)`（无 else）
+    @Override
+    public Stmt.If visitWhenStmt(AsterParser.WhenStmtContext ctx) {
+        Expr cond = (Expr) visit(ctx.expr());
+        Stmt.Return ret = verdictReturn(ctx.sugarOutcome());
+        return new Stmt.If(cond, singleStmtBlock(ret), null, spanFrom(ctx));
+    }
+
+    // ADR 0046：`Otherwise outcome.` 降糖为 `Return Verdict.*(...)`
+    @Override
+    public Stmt.Return visitOtherwiseStmt(AsterParser.OtherwiseStmtContext ctx) {
+        return verdictReturn(ctx.sugarOutcome());
+    }
+
+    // 结论记号序列（小写、单空格、字符串记为 _）查表得目标，字符串依次作为实参；任何其它记号都使查表落空
+    private Stmt.Return verdictReturn(AsterParser.SugarOutcomeContext ctx) {
+        List<String> shape = new ArrayList<>();
+        List<Expr> args = new ArrayList<>();
+        // 空结论没有子节点，查表同样落空
+        List<ParseTree> children = ctx.children == null ? List.of() : ctx.children;
+        for (var child : children) {
+            TerminalNode token = (TerminalNode) child;
+            if (token.getSymbol().getType() == AsterParser.STRING_LITERAL) {
+                shape.add("_");
+                args.add(new Expr.String(parseStringLiteral(token), spanFrom(token)));
+            } else {
+                shape.add(token.getText().toLowerCase(Locale.ROOT));
+            }
+        }
+        String target = SUGAR_OUTCOMES.get(String.join(" ", shape));
+        if (target == null) {
+            throw new IllegalStateException(
+                "Expected allow, deny, escalate or require approval by … because … after When/Otherwise");
+        }
+        Span span = spanFrom(ctx);
+        Expr call = createCallExpression(new Expr.Name(target, span), List.copyOf(args), span);
+        return new Stmt.Return(call, span);
     }
 
     @Override
@@ -1445,7 +1521,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         Expr left = (Expr) visit(argsCtx.get(0));
         Expr right = (Expr) visit(argsCtx.get(1));
         Token opToken = ctx.op;
-        Expr.Name opName = new Expr.Name(opToken.getText(), spanFrom(opToken));
+        // 与中缀同一规范化：前缀 `=(a, b)` 与 `a = b` 都得到 `==`
+        Expr.Name opName = new Expr.Name(normalizeOperator(opToken.getText()), spanFrom(opToken));
         return new Expr.Call(opName, List.of(left, right), spanFrom(ctx));
     }
 

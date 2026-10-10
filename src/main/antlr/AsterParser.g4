@@ -29,7 +29,17 @@ tokens { INDENT, DEDENT }
  *     Return "Hello, world!".
  */
 module
-    : NEWLINE* moduleHeader? NEWLINE* (topLevelDecl NEWLINE*)* EOF
+    : NEWLINE* (moduleHeader NEWLINE* profileDecl?)? NEWLINE* (topLevelDecl NEWLINE*)* EOF
+    ;
+
+/**
+ * ADR 0046：治理档案声明，紧跟模块头、至多一条:
+ *   Profile "eu-ai-act-high-risk".
+ * 不引入硬词法记号——TYPE_IDENT 文本须为 Profile，id 形态由 AstBuilder 校验；
+ * 顶层声明无以 TYPE_IDENT 开头者，故不夺走用户的 profile 参数名或 Profile 类型名。
+ */
+profileDecl
+    : TYPE_IDENT STRING_LITERAL DOT
     ;
 
 /**
@@ -402,6 +412,8 @@ stmt
     | waitStmt
     | workflowStmt
     | returnStmt
+    | whenStmt
+    | otherwiseStmt
     | inlineIfStmt
     | ifStmt
     | matchStmt
@@ -476,6 +488,38 @@ timeoutSection
  */
 returnStmt
     : RETURN expr DOT
+    ;
+
+/**
+ * ADR 0046：语句级 When 简写，降糖为 If + Return Verdict.*:
+ *   When amount at least 100, deny "too_large".
+ * 与 matchCase 的 WHEN 互不干扰：matchCase 只出现在 matchStmt 内部。
+ */
+whenStmt
+    : WHEN expr COMMA sugarOutcome DOT
+    ;
+
+/**
+ * ADR 0046：Otherwise 简写，降糖为 Return Verdict.*:
+ *   Otherwise allow.
+ * 与 ifStmt 的 else 分支区别在于 ELSE 之后直接是结论词（else 分支 ELSE 后须换行），
+ * ALL(*) 前瞻据此消歧，无需改动 ifStmt。
+ */
+otherwiseStmt
+    : ELSE sugarOutcome DOT
+    ;
+
+/**
+ * 结论词经 Canonicalizer 规范化为英文后以普通标识符出现（allow / deny / escalate /
+ * require approval by / because 均无词法记号）。语法层收下句点前的任意记号（不跨行），
+ * 词序列统一由 AstBuilder 校验，使数字、运算符等非单词记号也得到同一条结论错误而非 ANTLR 语法错误。
+ * 结论可为空（`Otherwise.`），同样交由 AstBuilder 报结论错误。
+ * 首个记号不得是冒号或逗号：`Otherwise:` / `Otherwise,` 属于 If 的 else 分支写法，写错时应得到普通语法错误。
+ * 句点是语句终结符，语句在结论中的第一个句点处结束：`When c, deny x.y.` 的结论只剩 `deny x`，
+ * 得到结论错误；`Otherwise deny x.y.` 之后的 `y.` 成为下一条语句，得到 "Otherwise must be the last statement"。
+ */
+sugarOutcome
+    : (~(DOT | NEWLINE | INDENT | DEDENT | EOF | COLON | COMMA) ~(DOT | NEWLINE | INDENT | DEDENT | EOF)*)?
     ;
 
 /**

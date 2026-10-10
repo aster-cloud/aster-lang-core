@@ -51,7 +51,7 @@ class CoreLoweringTest {
             null  // span
         );
 
-        var module = new aster.core.ast.Module("test", List.of(func), null);
+        var module = new aster.core.ast.Module("test", null, List.of(func), null);
 
         // 降级
         var lowered = lowering.lowerModule(module);
@@ -86,7 +86,7 @@ class CoreLoweringTest {
             null
         );
 
-        var module = new aster.core.ast.Module(null, List.of(func), null);
+        var module = new aster.core.ast.Module(null, null, List.of(func), null);
         var lowered = lowering.lowerModule(module);
         var funcLowered = (CoreModel.Func) lowered.decls.get(0);
 
@@ -113,7 +113,7 @@ class CoreLoweringTest {
             null
         );
 
-        var module = new aster.core.ast.Module(null, List.of(data), null);
+        var module = new aster.core.ast.Module(null, null, List.of(data), null);
         var lowered = lowering.lowerModule(module);
         var dataLowered = (CoreModel.Data) lowered.decls.get(0);
 
@@ -135,7 +135,7 @@ class CoreLoweringTest {
             null
         );
 
-        var module = new aster.core.ast.Module(null, List.of(enumDecl), null);
+        var module = new aster.core.ast.Module(null, null, List.of(enumDecl), null);
         var lowered = lowering.lowerModule(module);
         var enumLowered = (CoreModel.Enum) lowered.decls.get(0);
 
@@ -159,7 +159,7 @@ class CoreLoweringTest {
             null
         );
 
-        var module = new aster.core.ast.Module(null, List.of(importDecl), null);
+        var module = new aster.core.ast.Module(null, null, List.of(importDecl), null);
         var lowered = lowering.lowerModule(module);
         var importLowered = (CoreModel.Import) lowered.decls.get(0);
 
@@ -189,7 +189,7 @@ class CoreLoweringTest {
             null
         );
 
-        var module = new aster.core.ast.Module(null, List.of(func), null);
+        var module = new aster.core.ast.Module(null, null, List.of(func), null);
         var lowered = lowering.lowerModule(module);
         var funcLowered = (CoreModel.Func) lowered.decls.get(0);
 
@@ -204,7 +204,7 @@ class CoreLoweringTest {
      */
     @Test
     void testLowerEmptyModule() {
-        var module = new aster.core.ast.Module(null, List.of(), null);
+        var module = new aster.core.ast.Module(null, null, List.of(), null);
 
         var lowered = lowering.lowerModule(module);
 
@@ -233,7 +233,7 @@ class CoreLoweringTest {
             null
         );
 
-        var module = new aster.core.ast.Module(null, List.of(func), null);
+        var module = new aster.core.ast.Module(null, null, List.of(func), null);
         var lowered = lowering.lowerModule(module);
         var funcLowered = (CoreModel.Func) lowered.decls.get(0);
 
@@ -260,7 +260,7 @@ class CoreLoweringTest {
             null
         );
 
-        var module = new aster.core.ast.Module(null, List.of(data), null);
+        var module = new aster.core.ast.Module(null, null, List.of(data), null);
         var lowered = lowering.lowerModule(module);
         var dataLowered = (CoreModel.Data) lowered.decls.get(0);
 
@@ -280,7 +280,7 @@ class CoreLoweringTest {
         var data = new Decl.Data("User", List.of(new Decl.Field("name", typeString(), null)), null);
         var enumDecl = new Decl.Enum("Status", List.of("Active", "Inactive"), null);
 
-        var module = new aster.core.ast.Module("app", List.of(func, data, enumDecl), null);
+        var module = new aster.core.ast.Module("app", null, List.of(func, data, enumDecl), null);
         var lowered = lowering.lowerModule(module);
 
         assertNotNull(lowered);
@@ -308,7 +308,7 @@ class CoreLoweringTest {
             null
         );
 
-        var module = new aster.core.ast.Module(null, List.of(func), null);
+        var module = new aster.core.ast.Module(null, null, List.of(func), null);
         var lowered = lowering.lowerModule(module);
         var funcLowered = (CoreModel.Func) lowered.decls.get(0);
 

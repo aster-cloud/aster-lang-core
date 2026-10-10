@@ -40,7 +40,10 @@ public final class LexiconRegistry {
      * 全部 lexicon 加载失败（chicken-egg 发布顺序死锁）。迁移完成后可移除。
      */
     private static final Set<SemanticTokenKind> OPTIONAL_KINDS =
-        EnumSet.of(SemanticTokenKind.IMPORT_VERSION, SemanticTokenKind.THEN, SemanticTokenKind.APPLY);
+        EnumSet.of(SemanticTokenKind.IMPORT_VERSION, SemanticTokenKind.THEN, SemanticTokenKind.APPLY,
+            // ADR 0046 新 kind，发版列车完成前保留（ADR 0029 先例：新 core 可能先遇到未补词的旧语言包）
+            SemanticTokenKind.PROFILE, SemanticTokenKind.ALLOW, SemanticTokenKind.DENY,
+            SemanticTokenKind.ESCALATE, SemanticTokenKind.REQUIRE_APPROVAL_BY, SemanticTokenKind.BECAUSE);
 
     private static final LexiconRegistry INSTANCE = new LexiconRegistry();
 

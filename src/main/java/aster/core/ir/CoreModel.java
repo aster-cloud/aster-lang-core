@@ -44,6 +44,9 @@ public final class CoreModel {
   public static final class Module {
     public String kind = "Module";  // 类型标识（与 TypeScript Core IR 保持一致）
     public String name;             // 模块名称
+    // ADR 0046：声明的治理档案 id；缺省不输出，保证未声明档案的模块 IR 逐字节不变
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public String profile;
     public List<Decl> decls;        // 顶层声明列表
     public Origin origin;           // 源码位置
   }

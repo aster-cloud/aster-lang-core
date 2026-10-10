@@ -6,6 +6,7 @@ import aster.core.typecheck.model.Diagnostic;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,14 +26,26 @@ import java.util.Set;
 public final class GovernanceChecker {
   private static final Set<String> STRING_ARG_ANNOTATIONS = Set.of("id", "reason", "control");
 
-  /** 检查整个模块：E702 注解参数、W700 缺 @id、E701 模块内 @id 重复。 */
+  private final ControlRegistry registry;
+
+  /** 默认使用 classpath 注册表（ADR 0045）。 */
+  public GovernanceChecker() {
+    this(ControlRegistry.loadDefault());
+  }
+
+  public GovernanceChecker(ControlRegistry registry) {
+    this.registry = registry;
+  }
+
+  /** 检查整个模块：E702 注解参数、W700 缺 @id、E701 模块内 @id 重复、E705/E706 档案（ADR 0046）。 */
   public List<Diagnostic> checkModule(CoreModel.Module module) {
     List<Diagnostic> out = new ArrayList<>();
     if (module == null || module.decls == null) return out;
+    Optional<ControlRegistry.Profile> profile = resolveProfile(module, out);
     // @id → 拥有该 id 的规则（按声明顺序），用于发现重复
     Map<String, List<CoreModel.Func>> idOwners = new LinkedHashMap<>();
     for (CoreModel.Decl decl : module.decls) {
-      if (decl instanceof CoreModel.Func func) checkFunc(func, idOwners, out);
+      if (decl instanceof CoreModel.Func func) checkFunc(func, idOwners, profile, out);
     }
     for (var e : idOwners.entrySet()) {
       if (e.getValue().size() < 2) continue;
@@ -43,7 +56,19 @@ public final class GovernanceChecker {
     return out;
   }
 
-  private static void checkFunc(CoreModel.Func func, Map<String, List<CoreModel.Func>> idOwners, List<Diagnostic> out) {
+  /** ADR 0046：声明了档案的模块按档案要求检查；未知档案报 E705 后不再做档案检查。 */
+  private Optional<ControlRegistry.Profile> resolveProfile(CoreModel.Module module, List<Diagnostic> out) {
+    if (module.profile == null) return Optional.empty();
+    Optional<ControlRegistry.Profile> profile = registry.profile(module.profile);
+    if (profile.isEmpty()) {
+      out.add(diag(ErrorCode.GOV_PROFILE_UNKNOWN, module.origin,
+          Map.of("module", String.valueOf(module.name), "profile", module.profile, "version", registry.version())));
+    }
+    return profile;
+  }
+
+  private void checkFunc(CoreModel.Func func, Map<String, List<CoreModel.Func>> idOwners,
+                         Optional<ControlRegistry.Profile> profile, List<Diagnostic> out) {
     String rule = String.valueOf(func.name);
     for (CoreModel.Annotation a : annotationsOf(func)) {
       if (a.name != null && STRING_ARG_ANNOTATIONS.contains(a.name) && !isSingleStringArg(a)) {
@@ -60,6 +85,36 @@ public final class GovernanceChecker {
     } else if (returnsVerdict(func)) {
       out.add(diag(ErrorCode.GOV_VERDICT_RULE_MISSING_ID, func.origin, Map.of("rule", rule)));
     }
+    // ADR 0045：未登记或形态非法的控制键给 W704；同一规则同键只报一次，永不阻断
+    for (String key : new LinkedHashSet<>(controls(func))) {
+      if (registry.has(key)) continue;
+      out.add(diag(ErrorCode.GOV_CONTROL_UNREGISTERED, func.origin,
+          Map.of("control", key, "rule", rule, "version", registry.version())));
+    }
+    profile.ifPresent(p -> checkProfile(func, p, out));
+  }
+
+  /** ADR 0046 §4：只对 Verdict 规则检查档案要求；同一规则同一要求只报一次。 */
+  private void checkProfile(CoreModel.Func func, ControlRegistry.Profile p, List<Diagnostic> out) {
+    if (!returnsVerdict(func)) return;
+    if (p.ruleId() && ruleId(func).isEmpty()) out.add(violation(func, p, "missing @id"));
+    List<String> keys = List.copyOf(new LinkedHashSet<>(controls(func)));
+    if (p.registeredControls()) {
+      keys.stream().filter(k -> !registry.has(k))
+          .forEach(k -> out.add(violation(func, p, "unregistered control " + k)));
+    }
+    if (!p.frameworks().isEmpty() && keys.stream().noneMatch(k -> coversFramework(k, p))) {
+      out.add(violation(func, p, "no registered control from framework " + String.join(", ", p.frameworks())));
+    }
+  }
+
+  private boolean coversFramework(String key, ControlRegistry.Profile p) {
+    return registry.has(key) && p.frameworks().contains(registry.frameworkOf().get(key));
+  }
+
+  private Diagnostic violation(CoreModel.Func func, ControlRegistry.Profile p, String requirement) {
+    return diag(ErrorCode.GOV_PROFILE_VIOLATION, func.origin,
+        Map.of("rule", String.valueOf(func.name), "profile", p.id(), "requirement", requirement));
   }
 
   /**
