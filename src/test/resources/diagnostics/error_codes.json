@@ -551,5 +551,12 @@
     "severity": "error",
     "message": "Rule '{rule}' violates profile '{profile}': {requirement}",
     "help": "Satisfy the profile requirement or remove the Profile declaration."
+  },
+  "GOV_CHECK_UNAVAILABLE": {
+    "code": "E707",
+    "category": "governance",
+    "severity": "error",
+    "message": "Governance check could not run for module '{module}' (profile '{profile}'); saving is blocked until it succeeds",
+    "help": "Retry later; this is a service fault, not a policy violation."
   }
 }
