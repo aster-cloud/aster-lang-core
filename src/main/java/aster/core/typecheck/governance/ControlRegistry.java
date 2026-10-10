@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -24,6 +25,7 @@ import java.util.regex.Pattern;
 public record ControlRegistry(String version, Set<String> keys, Map<String, String> frameworkOf,
                               Map<String, Profile> profiles) {
   private static final Pattern KEY_PATTERN = Pattern.compile("^[A-Z0-9_]+:[A-Z0-9_().]+$");
+  private static final Pattern PROFILE_ID = Pattern.compile("^[a-z][a-z0-9-]{0,63}$");
   private static final int MAX_KEY_LENGTH = 64;
   private static final String RESOURCE = "/governance/controls-registry.json";
 
@@ -78,25 +80,50 @@ public record ControlRegistry(String version, Set<String> keys, Map<String, Stri
         keys.add(key);
         if (c.hasNonNull("framework")) frameworkOf.put(key, c.get("framework").asText());
       }
-      return new ControlRegistry(version, keys, frameworkOf, readProfiles(root.path("profiles")));
+      Set<String> frameworkIds = new HashSet<>();
+      root.path("frameworks").forEach(f -> frameworkIds.add(f.path("id").asText("")));
+      return new ControlRegistry(version, keys, frameworkOf, readProfiles(root.path("profiles"), frameworkIds));
     } catch (IOException e) {
       throw new UncheckedIOException("控制注册表解析失败", e);
     }
   }
 
-  /** 缺 profiles 视为无档案，以兼容只含控制点的输入。 */
-  private static Map<String, Profile> readProfiles(JsonNode profiles) {
+  /**
+   * 缺 profiles 视为无档案，以兼容只含控制点的输入；profiles 存在但不是数组与 controls 同属结构错误，抛出。
+   * 单条档案按 locales 校验口径判定，不合法即不登记（与形态非法的控制键不算登记同理），声明它的模块因此得到 E705；
+   * 重复 id 的各条一律不登记，避免静默择一。
+   */
+  private static Map<String, Profile> readProfiles(JsonNode profiles, Set<String> frameworkIds) {
     Map<String, Profile> out = new LinkedHashMap<>();
-    if (!profiles.isArray()) return out;
+    if (profiles.isMissingNode() || profiles.isNull()) return out;
+    if (!profiles.isArray()) throw new IllegalStateException("控制注册表 profiles 须为数组");
+    Set<String> seen = new HashSet<>();
+    Set<String> duplicated = new HashSet<>();
     for (JsonNode p : profiles) {
-      JsonNode req = p.path("requires");
-      List<String> frameworks = new ArrayList<>();
-      req.path("frameworks").forEach(f -> frameworks.add(f.asText()));
-      String id = p.path("id").asText();
-      out.put(id, new Profile(id, req.path("ruleId").asBoolean(false),
-          req.path("registeredControls").asBoolean(false), frameworks));
+      String id = p.path("id").asText("");
+      if (!seen.add(id)) duplicated.add(id);
+      readProfile(p, frameworkIds).ifPresent(profile -> out.put(profile.id(), profile));
     }
+    out.keySet().removeAll(duplicated);
     return out;
+  }
+
+  /** id 合乎形态、两个开关为布尔、frameworks 为只含已登记框架 id 的数组，否则为空。 */
+  private static Optional<Profile> readProfile(JsonNode p, Set<String> frameworkIds) {
+    JsonNode id = p.path("id");
+    JsonNode req = p.path("requires");
+    JsonNode ruleId = req.path("ruleId");
+    JsonNode registered = req.path("registeredControls");
+    JsonNode fws = req.path("frameworks");
+    boolean shapeOk = id.isTextual() && PROFILE_ID.matcher(id.asText()).matches()
+        && ruleId.isBoolean() && registered.isBoolean() && fws.isArray();
+    if (!shapeOk) return Optional.empty();
+    List<String> frameworks = new ArrayList<>();
+    for (JsonNode f : fws) {
+      if (!f.isTextual() || !frameworkIds.contains(f.asText())) return Optional.empty();
+      frameworks.add(f.asText());
+    }
+    return Optional.of(new Profile(id.asText(), ruleId.asBoolean(), registered.asBoolean(), frameworks));
   }
 
   private static final class Holder {

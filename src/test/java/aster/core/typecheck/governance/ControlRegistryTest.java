@@ -52,4 +52,54 @@ class ControlRegistryTest {
     assertTrue(r.profile("governed").isEmpty());
     assertTrue(r.frameworkOf().isEmpty());
   }
+
+  private static ControlRegistry registryWithProfiles(String profilesJson) {
+    String json = "{\"version\":\"9\",\"frameworks\":[{\"id\":\"EU_AI_ACT\"}],"
+        + "\"controls\":[{\"key\":\"EU_AI_ACT:ART14\",\"framework\":\"EU_AI_ACT\"}],"
+        + "\"profiles\":" + profilesJson + "}";
+    return ControlRegistry.fromJson(new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8)));
+  }
+
+  private static String profileJson(String id, String ruleId, String registered, String frameworks) {
+    return "{" + (id == null ? "" : "\"id\":" + id + ",") + "\"requires\":{\"ruleId\":" + ruleId
+        + ",\"registeredControls\":" + registered + ",\"frameworks\":" + frameworks + "}}";
+  }
+
+  @Test void 合法档案照常登记() {
+    var r = registryWithProfiles("[" + profileJson("\"hr\"", "true", "false", "[\"EU_AI_ACT\"]") + "]");
+    var hr = r.profile("hr").orElseThrow();
+    assertTrue(hr.ruleId());
+    assertFalse(hr.registeredControls());
+    assertEquals(java.util.List.of("EU_AI_ACT"), hr.frameworks());
+  }
+
+  @Test void 畸形档案不登记且不影响其它档案() {
+    String good = profileJson("\"ok\"", "true", "true", "[]");
+    java.util.List<String> bad = java.util.List.of(
+        profileJson(null, "true", "true", "[]"),
+        profileJson("42", "true", "true", "[]"),
+        profileJson("\"Bad_Id\"", "true", "true", "[]"),
+        profileJson("\"x" + "a".repeat(64) + "\"", "true", "true", "[]"),
+        profileJson("\"bad\"", "\"yes\"", "true", "[]"),
+        profileJson("\"bad\"", "true", "1", "[]"),
+        profileJson("\"bad\"", "true", "true", "\"EU_AI_ACT\""),
+        profileJson("\"bad\"", "true", "true", "[\"NOPE\"]"),
+        profileJson("\"bad\"", "true", "true", "[7]"),
+        "{\"id\":\"bad\"}");
+    for (String b : bad) {
+      var r = registryWithProfiles("[" + good + "," + b + "]");
+      assertEquals(java.util.Set.of("ok"), r.profiles().keySet(), b);
+    }
+  }
+
+  @Test void 重复档案id全部不登记() {
+    var r = registryWithProfiles("[" + profileJson("\"dup\"", "true", "true", "[]") + ","
+        + profileJson("\"dup\"", "false", "false", "[]") + "," + profileJson("\"ok\"", "true", "true", "[]") + "]");
+    assertTrue(r.profile("dup").isEmpty());
+    assertTrue(r.profile("ok").isPresent());
+  }
+
+  @Test void profiles不是数组抛出() {
+    assertThrows(IllegalStateException.class, () -> registryWithProfiles("{}"));
+  }
 }
