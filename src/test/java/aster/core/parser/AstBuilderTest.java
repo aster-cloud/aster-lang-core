@@ -439,6 +439,22 @@ class AstBuilderTest {
     }
 
     @Test
+    void parsePrefixEqualsNormalizedLikeInfix() {
+        String input = """
+            Rule eq given m as Int and n as Int:
+              Return =(m, n).
+              Return m = n.
+            """;
+
+        aster.core.ast.Module module = parseAndBuild(input);
+        Decl.Func func = (Decl.Func) module.decls().get(0);
+        Expr.Call prefix = (Expr.Call) ((Stmt.Return) func.body().statements().get(0)).expr();
+        Expr.Call infix = (Expr.Call) ((Stmt.Return) func.body().statements().get(1)).expr();
+        assertEquals("==", ((Expr.Name) prefix.target()).name());
+        assertEquals(((Expr.Name) infix.target()).name(), ((Expr.Name) prefix.target()).name());
+    }
+
+    @Test
     void parsePrefixInvalidArity() {
         String input = """
             Rule invalid given x as Int:

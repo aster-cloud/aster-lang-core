@@ -28,7 +28,10 @@ class OperatorCallTypeCheckTest {
     "Int|Return amount divided by 2.",
     "Bool|Return amount at least 1 and amount at most 9.",
     "Bool|Return amount at least 1 or amount at most 9.",
-    "Bool|Return not (amount at least 1)."
+    "Bool|Return not (amount at least 1).",
+    "Bool|Return =(amount, 100).",
+    "Bool|Return >=(amount, 100).",
+    "Int|Return +(amount, 1)."
   })
   void operatorCallsProduceNoDiagnostics(String type, String body) {
     var diags = GovernanceTestSupport.diagnose(rule(type, body));

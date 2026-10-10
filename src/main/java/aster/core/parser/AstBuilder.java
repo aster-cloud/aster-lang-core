@@ -1518,7 +1518,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         Expr left = (Expr) visit(argsCtx.get(0));
         Expr right = (Expr) visit(argsCtx.get(1));
         Token opToken = ctx.op;
-        Expr.Name opName = new Expr.Name(opToken.getText(), spanFrom(opToken));
+        // 与中缀同一规范化：前缀 `=(a, b)` 与 `a = b` 都得到 `==`
+        Expr.Name opName = new Expr.Name(normalizeOperator(opToken.getText()), spanFrom(opToken));
         return new Expr.Call(opName, List.of(left, right), spanFrom(ctx));
     }
 
