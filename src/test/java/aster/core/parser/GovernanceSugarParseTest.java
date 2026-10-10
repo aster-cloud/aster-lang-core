@@ -139,24 +139,34 @@ class GovernanceSugarParseTest {
     assertEquals("Verdict.allow", ((CoreModel.Name) call.target).name);
   }
 
-  @Test void 中文与德文语法糖同样降糖() {
+  @Test void 中文与德文档案与语法糖同样降糖() {
     var registry = LexiconRegistry.getInstance();
     // 英文长写法用不删冠词的规范化配置，保留与中德源文同名的参数 a
     Lexicon en = derived(registry.getOrThrow("en-US"), Map.of(), CanonicalizationConfig.defaults());
-    JsonNode expected = json(lower(String.join("\n", "Module m.", "",
-      "Rule r given a produce Verdict:", "  If a at least 1:", "    Return Verdict.deny(\"x\").",
+    JsonNode expected = json(lower(String.join("\n", "Module m.", "Profile \"governed\".", "",
+      "Rule r given a produce Verdict:",
+      "  If a at least 100:", "    Return Verdict.require_approval(\"Officer\", \"large\").",
+      "  If a at least 50:", "    Return Verdict.escalate(\"review\").",
+      "  If a at least 1:", "    Return Verdict.deny(\"x\").",
       "  Return Verdict.allow().", ""), en));
-    // 已发布词法包尚无结论词（Task 5 前），在真实 zh/de 包上补齐新词
-    Lexicon zhBase = registry.getOrThrow("zh-CN");
-    Lexicon zh = derived(zhBase, Map.of(SemanticTokenKind.DENY, "拒绝", SemanticTokenKind.ALLOW, "允许"),
-      zhBase.getCanonicalization());
-    Lexicon deBase = registry.getOrThrow("de-DE");
-    Lexicon de = derived(deBase, Map.of(SemanticTokenKind.DENY, "ablehnen", SemanticTokenKind.ALLOW, "erlauben"),
-      deBase.getCanonicalization());
-    String zhSrc = "模块 m。\n\n规则 r 给定 a 产出 Verdict：\n  当 a 至少 1，拒绝 \"x\"。\n  否则 允许。\n";
-    String deSrc = "Modul m.\n\nRegel r gegeben a liefert Verdict:\n  bei a mindestens 1, ablehnen \"x\".\n  sonst erlauben.\n";
-    assertEquals(expected, json(lower(zhSrc, zh)), "zh-CN");
-    assertEquals(expected, json(lower(deSrc, de)), "de-DE");
+    String zhSrc = String.join("\n", "模块 m。", "档案 \"governed\"。", "",
+      "规则 r 给定 a 产出 Verdict：",
+      "  当 a 至少 100，需审批人 \"Officer\" 因为 \"large\"。",
+      "  当 a 至少 50，升级 \"review\"。",
+      "  当 a 至少 1，拒绝 \"x\"。",
+      "  否则 允许。", "");
+    String deSrc = String.join("\n", "Modul m.", "Profil \"governed\".", "",
+      "Regel r gegeben a liefert Verdict:",
+      "  bei a mindestens 100, Genehmigung durch \"Officer\" weil \"large\".",
+      "  bei a mindestens 50, eskalieren \"review\".",
+      "  bei a mindestens 1, ablehnen \"x\".",
+      "  sonst erlauben.", "");
+    var zh = lower(zhSrc, registry.getOrThrow("zh-CN"));
+    var de = lower(deSrc, registry.getOrThrow("de-DE"));
+    assertEquals("governed", zh.profile);
+    assertEquals("governed", de.profile);
+    assertEquals(expected, json(zh), "zh-CN");
+    assertEquals(expected, json(de), "de-DE");
   }
 
   // 辅助：英文默认词法包的完整管线
