@@ -87,11 +87,12 @@ public final class ProbeGenerator {
     return dim("principal_roles", values, List.of());
   }
 
-  // 规则未读取 agent_model 时恒为缺失（null）
+  // 规则未读取 agent_model 时恒为缺失（null）；读取时另含 ""（GuardActionMapper.flatten 对未给出模型的取值）
   private static Dim agentModelDim(RuleFacts facts) {
     if (!facts.agentModelUsed()) return dim("agent_model", Collections.singletonList(null), null);
     List<Object> values = new ArrayList<>();
     values.add(null);
+    values.add("");
     values.addAll(facts.agentModels());
     values.add(OTHER);
     return dim("agent_model", values, facts.agentModels().isEmpty() ? OTHER : facts.agentModels().get(0));

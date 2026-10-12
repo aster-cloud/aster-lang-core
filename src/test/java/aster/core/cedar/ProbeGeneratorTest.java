@@ -2,6 +2,7 @@ package aster.core.cedar;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -186,8 +187,27 @@ class ProbeGeneratorTest {
         """);
     var probes = ProbeGenerator.generate(facts, "decide", 512);
     assertThat(probes).extracting(Probe::roles).containsOnly(List.of(), List.of("ops"), List.of("dev"), List.of("ops", "dev"));
-    assertThat(probes).extracting(Probe::agentModel).containsOnly(null, "m1", "__aster_other__");
-    assertThat(probes).hasSize(4 * 3);
+    // "" 对应 GuardActionMapper.flatten 对未给出 agent_model 的取值
+    assertThat(probes).extracting(Probe::agentModel).containsExactly(
+        null, "", "m1", "__aster_other__", null, "", "m1", "__aster_other__",
+        null, "", "m1", "__aster_other__", null, "", "m1", "__aster_other__");
+    assertThat(probes).hasSize(4 * 4);
+  }
+
+  @Test
+  void arithmeticOperandsWalkAcrossBoundary() throws Exception {
+    // golden nested-otherwise：amount plus fee greater than 5000，两键均只出现在算术项中
+    RuleFacts facts;
+    try (var in = ProbeGeneratorTest.class.getResourceAsStream("/cedar/nested-otherwise.aster")) {
+      var exp = CedarExporter.export(CedarTestSupport.lower(new String(in.readAllBytes(), StandardCharsets.UTF_8)),
+          "decide", "test");
+      facts = exp.facts();
+    }
+    var sums = ProbeGenerator.generate(facts, "decide", 512).stream()
+        .filter(p -> !p.outOfDomain() && p.context().containsKey("amount") && p.context().containsKey("fee"))
+        .map(p -> (Long) p.context().get("amount") + (Long) p.context().get("fee"))
+        .toList();
+    assertThat(sums).contains(4999L, 5000L, 5001L);
   }
 
   @Test

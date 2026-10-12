@@ -29,10 +29,15 @@ final class ConditionTranslator {
 
   /**
    * 翻译中间值：{@code text} 为 Cedar 文本（COND 时为 null）；{@code keys} 为读取的 context 键（首次出现顺序）；
-   * {@code literal} 为字面量值；{@code field} 为 guard 字段名或 context 键名。
+   * {@code literal} 为字面量值；{@code field} 为 guard 字段名或 context 键名；
+   * {@code multiplies} 仅对 ARITH 有意义：算术项中含乘法（探针需额外取 1）。
    */
-  record Term(Kind kind, String text, List<String> keys, Object literal, String field, Cond cond) {
+  record Term(Kind kind, String text, List<String> keys, Object literal, String field, Cond cond, boolean multiplies) {
     static final Term ERROR = new Term(Kind.ERROR, null, List.of(), null, null, null);
+
+    Term(Kind kind, String text, List<String> keys, Object literal, String field, Cond cond) {
+      this(kind, text, keys, literal, field, cond, false);
+    }
 
     boolean failed() {
       return kind == Kind.ERROR;
@@ -313,7 +318,8 @@ final class ConditionTranslator {
     if (!numeric(l) || !numeric(r)) return reject("arithmetic on non-integer operand");
     Stream.of(l, r).filter(t -> t.kind() == Kind.CONTEXT_KEY).forEach(t -> typeKey(t.field(), ContextType.LONG));
     String text = "(" + l.text() + " " + op + " " + r.text() + ")";
-    return new Term(Kind.ARITH, text, merge(l.keys(), r.keys()), null, null, null);
+    boolean multiplies = op.equals("*") || l.multiplies() || r.multiplies();
+    return new Term(Kind.ARITH, text, merge(l.keys(), r.keys()), null, null, null, multiplies);
   }
 
   private static boolean numeric(Term t) {
@@ -378,6 +384,17 @@ final class ConditionTranslator {
   private void recordLiteral(Term key, Term value) {
     boolean isLiteral = value.kind() == Kind.LONG_LIT || value.kind() == Kind.STRING_LIT || value.kind() == Kind.BOOL_LIT;
     if (key.kind() == Kind.CONTEXT_KEY && isLiteral) facts.recordLiteral(key.field(), value.literal());
+    if (key.kind() == Kind.ARITH && value.kind() == Kind.LONG_LIT) recordArithLiterals(key, value.literal());
+  }
+
+  // 算术项与字面量 c 比较：项内每个键记录 0、c（含乘法再记 1）。0 在前使基准探针把其余操作数固定为 0，
+  // 逐一改变单维时该键走过 c−1、c、c+1，从而让整个算术项跨越边界
+  private void recordArithLiterals(Term arith, Object c) {
+    for (String key : arith.keys()) {
+      facts.recordLiteral(key, 0L);
+      facts.recordLiteral(key, c);
+      if (arith.multiplies()) facts.recordLiteral(key, 1L);
+    }
   }
 
   private void typeKey(String key, ContextType type) {

@@ -101,6 +101,26 @@ class CedarExporterGoldenTest {
     assertThat(exp.schemaJson()).contains("\"decide\"");
   }
 
+  @Test void arithmeticComparisonRecordsZeroThenLiteralForEveryKey() {
+    var exp = export("""
+        @id("R-6")
+        Rule decide given req as GuardRequest, produce Verdict:
+          If req.context.amount plus req.context.fee greater than 5000:
+            Return Verdict.deny("sum").
+          If req.context.qty times req.context.price at least 100:
+            Return Verdict.deny("product").
+          Return Verdict.allow().
+        """);
+    // 0 在前：基准探针把其余操作数固定为 0；乘法额外记录 1
+    assertThat(exp.facts().contextLiterals()).containsExactly(
+        java.util.Map.entry("amount", java.util.List.of(0L, 5000L)),
+        java.util.Map.entry("fee", java.util.List.of(0L, 5000L)),
+        java.util.Map.entry("qty", java.util.List.of(0L, 100L, 1L)),
+        java.util.Map.entry("price", java.util.List.of(0L, 100L, 1L)));
+    assertThat(exp.facts().contextTypes()).containsOnlyKeys("amount", "fee", "qty", "price")
+        .allSatisfy((k, t) -> assertThat(t).isEqualTo(ContextType.LONG));
+  }
+
   private static CedarExport export(String rule) {
     return CedarExporter.export(CedarTestSupport.lower("Module m.\n\n" + GuardShapeTest.GUARD + rule), "decide", "test");
   }
