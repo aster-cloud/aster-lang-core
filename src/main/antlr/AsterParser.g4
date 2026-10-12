@@ -17,6 +17,16 @@ options {
 // ============================================================
 tokens { INDENT, DEDENT }
 
+@parser::members {
+    /** 由 stmt 按关键词独占分派的语句头；exprStmt 不得以它们开头。 */
+    private static final java.util.Set<Integer> STATEMENT_HEADS =
+        java.util.Set.of(RETURN, LET, IF, MATCH, WHEN, ELSE, WORKFLOW);
+
+    protected boolean isStatementHead(int tokenType) {
+        return STATEMENT_HEADS.contains(tokenType);
+    }
+}
+
 // ============================================================
 // 模块结构（顶层）
 // ============================================================
@@ -608,7 +618,10 @@ pattern
  * 语法: someFunction x y.
  */
 exprStmt
-    : expr DOT
+    // 语句头关键词开头的一行只能是对应语句（与 TS parseStatement 按关键词分派一致）。
+    // structKeywordName 的软关键字放行只针对标识符位置；若让表达式语句以它开头，
+    // `Return and(a).` 会在 returnStmt 失败后被当成变量 Return 与 (a) 的逻辑与，函数静默不再返回。
+    : {!isStatementHead(_input.LA(1))}? expr DOT
     ;
 
 // ============================================================
