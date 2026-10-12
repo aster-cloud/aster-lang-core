@@ -37,13 +37,12 @@ public final class LexiconRegistry {
     /**
      * 可选 keyword（validate 缺失只告警不报错）。用于新引入 keyword 的跨仓 lexicon
      * 迁移期：core 加 SemanticTokenKind 后，各语言包 lexicon 尚未同步更新时不至于
-     * 全部 lexicon 加载失败（chicken-egg 发布顺序死锁）。迁移完成后可移除。
+     * 全部 lexicon 加载失败（chicken-egg 发布顺序死锁）。
+     * <p>
+     * 按 ADR 0029 规则，新 kind 在此保留到完整发版列车发完、消费方 pin 新 catalog，
+     * 随后的清理变更将其移出转正；不在此集合中的 kind，任何语言包缺失均为错误。
      */
-    private static final Set<SemanticTokenKind> OPTIONAL_KINDS =
-        EnumSet.of(SemanticTokenKind.IMPORT_VERSION, SemanticTokenKind.THEN, SemanticTokenKind.APPLY,
-            // ADR 0046 新 kind，发版列车完成前保留（ADR 0029 先例：新 core 可能先遇到未补词的旧语言包）
-            SemanticTokenKind.PROFILE, SemanticTokenKind.ALLOW, SemanticTokenKind.DENY,
-            SemanticTokenKind.ESCALATE, SemanticTokenKind.REQUIRE_APPROVAL_BY, SemanticTokenKind.BECAUSE);
+    private static final Set<SemanticTokenKind> OPTIONAL_KINDS = EnumSet.noneOf(SemanticTokenKind.class);
 
     private static final LexiconRegistry INSTANCE = new LexiconRegistry();
 

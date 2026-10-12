@@ -94,7 +94,7 @@ public enum SemanticTokenKind {
 
     /** 无括号单参调用引入词（ADR 0027）- "apply" / "应用"。软关键词：仅 `apply &lt;名&gt; to &lt;expr&gt;`
      *  形态触发，其余位置仍是普通标识符。与 TS SemanticTokenKind.APPLY 对齐。
-     *  迁移期在 LexiconRegistry.OPTIONAL_KINDS 中，各语言包补齐 apply 翻译后可移除。 */
+     *  所有语言包必须定义。 */
     APPLY,
 
     /** 结果是（同义词） - "the result is" / "结果为" */
