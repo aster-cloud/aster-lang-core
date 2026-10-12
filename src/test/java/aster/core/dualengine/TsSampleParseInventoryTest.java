@@ -57,7 +57,7 @@ class TsSampleParseInventoryTest {
         System.out.println("| Sample | Java parse | First error |");
         System.out.println("|---|---|---|");
 
-        int pass = 0, fail = 0;
+        int pass = 0, fail = 0, expectedRejects = 0;
         List<Map.Entry<String, String>> failures = new ArrayList<>();
 
         for (CorpusLoader.Sample sample : samples) {
@@ -98,8 +98,13 @@ class TsSampleParseInventoryTest {
                 String first = listener.errors.get(0).replace("|", "\\|");
                 if (first.length() > 140) first = first.substring(0, 137) + "...";
                 System.out.printf("| %s | ❌ | %s |%n", sample.resourcePath, first);
-                failures.add(Map.entry(sample.resourcePath, String.join(" / ", listener.errors)));
                 fail++;
+                // 必拒样本的失败是预期结果：仍打印失败行供 parity 门判定，但不进根因统计与棘轮
+                if (sample.resourcePath.startsWith(MUST_REJECT_PREFIX)) {
+                    expectedRejects++;
+                } else {
+                    failures.add(Map.entry(sample.resourcePath, String.join(" / ", listener.errors)));
+                }
             }
         }
         System.out.println();
@@ -125,6 +130,7 @@ class TsSampleParseInventoryTest {
         System.out.printf("Total: %d, Pass: %d, Fail: %d, Pass-rate: %.1f%%%n",
             samples.size(), pass, fail,
             samples.isEmpty() ? 0.0 : (100.0 * pass / samples.size()));
+        System.out.printf("Expected rejections (%s): %d%n", MUST_REJECT_PREFIX, expectedRejects);
 
         if (!failures.isEmpty()) {
             Map<String, Integer> tally = new LinkedHashMap<>();
@@ -157,10 +163,11 @@ class TsSampleParseInventoryTest {
 
         // 棘轮：允许已知的 4 个失败，但不允许更多。数字只应下降，不应上升；
         // 若确有新的 TS-only 特性需要豁免，应显式改这个基线并在 PR 说明理由。
-        assertTrue(fail <= MAX_KNOWN_PARSE_FAILURES,
+        int unexpectedFail = fail - expectedRejects;
+        assertTrue(unexpectedFail <= MAX_KNOWN_PARSE_FAILURES,
             String.format("Java 解析失败数 %d 超过已知基线 %d —— 疑似语法回归。"
                 + "失败样本见上方 failure clusters。若为有意新增的 TS-only 特性，"
-                + "请调整 MAX_KNOWN_PARSE_FAILURES 并说明。", fail, MAX_KNOWN_PARSE_FAILURES));
+                + "请调整 MAX_KNOWN_PARSE_FAILURES 并说明。", unexpectedFail, MAX_KNOWN_PARSE_FAILURES));
     }
 
     /**
@@ -178,6 +185,15 @@ class TsSampleParseInventoryTest {
      * <p>本数字只应随着差距消解而**下降**。
      */
     private static final int MAX_KNOWN_PARSE_FAILURES = 1;
+
+    /**
+     * 「双引擎都必须拒绝」样本所在目录（aster-lang-test 的 tier1-parity manifest {@code mustReject}）。
+     *
+     * <p>这些样本被 Java 拒绝是预期结果：是否真被拒绝由 parity-tier1.mjs 读取上方失败行判定，
+     * 因此本测试照常扫描并打印它们，只是不计入 {@link #MAX_KNOWN_PARSE_FAILURES} 棘轮。
+     * 按路径而非 meta 字段识别，避免依赖新版 CorpusLoader。
+     */
+    private static final String MUST_REJECT_PREFIX = "corpus/tier1-reject/";
 
     private static final class CollectingErrorListener extends BaseErrorListener {
         final List<String> errors = new ArrayList<>();
