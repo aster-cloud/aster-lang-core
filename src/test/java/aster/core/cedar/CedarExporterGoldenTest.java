@@ -36,7 +36,7 @@ class CedarExporterGoldenTest {
           Return Verdict.allow().
         """);
     var permit = exp.emitted().stream().filter(p -> p.effect().equals("permit")).findFirst().orElseThrow();
-    assertThat(permit.condition()).isEqualTo("(context has amount && !(context.amount >= 10))");
+    assertThat(permit.condition()).isEqualTo("(context has amount && (-9007199254740991 <= context.amount && context.amount <= 9007199254740991) && !(context.amount >= 10))");
   }
 
   @Test void exportIsAllOrNothing() {

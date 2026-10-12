@@ -8,7 +8,7 @@
 @aster_controls("EU_AI_ACT:ART14")
 @aster_profile("governed")
 forbid (principal, action, resource)
-when { ((context has amount && (context.amount >= 1000)) || (context has amount && !(context.amount >= 1000))) && ((action == Aster::Action::"wire") && (context has amount && (context.amount >= 1000))) };
+when { ((context has amount && (-9007199254740991 <= context.amount && context.amount <= 9007199254740991) && (context.amount >= 1000)) || (context has amount && (-9007199254740991 <= context.amount && context.amount <= 9007199254740991) && !(context.amount >= 1000))) && ((action == Aster::Action::"wire") && (context has amount && (-9007199254740991 <= context.amount && context.amount <= 9007199254740991) && (context.amount >= 1000))) };
 
 @id("SUGAR-1#2")
 @aster_rule("SUGAR-1")
@@ -19,7 +19,7 @@ when { ((context has amount && (context.amount >= 1000)) || (context has amount 
 @aster_controls("EU_AI_ACT:ART14")
 @aster_profile("governed")
 forbid (principal, action, resource)
-when { ((context has amount && (context.amount >= 1000)) || (context has amount && !(context.amount >= 1000))) && (!(action == Aster::Action::"wire") || ((action == Aster::Action::"wire") && (context has amount && !(context.amount >= 1000)))) && (principal.roles.contains("intern")) };
+when { ((context has amount && (-9007199254740991 <= context.amount && context.amount <= 9007199254740991) && (context.amount >= 1000)) || (context has amount && (-9007199254740991 <= context.amount && context.amount <= 9007199254740991) && !(context.amount >= 1000))) && (!(action == Aster::Action::"wire") || ((action == Aster::Action::"wire") && (context has amount && (-9007199254740991 <= context.amount && context.amount <= 9007199254740991) && !(context.amount >= 1000)))) && (principal.roles.contains("intern")) };
 
 @id("SUGAR-1#3")
 @aster_rule("SUGAR-1")
@@ -30,7 +30,7 @@ when { ((context has amount && (context.amount >= 1000)) || (context has amount 
 @aster_controls("EU_AI_ACT:ART14")
 @aster_profile("governed")
 forbid (principal, action, resource)
-when { ((context has amount && (context.amount >= 1000)) || (context has amount && !(context.amount >= 1000))) && (!(action == Aster::Action::"wire") || ((action == Aster::Action::"wire") && (context has amount && !(context.amount >= 1000)))) && !(principal.roles.contains("intern")) && (context has agent_model && context.agent_model == "untrusted-model") };
+when { ((context has amount && (-9007199254740991 <= context.amount && context.amount <= 9007199254740991) && (context.amount >= 1000)) || (context has amount && (-9007199254740991 <= context.amount && context.amount <= 9007199254740991) && !(context.amount >= 1000))) && (!(action == Aster::Action::"wire") || ((action == Aster::Action::"wire") && (context has amount && (-9007199254740991 <= context.amount && context.amount <= 9007199254740991) && !(context.amount >= 1000)))) && !(principal.roles.contains("intern")) && (context has agent_model && context.agent_model == "untrusted-model") };
 
 @id("SUGAR-1#4")
 @aster_rule("SUGAR-1")
@@ -40,4 +40,4 @@ when { ((context has amount && (context.amount >= 1000)) || (context has amount 
 @aster_controls("EU_AI_ACT:ART14")
 @aster_profile("governed")
 permit (principal, action, resource)
-when { ((context has amount && (context.amount >= 1000)) || (context has amount && !(context.amount >= 1000))) && (!(action == Aster::Action::"wire") || ((action == Aster::Action::"wire") && (context has amount && !(context.amount >= 1000)))) && !(principal.roles.contains("intern")) && !(context has agent_model && context.agent_model == "untrusted-model") };
+when { ((context has amount && (-9007199254740991 <= context.amount && context.amount <= 9007199254740991) && (context.amount >= 1000)) || (context has amount && (-9007199254740991 <= context.amount && context.amount <= 9007199254740991) && !(context.amount >= 1000))) && (!(action == Aster::Action::"wire") || ((action == Aster::Action::"wire") && (context has amount && (-9007199254740991 <= context.amount && context.amount <= 9007199254740991) && !(context.amount >= 1000)))) && !(principal.roles.contains("intern")) && !(context has agent_model && context.agent_model == "untrusted-model") };

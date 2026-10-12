@@ -42,6 +42,9 @@ final class ConditionTranslator {
   // 与文本字面量比较、可翻译为 Cedar 相等判断的 guard 字段
   private static final Set<String> TEXT_FIELDS = Set.of(
       "action", "principal_id", "resource_id", "principal_type", "resource_type", "agent_model");
+  // 2^53：Aster 数值比较经 double，只有 |v| < 2^53 的整数能精确表示
+  private static final long SAFE_LIMIT = 9_007_199_254_740_992L;
+  private static final String SAFE_MAX = Long.toString(SAFE_LIMIT - 1);
   private static final Pattern IDENT = Pattern.compile("[_a-zA-Z][_a-zA-Z0-9]*");
   private static final Set<String> RESERVED = Set.of(
       "true", "false", "if", "then", "else", "in", "like", "has", "is", "__cedar");
@@ -107,8 +110,8 @@ final class ConditionTranslator {
   Term term(CoreModel.Expr e, Map<String, Term> env) {
     return switch (e) {
       case CoreModel.Name n -> name(n.name, env);
-      case CoreModel.IntE i -> literal(Kind.LONG_LIT, Long.toString(i.value), (long) i.value);
-      case CoreModel.LongE l -> literal(Kind.LONG_LIT, Long.toString(l.value), l.value);
+      case CoreModel.IntE i -> integer(i.value);
+      case CoreModel.LongE l -> integer(l.value);
       case CoreModel.StringE s -> literal(Kind.STRING_LIT, CedarText.quote(s.value), s.value);
       case CoreModel.Bool b -> literal(Kind.BOOL_LIT, Boolean.toString(b.value), b.value);
       case CoreModel.Call c -> call(c, env);
@@ -119,6 +122,12 @@ final class ConditionTranslator {
       case null -> reject("missing expression");
       default -> reject("expression of kind '" + e.getClass().getSimpleName() + "'");
     };
+  }
+
+  // Aster 比较经 double，超出 ±(2^53−1) 的整数字面量无法与 Cedar 的精确 Long 比较保持一致
+  private Term integer(long value) {
+    if (value >= SAFE_LIMIT || value <= -SAFE_LIMIT) return reject("integer literal outside \u00b12^53");
+    return literal(Kind.LONG_LIT, Long.toString(value), value);
   }
 
   // ---------- 名称 ----------
@@ -241,7 +250,8 @@ final class ConditionTranslator {
     recordLiteral(l, r);
     recordLiteral(r, l);
     List<String> keys = merge(l.keys(), r.keys());
-    return condTerm(guarded(keys, l.text() + " " + op + " " + r.text()), keys);
+    List<String> ranges = type.get() == ContextType.LONG ? rangeGuards(l, r) : List.of();
+    return condTerm(guarded(keys, ranges, l.text() + " " + op + " " + r.text()), keys);
   }
 
   // 比较两侧的共同类型：字面量/算术项自带类型并传给另一侧的键；两个裸键须在推断遍后类型均已知且相同
@@ -312,10 +322,18 @@ final class ConditionTranslator {
 
   // ---------- 文本构造 ----------
 
-  // 读键原子：T = (has… && (e))，F = (has… && !(e))；不读键时退化为永远有定义的原子
-  private static Cond guarded(List<String> keys, String expr) {
+  // Long 比较中非字面量的操作数须落在 ±(2^53−1) 内，否则 T、F 都不成立 → 无策略适用 → Cedar 拒绝（只会比 Aster 更严）
+  private static List<String> rangeGuards(Term l, Term r) {
+    return Stream.of(l, r)
+        .filter(t -> t.kind() == Kind.CONTEXT_KEY || t.kind() == Kind.ARITH)
+        .map(t -> "(-" + SAFE_MAX + " <= " + t.text() + " && " + t.text() + " <= " + SAFE_MAX + ")")
+        .toList();
+  }
+
+  // 读键原子：T = (has… && 范围… && (e))，F = (has… && 范围… && !(e))；不读键时退化为永远有定义的原子
+  private static Cond guarded(List<String> keys, List<String> ranges, String expr) {
     if (keys.isEmpty()) return new Cond("(" + expr + ")", "!(" + expr + ")");
-    String prefix = hasAll(keys) + " && ";
+    String prefix = Stream.concat(Stream.of(hasAll(keys)), ranges.stream()).collect(Collectors.joining(" && ")) + " && ";
     return new Cond("(" + prefix + "(" + expr + "))", "(" + prefix + "!(" + expr + "))");
   }
 

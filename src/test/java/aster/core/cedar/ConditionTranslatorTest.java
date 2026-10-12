@@ -23,20 +23,20 @@ class ConditionTranslatorTest {
 
   @Test void contextComparisonGuardsHas() {
     var c = translate("req.context.amount at least 1000");
-    assertThat(c.t()).isEqualTo("(context has amount && (context.amount >= 1000))");
-    assertThat(c.f()).isEqualTo("(context has amount && !(context.amount >= 1000))");
+    assertThat(c.t()).isEqualTo("(context has amount && (-9007199254740991 <= context.amount && context.amount <= 9007199254740991) && (context.amount >= 1000))");
+    assertThat(c.f()).isEqualTo("(context has amount && (-9007199254740991 <= context.amount && context.amount <= 9007199254740991) && !(context.amount >= 1000))");
   }
 
   @Test void andShortCircuit() {
     var c = translate("req.context.a at least 1 and req.context.b at least 2");
-    assertThat(c.t()).isEqualTo("((context has a && (context.a >= 1)) && (context has b && (context.b >= 2)))");
-    assertThat(c.f()).isEqualTo("((context has a && !(context.a >= 1)) || ((context has a && (context.a >= 1)) && (context has b && !(context.b >= 2))))");
+    assertThat(c.t()).isEqualTo("((context has a && (-9007199254740991 <= context.a && context.a <= 9007199254740991) && (context.a >= 1)) && (context has b && (-9007199254740991 <= context.b && context.b <= 9007199254740991) && (context.b >= 2)))");
+    assertThat(c.f()).isEqualTo("((context has a && (-9007199254740991 <= context.a && context.a <= 9007199254740991) && !(context.a >= 1)) || ((context has a && (-9007199254740991 <= context.a && context.a <= 9007199254740991) && (context.a >= 1)) && (context has b && (-9007199254740991 <= context.b && context.b <= 9007199254740991) && !(context.b >= 2))))");
   }
 
   @Test void orShortCircuit() {
     var c = translate("req.context.a at least 1 or req.context.b at least 2");
-    assertThat(c.t()).isEqualTo("((context has a && (context.a >= 1)) || ((context has a && !(context.a >= 1)) && (context has b && (context.b >= 2))))");
-    assertThat(c.f()).isEqualTo("((context has a && !(context.a >= 1)) && (context has b && !(context.b >= 2)))");
+    assertThat(c.t()).isEqualTo("((context has a && (-9007199254740991 <= context.a && context.a <= 9007199254740991) && (context.a >= 1)) || ((context has a && (-9007199254740991 <= context.a && context.a <= 9007199254740991) && !(context.a >= 1)) && (context has b && (-9007199254740991 <= context.b && context.b <= 9007199254740991) && (context.b >= 2))))");
+    assertThat(c.f()).isEqualTo("((context has a && (-9007199254740991 <= context.a && context.a <= 9007199254740991) && !(context.a >= 1)) && (context has b && (-9007199254740991 <= context.b && context.b <= 9007199254740991) && !(context.b >= 2)))");
   }
 
   @Test void notSwapsTAndF() {
@@ -64,8 +64,8 @@ class ConditionTranslatorTest {
 
   @Test void integerArithmeticGuardsEveryKey() {
     var c = translate("req.context.a plus req.context.b times 2 less than 10");
-    assertThat(c.t()).isEqualTo("(context has a && context has b && ((context.a + (context.b * 2)) < 10))");
-    assertThat(c.f()).isEqualTo("(context has a && context has b && !((context.a + (context.b * 2)) < 10))");
+    assertThat(c.t()).isEqualTo("(context has a && context has b && (-9007199254740991 <= (context.a + (context.b * 2)) && (context.a + (context.b * 2)) <= 9007199254740991) && ((context.a + (context.b * 2)) < 10))");
+    assertThat(c.f()).isEqualTo("(context has a && context has b && (-9007199254740991 <= (context.a + (context.b * 2)) && (context.a + (context.b * 2)) <= 9007199254740991) && !((context.a + (context.b * 2)) < 10))");
   }
 
   @Test void textEqualityOnContext() {
@@ -74,9 +74,24 @@ class ConditionTranslatorTest {
 
   @Test void typedContextKeysMayBeCompared() {
     var c = translate("req.context.a at least 1 and req.context.a less than req.context.b and req.context.b at least 0");
-    assertThat(c.t()).contains("(context has a && context has b && (context.a < context.b))");
+    assertThat(c.t()).contains("(context has a && context has b && (-9007199254740991 <= context.a && context.a <= 9007199254740991) && (-9007199254740991 <= context.b && context.b <= 9007199254740991) && (context.a < context.b))");
   }
 
+  @Test void longComparisonGuardsSafeIntegerRange() {
+    var c = translate("req.context.n greater than 5");
+    assertThat(c.t()).isEqualTo("(context has n && (-9007199254740991 <= context.n && context.n <= 9007199254740991) && (context.n > 5))");
+    assertThat(c.f()).isEqualTo("(context has n && (-9007199254740991 <= context.n && context.n <= 9007199254740991) && !(context.n > 5))");
+  }
+
+  @Test void textAndBoolComparisonsNeedNoRangeGuard() {
+    assertThat(translate("req.context.vip equals to true").t()).isEqualTo("(context has vip && (context.vip == true))");
+  }
+
+  @Test void bigLiteralRejected()        { assertE721("req.context.n at least 9007199254740992L", "integer literal outside ±2^53"); }
+  @Test void negativeBigLiteralRejected() { assertE721("req.context.n at least 0L minus 9007199254740993L", "integer literal outside ±2^53"); }
+  @Test void largestSafeLiteralAccepted() {
+    assertThat(translate("req.context.n at least 9007199254740991L").t()).endsWith("&& (context.n >= 9007199254740991))");
+  }
   @Test void textOrderingRejected()      { assertE721("req.context.name less than \"b\"", "ordering on text"); }
   @Test void conflictingTypesRejected()  { assertE722("req.context.k at least 1 or req.context.k equals to \"x\"", "k", "number", "text"); }
   @Test void otherCallRejected()         { assertE721("Text.length(req.action) at least 1", "call to 'Text.length'"); }
