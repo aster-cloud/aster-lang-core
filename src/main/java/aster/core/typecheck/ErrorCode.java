@@ -111,6 +111,11 @@ public enum ErrorCode {
   GOV_PROFILE_UNKNOWN("E705", Category.GOVERNANCE, Severity.ERROR, "Module '{module}' declares unknown profile '{profile}' (controls registry {version})", "Use a profile defined in aster-lang-locales controls/registry.json, such as governed or eu-ai-act-high-risk."),
   GOV_PROFILE_VIOLATION("E706", Category.GOVERNANCE, Severity.ERROR, "Rule '{rule}' violates profile '{profile}': {requirement}", "Satisfy the profile requirement or remove the Profile declaration."),
   GOV_CHECK_UNAVAILABLE("E707", Category.GOVERNANCE, Severity.ERROR, "Governance check could not run for module '{module}' (profile '{profile}'); saving is blocked until it succeeds", "Retry later; this is a service fault, not a policy violation."),
+  CEDAR_NOT_EXPORTABLE_SHAPE("E720", Category.GOVERNANCE, Severity.ERROR, "Rule '{rule}' cannot be exported to Cedar: {reason}", "Exportable rules need @id, one parameter with the guard request fields (principal_id, principal_type, principal_roles, action, resource_type, resource_id, context, agent_model) and a Verdict result."),
+  CEDAR_UNSUPPORTED_CONSTRUCT("E721", Category.GOVERNANCE, Severity.ERROR, "Rule '{rule}' uses {construct}, which has no Cedar translation", "Use comparisons, and/or/not, List.contains on principal_roles and integer arithmetic with literals, or keep this rule Aster-only."),
+  CEDAR_UNTYPED_CONTEXT_KEY("E722", Category.GOVERNANCE, Severity.ERROR, "Context key '{key}' in rule '{rule}' is used as both {first} and {second}", "Use each context key with a single type (number, text or boolean)."),
+  CEDAR_EQUIVALENCE_MISMATCH("E723", Category.GOVERNANCE, Severity.ERROR, "Cedar export of rule '{rule}' disagrees with Aster on probe {probe}: Aster {aster}, Cedar {cedar}", "This is an exporter defect; the export was withheld. Please report it."),
+  CEDAR_SCHEMA_INVALID("E724", Category.GOVERNANCE, Severity.ERROR, "Generated Cedar for rule '{rule}' failed schema validation: {detail}", "This is an exporter defect; the export was withheld. Please report it."),
   ;
 
   private final String code;
