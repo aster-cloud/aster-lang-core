@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -850,5 +852,30 @@ class LexiconRegistryTest {
         assertTrue(ex.getMessage().contains("defined for both"),
             "应报别名重复错误，实际: " + ex.getMessage());
         assertFalse(registry.has("qa-ZY"));
+    }
+
+    // ADR 0029 / ADR 0046：以下 kind 在 1.0.32 发版列车后已转正，语言包缺失即为错误而非告警
+    @ParameterizedTest
+    @EnumSource(value = SemanticTokenKind.class, names = {
+        "IMPORT_VERSION", "THEN", "APPLY",
+        "PROFILE", "ALLOW", "DENY", "ESCALATE", "REQUIRE_APPROVAL_BY", "BECAUSE"})
+    void promotedKindMissingIsError(SemanticTokenKind kind) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        String json = new String(
+            getClass().getClassLoader().getResourceAsStream("builtin/en-US.json").readAllBytes(),
+            java.nio.charset.StandardCharsets.UTF_8);
+        ObjectNode root = (ObjectNode) mapper.readTree(json);
+        root.put("id", "qa-ZX");
+        ((ObjectNode) root.get("keywords")).remove(kind.name());
+        Lexicon missing = DynamicLexicon.fromJsonString(mapper.writeValueAsString(root));
+
+        LexiconRegistry.ValidationResult result = registry.validate(missing);
+        assertFalse(result.isValid(), "缺 " + kind + " 应校验失败");
+        assertTrue(result.errors().stream().anyMatch(e -> e.startsWith("Missing keywords") && e.contains(kind.name())),
+            "错误应点名缺失的 " + kind + "，实际: " + result.errors());
+        assertTrue(result.warnings().stream().noneMatch(w -> w.contains("optional")),
+            "已转正 kind 不应再以可选告警出现，实际: " + result.warnings());
+        assertThrows(IllegalArgumentException.class, () -> registry.register(missing));
+        assertFalse(registry.has("qa-ZX"), "缺词包不应进入注册表");
     }
 }
