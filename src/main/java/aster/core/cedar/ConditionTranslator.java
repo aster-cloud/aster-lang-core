@@ -102,12 +102,14 @@ final class ConditionTranslator {
   }
 
   /**
-   * Let 在其位置要求的「已定义」条件：条件取 {@code (T || F)}，数值等项取全部键的 {@code has}；
+   * Let 在其位置要求的「已定义」条件：条件取 {@code (T || F)}；算术项取全部键的 {@code has} 加该项的范围守卫，
+   * 迫使 Cedar 求值该项（Aster 在 Let 处对非数值操作数抛错，Cedar 须同样落空）；裸键只取 {@code has}；
    * 不读 context 键（或已失败）时为 empty。
    */
   Optional<String> definedness(Term t) {
     if (t.failed() || t.keys().isEmpty()) return Optional.empty();
     if (t.kind() == Kind.COND) return Optional.of("(" + t.cond().t() + " || " + t.cond().f() + ")");
+    if (t.kind() == Kind.ARITH) return Optional.of("(" + hasAll(t.keys()) + " && " + rangeGuard(t) + ")");
     return Optional.of("(" + hasAll(t.keys()) + ")");
   }
 
@@ -332,8 +334,12 @@ final class ConditionTranslator {
   private static List<String> rangeGuards(Term l, Term r) {
     return Stream.of(l, r)
         .filter(t -> t.kind() == Kind.CONTEXT_KEY || t.kind() == Kind.ARITH)
-        .map(t -> "(-" + SAFE_MAX + " <= " + t.text() + " && " + t.text() + " <= " + SAFE_MAX + ")")
+        .map(ConditionTranslator::rangeGuard)
         .toList();
+  }
+
+  private static String rangeGuard(Term t) {
+    return "(-" + SAFE_MAX + " <= " + t.text() + " && " + t.text() + " <= " + SAFE_MAX + ")";
   }
 
   // T = (has… && 范围… && (e))，F = (has… && 范围… && !(e))；既不读键也无范围守卫时退化为永远有定义的原子

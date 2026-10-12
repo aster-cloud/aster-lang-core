@@ -121,6 +121,40 @@ class CedarExporterGoldenTest {
         .allSatisfy((k, t) -> assertThat(t).isEqualTo(ContextType.LONG));
   }
 
+  @Test void arithmeticLetRequiresRangeGuardSoNonNumericMatchesNothing() {
+    var exp = export("""
+        @id("R-10")
+        Rule decide given req as GuardRequest, produce Verdict:
+          Let x be req.context.a times 2.
+          If req.action equals to "read":
+            Return Verdict.allow().
+          Return Verdict.deny("no").
+        """);
+    // Aster 在 Let 处对非数值 a 抛错 → DENY；Cedar 须同样求值该项，非 Long 或越界时报错 → 无策略适用
+    String defined = "(context has a && (-9007199254740991 <= (context.a * 2) && (context.a * 2) <= 9007199254740991))";
+    assertThat(exp.diagnostics()).isEmpty();
+    assertThat(exp.emitted()).extracting(EmittedPolicy::condition).containsExactly(
+        defined + " && (action == Aster::Action::\"read\")",
+        defined + " && !(action == Aster::Action::\"read\")");
+  }
+
+  @Test void bareKeyLetOnlyRequiresPresenceAndLaterNumericUseIsGuarded() {
+    var exp = export("""
+        @id("R-11")
+        Rule decide given req as GuardRequest, produce Verdict:
+          Let x be req.context.a.
+          If x at least 5:
+            Return Verdict.allow().
+          Return Verdict.deny("no").
+        """);
+    // 裸键 Let 在 Aster 中不做类型运算、不会抛错；作数值使用时由比较自带的范围守卫兜底
+    String guard = "context has a && (-9007199254740991 <= context.a && context.a <= 9007199254740991)";
+    assertThat(exp.diagnostics()).isEmpty();
+    assertThat(exp.emitted()).extracting(EmittedPolicy::condition).containsExactly(
+        "(context has a) && (" + guard + " && (context.a >= 5))",
+        "(context has a) && (" + guard + " && !(context.a >= 5))");
+  }
+
   private static CedarExport export(String rule) {
     return CedarExporter.export(CedarTestSupport.lower("Module m.\n\n" + GuardShapeTest.GUARD + rule), "decide", "test");
   }
