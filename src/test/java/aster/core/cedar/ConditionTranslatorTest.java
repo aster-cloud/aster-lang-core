@@ -87,6 +87,21 @@ class ConditionTranslatorTest {
     assertThat(translate("req.context.vip equals to true").t()).isEqualTo("(context has vip && (context.vip == true))");
   }
 
+  @Test void literalOnlyArithmeticIsRangeGuarded() {
+    var exp = CedarExporter.export(CedarTestSupport.lower(HEAD
+        + "  Let x be 9007199254740991L plus 1.\n  Let y be 9007199254740991L plus 2.\n"
+        + "  If x equals to y:\n    Return Verdict.deny(\"collapsed\").\n  Return Verdict.allow().\n"), "decide", "test");
+    String guards = "(-9007199254740991 <= (9007199254740991 + 1) && (9007199254740991 + 1) <= 9007199254740991)"
+        + " && (-9007199254740991 <= (9007199254740991 + 2) && (9007199254740991 + 2) <= 9007199254740991)";
+    assertThat(exp.diagnostics()).isEmpty();
+    assertThat(exp.emitted().get(0).condition()).isEqualTo("(" + guards + " && ((9007199254740991 + 1) == (9007199254740991 + 2)))");
+    assertThat(exp.emitted().get(1).condition()).isEqualTo("(" + guards + " && !((9007199254740991 + 1) == (9007199254740991 + 2)))");
+  }
+
+  @Test void literalComparisonStaysBare() {
+    assertThat(translate("1 less than 2").t()).isEqualTo("(1 < 2)");
+  }
+
   @Test void bigLiteralRejected()        { assertE721("req.context.n at least 9007199254740992L", "integer literal outside ±2^53"); }
   @Test void negativeBigLiteralRejected() { assertE721("req.context.n at least 0L minus 9007199254740993L", "integer literal outside ±2^53"); }
   @Test void largestSafeLiteralAccepted() {

@@ -322,7 +322,7 @@ final class ConditionTranslator {
 
   // ---------- 文本构造 ----------
 
-  // Long 比较中非字面量的操作数须落在 ±(2^53−1) 内，否则 T、F 都不成立 → 无策略适用 → Cedar 拒绝（只会比 Aster 更严）
+  // Long 比较中非字面量的操作数（含只由字面量组成的算术项）须落在 ±(2^53−1) 内，否则 T、F 都不成立 → 无策略适用 → Cedar 拒绝（只会比 Aster 更严）
   private static List<String> rangeGuards(Term l, Term r) {
     return Stream.of(l, r)
         .filter(t -> t.kind() == Kind.CONTEXT_KEY || t.kind() == Kind.ARITH)
@@ -330,10 +330,11 @@ final class ConditionTranslator {
         .toList();
   }
 
-  // 读键原子：T = (has… && 范围… && (e))，F = (has… && 范围… && !(e))；不读键时退化为永远有定义的原子
+  // T = (has… && 范围… && (e))，F = (has… && 范围… && !(e))；既不读键也无范围守卫时退化为永远有定义的原子
   private static Cond guarded(List<String> keys, List<String> ranges, String expr) {
-    if (keys.isEmpty()) return new Cond("(" + expr + ")", "!(" + expr + ")");
-    String prefix = Stream.concat(Stream.of(hasAll(keys)), ranges.stream()).collect(Collectors.joining(" && ")) + " && ";
+    List<String> parts = Stream.concat(keys.stream().map(ConditionTranslator::has), ranges.stream()).toList();
+    if (parts.isEmpty()) return new Cond("(" + expr + ")", "!(" + expr + ")");
+    String prefix = String.join(" && ", parts) + " && ";
     return new Cond("(" + prefix + "(" + expr + "))", "(" + prefix + "!(" + expr + "))");
   }
 
