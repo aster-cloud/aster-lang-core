@@ -1,0 +1,57 @@
+{
+  "Aster" : {
+    "entityTypes" : {
+      "Principal" : {
+        "shape" : {
+          "type" : "Record",
+          "attributes" : {
+            "type" : {
+              "type" : "String"
+            },
+            "roles" : {
+              "type" : "Set",
+              "element" : {
+                "type" : "String"
+              }
+            }
+          }
+        }
+      },
+      "Resource" : {
+        "shape" : {
+          "type" : "Record",
+          "attributes" : {
+            "type" : {
+              "type" : "String"
+            }
+          }
+        }
+      }
+    },
+    "actions" : {
+      "decide" : {
+        "appliesTo" : {
+          "principalTypes" : [ "Principal" ],
+          "resourceTypes" : [ "Resource" ],
+          "context" : {
+            "type" : "Record",
+            "attributes" : {
+              "amount" : {
+                "type" : "Long",
+                "required" : false
+              },
+              "fee" : {
+                "type" : "Long",
+                "required" : false
+              },
+              "trusted" : {
+                "type" : "Boolean",
+                "required" : false
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

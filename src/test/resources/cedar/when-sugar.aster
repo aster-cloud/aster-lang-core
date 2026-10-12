@@ -1,0 +1,13 @@
+Module guard.sugar.
+Profile "governed".
+
+Define GuardRequest has principal_id, principal_type, principal_roles, action, resource_type, resource_id, context, agent_model.
+
+@id("SUGAR-1")
+@control("EU_AI_ACT:ART14")
+Rule decide given req as GuardRequest, produce Verdict:
+  Let big be req.context.amount at least 1000.
+  When req.action equals to "wire" and big, require approval by "Treasury" because "large wire".
+  When List.contains(req.principal_roles, "intern"), deny "interns cannot act".
+  When req.agent_model equals to "untrusted-model", escalate "untrusted model".
+  Otherwise allow.
