@@ -1,0 +1,44 @@
+{
+  "Aster" : {
+    "entityTypes" : {
+      "Principal" : {
+        "shape" : {
+          "type" : "Record",
+          "attributes" : {
+            "type" : {
+              "type" : "String"
+            },
+            "roles" : {
+              "type" : "Set",
+              "element" : {
+                "type" : "String"
+              }
+            }
+          }
+        }
+      },
+      "Resource" : {
+        "shape" : {
+          "type" : "Record",
+          "attributes" : {
+            "type" : {
+              "type" : "String"
+            }
+          }
+        }
+      }
+    },
+    "actions" : {
+      "delete_customer_record" : {
+        "appliesTo" : {
+          "principalTypes" : [ "Principal" ],
+          "resourceTypes" : [ "Resource" ],
+          "context" : {
+            "type" : "Record",
+            "attributes" : { }
+          }
+        }
+      }
+    }
+  }
+}

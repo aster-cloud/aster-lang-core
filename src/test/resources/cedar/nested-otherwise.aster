@@ -1,0 +1,15 @@
+Module guard.nested.
+
+Define GuardRequest has principal_id, principal_type, principal_roles, action, resource_type, resource_id, context, agent_model.
+
+@id("NEST-1")
+Rule decide given req as GuardRequest, produce Verdict:
+  If req.principal_type equals to "robot":
+    Return Verdict.deny("robots are not allowed").
+  Otherwise:
+    Let fee be req.context.fee.
+    If req.context.amount plus fee greater than 5000:
+      Return Verdict.require_approval("Finance", "over limit").
+    If req.context.trusted or req.resource_type equals to "public":
+      Return Verdict.allow().
+    Return Verdict.escalate("untrusted caller").

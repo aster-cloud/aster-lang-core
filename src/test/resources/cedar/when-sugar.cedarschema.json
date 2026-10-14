@@ -1,0 +1,53 @@
+{
+  "Aster" : {
+    "entityTypes" : {
+      "Principal" : {
+        "shape" : {
+          "type" : "Record",
+          "attributes" : {
+            "type" : {
+              "type" : "String"
+            },
+            "roles" : {
+              "type" : "Set",
+              "element" : {
+                "type" : "String"
+              }
+            }
+          }
+        }
+      },
+      "Resource" : {
+        "shape" : {
+          "type" : "Record",
+          "attributes" : {
+            "type" : {
+              "type" : "String"
+            }
+          }
+        }
+      }
+    },
+    "actions" : {
+      "wire" : {
+        "appliesTo" : {
+          "principalTypes" : [ "Principal" ],
+          "resourceTypes" : [ "Resource" ],
+          "context" : {
+            "type" : "Record",
+            "attributes" : {
+              "agent_model" : {
+                "type" : "String",
+                "required" : false
+              },
+              "amount" : {
+                "type" : "Long",
+                "required" : false
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

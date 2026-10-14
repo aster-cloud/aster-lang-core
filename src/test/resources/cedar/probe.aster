@@ -1,0 +1,10 @@
+Module guard.probe.
+
+Define GuardRequest has principal_id, principal_type, principal_roles, action, resource_type, resource_id, context, agent_model.
+
+@id("PROBE-001")
+Rule decide given req as GuardRequest, produce Verdict:
+  If req.action equals to "delete_customer_record":
+    Return Verdict.require_approval("Data Protection Officer", "customer record deletion").
+  Otherwise:
+    Return Verdict.allow().
