@@ -209,6 +209,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         // 返回类型
         Type retType;
         List<Annotation> retAnnotations;
+        boolean retTypeInferred = false;
 
         if (ctx.annotatedType() != null) {
             // 显式返回类型
@@ -221,6 +222,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             String inferredTypeName = inferReturnTypeName(name);
             retType = new Type.TypeName(inferredTypeName, List.of(), spanFrom(ctx));
             retAnnotations = List.of();
+            retTypeInferred = true;
         }
 
         if (typeParams.isEmpty()) {
@@ -283,7 +285,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             effects,
             effectCaps,
             effectCapsExplicit,
-            spanFrom(ctx)
+            spanFrom(ctx),
+            retTypeInferred
         );
     }
 

@@ -451,45 +451,116 @@ public final class TypeSystem {
    * @return 推断的函数类型
    */
   public static CoreModel.FuncType inferFunctionType(List<CoreModel.Param> params, CoreModel.Block body) {
+    return inferFunctionType(params, body, Map.of());
+  }
+
+  /**
+   * 带模块字段类型表的函数类型推断（与 TS TypeSystem.inferFunctionType(params, body, fieldTypes) 对齐）。
+   *
+   * @param fieldTypes {@link #buildFieldTypeMap} 的结果：字段名 → 类型，供 `x.field` 形式的返回表达式推断
+   */
+  public static CoreModel.FuncType inferFunctionType(List<CoreModel.Param> params, CoreModel.Block body,
+                                                     Map<String, Type> fieldTypes) {
     var funcType = new CoreModel.FuncType();
     if (params != null) {
       funcType.params = params.stream().map(p -> p.type).toList();
     } else {
       funcType.params = List.of();
     }
-    funcType.ret = inferReturnType(body);
+    funcType.ret = inferReturnType(body, fieldTypes == null ? Map.of() : fieldTypes);
     return funcType;
+  }
+
+  /**
+   * 模块级字段类型表（TS buildFieldTypeMap 的移植）：收集全部 Data 的字段名 → 类型；
+   * 同名字段在不同 Data 里类型不一致时整条删除，避免歧义推断。
+   */
+  public static Map<String, Type> buildFieldTypeMap(List<CoreModel.Decl> decls) {
+    var fieldTypes = new LinkedHashMap<String, Type>();
+    var conflicts = new HashSet<String>();
+    if (decls == null) {
+      return fieldTypes;
+    }
+    for (var decl : decls) {
+      if (!(decl instanceof CoreModel.Data data) || data.fields == null) continue;
+      for (var field : data.fields) {
+        if (field == null || field.name == null) continue;
+        var normalized = field.type == null ? unknown() : field.type;
+        var existing = fieldTypes.get(field.name);
+        if (existing == null) {
+          fieldTypes.put(field.name, normalized);
+        } else if (!equals(existing, normalized, true)) {
+          conflicts.add(field.name);
+        }
+      }
+    }
+    conflicts.forEach(fieldTypes::remove);
+    return fieldTypes;
   }
 
   /**
    * 推断返回类型（扫描函数体寻找 return 语句）
    */
-  private static Type inferReturnType(CoreModel.Block body) {
+  private static Type inferReturnType(CoreModel.Block body, Map<String, Type> fieldTypes) {
     if (body == null || body.statements == null) {
       return unknown();
     }
 
-    // 倒序扫描寻找 return 语句
-    for (int i = body.statements.size() - 1; i >= 0; i--) {
-      var stmt = body.statements.get(i);
+    // 与 TS 一致：收集顶层全部 Return 的静态类型，两两严格相等才采纳，否则 Unknown
+    var returnTypes = new ArrayList<Type>();
+    for (var stmt : body.statements) {
       if (stmt instanceof CoreModel.Return ret) {
-        var type = inferStaticType(ret.expr);
-        return type != null ? type : unknown();
+        var type = inferStaticType(ret.expr, fieldTypes);
+        returnTypes.add(type != null ? type : unknown());
       }
     }
+    if (returnTypes.isEmpty()) {
+      return unknown();
+    }
+    var current = returnTypes.get(0);
+    for (int i = 1; i < returnTypes.size(); i++) {
+      if (!equals(current, returnTypes.get(i), true)) {
+        return unknown();
+      }
+    }
+    return current;
+  }
 
-    return unknown();
+  private static Type inferStaticType(CoreModel.Expr expr) {
+    return inferStaticType(expr, Map.of());
   }
 
   /**
-   * 静态类型推断（仅基于表达式结构，不依赖上下文）
+   * 静态类型推断（仅基于表达式结构与模块字段类型表，不依赖作用域），与 TS inferStaticType 对齐。
    */
-  private static Type inferStaticType(CoreModel.Expr expr) {
+  private static Type inferStaticType(CoreModel.Expr expr, Map<String, Type> fieldTypes) {
     if (expr == null) {
       return null;
     }
 
     return switch (expr) {
+      // `x.field`：按最后一段字段名查模块字段类型表
+      case CoreModel.Name name -> {
+        if (name.name == null || !name.name.contains(".")) yield null;
+        var fieldName = name.name.substring(name.name.lastIndexOf('.') + 1);
+        yield fieldTypes.get(fieldName);
+      }
+      case CoreModel.Call call -> {
+        if (!(call.target instanceof CoreModel.Name target) || target.name == null) yield null;
+        // ADR 0039：Verdict.* 一律返回 Verdict
+        if (aster.core.typecheck.governance.VerdictSignatures.hasVerdictPrefix(target.name)) {
+          yield createTypeName(aster.core.typecheck.governance.VerdictSignatures.TYPE_NAME);
+        }
+        var arithmetic = inferArithmeticCall(target.name, call.args, fieldTypes);
+        if (arithmetic != null) yield arithmetic;
+        yield switch (target.name) {
+          case "Text.concat", "Crypto.hash", "Int.toString", "Bool.toString" -> createTypeName("Text");
+          case "Text.length" -> createTypeName("Int");
+          // ADR 0025 M2：精确舍入/除法返回 Decimal
+          case "Decimal.round", "Decimal.divide" -> createTypeName("Decimal");
+          default -> null;
+        };
+      }
       case CoreModel.Bool b -> createTypeName("Bool");
       case CoreModel.IntE i -> createTypeName("Int");
       case CoreModel.LongE l -> createTypeName("Long");
@@ -503,7 +574,7 @@ public final class TypeSystem {
       }
       case CoreModel.Ok ok -> {
         var result = new CoreModel.Result();
-        result.ok = inferStaticType(ok.expr);
+        result.ok = inferStaticType(ok.expr, fieldTypes);
         if (result.ok == null) result.ok = unknown();
         result.err = unknown();
         yield result;
@@ -511,13 +582,13 @@ public final class TypeSystem {
       case CoreModel.Err err -> {
         var result = new CoreModel.Result();
         result.ok = unknown();
-        result.err = inferStaticType(err.expr);
+        result.err = inferStaticType(err.expr, fieldTypes);
         if (result.err == null) result.err = unknown();
         yield result;
       }
       case CoreModel.Some some -> {
         var option = new CoreModel.Option();
-        option.type = inferStaticType(some.expr);
+        option.type = inferStaticType(some.expr, fieldTypes);
         if (option.type == null) option.type = unknown();
         yield option;
       }
@@ -537,9 +608,35 @@ public final class TypeSystem {
       case CoreModel.Construct ctor -> createTypeName(ctor.typeName);
       // ADR 0019 G2b：表达式级 if 的静态类型 = then 分支类型（两分支类型一致由
       // BaseTypeChecker.checkIfExpr 校验；此处取 then 作代表，null 时降级 unknown）。
-      case CoreModel.IfE ifx -> inferStaticType(ifx.thenE);
+      case CoreModel.IfE ifx -> inferStaticType(ifx.thenE, fieldTypes);
       default -> null;
     };
+  }
+
+  /** 二元算术（+ - * / %）的静态结果类型：两侧都是数值类型时按 Decimal > Double > Long > Int 提升。 */
+  private static Type inferArithmeticCall(String operator, List<CoreModel.Expr> args, Map<String, Type> fieldTypes) {
+    if (args == null || args.size() < 2) return null;
+    if (!("+".equals(operator) || "-".equals(operator) || "*".equals(operator)
+        || "/".equals(operator) || "%".equals(operator))) {
+      return null;
+    }
+    var left = inferStaticType(args.get(0), fieldTypes);
+    var right = inferStaticType(args.get(1), fieldTypes);
+    if (left == null || right == null || !isNumericTypeName(left) || !isNumericTypeName(right)) return null;
+    for (String promoted : new String[] {"Decimal", "Double", "Long"}) {
+      if (hasTypeName(left, right, promoted)) return createTypeName(promoted);
+    }
+    return createTypeName("Int");
+  }
+
+  private static boolean isNumericTypeName(Type type) {
+    return type instanceof CoreModel.TypeName tn
+        && ("Int".equals(tn.name) || "Long".equals(tn.name) || "Double".equals(tn.name) || "Decimal".equals(tn.name));
+  }
+
+  private static boolean hasTypeName(Type left, Type right, String name) {
+    return (left instanceof CoreModel.TypeName l && name.equals(l.name))
+        || (right instanceof CoreModel.TypeName r && name.equals(r.name));
   }
 
   /**

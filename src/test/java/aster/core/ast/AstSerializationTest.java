@@ -145,7 +145,8 @@ class AstSerializationTest {
             List.of(),
             List.of(),
             false,
-            createSpan(1, 1, 1, 27)
+            createSpan(1, 1, 1, 27),
+            false
         );
 
         // 序列化

@@ -117,6 +117,7 @@ public final class CoreLowering {
     // 后续 annotateFuncPii(extractPiiFromType) 也无法识别返回值的 PII 等级。
     CoreModel.Type loweredRet = func.retType() == null ? null : lowerType(func.retType());
     out.ret = applyTypeAnnotations(loweredRet, func.retType(), func.retAnnotations());
+    out.retTypeInferred = func.retTypeInferred();
     out.annotations = lowerAnnotations(func.annotations());
     out.retAnnotations = lowerAnnotations(func.retAnnotations());
     out.effects = func.effects() == null ? new ArrayList<>() : new ArrayList<>(func.effects());
