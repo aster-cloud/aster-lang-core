@@ -76,6 +76,23 @@ public final class BaseTypeChecker {
     return false;
   }
 
+  /**
+   * 查找把 {@code variant} 声明为变体的枚举名（按模块声明顺序取第一个）。
+   * 用于把裸变体名解析成枚举类型值；无命中返回空。
+   */
+  private static Optional<String> enumOwningVariant(String variant, VisitorContext ctx) {
+    var enums = ctx.getEnumDecls();
+    if (enums == null) {
+      return Optional.empty();
+    }
+    for (var enumDecl : enums.values()) {
+      if (enumDecl.variants != null && enumDecl.variants.contains(variant)) {
+        return Optional.ofNullable(enumDecl.name);
+      }
+    }
+    return Optional.empty();
+  }
+
   // ========== 核心方法：表达式类型推断 ==========
 
   /**
@@ -100,10 +117,17 @@ public final class BaseTypeChecker {
       case CoreModel.Name name -> {
         var symbol = symbolTable.lookup(name.name);
         if (symbol.isEmpty()) {
+          // 裸枚举变体（`status set to Rejected`）：符号表只登记枚举类型名，不登记变体，
+          // 与 TS 一致——先查符号，查不到再在模块枚举里找同名变体，命中则取枚举类型。
+          var owner = enumOwningVariant(name.name, ctx);
+          if (owner.isPresent()) {
+            yield createTypeName(owner.get());
+          }
           if (!name.name.contains(".")) {
             diagnostics.undefinedVariable(name.name, Optional.ofNullable(name.origin));
+            yield TypeSystem.unknown();
           }
-          yield verdictFieldType(name.name);
+          yield fieldPathType(name, ctx);
         }
         yield symbol.get().type();
       }
@@ -946,6 +970,47 @@ public final class BaseTypeChecker {
    * 点号名（如 {@code d.outcome}）的类型：首段为 Verdict 值且字段为 outcome/role/reason 时为 Text，
    * 其余维持 Unknown（与既有行为一致）。
    */
+  /**
+   * 解析带点的字段访问（`application.creditScore`）：从首段符号出发，沿已声明的 Data 字段逐段取类型，
+   * 与 TS 的 Name 分支对齐——字段不存在时报 UNKNOWN_FIELD（E011），这是运行时
+   * "无法访问成员" 错误的静态来源。首段不是符号、或中途类型不是已声明的 Data（含 Verdict 内置字段、
+   * 未标类型参数）时不报错，沿用 Verdict 字段/Unknown 的宽松结果。
+   */
+  private Type fieldPathType(CoreModel.Name name, VisitorContext ctx) {
+    var parts = name.name.split("\\.");
+    var head = symbolTable.lookup(parts[0]);
+    if (head.isEmpty()) {
+      return verdictFieldType(name.name);
+    }
+    Type current = head.get().type();
+    for (int i = 1; i < parts.length; i++) {
+      var expanded = expandType(current);
+      if (isTypeNamed(expanded, VerdictSignatures.TYPE_NAME) && VerdictSignatures.isVerdictField(parts[i])) {
+        current = createTypeName("String");
+        continue;
+      }
+      if (!(expanded instanceof CoreModel.TypeName tn) || tn.name == null) {
+        return TypeSystem.unknown();
+      }
+      var data = ctx.getDataDecls().get(tn.name);
+      if (data == null || data.fields == null) {
+        return TypeSystem.unknown();
+      }
+      final String fieldName = parts[i];
+      var field = data.fields.stream().filter(f -> fieldName.equals(f.name)).findFirst();
+      if (field.isEmpty()) {
+        diagnostics.error(
+          ErrorCode.UNKNOWN_FIELD,
+          Optional.ofNullable(name.origin),
+          Map.of("field", fieldName, "type", tn.name)
+        );
+        return TypeSystem.unknown();
+      }
+      current = field.get().type == null ? TypeSystem.unknown() : field.get().type;
+    }
+    return current;
+  }
+
   private Type verdictFieldType(String dotted) {
     int dot = dotted.indexOf('.');
     if (dot <= 0) {

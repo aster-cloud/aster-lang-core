@@ -134,6 +134,8 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
      * @param effectCapsExplicit   效应能力是否显式声明
      * @param nameSpan             函数名的准确范围
      * @param span                 源码位置信息
+     * @param retTypeInferred      返回类型是否由推断得到（`produce` 省略类型或整体省略）；
+     *                             为 true 时 retType 只是占位，类型检查不得据此报返回类型不匹配，与 TS 对齐
      */
     @JsonTypeName("Func")
     record Func(
@@ -148,7 +150,8 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
         @JsonProperty("effects") List<String> effects,
         @JsonProperty("effectCaps") List<String> effectCaps,
         @JsonProperty("effectCapsExplicit") boolean effectCapsExplicit,
-        @JsonProperty("span") Span span
+        @JsonProperty("span") Span span,
+        @JsonProperty("retTypeInferred") boolean retTypeInferred
     ) implements Decl {
         public Func {
             typeParams = typeParams == null ? List.of() : List.copyOf(typeParams);

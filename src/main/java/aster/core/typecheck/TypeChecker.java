@@ -325,8 +325,9 @@ public final class TypeChecker {
     if (func.body != null) {
       var bodyReturnType = baseChecker.checkBlock(func.body, ctx);
 
-      // 验证返回类型（展开别名后再比较）
-      if (bodyReturnType.isPresent()) {
+      // 验证返回类型（展开别名后再比较）。返回类型是推断占位时跳过——TS 侧同样以
+      // retTypeInferred 跳过，否则按函数名猜出的占位类型会对合法策略报假 E003。
+      if (bodyReturnType.isPresent() && !func.retTypeInferred) {
         var expandedBodyType = baseChecker.expandType(bodyReturnType.get());
         var expandedDeclaredType = baseChecker.expandType(func.ret);
         
