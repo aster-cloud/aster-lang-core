@@ -48,7 +48,8 @@ class CoreLoweringTest {
             List.of(),  // effects
             List.of(),  // effectCaps
             false,  // effectCapsExplicit
-            null  // span
+            null,  // span
+            false  // retTypeInferred
         );
 
         var module = new aster.core.ast.Module("test", null, List.of(func), null);
@@ -83,7 +84,8 @@ class CoreLoweringTest {
             List.of(),
             List.of(),
             false,
-            null
+            null,
+            false
         );
 
         var module = new aster.core.ast.Module(null, null, List.of(func), null);
@@ -186,7 +188,8 @@ class CoreLoweringTest {
             List.of("io"),  // effects
             List.of(),
             false,
-            null
+            null,
+            false
         );
 
         var module = new aster.core.ast.Module(null, null, List.of(func), null);
@@ -230,7 +233,8 @@ class CoreLoweringTest {
             List.of(),
             List.of(),
             false,
-            null
+            null,
+            false
         );
 
         var module = new aster.core.ast.Module(null, null, List.of(func), null);
@@ -276,7 +280,7 @@ class CoreLoweringTest {
     @Test
     void testLowerModuleWithMultipleDeclarations() {
         var func = new Decl.Func("main", null, List.of(), List.of(), typeInt(), null, null,
-            new Block(List.of(), null), List.of(), List.of(), false, null);
+            new Block(List.of(), null), List.of(), List.of(), false, null, false);
         var data = new Decl.Data("User", List.of(new Decl.Field("name", typeString(), null)), null);
         var enumDecl = new Decl.Enum("Status", List.of("Active", "Inactive"), null);
 
@@ -305,7 +309,8 @@ class CoreLoweringTest {
             List.of(),
             List.of(),
             false,
-            null
+            null,
+            false
         );
 
         var module = new aster.core.ast.Module(null, null, List.of(func), null);

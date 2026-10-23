@@ -137,8 +137,9 @@ public final class VisitorContext {
     this.typeAliases = Map.copyOf(typeAliases);
     this.expectedReturnType = expectedReturnType;
     this.currentEffect = currentEffect != null ? currentEffect : Effect.PURE;
-    this.dataDecls = dataDecls != null ? Map.copyOf(dataDecls) : Map.of();
-    this.enumDecls = enumDecls != null ? Map.copyOf(enumDecls) : Map.of();
+    // 保留声明顺序：枚举变体归属、按字段名反推 Data 都依赖"源码中第一个"的语义
+    this.dataDecls = dataDecls != null ? java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(dataDecls)) : Map.of();
+    this.enumDecls = enumDecls != null ? java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(enumDecls)) : Map.of();
   }
 
   // ========== Getters ==========

@@ -107,6 +107,9 @@ public final class CoreModel {
     public List<String> typeParams;        // 类型参数列表（泛型，如 <T, U>）
     public List<Param> params;             // 形参列表
     public Type ret;                       // 返回类型
+    /** 返回类型由推断得到（源码省略 produce 类型）：ret 仅为占位，类型检查跳过返回类型比对，与 TS IR 的同名字段对齐。 */
+    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+    public boolean retTypeInferred;
     public List<Annotation> annotations = Collections.emptyList(); // 函数声明注解（@entry 等）
     public List<Annotation> retAnnotations = Collections.emptyList(); // 返回类型上的注解（@pii 等）
     public List<String> effects;           // 效果声明列表（IO、CPU、Secrets 等）
