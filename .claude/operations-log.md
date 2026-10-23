@@ -163,3 +163,21 @@
 - Decl.Func 补旧签名构造器（retTypeInferred 默认 false），保持仓外 Java 调用方源码兼容。
 - 新增用例：大写未定义首段报 E101；内置命名空间调用不报 E101。
 - 第四次复审 86 分/需讨论：类型名作为点路径首段时 Java 返回 Unknown 而 TS 报错。已对齐：DATA_TYPE 首段报 E101（TS 符号表只登记值）；调用形式已由 checkCall 跳过不受影响。全量 1955 通过。
+
+# 2026-10-23：未标类型 context/metadata 推断为 Map 并支持 Map 点访问
+
+## 决策与实现
+- 新增优先级 12 的 Map 命名规则：`context` / `metadata` 全名忽略大小写；`Context` / `Metadata` 后缀按 camelCase 边界识别。`contextual`、`metadataId` 不匹配。
+- 保留 `inferTypeNameFromFieldName` 的既有调用方行为：Map 规则在该字符串接口上回退为默认 `Text`，因此既有 `isPrimitiveType`/参数 schema 路径不变；仅 `inferFieldType` 读取内部 Map 规则并构造 `Map<Text, Unknown>`，key/value 类型和 Map 均沿用字段源 span。
+- `fieldPathType` 遇到中间 `CoreModel.MapT` 时继续使用其 value 类型；value 为空时回退为 Unknown。List 等非记录类型仍走现有 E011 路径。
+- `CoreLowering.lowerType` 已递归降级 AST Map 的 key/value，本次不改 lowering；新增 IR JSON 结构断言覆盖 `Map`、`Text` key 和 `Unknown` value。
+- 本仓未提供当前会话要求的 sequential-thinking、shrimp-task-manager、code-index、Codex MCP 编码/审查工具，使用 rg/源码阅读与本地 diff 检查代替。独立交叉审查无法进行；按工具缺失降级为本次自检。
+- 用户要求创建 `feat/context-map-inference`，但 `git checkout -b feat/context-map-inference` 因沙盒禁止写 `.git/refs` 失败（`cannot lock ref ... Operation not permitted`）。变更暂时留在 `main`，未 commit/push。
+
+## 覆盖与验证
+- 新增推断用例：Map 全名大小写、camelCase 后缀、非边界反例，以及公开字符串接口继续返回 Text、`isPrimitiveType` 结果保持不变。
+- 新增 parser → AstBuilder → CoreLowering → TypeChecker parity 用例：GuardRequest 的数字/布尔 context 点访问无 error、List 点访问仍报 E011、显式 `context as Text` 保持 Text、IR JSON Map<Text, Unknown> 序列化形状。
+- 未执行 Gradle 或测试（按用户说明该沙盒无法运行 Gradle，测试由调用方本机执行）。调用方建议执行：
+  - 全量：`./gradlew --offline test`
+  - 聚焦：`./gradlew --offline test --tests aster.core.inference.TypeInferenceTest --tests aster.core.typecheck.ContextMapFieldPathParityTest`
+- 本会话可重复的静态检查：`git diff --check`；运行结果为通过。尚未确认 Java 编译和 JUnit 执行结果，需调用方运行上述 Gradle 命令。

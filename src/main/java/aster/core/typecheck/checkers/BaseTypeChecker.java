@@ -985,8 +985,7 @@ public final class BaseTypeChecker {
    * - 首段不是符号：按 TS 报 UNDEFINED_VARIABLE（E101）；例外只有模块导入别名。内置命名空间
    *   （`Decimal.round`、`Verdict.allow`）只出现在调用目标位置，由 checkCall 跳过，不会进入本方法。
    * - 中途类型为已声明 Data：字段不存在报 UNKNOWN_FIELD（E011），这是运行时 "无法访问成员" 的静态来源。
-   * - 中途类型未知或不是已声明 Data：像 TS 一样先按字段名在全部 Data 里反推（唯一命中，或按首段名收窄到唯一），
-   *   反推不到才报 E011。
+   * - 中途类型为 Map 时沿 value 类型继续；类型未知或不是已声明 Data 时按 TS 规则反推所属 Data，反推不到报 E011。
    */
   private Type fieldPathType(CoreModel.Name name, VisitorContext ctx) {
     var parts = name.name.split("\\.");
@@ -1011,12 +1010,16 @@ public final class BaseTypeChecker {
     for (int i = 1; i < parts.length; i++) {
       final String fieldName = parts[i];
       var expanded = expandType(current);
+      if (expanded instanceof CoreModel.MapT map) {
+        current = map.val == null ? TypeSystem.unknown() : map.val;
+        continue;
+      }
       if (isTypeNamed(expanded, VerdictSignatures.TYPE_NAME) && VerdictSignatures.isVerdictField(fieldName)) {
         current = createTypeName("String");
         continue;
       }
-      // 与 TS 一致：只有 TypeName（含 Unknown 与未声明的名字）才按字段名反推；
-      // List/Map/函数类型等已知非记录类型直接报 E011，不能因别的 Data 恰好有同名字段而放行。
+      // Map 沿用其值类型继续解析；其他非记录类型不得因别的 Data 有同名字段而放行。
+      // TypeName（含 Unknown 与未声明的名字）才按 TS 规则尝试反推所属 Data。
       CoreModel.Data data = null;
       if (expanded instanceof CoreModel.TypeName tn && tn.name != null) {
         data = ctx.getDataDecls().get(tn.name);

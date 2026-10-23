@@ -57,7 +57,13 @@ class TypeInferenceTest {
         // 默认类型 → Text
         "data, Text",
         "xyz, Text",
-        "unknown, Text"
+        "unknown, Text",
+
+        // 上下文容器的公开字符串接口保持原有默认 Text 行为
+        "context, Text",
+        "metadata, Text",
+        "requestContext, Text",
+        "eventMetadata, Text"
     })
     void shouldInferTypeFromFieldName(String fieldName, String expectedType) {
         String inferred = TypeInference.inferTypeNameFromFieldName(fieldName);
@@ -79,6 +85,26 @@ class TypeInferenceTest {
         assertThat(type).isNotNull();
         assertThat(type).isInstanceOf(aster.core.ast.Type.TypeName.class);
         assertThat(((aster.core.ast.Type.TypeName) type).name()).isEqualTo("Int");
+    }
+
+    @ParameterizedTest(name = "字段名 {0} 应推断为 Map<Text, Unknown>")
+    @CsvSource({"context", "CONTEXT", "metadata", "requestContext", "eventMetadata"})
+    void shouldInferMapForContextFields(String fieldName) {
+        var inferred = TypeInference.inferFieldType(fieldName);
+        assertThat(inferred).isInstanceOf(aster.core.ast.Type.Map.class);
+        var map = (aster.core.ast.Type.Map) inferred;
+        assertThat(map.key()).isEqualTo(new aster.core.ast.Type.TypeName("Text", java.util.List.of(), null));
+        assertThat(map.val()).isEqualTo(new aster.core.ast.Type.TypeName("Unknown", java.util.List.of(), null));
+        assertThat(TypeInference.inferTypeNameFromFieldName(fieldName)).isEqualTo("Text");
+        assertThat(TypeInference.isPrimitiveType(TypeInference.inferTypeNameFromFieldName(fieldName))).isTrue();
+    }
+
+    @ParameterizedTest(name = "字段名 {0} 不应命中 Map 推断")
+    @CsvSource({"contextual", "metadataId"})
+    void shouldNotInferMapForNamesWithoutContextWordBoundary(String fieldName) {
+        var inferred = TypeInference.inferFieldType(fieldName);
+        assertThat(inferred).isInstanceOf(aster.core.ast.Type.TypeName.class);
+        assertThat(((aster.core.ast.Type.TypeName) inferred).name()).isEqualTo("Text");
     }
 
     /**

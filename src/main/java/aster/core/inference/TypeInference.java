@@ -42,6 +42,9 @@ public final class TypeInference {
         // Age$ / 计数规则吞掉（-age 结尾），推成 Int。
         new NamingRule(Pattern.compile("(?:Message|Dosage)$", Pattern.CASE_INSENSITIVE), "Text", 11),
 
+        // 上下文容器优先于字段名的其他类型后缀推断（优先级 12）。
+        new NamingRule(Pattern.compile("^(?i:context|metadata)$|(?<=[a-z0-9])(?:Context|Metadata)$"), "Map", 12),
+
         // 布尔类型 → Bool（优先级 11，最高优先级）
         // 前缀模式必须最先匹配，避免被 Id 后缀模式覆盖（如 isValid 以 id 结尾）
         // ★词边界：前缀必须是**完整的词**，后接驼峰大写、下划线（snake_case）或词尾，
@@ -99,8 +102,16 @@ public final class TypeInference {
      * @return 推断的 AST 类型节点
      */
     public static Type inferFieldType(String fieldName, Span span) {
-        String typeName = inferTypeNameFromFieldName(fieldName);
-        return new Type.TypeName(typeName, List.of(), span);
+        NamingRule rule = findMatchingRule(fieldName);
+        if (rule != null && "Map".equals(rule.type)) {
+            return new Type.Map(
+                new Type.TypeName("Text", List.of(), span),
+                new Type.TypeName("Unknown", List.of(), span),
+                List.of(),
+                span
+            );
+        }
+        return new Type.TypeName(rule == null ? DEFAULT_TYPE : rule.type, List.of(), span);
     }
 
     /**
@@ -110,8 +121,14 @@ public final class TypeInference {
      * @return 类型名称（如 "Int", "Text", "Bool"）
      */
     public static String inferTypeNameFromFieldName(String fieldName) {
+        NamingRule rule = findMatchingRule(fieldName);
+        // 保持旧字符串调用方对未标类型字段的默认 Text 判断不变。
+        return rule == null || "Map".equals(rule.type) ? DEFAULT_TYPE : rule.type;
+    }
+
+    private static NamingRule findMatchingRule(String fieldName) {
         if (fieldName == null || fieldName.isBlank()) {
-            return DEFAULT_TYPE;
+            return null;
         }
 
         NamingRule matchedRule = null;
@@ -126,7 +143,7 @@ public final class TypeInference {
             }
         }
 
-        return matchedRule != null ? matchedRule.type : DEFAULT_TYPE;
+        return matchedRule;
     }
 
     /**
