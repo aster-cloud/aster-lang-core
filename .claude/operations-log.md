@@ -157,3 +157,8 @@
 - 返回类型推断与 TS TypeSystem 对齐：收集顶层全部 Return、严格相等才采纳；新增 Name（按模块字段类型表 buildFieldTypeMap）、Call（Verdict.* → Verdict，+ - * / % 数值提升，Text.concat/Crypto.hash/Int.toString/Bool.toString → Text，Text.length → Int，Decimal.round/divide → Decimal）推断；TypeChecker 每次 typecheckModule 重建字段类型表供签名注册使用。
 - 清理 verdictFieldType 过时注释。新增用例：List 中间类型不被反推放行、字段路径/算术/Verdict 返回进签名、顶层 Return 冲突回退占位不误报、IR JSON 读回后签名行为一致。
 - 验证：core 全量 1952 通过；aster-api 经 composite build 全量 2088（仅基线 PrismaDatabaseE2ETest 失败）。
+
+## 2026-10-23（三）：复审 78 分/退回 后的第四轮返工
+- 去掉字段路径首段"首字母大写豁免"：与 TS 一致，首段不是符号即 E101（仅模块导入别名例外）。配套把 checkCall 对带点调用目标（List.contains / Decimal.round / Verdict.allow）改为不作为 Name 表达式求类型（TS 亦如此），避免命名空间首段误报。
+- Decl.Func 补旧签名构造器（retTypeInferred 默认 false），保持仓外 Java 调用方源码兼容。
+- 新增用例：大写未定义首段报 E101；内置命名空间调用不报 E101。

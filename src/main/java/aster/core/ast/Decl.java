@@ -153,6 +153,14 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
         @JsonProperty("span") Span span,
         @JsonProperty("retTypeInferred") boolean retTypeInferred
     ) implements Decl {
+        /** 旧签名构造器（无 retTypeInferred，默认 false）：保持仓外 Java 调用方源码兼容。 */
+        public Func(String name, Span nameSpan, List<String> typeParams, List<Parameter> params, Type retType,
+                    List<Annotation> annotations, List<Annotation> retAnnotations, Block body, List<String> effects,
+                    List<String> effectCaps, boolean effectCapsExplicit, Span span) {
+            this(name, nameSpan, typeParams, params, retType, annotations, retAnnotations, body, effects,
+                effectCaps, effectCapsExplicit, span, false);
+        }
+
         public Func {
             typeParams = typeParams == null ? List.of() : List.copyOf(typeParams);
             params = params == null ? List.of() : List.copyOf(params);

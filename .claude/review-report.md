@@ -1,22 +1,35 @@
 # 代码审查报告
 
 **审查时间**: 2026-10-23
-**审查人**: Codex
-**被审查任务**: TypeChecker 与 TS 对齐（裸枚举变体、推断返回类型、字段路径）
-**任务 ID**: d062a1c + 5299ef2
-**审查范围**: `git diff main...HEAD`，分支 `fix/typecheck-parity-enum-variant-and-untyped-produce`
+**审查人**: Codex（复审）
+**被审查任务**: Java TypeChecker 与 TypeScript TypeChecker parity（三处差异及后续返工）
+**任务 ID**: fix/typecheck-parity-enum-variant-and-untyped-produce
+**审查范围**: `git diff main...HEAD`；提交 `d062a1c`、`5299ef2`、`ecfb012`
+**工作树**: 干净；本次只读检查，未改源码、未运行测试。
 
 ---
 
 ## 执行摘要
 
-**综合评分**: 76 分
+**综合评分**: 78/100 分
 **审查建议**: 退回
 **品味评分**: 一般
 
-上轮指出的枚举归属无序、裸枚举变体解析、推断返回类型占位参与函数体返回比对、未知字段路径未诊断等问题已大体处理。返工提交仍未完全对齐 TS：`fieldPathType` 在字段路径中间类型不是已声明 Data 时仍调用全局 Data 字段反推，可能把不合法访问误判为有效；TS 在此处直接报 E011。其次，推断返回类型登记到函数签名时 Java 的静态推断覆盖面少于 TS，调用方只在直接 `Construct` 用例中得到验证，字段路径及已知返回类型调用表达式仍可能沿用函数名猜出的占位类型。
+本轮指定的旧退回项大部分已闭环：推断返回类型进入函数签名；字段路径对已知非 Data 中间类型报 E011；静态推断增加字段类型表与内置调用；枚举归属按声明顺序；补上 IR 读回和遮蔽等用例。`ecfb012` 将反推限制到 `TypeName`，与 TS 的对应分支相符。
 
-本地定向 Gradle 测试未能启动：wrapper 访问 `/Users/rpang/.gradle/...gradle-9.6.1-bin.zip.lck` 被沙盒拒绝。报告结论依据分支代码、TS 源码对照及新增测试的静态审查；测试执行状态不能视为通过。
+仍有一个直接的 parity 偏差：`fieldPathType` 对首段大写名称和已注册的 `DATA_TYPE` 符号返回宽松的 Unknown/Verdict 类型，不报 E101；TS `expression.ts` 对所有带点 Name 都要求首段先在值符号表中命中，未命中即报 E101。因而非调用表达式 `MissingNamespace.value`、`Status.value` 在 Java 侧可能静默通过，TS 会报未定义变量。调用目标的内置命名空间应由调用检查路径处理，不应改变一般 Name 表达式的首段符号规则。该差异触及用户明确要求的首段行为检查，建议修正并增加回归用例后再通过。
+
+### 复审退回项闭环状态
+
+| 上轮问题 | 本轮证据 | 结论 |
+|---|---|---|
+| 推断返回类型未进入函数签名 | `TypeChecker.defineFunctionSignature` 对 `retTypeInferred` 调用 `inferFunctionType`；TS `module.ts` 同样在登记签名前推断 | ✅ 已闭环 |
+| 点路径首段缺失及中途非 Data 未报诊断 | `fieldPathType` 首段缺失通常报 E101；中途类型非 `TypeName` 时报 E011；新增未知首段、List 中间类型用例 | ⚠️ 部分闭环：大写未定义首段仍有静默路径 |
+| 枚举归属依赖无序 Map | 枚举表用 `LinkedHashMap`，`VisitorContext` 保序复制；遍历首个命中 | ✅ 已闭环 |
+| 已知非 Data 中间类型被字段反推放行 | 仅 `expanded instanceof TypeName` 才调用 `inferDataDeclFromField`；List 回归用例 | ✅ 已闭环 |
+| inferStaticType 缺 Name/fieldTypes 与 Call 推断 | 新增 dotted Name、算术、Verdict 与内置 Call；签名登记传入模块字段类型表 | ✅ 已闭环（限 TS 当前静态推断范围） |
+| 缺 IR 读回行为用例 | `InferredReturnTypeParityTest.irJsonRoundTripPreservesInferredSignatureBehaviour` | ✅ 已闭环 |
+| verdictFieldType 过时注释 | 注释已改为限定名兜底语义 | ✅ 已闭环 |
 
 ---
 
@@ -25,80 +38,70 @@
 ### 第一层：数据结构分析
 
 **核心数据实体及关系**:
-- `Decl.Func.retTypeInferred` 由 AST 标记省略返回类型，经 `CoreLowering` 写入 `CoreModel.Func`，供签名预扫描和函数体返回比较使用。
-- `VisitorContext` 持有 Data/Enum 声明表；`TypeChecker` 通过 `LinkedHashMap` 按模块声明顺序构造，`VisitorContext` 再保序复制。
-- 枚举变体自身没有独立符号；查询先走作用域符号表，未命中再按枚举声明顺序查询，所有权清晰且与 TS 的 Map 遍历模式相符。
+- AST `Decl.Func` 新增 `retTypeInferred`，由 `AstBuilder` 设置、`CoreLowering` 复制到 Core IR `Func`。
+- Core IR `Func.retTypeInferred` 使用 `JsonInclude.NON_DEFAULT`，只在 true 时序列化；TypeChecker 用它区分显式返回类型与解析器占位类型。
+- 模块字段类型通过 `TypeSystem.buildFieldTypeMap` 从 Data 声明构造，函数签名预登记时只读使用；异类型同名字段被剔除，避免歧义推断。
+- 枚举和 Data 声明表由 `LinkedHashMap` 保存，枚举重名变体按声明遍历顺序选择首个归属。
 
-**结论**: ⚠️ 有问题
+**结论**: ✅ 通过
 
 **发现**:
-- 新增 `retTypeInferred` 在 AST 和 IR 间单向透传，序列化 `false` 省略、`true` 写出，协议设计可控。
-- 新增字段不会改变 `CoreModel.Func` 的既有字段值；`@JsonInclude(NON_DEFAULT)` 对布尔默认值按 Jackson 规则省略。新增测试覆盖 false/true 及 TS 风格 JSON 反序列化，但没有直接断言一份既有 golden/canonical JSON 或哈希完全不变。
-- `TypeSystem.inferFunctionType` 返回类型的推断结构未复用 TypeChecker 已有的 Data/Enum/符号上下文，和 TS `inferFunctionType(params, body, fieldTypes)` 的信息输入不等价；被推断的返回签名可能沿用占位类型。
-
----
+- IR 标记的所有权与数据流清楚；`false` 默认不输出，`true` 能被 Jackson 读回。
+- `Decl.Func` 是 record，新组件可能影响依赖旧构造器参数列表的源码调用方。仓内检索显示已有 `AstSerializationTest` 调整，但本次没有运行全量编译验证；属于源码兼容风险，不是 IR JSON 兼容问题。
+- `buildFieldTypeMap` 冲突字段删除策略与 TS 对齐；函数体参数名类型没有用于静态签名推断也与 TS 实现一致。
 
 ### 第二层：特殊情况识别
 
 **所有条件分支梳理**:
-- 裸枚举变体：先查符号；只有未命中才查变体，满足参数或局部变量遮蔽变体的规则。
-- 变体重名：按声明顺序首个拥有者解析；测试覆盖顺序反转情形。
-- 点路径首段：首段无符号时报 E101；模块限定名及大写命名空间保留原有宽松处理。
-- 点路径中段：已知 Data 查实际字段并报 E011；但非 Data 中间类型仍尝试跨模块字段名反推，造成规则外扩。
-- inferred 返回标记：函数体不比对占位返回类型；显式返回类型仍执行比对。
+- 名称先查值符号，再查裸枚举变体，顺序和 TS 一致；遮蔽用例覆盖参数名与变体同名。
+- 字段路径分支覆盖 Verdict 字段、Data 字段、TypeName 推断、已知非记录类型及未知字段诊断。
+- 非符号首段使用 `knownQualifier` 或首字母大写判作限定名，属于当前剩余的不一致分支。
 
-**结论**: ❌ 严重问题
+**结论**: ⚠️ 有问题
 
 **发现**:
-- `fieldPathType` 的 `data == null` 分支包含两类语义不同的输入：未知/未标注类型和已知的非 Data 类型。TS `expression.ts` 只对 `expanded.kind === 'TypeName'` 尝试 Data 声明或字段反推；非 TypeName 直接报告 E011。Java 将非 Data 类型也交给 `inferDataDeclFromField`，若全模块只有一个 Data 恰好含该字段，就会错误放行，例如已知为 `Int` 的中间值后缀字段与某 Data 字段同名时。
-- 需要区分确实无法推断的 Unknown 与已知非 Data 类型。后者应直接按 TS 的失败分支报 E011；反推仅应保留在 TS 对应的未知 TypeName 路径内。
-- TS 的首段缺失诊断对整个 Name origin 调用 `originToSpan(expression.origin)`；Java 使用 `name.origin`，E011 同样采用整个 Name 的 origin，位置策略一致。
-
----
+- TS `expression.ts` 对 dotted Name 直接 lookup `baseName`；未命中立即 E101。Java 对首字母大写首段无条件按限定名宽松返回。即使 `Decimal.round` 等调用由 `checkCall` 特判，普通 Name 表达式仍会走 `typeOfExpr`，因此这个兜底不是 TS 的等价行为。
+- 首段为已知 `DATA_TYPE` 时也绕过字段访问检查；枚举变体限定写法 `Status.Approved` 是否有意支持，当前 TS Name 逻辑并未提供同等语义。需要把值表达式与调用目标/构造语法区分清楚。
+- E011 一处访问路径循环到首个失败字段即返回，避免同一访问逐段追加诊断；新增测试锁定单次错误。
 
 ### 第三层：复杂度审查
 
 **概念数量与嵌套层级**:
-- 本次本质是给已有名字解析增加变体回退、给函数返回类型增加推断标志、给带点 Name 增加字段解析。
-- 主要逻辑集中在 `BaseTypeChecker.fieldPathType` 与 `inferDataDeclFromField`，循环和条件嵌套未超过三级。
-- `knownQualifier` 通过 setter 注入导入别名；首字母大写的限定名另设兼容分支；字段反推再带首段名缩窄，路径分支较多但有 TS 兼容动机。
+- 本次改动本质是：跨编译器 IR 上统一类型检查对枚举值、推断返回值和字段路径的语义。
+- `fieldPathType` 将首段解析、逐段类型推进、Data 反推及诊断集中在一处；字段循环嵌套不超过三层。
+- 返回静态推断按表达式类型分派，数值提升拆为辅助方法，复杂度可控。
 
-**结论**: ⚠️ 有问题
+**结论**: ✅ 通过
 
 **发现**:
-- 复杂度整体可控，但在一个 `data == null` 分支中同时编码“类型未知时猜测”和“类型已知但非 Data 时兜底”两种状态，特殊情况增加且掩盖语义错误。拆开 Unknown 与已知非 Data 后会更简单，也直接与 TS 分支一致。
-- 当前没有必要重构整套字段访问；修正该分支条件即可消除主要误放行。
-
----
+- 主要方法嵌套未超过三级；多层业务分支都有对应语义依据。
+- `inferStaticType` Call 分支的算术、Verdict、内置函数映射清晰，但 Java 与 TS 的内置列表需要继续保持同步；目前范围与所读 TS 源一致。
 
 ### 第四层：破坏性分析
 
 **向后兼容性检查**:
-- `Decl.Func` 新增 record 组件会改变 Java 源码层面的 canonical constructor 参数列表；仓内调用点已更新，外部直接构造该 public record 的源码调用方需要同步增加参数。
-- AST JSON 读取缺少新布尔属性时应落为 `false`；IR JSON 读取则兼容字段缺省，TS 输出 `true` 时 Java Jackson 可恢复。
-- `CoreModel.Func.retTypeInferred` 的 `NON_DEFAULT` 避免既有 false 值序列化中多出字段。新增 JSON 单测覆盖局部协议，但未验证全量 golden 文件/哈希。
-- `CoreLowering` 有透传；`ModuleGraphLinker` 以对象字段整体保留 Func，并无该字段专用重建路径；仓库内 Truffle Loader 不在本项目源码中，不能从本仓静态确认其消费者行为。
+- 旧 Core IR JSON 不含 `retTypeInferred` 时，Java primitive boolean 默认 false；新序列化仅在 true 时输出，预期旧 IR JSON 和 canonical hash 不变。
+- TS IR 的 `retTypeInferred: true` 有 Java 测试直接反序列化覆盖；推断函数签名行为也有 JSON round-trip 用例。
+- `Decl.Func` 新增 record 参数会破坏仓外使用旧 canonical constructor 的源码编译兼容；该变化是公开 AST API 形状变化，需确认发布边界或给兼容构造器。
 
 **结论**: ⚠️ 有问题
 
 **发现**:
-- 对既有 IR JSON 兼容的设计方向正确，且默认值不输出；建议把“既有 IR/golden 哈希保持不变”补成可重复验证，而非仅由新对象序列化字段断言推导。
-- 新 record 组件属于 Java 源码 API 变化；若 `Decl.Func` 被外部 API 直接构造，应评估是否需要保留旧参数构造器重载。当前分支没有迁移说明或 API 兼容测试。
-
----
+- IR JSON 向后兼容设计合理，新增 `RetTypeInferredSerializationTest` 覆盖 false 不输出、true 输出与读取。
+- 仓内 `AstSerializationTest` 的适配只能证明本仓调用方调整，不能证明仓外 Java 调用者没有源码兼容影响。若 `Decl.Func` 并非稳定外部 API，可在发布说明中记录；否则建议保留旧参数构造器。
+- 本次静态审查未验证 golden/canonical 哈希。应将 `./gradlew test` 或项目规定的 golden 检查作为合并前验证证据。
 
 ### 第五层：可行性校验
 
 **问题真实性与严重度**:
-- 三个原始差异均直接影响 Java Core IR 消费者的实际诊断结果，需求有现实集成背景。
-- E101/E011 和返回类型假 E003 会阻断合法策略；字段路径静默放行会漏掉错误程序，属于 parity 和静态检查正确性问题。
+- aster-api 直接检查 Java 解析器 Core IR 的 parity 是明确集成目标；三类差异均会造成真实误报或漏报。
+- 本轮修复规模与问题匹配；测试集中于生产相关行为与协议边界。
 
 **结论**: ⚠️ 有问题
 
 **发现**:
-- 对合法不带类型参数的 `produce:` 函数，新增 caller 测试验证了构造表达式返回值可进调用方签名；这证明核心路径有效，但不能证明完整 TS 推断语义。
-- TS `TypeSystem.inferStaticType` 在 `Name` 分支会通过 `fieldTypes` 推断点路径字段类型，也会识别若干内置 Call 返回类型；Java `TypeSystem.inferStaticType` 目前没有 Name/Call 分支，且 `inferFunctionType` 不接收 `fieldTypes`。这些表达式在 `produce:` 函数里返回时 Java 可能无法推断，继而保留 `AstBuilder.inferReturnTypeName(name)` 的占位。当前新增调用方测试只覆盖 `Construct`，未覆盖字段路径及已知返回类型 Call。
-- `typecheckModule` 内对签名推断和函数体返回检查采用了同一 `retTypeInferred` 标记，但 body check 对推断函数跳过返回类型核对与 TS 一致。缺失验证集中在签名推断表达式覆盖面，而不是标志传播本身。
+- 剩余的 dotted Name 首段宽松行为会让未定义限定名在 Java 中静默为 Unknown，而 TS 报 E101，属于实际漏诊断，未满足“严格一致”。
+- 当前只读复审没有运行测试；不能将 operations log 中历史通过记录当作本工作树此刻的验证结果。报告对此不作通过性假设。
 
 ---
 
@@ -106,103 +109,100 @@
 
 | 评分项 | 分数 (0-100) | 说明 |
 |--------|--------------|------|
-| 代码质量 | 78 | 结构基本清楚；点路径未知/非 Data 状态混用造成误放行 |
-| 测试覆盖 | 68 | 新增遮蔽、顺序、诊断数、E101、E011、JSON 和调用方用例；缺已知非 Data 中间段及多种 inferred 返回表达式覆盖，且本地测试未启动 |
-| 规范遵循 | 82 | 新增实现注释以简体中文为主；两处 JavaDoc 注释覆盖重复且旧注释仍称未知路径一律 Unknown |
-| **平均分** | **76** | 按审查重点取整 |
+| 代码质量 | 82 | 责任分离合理，字段路径仍有首段宽松偏差 |
+| 测试覆盖 | 82 | 旧退回点覆盖明显增强；缺大写未知首段普通 Name 的 parity 用例；未现场运行 |
+| 规范遵循 | 80 | 中文注释与意图注释符合要求；`Decl.Func` API 兼容范围需确认 |
+| **平均分** | **81** | - |
 
 ## 战略维度评分
 
 | 评分项 | 分数 (0-100) | 说明 |
 |--------|--------------|------|
-| 需求匹配 | 78 | 上轮重点项大部分闭环，点路径仍与 TS 不一致 |
-| 架构一致 | 75 | 复用现有 TypeChecker 和 IR；返回签名推断没有复用 TS 同等信息源 |
-| 风险评估 | 73 | 已考虑 JSON 默认字段；旧 golden/哈希、外部 record 构造及 Loader 消费尚未验证 |
-| **平均分** | **75** | - |
+| 需求匹配 | 76 | 核心场景已实现，仍未完全达到 TS dotted Name 首段语义 |
+| 架构一致 | 83 | AST→Core IR→签名预登记路径一致，字段推断对齐 TS |
+| 风险评估 | 75 | 发现真实 parity 漏诊断；源码兼容和当前验证尚未闭环 |
+| **平均分** | **78** | - |
 
-**综合评分**: 76 分（技术与战略维度综合）
+**综合评分计算**: 技术维度 81 × 50% + 战略维度 78 × 50% = 79.5，考虑未闭环的 parity 缺陷按 78 分裁定。
+**评分口径**: 评分用于复审决策，不代表执行了未运行的测试。
 
 ---
 
 ## 致命问题
 
-**是否存在致命问题**: 是（对当前 parity 验收构成阻塞）
+**是否存在致命问题**: 否（存在需退回的功能性 parity 缺陷）
 
 **问题描述**:
-1. `BaseTypeChecker.fieldPathType` 对已知非 Data 的中间类型调用 `inferDataDeclFromField`，与 TS 非 TypeName 分支直接 E011 不同，可静默接受非法链式字段访问。
-2. 推断返回类型进函数签名虽已实现，但 Java 的 `inferStaticType` 能力少于 TS：缺少 Name/fieldTypes 和 Call 推断。当前测试只验证 Data Construct 直接返回，不能证明字段路径或常用内置 Call 返回值的调用方类型正确。
+`BaseTypeChecker.fieldPathType` 中 `head.isEmpty()` 的大写首段豁免，以及首段符号为 `DATA_TYPE` 时的豁免，偏离 TS `expression.ts`：TS dotted Name 要求首段是值符号，否则报告 E101。Java 仅因首字母大写便返回 Unknown，会使 `MissingNamespace.value` 一类 Name 表达式不产生诊断。需要区分 call target 的限定名处理与普通表达式 Name 的字段访问。
 
 ---
 
 ## 改进方向
 
-1. 将字段路径中“已知非 Data”与“Unknown/未能推断”分支分开。
-   - 原因: 目前已知非 Data 类型可能因其它 Data 恰好含有同名字段而绕过 E011；TS 对该路径明确报错。
-   - 影响: 消除误放行，恢复点字段路径诊断 parity。
+1. 收紧一般 dotted Name 首段处理，并保持内置调用可用。
+   - 原因: TS `TypeOfExprVisitor` 先 lookup base symbol，失败就报 E101；大小写不是例外条件。
+   - 影响: 消除跨引擎漏诊断，避免合法内置调用回归。
    - 优先级: 高
+   - 验收建议: 增加 `missingNamespace.value` 普通字段表达式应报 E101 的用例；同时验证 `Decimal.round(...)`、`Verdict.allow(...)` 等调用仍通过，并与 TS 结果逐项对照。
 
-2. 对照 TS `TypeSystem.inferStaticType` 补齐必要的 Name/fieldTypes 和确定返回类型 Call 推断，或明确收敛到 TS 当前行为允许的表达式子集并验证协议输入。
-   - 原因: 否则部分 `produce:` 函数调用方仍读到解析器按函数名猜出的占位类型。
-   - 影响: 保证推断返回类型能稳定进入跨函数签名。
-   - 优先级: 高
-
-3. 添加既有 IR golden/canonical 哈希不变验证，并添加带 `retTypeInferred:true` 的 Java 反序列化后签名行为用例。
-   - 原因: 现有 JSON 测试只验证新建对象的字段序列化和局部反序列化，不验证存量协议产物及消费行为。
-   - 影响: 把向后兼容和跨语言行为从推断变成可重复证据。
+2. 明确 `Decl.Func` record 新构造器的外部兼容策略。
+   - 原因: 新增 record component 改变 canonical constructor 签名。
+   - 影响: 仓外 Java 源码调用方可能编译失败，虽不影响缺省 IR JSON 解析。
    - 优先级: 中
+   - 验收建议: 如需源码兼容，提供旧签名构造器并将 `retTypeInferred` 默认 false；否则在破坏性版本说明中列明。
 
-4. 合并重复/过时 JavaDoc：`verdictFieldType` 上方旧描述仍称“其余维持 Unknown”，而新增 `fieldPathType` 注释已描述 Data 解析与 E011；所有权边界需要单一准确说明。
-   - 原因: 现有注释对当前实现陈旧且并列注释重复。
-   - 影响: 降低后续维护时误读语义的概率。
-   - 优先级: 低
+3. 在修复后执行本地项目验证。
+   - 原因: 本轮只读复审未运行测试，也未独立确认 golden/canonical 哈希。
+   - 影响: 编译、序列化和历史行为目前仅有代码/测试审阅证据。
+   - 优先级: 高
+   - 建议命令: `./gradlew test`，并执行仓库既定 golden/canonical 验证任务；失败时记录原始输出。
 
 ---
 
 ## 风险与阻塞
 
 **风险清单**:
-- `Decl.Func` public record canonical constructor 增加组件，外部 Java 源码调用方可能需要迁移。
-- 本地定向测试未执行，Gradle wrapper 锁文件访问被沙盒拒绝；不能将 operations log 中“全量 1948 个测试通过”的历史记录当作本次 HEAD 的现场验证证据。
-- 目前静态查看到的 TS 对照文件来自 `/Users/rpang/IdeaProjects/aster-lang-ts/src/typecheck`；审查依赖的跨仓源码状态与本分支提交无关，报告按读取时内容对照。
+- 大写或类型名首段的普通 dotted Name 可能绕过 E101：高，构成当前退回理由。
+- `Decl.Func` canonical constructor 变化影响仓外源码调用方：中，需确认 API 稳定级别。
+- 本轮没有执行测试：中，无法现场确认历史验证记录和当前 HEAD 完全对应。
 
 **阻塞问题**:
-- 修正非 Data 中间段被全局字段反推而误放行的分支，并增加回归用例。
-- 扩展推断返回签名的 parity 测试，证明调用方对字段路径/已知 Call 的类型与 TS 相符，或明确并落实一致的支持边界。
+- 无外部阻塞；修正和验证均可在仓库内完成。
 
 ---
 
 ## 核对结果
 
-**需求完整性**: ❌（仍有 TS 分支差异和签名推断覆盖缺口）
-**交付物完整性**: ✅（实现、测试、IR 字段透传均存在）
-**测试覆盖**: ⚠️（新增用例存在但本轮无法运行，且上述边界缺覆盖）
-**文档完整性**: ⚠️（新增注释为简体中文；存在过时重复 JavaDoc）
-**依赖评估完成**: ⚠️（已追踪仓内 linker/serialization/lowering；外部 Loader 与外部 record 调用方不在可验证仓内）
+**需求完整性**: ❌ dotted Name 首段规则未严格对齐 TS
+**交付物完整性**: ✅ 三提交范围与新增实现/测试均可见
+**测试覆盖**: ⚠️ 重点返工项有用例；缺大写首段 Name 用例且本次未执行
+**文档完整性**: ✅ 源码注释为简体中文且描述语义，无明显修改说明式注释
+**依赖评估完成**: ⚠️ 仓内消费者已检索；仓外 `Decl.Func` 源码 API 兼容未确认
 
 ---
 
 ## 审查依据
 
-**参考资料**:
-- `git diff main...HEAD`：本次审查目标差异。
-- `/Users/rpang/IdeaProjects/aster-lang-ts/src/typecheck/expression.ts`：Name 字段路径及枚举变体解析。
-- `/Users/rpang/IdeaProjects/aster-lang-ts/src/typecheck/module.ts`、`type_system.ts`：返回签名推断与 `retTypeInferred` 消费。
-- `.claude/operations-log.md`：返工记录，仅作为实现者记录，不替代独立代码证据。
+**参考文档/代码**:
+- `.claude/operations-log.md`：前两轮退回及第三轮修复记录（背景证据，不替代本次验证）
+- `/Users/rpang/IdeaProjects/aster-lang-ts/src/typecheck/expression.ts`：TS dotted Name 与裸枚举变体解析
+- `/Users/rpang/IdeaProjects/aster-lang-ts/src/typecheck/module.ts`、`type_system.ts`：推断返回类型的签名登记与静态推断
+- `git diff main...HEAD`：本次复审变更范围
 
 **关键原则应用**:
-- [✅] 好品味原则：枚举归属按声明顺序确定，避免无序 Map 偶然性。
-- [✅] 实用主义：针对 Java Core IR 接入时出现的具体诊断差异审查。
-- [⚠️] 简单性执念：字段路径分支把 Unknown 和已知非 Data 混用，需收敛。
-- [✅] 审查五层法完整应用。
+- [✅] 好品味原则：按语义分支处理数据，不再让已知非记录类型借字段反推放行
+- [✅] 实用主义：聚焦 aster-api Java IR 检查的真实 parity 差异
+- [✅] 简单性执念：字段路径与推断逻辑保持有限层级
+- [✅] 审查五层法完整应用
 
 ---
 
 ## 反馈通道
 
-**问题讨论**: 建议优先修正字段路径中间类型分支，再确认无标注返回类型签名需要覆盖的表达式范围与 TS 现有推断边界。
-**后续行动**: 按高优先级建议返工；修复后重新执行定向测试和双引擎 parity 验证，再复审。
+**问题讨论**: 无需讨论；剩余语义差异可直接按 TS 行为修正。
+**后续行动**: 修正 dotted Name 首段的宽松处理，补充回归并执行本地验证，然后重新复审。
 
 ---
 
 **报告生成时间**: 2026-10-23
-**审查标准版本**: 用户提供的 AGENTS.md 代码审查指南及 `~/.claude/CLAUDE.md` 模板
+**审查标准版本**: AGENTS.md（代码审查指南章节）

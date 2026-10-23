@@ -349,7 +349,10 @@ public final class BaseTypeChecker {
   private Type checkCall(CoreModel.Call call, VisitorContext ctx) {
     // 运算符在 lower 后是 Call{Name(op)}，并非变量；跳过变量名查找，避免 UNDEFINED_VARIABLE 误报。
     // 与查找失败时的结果一致，目标类型视为 Unknown，由下方运算符分支各自决定返回类型。
-    Type funcType = isOperatorTarget(call.target)
+    // 带点的调用目标（`List.contains`、`Decimal.round`、`Verdict.allow`）是内置命名空间函数：
+    // TS 从不把它当 Name 表达式求类型（命名空间不是值符号），各自由下方专项分支或运行时校验；
+    // 这里同样跳过，否则会对命名空间首段误报 UNDEFINED_VARIABLE。
+    Type funcType = isOperatorTarget(call.target) || isNamespacedTarget(call.target)
         ? TypeSystem.unknown()
         : typeOfExpr(call.target, ctx);
 
@@ -935,6 +938,11 @@ public final class BaseTypeChecker {
   }
 
   /** 调用目标是否为内置运算符名（与 AstBuilder 产出的 Name 拼写一致）。 */
+  /** 带点的 Name 调用目标：内置命名空间函数，不是值符号。 */
+  private static boolean isNamespacedTarget(CoreModel.Expr target) {
+    return target instanceof CoreModel.Name name && name.name != null && name.name.contains(".");
+  }
+
   private boolean isOperatorTarget(CoreModel.Expr target) {
     return target instanceof CoreModel.Name name && isBuiltinOperator(name.name);
   }
@@ -974,8 +982,8 @@ public final class BaseTypeChecker {
 
   /**
    * 解析带点的字段访问（`application.creditScore`），与 TS 的 Name 分支对齐：
-   * - 首段不是符号：按 TS 报 UNDEFINED_VARIABLE（E101）。例外是模块导入别名与首字母大写的限定名
-   *   （`Decimal.round`、`Verdict.allow` 这类内置命名空间由调用检查单独处理），沿用 Verdict 字段/Unknown。
+   * - 首段不是符号：按 TS 报 UNDEFINED_VARIABLE（E101）；例外只有模块导入别名。内置命名空间
+   *   （`Decimal.round`、`Verdict.allow`）只出现在调用目标位置，由 checkCall 跳过，不会进入本方法。
    * - 中途类型为已声明 Data：字段不存在报 UNKNOWN_FIELD（E011），这是运行时 "无法访问成员" 的静态来源。
    * - 中途类型未知或不是已声明 Data：像 TS 一样先按字段名在全部 Data 里反推（唯一命中，或按首段名收窄到唯一），
    *   反推不到才报 E011。
@@ -984,9 +992,9 @@ public final class BaseTypeChecker {
     var parts = name.name.split("\\.");
     var head = symbolTable.lookup(parts[0]);
     if (head.isEmpty()) {
-      boolean qualifier = knownQualifier.test(parts[0])
-          || (!parts[0].isEmpty() && Character.isUpperCase(parts[0].charAt(0)));
-      if (!qualifier) {
+      // 与 TS 一致：首段不是符号就报 E101。唯一例外是模块导入别名（TS 的 imports 表在 Java 里
+      // 由 TypeChecker 注入）；命名空间调用目标已在 checkCall 跳过，不会走到这里。
+      if (!knownQualifier.test(parts[0])) {
         diagnostics.undefinedVariable(parts[0], Optional.ofNullable(name.origin));
         return TypeSystem.unknown();
       }

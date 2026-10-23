@@ -184,6 +184,31 @@ class EnumVariantValueParityTest {
   }
 
   @Test
+  void uppercaseUndefinedHeadIsAlsoUndefinedVariable() {
+    // 大小写不是豁免条件（TS 先查符号，查不到就 E101）
+    var diags = check(DECLS
+        + "Rule decide given x as Int, produce LoanDecision:\n"
+        + "  If MissingNamespace.value less than 580\n"
+        + "    Return LoanDecision with status set to Rejected, reason set to \"low\", riskTier set to High.\n"
+        + "  Return LoanDecision with status set to Approved, reason set to \"ok\", riskTier set to Low.");
+    assertTrue(diags.stream().anyMatch(d -> d.code() == ErrorCode.UNDEFINED_VARIABLE
+            && d.message().contains("MissingNamespace")),
+        "大写首段未定义同样报 E101，实际: " + diags);
+  }
+
+  @Test
+  void namespacedBuiltinCallsAreNotUndefinedVariables() {
+    var diags = check("Define Req has roles as List<Text>, amount as Decimal.\n\n"
+        + "Rule gate given req as Req, produce Verdict:\n"
+        + "  Let rounded be Decimal.round(req.amount, 2).\n"
+        + "  If List.contains(req.roles, \"suspended\")\n"
+        + "    Return Verdict.deny(\"suspended\").\n"
+        + "  Return Verdict.allow().");
+    assertFalse(diags.stream().anyMatch(d -> d.code() == ErrorCode.UNDEFINED_VARIABLE),
+        "内置命名空间调用不得报 E101，实际: " + diags);
+  }
+
+  @Test
   void unknownBareNameIsStillUndefinedVariable() {
     var diags = check(DECLS
         + "Rule decide given score as Int, produce LoanDecision:\n"
