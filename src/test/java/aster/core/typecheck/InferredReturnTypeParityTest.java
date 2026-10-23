@@ -51,6 +51,19 @@ class InferredReturnTypeParityTest {
   }
 
   @Test
+  void callerSeesInferredReturnTypeOfUntypedRule() {
+    // TS 把函数体推断出的返回类型登记进签名；此前 Java 登记的是按函数名猜的 Text，
+    // 调用方 `Return mk(x).` 会得到假 E003 "expected Decision, got Text"
+    var diags = check(DECLS
+        + "Rule mk given x as Int, produce:\n"
+        + "  Return Decision with approved set to true, reason set to \"ok\".\n\n"
+        + "Rule wrap given x as Int, produce Decision:\n"
+        + "  Return mk(x).");
+    assertFalse(diags.stream().anyMatch(d -> d.code() == ErrorCode.RETURN_TYPE_MISMATCH),
+        "调用省略返回类型的规则不得报 RETURN_TYPE_MISMATCH，实际: " + diags);
+  }
+
+  @Test
   void explicitWrongProduceTypeStillReportsReturnMismatch() {
     var diags = check(DECLS
         + "Rule decide given score as Int, produce Text:\n"

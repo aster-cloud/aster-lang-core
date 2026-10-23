@@ -103,6 +103,73 @@ class EnumVariantValueParityTest {
   }
 
   @Test
+  void parameterNamedLikeVariantShadowsTheVariant() {
+    // 符号优先于变体（与 TS 一致）：参数 Low 是 Int，赋给 RiskTier 字段必须报类型不符
+    var diags = check(DECLS
+        + "Rule decide given Low as Int, produce LoanDecision:\n"
+        + "  Return LoanDecision with status set to Approved, reason set to \"ok\", riskTier set to Low.");
+    assertTrue(diags.stream().anyMatch(d -> d.code() == ErrorCode.FIELD_TYPE_MISMATCH
+            && d.message().contains("riskTier")),
+        "同名参数应遮蔽枚举变体，实际: " + diags);
+  }
+
+  @Test
+  void duplicateVariantAcrossEnumsResolvesToFirstDeclared() {
+    // 两个枚举都有 High：取源码中先声明的 RiskTier（TS 取 Map 插入顺序的第一个）
+    var diags = check("Define RiskTier as one of Low, Medium, High.\n"
+        + "Define Priority as one of High, Normal.\n"
+        + "Define Out has tier as RiskTier.\n\n"
+        + "Rule decide given x as Int, produce Out:\n"
+        + "  Return Out with tier set to High.");
+    assertTrue(diags.stream().noneMatch(d -> d.severity() == Diagnostic.Severity.ERROR),
+        "重复变体应归属先声明的枚举，实际: " + diags);
+    var diags2 = check("Define Priority as one of High, Normal.\n"
+        + "Define RiskTier as one of Low, Medium, High.\n"
+        + "Define Out has tier as RiskTier.\n\n"
+        + "Rule decide given x as Int, produce Out:\n"
+        + "  Return Out with tier set to High.");
+    assertTrue(diags2.stream().anyMatch(d -> d.code() == ErrorCode.FIELD_TYPE_MISMATCH),
+        "声明顺序颠倒后 High 应归属 Priority 并报类型不符，实际: " + diags2);
+  }
+
+  @Test
+  void unknownFieldIsReportedExactlyOncePerAccess() {
+    var diags = check("Define LoanApplication has creditScore as Int.\n"
+        + DECLS
+        + "Rule decide given application as LoanApplication, produce LoanDecision:\n"
+        + "  If application.creditScor less than 580\n"
+        + "    Return LoanDecision with status set to Rejected, reason set to \"low\", riskTier set to High.\n"
+        + "  Return LoanDecision with status set to Approved, reason set to \"ok\", riskTier set to Low.");
+    assertEquals(1, diags.stream().filter(d -> d.code() == ErrorCode.UNKNOWN_FIELD).count(),
+        "同一处字段访问只报一次 E011，实际: " + diags);
+  }
+
+  @Test
+  void undefinedHeadOfFieldPathIsUndefinedVariable() {
+    var diags = check(DECLS
+        + "Rule decide given x as Int, produce LoanDecision:\n"
+        + "  If applicant.score less than 580\n"
+        + "    Return LoanDecision with status set to Rejected, reason set to \"low\", riskTier set to High.\n"
+        + "  Return LoanDecision with status set to Approved, reason set to \"ok\", riskTier set to Low.");
+    assertTrue(diags.stream().anyMatch(d -> d.code() == ErrorCode.UNDEFINED_VARIABLE
+            && d.message().contains("applicant")),
+        "带点路径首段不是符号时报 E101（与 TS 一致），实际: " + diags);
+  }
+
+  @Test
+  void untypedParameterFieldIsInferredFromUniqueDataDecl() {
+    // 参数未标类型：按字段名在全部 Data 里反推（TS inferDataDeclFromField），命中则不报错
+    var diags = check("Define LoanApplication has creditScore as Int.\n"
+        + DECLS
+        + "Rule decide given application, produce LoanDecision:\n"
+        + "  If application.creditScore less than 580\n"
+        + "    Return LoanDecision with status set to Rejected, reason set to \"low\", riskTier set to High.\n"
+        + "  Return LoanDecision with status set to Approved, reason set to \"ok\", riskTier set to Low.");
+    assertTrue(diags.stream().noneMatch(d -> d.code() == ErrorCode.UNKNOWN_FIELD),
+        "未标类型参数的已知字段不得报 E011，实际: " + diags);
+  }
+
+  @Test
   void unknownBareNameIsStillUndefinedVariable() {
     var diags = check(DECLS
         + "Rule decide given score as Int, produce LoanDecision:\n"

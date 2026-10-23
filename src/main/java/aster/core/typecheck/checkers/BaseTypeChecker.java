@@ -34,6 +34,12 @@ public final class BaseTypeChecker {
   private final SymbolTable symbolTable;
   private final DiagnosticBuilder diagnostics;
   private final GenericTypeChecker genericChecker;
+  /** 带点路径首段是否为已知限定名（模块导入别名）；TypeChecker 在预扫描后注入。 */
+  private java.util.function.Predicate<String> knownQualifier = name -> false;
+
+  public void setKnownQualifier(java.util.function.Predicate<String> knownQualifier) {
+    this.knownQualifier = knownQualifier == null ? name -> false : knownQualifier;
+  }
 
   // ========== 构造器 ==========
 
@@ -971,44 +977,91 @@ public final class BaseTypeChecker {
    * 其余维持 Unknown（与既有行为一致）。
    */
   /**
-   * 解析带点的字段访问（`application.creditScore`）：从首段符号出发，沿已声明的 Data 字段逐段取类型，
-   * 与 TS 的 Name 分支对齐——字段不存在时报 UNKNOWN_FIELD（E011），这是运行时
-   * "无法访问成员" 错误的静态来源。首段不是符号、或中途类型不是已声明的 Data（含 Verdict 内置字段、
-   * 未标类型参数）时不报错，沿用 Verdict 字段/Unknown 的宽松结果。
+   * 解析带点的字段访问（`application.creditScore`），与 TS 的 Name 分支对齐：
+   * - 首段不是符号：按 TS 报 UNDEFINED_VARIABLE（E101）。例外是模块导入别名与首字母大写的限定名
+   *   （`Decimal.round`、`Verdict.allow` 这类内置命名空间由调用检查单独处理），沿用 Verdict 字段/Unknown。
+   * - 中途类型为已声明 Data：字段不存在报 UNKNOWN_FIELD（E011），这是运行时 "无法访问成员" 的静态来源。
+   * - 中途类型未知或不是已声明 Data：像 TS 一样先按字段名在全部 Data 里反推（唯一命中，或按首段名收窄到唯一），
+   *   反推不到才报 E011。
    */
   private Type fieldPathType(CoreModel.Name name, VisitorContext ctx) {
     var parts = name.name.split("\\.");
     var head = symbolTable.lookup(parts[0]);
     if (head.isEmpty()) {
+      boolean qualifier = knownQualifier.test(parts[0])
+          || (!parts[0].isEmpty() && Character.isUpperCase(parts[0].charAt(0)));
+      if (!qualifier) {
+        diagnostics.undefinedVariable(parts[0], Optional.ofNullable(name.origin));
+        return TypeSystem.unknown();
+      }
+      return verdictFieldType(name.name);
+    }
+    if (head.get().kind() == SymbolInfo.SymbolKind.DATA_TYPE) {
+      // 首段是类型名（`Verdict.deny`、`Status.Approved` 这类限定名），不是值的字段访问；
+      // 调用形式由 checkCall 的 Verdict 签名检查负责，这里保持原有宽松结果。
       return verdictFieldType(name.name);
     }
     Type current = head.get().type();
     for (int i = 1; i < parts.length; i++) {
+      final String fieldName = parts[i];
       var expanded = expandType(current);
-      if (isTypeNamed(expanded, VerdictSignatures.TYPE_NAME) && VerdictSignatures.isVerdictField(parts[i])) {
+      if (isTypeNamed(expanded, VerdictSignatures.TYPE_NAME) && VerdictSignatures.isVerdictField(fieldName)) {
         current = createTypeName("String");
         continue;
       }
-      if (!(expanded instanceof CoreModel.TypeName tn) || tn.name == null) {
+      CoreModel.Data data = null;
+      if (expanded instanceof CoreModel.TypeName tn && tn.name != null) {
+        data = ctx.getDataDecls().get(tn.name);
+      }
+      if (data == null) {
+        data = inferDataDeclFromField(ctx, parts[0], fieldName);
+      }
+      if (data == null) {
+        diagnostics.error(
+          ErrorCode.UNKNOWN_FIELD,
+          Optional.ofNullable(name.origin),
+          Map.of("field", fieldName, "type", TypeSystem.format(current))
+        );
         return TypeSystem.unknown();
       }
-      var data = ctx.getDataDecls().get(tn.name);
-      if (data == null || data.fields == null) {
-        return TypeSystem.unknown();
-      }
-      final String fieldName = parts[i];
-      var field = data.fields.stream().filter(f -> fieldName.equals(f.name)).findFirst();
+      final CoreModel.Data owner = data;
+      var field = owner.fields == null ? Optional.<CoreModel.Field>empty()
+          : owner.fields.stream().filter(f -> fieldName.equals(f.name)).findFirst();
       if (field.isEmpty()) {
         diagnostics.error(
           ErrorCode.UNKNOWN_FIELD,
           Optional.ofNullable(name.origin),
-          Map.of("field", fieldName, "type", tn.name)
+          Map.of("field", fieldName, "type", owner.name)
         );
         return TypeSystem.unknown();
       }
       current = field.get().type == null ? TypeSystem.unknown() : field.get().type;
     }
     return current;
+  }
+
+  /**
+   * 按字段名反推所属 Data（TS inferDataDeclFromField 的移植）：恰有一个 Data 含该字段则取之；
+   * 多个时按首段变量名（小写、去掉 _ 和 -）是否出现在 Data 名里收窄到唯一；否则放弃。
+   */
+  private static CoreModel.Data inferDataDeclFromField(VisitorContext ctx, String baseName, String fieldName) {
+    var matches = new java.util.ArrayList<CoreModel.Data>();
+    for (var data : ctx.getDataDecls().values()) {
+      if (data.fields != null && data.fields.stream().anyMatch(f -> fieldName.equals(f.name))) {
+        matches.add(data);
+      }
+    }
+    if (matches.isEmpty()) {
+      return null;
+    }
+    if (matches.size() == 1) {
+      return matches.get(0);
+    }
+    var loweredBase = baseName.toLowerCase(java.util.Locale.ROOT).replace("_", "").replace("-", "");
+    var narrowed = matches.stream()
+        .filter(d -> d.name != null && d.name.toLowerCase(java.util.Locale.ROOT).contains(loweredBase))
+        .toList();
+    return narrowed.size() == 1 ? narrowed.get(0) : null;
   }
 
   private Type verdictFieldType(String dotted) {

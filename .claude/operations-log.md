@@ -143,3 +143,10 @@
 - 替代验证：使用本地缓存 Jackson + ANTLR runtime，带 `build/generated-src/antlr/main` 执行 `javac --release 25` 编译全部 main Java 通过。
 - 替代验证：使用本地缓存 JUnit/Jackson，`javac --release 25` 编译 `ModuleGraphLinkerTest` 与 `TypeCheckerIntegrationTest` 通过。
 - 未运行 JUnit：本地没有 JUnit Platform console 6.0.0 jar（只有 metadata 与旧 1.8.x console），避免用版本不匹配 runner 产生误判；全量 Gradle/JUnit 需主环境补跑。
+
+## 2026-10-23：Java 检查器与 TS parity 返工（Codex 全分支审查 72 分/退回 后）
+
+- 推断返回类型：defineFunctionSignature 对 retTypeInferred 的函数先用 TypeSystem.inferFunctionType 按函数体推断，推断不出才退回解析器占位，与 TS module.ts 的 funcSignatures 一致（调用方不再拿到按函数名猜的 Text）。
+- 带点字段路径：首段不是符号 → E101（例外：模块导入别名、首字母大写的限定名如 Verdict.deny/Decimal.round，由 checkCall 负责；首段是类型名符号同样不当字段访问）；中途不是已声明 Data 时先按字段名在全部 Data 里反推（TS inferDataDeclFromField 移植），反推不到才报 E011。
+- 枚举变体归属与 Data 反推都依赖声明顺序：TypeChecker 改用 LinkedHashMap，VisitorContext 保序拷贝。
+- 新增测试：参数同名遮蔽变体、重复变体取先声明者、同一访问只报一次 E011、首段未定义 E101、未标类型参数按字段反推、调用省略返回类型的规则不报 E003、retTypeInferred 的 JSON 协议（false 省略 / true 输出 / 读 TS 风格 IR）。全量 1948 个测试通过。

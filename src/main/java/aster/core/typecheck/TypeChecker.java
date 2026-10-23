@@ -97,9 +97,9 @@ public final class TypeChecker {
       // （defineDataType 丢弃了 fields）。★2026-08-17 审计：此前 checkConstruct
       // 是空壳，FIELD_TYPE_MISMATCH / UNKNOWN_FIELD / MISSING_REQUIRED_FIELD
       // 在 Java 侧 emit 站点数为 0，而 TS 侧全部实现。
-      var dataDecls = new java.util.HashMap<String, CoreModel.Data>();
+      var dataDecls = new java.util.LinkedHashMap<String, CoreModel.Data>();
       // enum 声明表同理：match 穷尽性检查需要变体列表，SymbolTable 未保留。
-      var enumDecls = new java.util.HashMap<String, CoreModel.Enum>();
+      var enumDecls = new java.util.LinkedHashMap<String, CoreModel.Enum>();
       if (module.decls != null) {
         for (var decl : module.decls) {
           if (decl instanceof CoreModel.Data data && data.name != null) {
@@ -127,6 +127,7 @@ public final class TypeChecker {
       //   取决于声明顺序：`main` 写在 `helper` 之前 → 检查 main 体时 helper 未入表
       //   → 假 UNDEFINED_VARIABLE；互递归则无论怎么排序都必有一侧报错。
       //   与 Data/Enum 的第一遍预扫描同理——签名先行，函数体后检查。
+      baseChecker.setKnownQualifier(importAliases::contains);
       if (module.decls != null) {
         for (var decl : module.decls) {
           if (decl instanceof CoreModel.Func func) {
@@ -266,7 +267,15 @@ public final class TypeChecker {
     // 构建函数类型
     var funcType = new CoreModel.FuncType();
     funcType.params = func.params.stream().map(p -> p.type).toList();
+    // 省略 produce 类型时 func.ret 只是解析器给的占位：与 TS 一样先按函数体推断，
+    // 推断不出再退回占位，这样调用方拿到的返回类型才与 TS 一致。
     funcType.ret = func.ret;
+    if (func.retTypeInferred) {
+      var inferred = TypeSystem.inferFunctionType(func.params, func.body).ret;
+      if (inferred != null && !TypeSystem.isUnknown(inferred)) {
+        funcType.ret = inferred;
+      }
+    }
     funcType.origin = func.origin;
 
     // 存储函数声明的最高级别效果，用于后续效果推断
