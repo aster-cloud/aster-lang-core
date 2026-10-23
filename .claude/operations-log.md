@@ -163,3 +163,8 @@
 - Decl.Func 补旧签名构造器（retTypeInferred 默认 false），保持仓外 Java 调用方源码兼容。
 - 新增用例：大写未定义首段报 E101；内置命名空间调用不报 E101。
 - 第四次复审 86 分/需讨论：类型名作为点路径首段时 Java 返回 Unknown 而 TS 报错。已对齐：DATA_TYPE 首段报 E101（TS 符号表只登记值）；调用形式已由 checkCall 跳过不受影响。全量 1955 通过。
+
+## 2026-10-23（深夜）：对齐 aster-lang-ts#227——无类型字段成员访问按动态值处理
+- 发现 ts origin/main 于 10-17 已合并 #227：`Define X has a, b.` 的无类型字段在成员访问时为 Unknown、不级联 E011（Action Guard 的 context 由此通过），标记放在 IR 之外的 WeakSet。本地曾做的 context→Map 推断方案（ts#228/core#207）与之冲突，已关闭并回退。
+- Java 镜像：AST `Decl.Field.typeInferred`（旧 3 参构造器保留，false 不序列化）→ AstBuilder 隐式类型路径置 true → `CoreModel.Field.typeInferred`（@JsonIgnore，不进 IR JSON）→ `fieldPathType` 遇 Unknown 直接返回 Unknown、未声明类型字段取 Unknown。读回的 IR 查不到标记退回按 type 检查（与 TS 相同的已知局限）。
+- 验证：全量 1961 通过；与 ts origin/main（含 #227）的 tier1-parity parse（231 + 26 must-reject）与 IR 231/231 identical 通过。

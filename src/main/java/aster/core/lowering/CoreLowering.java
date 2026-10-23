@@ -92,6 +92,7 @@ public final class CoreLowering {
     out.name = field.name();
     out.type = lowerType(field.type());
     out.annotations = lowerAnnotations(field.annotations());
+    out.typeInferred = field.typeInferred();
     return out;
   }
 

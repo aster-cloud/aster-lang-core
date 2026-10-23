@@ -462,6 +462,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
         Type type;
         List<Annotation> typeAnnotations;
+        boolean typeInferred = false;
 
         // 检查是否有显式类型标注
         if (ctx.annotatedType() != null) {
@@ -470,10 +471,11 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             type = typeInfo.type();
             typeAnnotations = typeInfo.annotations();
         } else {
-            // 隐式类型路径 - 使用类型推断
+            // 隐式类型路径 - 使用类型推断；成员访问时按动态值处理（见 Decl.Field.typeInferred）
             Span fieldSpan = spanFrom(ctx);
             type = TypeInference.inferFieldType(name, fieldSpan);
             typeAnnotations = List.of();
+            typeInferred = true;
         }
 
         List<Annotation> prefixAnnotations = ctx.annotation() == null
@@ -482,7 +484,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         List<Annotation> allAnnotations = new ArrayList<>(prefixAnnotations);
         allAnnotations.addAll(typeAnnotations);
         List<Annotation> finalAnnotations = allAnnotations.isEmpty() ? List.of() : List.copyOf(allAnnotations);
-        return new Decl.Field(name, type, finalAnnotations);
+        return new Decl.Field(name, type, finalAnnotations, typeInferred);
     }
 
     private String nameIdentText(AsterParser.NameIdentContext ctx) {
