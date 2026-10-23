@@ -162,3 +162,4 @@
 - 去掉字段路径首段"首字母大写豁免"：与 TS 一致，首段不是符号即 E101（仅模块导入别名例外）。配套把 checkCall 对带点调用目标（List.contains / Decimal.round / Verdict.allow）改为不作为 Name 表达式求类型（TS 亦如此），避免命名空间首段误报。
 - Decl.Func 补旧签名构造器（retTypeInferred 默认 false），保持仓外 Java 调用方源码兼容。
 - 新增用例：大写未定义首段报 E101；内置命名空间调用不报 E101。
+- 第四次复审 86 分/需讨论：类型名作为点路径首段时 Java 返回 Unknown 而 TS 报错。已对齐：DATA_TYPE 首段报 E101（TS 符号表只登记值）；调用形式已由 checkCall 跳过不受影响。全量 1955 通过。

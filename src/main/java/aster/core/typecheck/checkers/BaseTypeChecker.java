@@ -1001,9 +1001,11 @@ public final class BaseTypeChecker {
       return verdictFieldType(name.name);
     }
     if (head.get().kind() == SymbolInfo.SymbolKind.DATA_TYPE) {
-      // 首段是类型名（`Verdict.deny`、`Status.Approved` 这类限定名），不是值的字段访问；
-      // 调用形式由 checkCall 的 Verdict 签名检查负责，这里保持原有宽松结果。
-      return verdictFieldType(name.name);
+      // 首段是类型名（`Status.Approved` 这类限定名）：TS 的符号表只登记值，类型名查不到即 E101；
+      // Java 的符号表把类型名也登记为 DATA_TYPE，这里显式对齐。调用形式（`Verdict.deny(...)`）
+      // 已在 checkCall 跳过，不会进入本方法。
+      diagnostics.undefinedVariable(parts[0], Optional.ofNullable(name.origin));
+      return TypeSystem.unknown();
     }
     Type current = head.get().type();
     for (int i = 1; i < parts.length; i++) {
