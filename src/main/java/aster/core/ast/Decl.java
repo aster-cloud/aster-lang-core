@@ -1,5 +1,6 @@
 package aster.core.ast;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -72,8 +73,15 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
     record Field(
         @JsonProperty("name") String name,
         @JsonProperty("type") Type type,
-        @JsonProperty("annotations") List<Annotation> annotations
-    ) {}
+        @JsonProperty("annotations") List<Annotation> annotations,
+        /** 源码未声明类型（`Define X has a, b.`）：type 是按字段名推断的占位，成员访问时按动态值处理，与 TS 对齐。 */
+        @JsonProperty("typeInferred") @JsonInclude(JsonInclude.Include.NON_DEFAULT) boolean typeInferred
+    ) {
+        /** 旧签名构造器：显式类型字段。 */
+        public Field(String name, Type type, List<Annotation> annotations) {
+            this(name, type, annotations, false);
+        }
+    }
 
     /**
      * Enum 枚举声明
