@@ -46,6 +46,8 @@ public final class TypeChecker {
   private final GovernanceChecker governanceChecker = new GovernanceChecker();
   private final java.util.Set<String> importAliases = new HashSet<>();
   private final java.util.Set<String> moduleTopLevelNames = new HashSet<>();
+  /** 当前模块的字段名 → 类型表（TypeSystem.buildFieldTypeMap），供推断返回类型用，每次 typecheckModule 重建。 */
+  private java.util.Map<String, Type> moduleFieldTypes = java.util.Map.of();
 
   // ========== 构造器 ==========
 
@@ -128,6 +130,7 @@ public final class TypeChecker {
       //   → 假 UNDEFINED_VARIABLE；互递归则无论怎么排序都必有一侧报错。
       //   与 Data/Enum 的第一遍预扫描同理——签名先行，函数体后检查。
       baseChecker.setKnownQualifier(importAliases::contains);
+      moduleFieldTypes = TypeSystem.buildFieldTypeMap(module.decls);
       if (module.decls != null) {
         for (var decl : module.decls) {
           if (decl instanceof CoreModel.Func func) {
@@ -271,7 +274,7 @@ public final class TypeChecker {
     // 推断不出再退回占位，这样调用方拿到的返回类型才与 TS 一致。
     funcType.ret = func.ret;
     if (func.retTypeInferred) {
-      var inferred = TypeSystem.inferFunctionType(func.params, func.body).ret;
+      var inferred = TypeSystem.inferFunctionType(func.params, func.body, moduleFieldTypes).ret;
       if (inferred != null && !TypeSystem.isUnknown(inferred)) {
         funcType.ret = inferred;
       }

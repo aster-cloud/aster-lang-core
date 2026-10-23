@@ -150,3 +150,10 @@
 - 带点字段路径：首段不是符号 → E101（例外：模块导入别名、首字母大写的限定名如 Verdict.deny/Decimal.round，由 checkCall 负责；首段是类型名符号同样不当字段访问）；中途不是已声明 Data 时先按字段名在全部 Data 里反推（TS inferDataDeclFromField 移植），反推不到才报 E011。
 - 枚举变体归属与 Data 反推都依赖声明顺序：TypeChecker 改用 LinkedHashMap，VisitorContext 保序拷贝。
 - 新增测试：参数同名遮蔽变体、重复变体取先声明者、同一访问只报一次 E011、首段未定义 E101、未标类型参数按字段反推、调用省略返回类型的规则不报 E003、retTypeInferred 的 JSON 协议（false 省略 / true 输出 / 读 TS 风格 IR）。全量 1948 个测试通过。
+
+## 2026-10-23（二）：复审 76 分/退回 后的第三轮返工
+
+- 字段路径：只有 TypeName（含 Unknown/未声明名）才按字段名反推 Data；List/Map/函数类型等已知非记录类型直接 E011（TS 非 TypeName 分支）。
+- 返回类型推断与 TS TypeSystem 对齐：收集顶层全部 Return、严格相等才采纳；新增 Name（按模块字段类型表 buildFieldTypeMap）、Call（Verdict.* → Verdict，+ - * / % 数值提升，Text.concat/Crypto.hash/Int.toString/Bool.toString → Text，Text.length → Int，Decimal.round/divide → Decimal）推断；TypeChecker 每次 typecheckModule 重建字段类型表供签名注册使用。
+- 清理 verdictFieldType 过时注释。新增用例：List 中间类型不被反推放行、字段路径/算术/Verdict 返回进签名、顶层 Return 冲突回退占位不误报、IR JSON 读回后签名行为一致。
+- 验证：core 全量 1952 通过；aster-api 经 composite build 全量 2088（仅基线 PrismaDatabaseE2ETest 失败）。

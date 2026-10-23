@@ -170,6 +170,20 @@ class EnumVariantValueParityTest {
   }
 
   @Test
+  void knownNonRecordIntermediateTypeIsNotRescuedByFieldInference() {
+    // tags 是 List<Text>（已知非记录类型）：即使别的 Data 恰好有 amount 字段，也必须报 E011（TS 非 TypeName 分支）
+    var diags = check("Define Loan has amount as Int.\n"
+        + "Define Bag has tags as List<Text>.\n"
+        + DECLS
+        + "Rule decide given bag as Bag, produce LoanDecision:\n"
+        + "  If bag.tags.amount less than 1\n"
+        + "    Return LoanDecision with status set to Rejected, reason set to \"x\", riskTier set to High.\n"
+        + "  Return LoanDecision with status set to Approved, reason set to \"ok\", riskTier set to Low.");
+    assertTrue(diags.stream().anyMatch(d -> d.code() == ErrorCode.UNKNOWN_FIELD && d.message().contains("amount")),
+        "List 上的字段访问必须报 E011，实际: " + diags);
+  }
+
+  @Test
   void unknownBareNameIsStillUndefinedVariable() {
     var diags = check(DECLS
         + "Rule decide given score as Int, produce LoanDecision:\n"

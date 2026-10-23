@@ -973,10 +973,6 @@ public final class BaseTypeChecker {
   }
 
   /**
-   * 点号名（如 {@code d.outcome}）的类型：首段为 Verdict 值且字段为 outcome/role/reason 时为 Text，
-   * 其余维持 Unknown（与既有行为一致）。
-   */
-  /**
    * 解析带点的字段访问（`application.creditScore`），与 TS 的 Name 分支对齐：
    * - 首段不是符号：按 TS 报 UNDEFINED_VARIABLE（E101）。例外是模块导入别名与首字母大写的限定名
    *   （`Decimal.round`、`Verdict.allow` 这类内置命名空间由调用检查单独处理），沿用 Verdict 字段/Unknown。
@@ -1009,12 +1005,14 @@ public final class BaseTypeChecker {
         current = createTypeName("String");
         continue;
       }
+      // 与 TS 一致：只有 TypeName（含 Unknown 与未声明的名字）才按字段名反推；
+      // List/Map/函数类型等已知非记录类型直接报 E011，不能因别的 Data 恰好有同名字段而放行。
       CoreModel.Data data = null;
       if (expanded instanceof CoreModel.TypeName tn && tn.name != null) {
         data = ctx.getDataDecls().get(tn.name);
-      }
-      if (data == null) {
-        data = inferDataDeclFromField(ctx, parts[0], fieldName);
+        if (data == null) {
+          data = inferDataDeclFromField(ctx, parts[0], fieldName);
+        }
       }
       if (data == null) {
         diagnostics.error(
@@ -1064,6 +1062,10 @@ public final class BaseTypeChecker {
     return narrowed.size() == 1 ? narrowed.get(0) : null;
   }
 
+  /**
+   * 限定名的兜底类型（首段不是值符号时由 {@link #fieldPathType} 调用）：首段是 Verdict 值且字段为
+   * outcome/role/reason 时为 Text，其余 Unknown。
+   */
   private Type verdictFieldType(String dotted) {
     int dot = dotted.indexOf('.');
     if (dot <= 0) {

@@ -64,6 +64,58 @@ class InferredReturnTypeParityTest {
   }
 
   @Test
+  void callerSeesFieldPathAndArithmeticAndVerdictInferredReturns() {
+    // Name（按字段类型表）、算术、Verdict.* 三类返回表达式都要进签名，调用方按推断类型检查
+    var src = "Define Loan has amount as Int, note as Text.\n\n"
+        + "Rule amountOf given loan as Loan, produce:\n  Return loan.amount.\n\n"
+        + "Rule doubled given loan as Loan, produce:\n  Return loan.amount times 2.\n\n"
+        + "Rule gate given loan as Loan, produce:\n  Return Verdict.allow().\n\n"
+        + "Rule useAmount given loan as Loan, produce Int:\n  Return amountOf(loan).\n\n"
+        + "Rule useDoubled given loan as Loan, produce Int:\n  Return doubled(loan).\n\n"
+        + "Rule useGate given loan as Loan, produce Verdict:\n  Return gate(loan).";
+    var diags = check(src);
+    assertFalse(diags.stream().anyMatch(d -> d.code() == ErrorCode.RETURN_TYPE_MISMATCH),
+        "推断返回类型应覆盖字段路径/算术/Verdict 调用，实际: " + diags);
+  }
+
+  @Test
+  void conflictingTopLevelReturnsFallBackToPlaceholderWithoutFalseError() {
+    // 顶层 Return 类型不一致 → 推断 Unknown → 退回占位，但 retTypeInferred 仍跳过本函数的返回比对
+    var diags = check(DECLS
+        + "Rule odd given x as Int, produce:\n"
+        + "  If x less than 0\n"
+        + "    Return \"neg\".\n"
+        + "  Return 1.");
+    assertFalse(diags.stream().anyMatch(d -> d.code() == ErrorCode.RETURN_TYPE_MISMATCH),
+        "省略返回类型的函数自身不报 RETURN_TYPE_MISMATCH，实际: " + diags);
+  }
+
+  @Test
+  void irJsonRoundTripPreservesInferredSignatureBehaviour() throws Exception {
+    // 落库的 IR JSON（含 retTypeInferred:true）读回后，签名推断与直接检查结果一致
+    String src = "Module probe.\n\n" + DECLS
+        + "Rule mk given x as Int, produce:\n"
+        + "  Return Decision with approved set to true, reason set to \"ok\".\n\n"
+        + "Rule wrap given x as Int, produce Decision:\n  Return mk(x).\n";
+    String canonical = new Canonicalizer().canonicalize(src);
+    var lexer = new AsterCustomLexer(CharStreams.fromString(canonical));
+    var tokens = new CommonTokenStream(lexer);
+    tokens.fill();
+    tokens.seek(0);
+    var parser = new AsterParser(tokens);
+    parser.removeErrorListeners();
+    var core = new CoreLowering().lowerModule(new AstBuilder().visitModule(parser.module()));
+    var mapper = new com.fasterxml.jackson.databind.ObjectMapper()
+        .setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL);
+    String json = mapper.writeValueAsString(core);
+    assertTrue(json.contains("\"retTypeInferred\":true"), json);
+    var back = mapper.readValue(json, aster.core.ir.CoreModel.Module.class);
+    var diags = new TypeChecker().typecheckModule(back);
+    assertFalse(diags.stream().anyMatch(d -> d.code() == ErrorCode.RETURN_TYPE_MISMATCH),
+        "读回的 IR 仍应把推断返回类型登记进签名，实际: " + diags);
+  }
+
+  @Test
   void explicitWrongProduceTypeStillReportsReturnMismatch() {
     var diags = check(DECLS
         + "Rule decide given score as Int, produce Text:\n"
