@@ -128,6 +128,13 @@ public final class CoreModel {
     public String name;                          // 字段名
     public Type type;                            // 字段类型
     public List<Annotation> annotations;         // 注解列表（默认空）
+    /**
+     * 源码未声明类型：type 只是按字段名推断的占位，类型检查器在成员访问时把它当动态值（Unknown）。
+     * 不进 IR JSON（与 TS 的 WeakSet 旁路表同一取舍）：golden 与 TS↔Java IR 指纹不变；
+     * 从 JSON 读回的 IR 查不到标记，退回按 type 检查。
+     */
+    @JsonIgnore
+    public boolean typeInferred;
 
     public Field() {
       this.annotations = Collections.emptyList();

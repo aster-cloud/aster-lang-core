@@ -1010,6 +1010,10 @@ public final class BaseTypeChecker {
     Type current = head.get().type();
     for (int i = 1; i < parts.length; i++) {
       final String fieldName = parts[i];
+      // 动态值（Unknown，例如无类型字段）上的成员访问结果仍为 Unknown，不报 E011（与 TS 对齐）
+      if (TypeSystem.isUnknown(current)) {
+        return TypeSystem.unknown();
+      }
       var expanded = expandType(current);
       if (isTypeNamed(expanded, VerdictSignatures.TYPE_NAME) && VerdictSignatures.isVerdictField(fieldName)) {
         current = createTypeName("String");
@@ -1043,7 +1047,8 @@ public final class BaseTypeChecker {
         );
         return TypeSystem.unknown();
       }
-      current = field.get().type == null ? TypeSystem.unknown() : field.get().type;
+      // 未声明类型的字段是动态值（Action Guard 的 context 即无类型 map，ADR 0040 §2.2）
+      current = field.get().typeInferred || field.get().type == null ? TypeSystem.unknown() : field.get().type;
     }
     return current;
   }
