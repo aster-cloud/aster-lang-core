@@ -315,7 +315,9 @@ public final class CanonicalJson {
         String digits = intPart + fracPart;
         int pointPos = intPart.length() + (int) exp;
 
-        int expandedLen = Math.max(Math.max(digits.length(), pointPos), digits.length() - pointPos) + Math.abs(pointPos);
+        int expandedLen = pointPos <= 0
+                ? (1 - pointPos) + digits.length()
+                : Math.max(pointPos, digits.length());
         if (expandedLen > MAX_DECIMAL_DIGITS) {
             throw new CanonicalJsonException(ErrorReason.DECIMAL_TOO_LARGE,
                     "Decimal 展开位数超限(" + expandedLen + " > " + MAX_DECIMAL_DIGITS + ")", path);
