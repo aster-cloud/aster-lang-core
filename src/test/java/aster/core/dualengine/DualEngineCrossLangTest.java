@@ -34,7 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *     <li>Spawns {@code node aster-lang-ts/scripts/dual-engine-runner.mjs}</li>
  *     <li>Pipes a JSON request {source, entry, input} → stdin</li>
  *     <li>Reads {success, value} ← stdout</li>
- *     <li>Compares value vs {@code expectedOutput} in the corpus</li>
+ *     <li>Checks either the expected value or the expected error in the corpus</li>
  *   </ol>
  *
  * <p><b>Corpus source</b>: {@code cloud.aster-lang:aster-lang-test} (tier1 only;
@@ -48,14 +48,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  * </pre>
  */
 @Tag("crosslang")
-@DisplayName("Dual-engine cross-language equivalence (TS PEG vs tier1 golden expectedOutput)")
+@DisplayName("Dual-engine cross-language equivalence (TS PEG vs tier1 golden cases)")
 class DualEngineCrossLangTest {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final long PROCESS_TIMEOUT_SECONDS = 30;
 
     @TestFactory
-    @DisplayName("Each tier1 sample with .cases.json must produce identical output in TS engine")
+    @DisplayName("Each tier1 sample with .cases.json must satisfy its golden case in TS engine")
     Stream<DynamicContainer> tsEngineMatchesExpected() throws Exception {
         Path runnerScript = resolveRunnerScript();
 
@@ -90,11 +90,20 @@ class DualEngineCrossLangTest {
         for (int i = 0; i < caseArr.size(); i++) {
             JsonNode c = caseArr.get(i);
             String caseName = c.path("name").asText("(unnamed " + i + ")");
+            String caseEntry = c.path("entry").asText(entry);
             JsonNode input = c.path("input");
+            boolean expectsError = c.path("expectError").asBoolean(false);
             JsonNode expected = c.path("expectedOutput");
 
             tests.add(DynamicTest.dynamicTest(caseName, () -> {
-                JsonNode actual = invokeTsEngine(runner, source, entry, input);
+                JsonNode actual = invokeTsEngine(runner, source, caseEntry, input);
+                if (expectsError) {
+                    assertThat(actual.path("success").asBoolean())
+                        .as("TS engine must reject %s / %s", displayName, caseName)
+                        .withFailMessage("TS engine unexpectedly succeeded with value: %s", actual.path("value"))
+                        .isFalse();
+                    return;
+                }
                 assertThat(actual.path("success").asBoolean())
                     .as("TS engine compilation/evaluation of %s", displayName)
                     .withFailMessage("TS engine reported failure: %s", actual.path("error").asText())
