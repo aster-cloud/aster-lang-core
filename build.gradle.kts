@@ -128,8 +128,8 @@ tasks.test {
 // Phase 3A-2: 跨语言双引擎测试，需要 aster-lang-ts 已 build + node 可用
 // 用法：cd aster-lang-ts && pnpm build && cd ../aster-lang-core && ./gradlew crosslangTest
 //
-// 当前 baseline: 184/198 = 92.93% (2026-05-21)。详见
-// aster-lang-test/DIVERGENT-MANIFEST.md 的根因分类清单。
+// 此任务覆盖语料中的所有 tier1 golden case，包括 expectedOutput 和 expectError。
+// 不再引用历史通过率；跨引擎失败应以当前测试结果和语料清单为准。
 tasks.register<Test>("crosslangTest") {
     description = "Run @Tag(crosslang) tests bridging Java + TypeScript engines"
     group = "verification"
