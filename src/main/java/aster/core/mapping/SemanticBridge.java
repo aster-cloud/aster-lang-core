@@ -9,12 +9,14 @@ import aster.core.parser.AsterCustomLexer;
 import aster.core.parser.AsterParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.RecognitionException;
+import org.antlr.v4.runtime.Recognizer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -57,9 +59,21 @@ import java.util.Map;
  */
 public final class SemanticBridge {
 
-    /** 一条候选及其判定。 */
+    /**
+     * 一条候选及其判定。
+     *
+     * @param contentHash 目标节点在本次判定时的内容指纹（NodeIdMap 的 contentHash）。人工复核记录
+     *                    Proof 时用它锚定「当时看到的是哪一版内容」；与 TS 侧同名字段对等。
+     *                    节点不在 NodeIdMap 中时为 {@code null}（diagnostics 会说明路径口径漂移）。
+     */
     public record VerifiedCandidate(MappingIr.CandidateMapping mapping,
-                                    MappingIr.VerificationResult result) {}
+                                    MappingIr.VerificationResult result,
+                                    String contentHash) {}
+
+    /** 第 3 层失败诊断的前缀：两引擎一致，跨引擎语料按前缀断言（具体消息允许不同）。 */
+    public static final String SYNTAX_ERROR = "源码有语法错误，无法编译成 Core IR，候选映射层已跳过：";
+    public static final String COMPILE_FAILED = "源码无法编译成 Core IR，候选映射层已跳过：";
+    public static final String INTERNAL_ERROR = "候选映射层内部错误（不是源码问题）：";
 
     /** 三类判定的计数——UI 的复核队列直接用它。 */
     public record Summary(int verified, int reviewRequired, int rejected) {}
@@ -107,50 +121,7 @@ public final class SemanticBridge {
         // ── 第 3 层：候选映射 + 验证（需要源码可编译）───────────────
         // ★这一层**会失败**，且失败是常态（任意文字不是合法 Aster 源码）。
         //   失败时前两层结果仍然有效——这正是分层降级的意义。
-        List<VerifiedCandidate> verified = new ArrayList<>();
-        try {
-            String canonical = new Canonicalizer().canonicalize(source);
-            AsterCustomLexer lexer = new AsterCustomLexer(CharStreams.fromString(canonical));
-            lexer.removeErrorListeners();
-            AsterParser parser = new AsterParser(new CommonTokenStream(lexer));
-            parser.removeErrorListeners();
-            CoreModel.Module core =
-                new CoreLowering().lowerModule(new AstBuilder().visitModule(parser.module()));
-            JsonNode ir = MAPPER.valueToTree(core);
-
-            Map<String, NodeIdMap.NodeIdentity> identities = NodeIdMap.compute(ir);
-            List<CandidateGenerator.OriginatedNode> nodes =
-                CandidateGenerator.collectLiteralNodes(ir);
-            if (nodes.isEmpty()) {
-                diagnostics.add("IR 里没有带 origin 的字面量节点——无候选可生成。");
-            }
-
-            CandidateGenerator.GenerationResult gen =
-                CandidateGenerator.generate(canonical, nodes);
-            for (CandidateGenerator.Skipped s : gen.skipped()) {
-                diagnostics.add("跳过节点 " + s.nodeId() + "：" + s.why());
-            }
-
-            // ★resolve 的节点必须从 **IR 本身**取值，不能从 NodeIdentity 取。
-            //   NodeIdentity 只有 {nodeId, contentHash, kind}，**没有 value**；
-            //   用它做 resolve 会让 verify 永远比不出值、把候选全判 REJECTED。
-            //   ★TS 侧接线时我正是踩了这个坑：两侧模块单测全绿，错的是那根线。
-            Map<String, MappingIr.VerifiableNode> byId = collectVerifiableNodes(ir);
-            for (String id : byId.keySet()) {
-                if (!identities.containsKey(id)) {
-                    diagnostics.add("节点 " + id + " 不在 NodeIdMap 中——路径口径可能漂移。");
-                }
-            }
-
-            for (MappingIr.CandidateMapping m : gen.candidates()) {
-                verified.add(new VerifiedCandidate(m, MappingIr.verify(m, byId::get)));
-            }
-        } catch (RuntimeException e) {
-            // ★不把编译失败当成错误——"任意文字"本就编译不了。
-            //   如实记录，让调用方知道第 3 层没跑，而不是以为跑了但没结果。
-            diagnostics.add("源码无法编译成 Core IR，候选映射层已跳过："
-                + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
-        }
+        List<VerifiedCandidate> verified = candidateLayer(source, diagnostics);
 
         int v = 0, r = 0, j = 0;
         for (VerifiedCandidate c : verified) {
@@ -166,61 +137,104 @@ public final class SemanticBridge {
     }
 
     /**
-     * 按与 {@link CandidateGenerator#collectLiteralNodes} <b>相同</b>的路径规则
-     * 遍历 IR，产出 {@code nodeId → VerifiableNode}（带 value/name）。
+     * 第 3 层：canonicalize → lex → parse → lower → 候选 → 重定位 → 验证。
      *
-     * <p>★路径规则必须与 {@code CandidateGenerator} / {@code NodeIdMap}
-     * <b>三方一致</b>，否则候选的 nodeId 与这里的键对不上。
+     * <p>失败分三类，各自如实报告（与 TS 侧 {@code candidateLayer} 同前缀）：
+     * <ul>
+     *   <li>语法错误：ANTLR 带错误恢复，照样会返回残缺的树；在残缺树上生成的候选不可信，整层跳过。
+     *       词法错误同样归入此类。</li>
+     *   <li>编译失败：AST 构建或 lowering 以 {@link IllegalStateException} /
+     *       {@link IllegalArgumentException} 拒绝源码。</li>
+     *   <li>内部错误：其余异常（如 NPE），以及 IR 已经得到之后任何步骤抛出的异常。它们是本链路的
+     *       缺陷，不得伪装成「源码编译不了」。</li>
+     * </ul>
+     */
+    private static List<VerifiedCandidate> candidateLayer(String source, List<String> diagnostics) {
+        String canonical;
+        JsonNode ir;
+        try {
+            canonical = new Canonicalizer().canonicalize(source);
+            List<String> syntaxErrors = new ArrayList<>();
+            BaseErrorListener collect = new BaseErrorListener() {
+                @Override
+                public void syntaxError(Recognizer<?, ?> recognizer, Object symbol, int line, int col,
+                                        String msg, RecognitionException e) {
+                    syntaxErrors.add("L" + line + ":" + (col + 1) + " " + msg);
+                }
+            };
+            AsterCustomLexer lexer = new AsterCustomLexer(CharStreams.fromString(canonical));
+            lexer.removeErrorListeners();
+            lexer.addErrorListener(collect);
+            AsterParser parser = new AsterParser(new CommonTokenStream(lexer));
+            parser.removeErrorListeners();
+            parser.addErrorListener(collect);
+            AsterParser.ModuleContext tree = parser.module();
+            if (!syntaxErrors.isEmpty()) {
+                diagnostics.add(SYNTAX_ERROR + syntaxErrors.get(0));
+                return List.of();
+            }
+            CoreModel.Module core = new CoreLowering().lowerModule(new AstBuilder().visitModule(tree));
+            ir = MAPPER.valueToTree(core);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            diagnostics.add(COMPILE_FAILED + describe(e));
+            return List.of();
+        } catch (RuntimeException e) {
+            diagnostics.add(INTERNAL_ERROR + describe(e));
+            return List.of();
+        }
+
+        try {
+            Map<String, NodeIdMap.NodeIdentity> identities = NodeIdMap.compute(ir);
+            List<CandidateGenerator.OriginatedNode> nodes = CandidateGenerator.collectLiteralNodes(ir);
+            if (nodes.isEmpty()) {
+                diagnostics.add("IR 里没有带 origin 的字面量节点——无候选可生成。");
+            }
+
+            CandidateGenerator.GenerationResult gen = CandidateGenerator.relocateToSource(
+                source, canonical, CandidateGenerator.generate(canonical, nodes));
+            for (CandidateGenerator.Skipped s : gen.skipped()) {
+                diagnostics.add("跳过节点 " + s.nodeId() + "：" + s.why());
+            }
+
+            // ★resolve 的节点必须从 **IR 本身**取值，不能从 NodeIdentity 取。
+            //   NodeIdentity 只有 {nodeId, contentHash, kind}，**没有 value**；
+            //   用它做 resolve 会让 verify 永远比不出值、把候选全判 REJECTED。
+            Map<String, MappingIr.VerifiableNode> byId = collectVerifiableNodes(ir);
+            List<VerifiedCandidate> out = new ArrayList<>();
+            for (MappingIr.CandidateMapping m : gen.candidates()) {
+                NodeIdMap.NodeIdentity identity = identities.get(m.nodeId());
+                out.add(new VerifiedCandidate(m, MappingIr.verify(m, byId::get),
+                    identity == null ? null : identity.contentHash()));
+            }
+            return out;
+        } catch (RuntimeException e) {
+            diagnostics.add(INTERNAL_ERROR + describe(e));
+            return List.of();
+        }
+    }
+
+    private static String describe(RuntimeException e) {
+        return e.getMessage() == null ? e.getClass().getSimpleName()
+            : e.getClass().getSimpleName() + ": " + e.getMessage();
+    }
+
+    /**
+     * 按 nodeId 路径规则产出 {@code nodeId → VerifiableNode}（带 value/name）。
+     * 路径与 nodeId 共用 {@link NodeIdMap#forEachIrNode}，不会漂移。
      */
     private static Map<String, MappingIr.VerifiableNode> collectVerifiableNodes(JsonNode ir) {
         Map<String, MappingIr.VerifiableNode> out = new HashMap<>();
-        walkVerifiable(ir, "$", out);
+        NodeIdMap.forEachIrNode(ir, (node, nodeId) -> {
+            JsonNode value = node.get("value");
+            JsonNode name = node.get("name");
+            out.put(nodeId, new MappingIr.VerifiableNode(
+                node.get("kind").asText(),
+                value == null || value.isNull() ? null : toPlain(value),
+                name != null && name.isTextual() ? name.asText() : null));
+        });
         return out;
     }
 
-    private static void walkVerifiable(JsonNode node, String path,
-                                       Map<String, MappingIr.VerifiableNode> out) {
-        if (node == null || !node.isObject()) return;
-
-        JsonNode kind = node.get("kind");
-        if (kind != null && kind.isTextual()) {
-            JsonNode value = node.get("value");
-            JsonNode name = node.get("name");
-            out.put(path, new MappingIr.VerifiableNode(
-                kind.asText(),
-                value == null || value.isNull() ? null : toPlain(value),
-                name != null && name.isTextual() ? name.asText() : null));
-        }
-
-        Iterator<Map.Entry<String, JsonNode>> it = node.fields();
-        while (it.hasNext()) {
-            Map.Entry<String, JsonNode> e = it.next();
-            if ("origin".equals(e.getKey())) continue;
-            JsonNode v = e.getValue();
-            if (v.isArray()) {
-                for (int i = 0; i < v.size(); i++) {
-                    walkVerifiable(v.get(i), path + "." + e.getKey() + segmentOf(v.get(i), i), out);
-                }
-            } else {
-                walkVerifiable(v, path + "." + e.getKey(), out);
-            }
-        }
-    }
-
-    /** ★与 CandidateGenerator / NodeIdMap 同规则（三方必须一致）。 */
-    private static String segmentOf(JsonNode element, int index) {
-        if (element != null && element.isObject()) {
-            JsonNode name = element.get("name");
-            if (name != null && name.isTextual() && !"_".equals(name.asText())) {
-                return "{" + name.asText() + "}";
-            }
-            JsonNode p = element.get("path");
-            if (p != null && p.isTextual()) return "{" + p.asText() + "}";
-        }
-        return "[" + index + "]";
-    }
-
-    /** JSON → Java 值。★口径须与 TS 侧一致，否则"值比较"两边不同。 */
     private static Object toPlain(JsonNode v) {
         if (v.isBoolean()) return v.asBoolean();
         if (v.isIntegralNumber()) return v.asLong();

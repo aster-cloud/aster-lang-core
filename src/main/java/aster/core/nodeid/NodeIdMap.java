@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 
 /**
  * Stable IR Node ID —— 为 Core IR 的每个节点计算一对**跨版本稳定**的标识。
@@ -83,18 +84,30 @@ public final class NodeIdMap {
      */
     public static Map<String, NodeIdentity> compute(JsonNode ir) {
         Map<String, NodeIdentity> out = new LinkedHashMap<>();
-        walk(ir, "$", out);
+        // 只有带 kind 的对象才是「IR 节点」；Field/Param 等无 kind 的结构体不单独发 ID，
+        // 它们随宿主节点的 contentHash 一起变化。
+        forEachIrNode(ir, (node, path) ->
+            out.put(path, new NodeIdentity(path, contentHashOf(node), node.get("kind").asText())));
         return Collections.unmodifiableMap(out);
     }
 
-    private static void walk(JsonNode node, String path, Map<String, NodeIdentity> out) {
+    /**
+     * 按 nodeId 的路径规则深度优先遍历 IR，对每个带 {@code kind} 的节点回调 {@code (节点, nodeId)}。
+     *
+     * <p>★候选生成、verifier 取值与本类的 nodeId 必须用同一条路径规则，否则候选的 nodeId
+     * 与 resolve 的键对不上（表现为「节点不存在」）。各处一律走这个方法，不再各自复制遍历。
+     * 与 TS 侧 {@code forEachIrNode} 同规则。
+     */
+    public static void forEachIrNode(JsonNode ir, BiConsumer<JsonNode, String> visit) {
+        walk(ir, "$", visit);
+    }
+
+    private static void walk(JsonNode node, String path, BiConsumer<JsonNode, String> visit) {
         if (node == null || !node.isObject()) {
             return;
         }
-        // 只有带 kind 的对象才是「IR 节点」；Field/Param 等无 kind 的结构体不单独发 ID，
-        // 它们随宿主节点的 contentHash 一起变化。
         if (node.hasNonNull("kind")) {
-            out.put(path, new NodeIdentity(path, contentHashOf(node), node.get("kind").asText()));
+            visit.accept(node, path);
         }
         node.properties().forEach(entry -> {
             String field = entry.getKey();
@@ -104,10 +117,10 @@ public final class NodeIdMap {
             JsonNode value = entry.getValue();
             if (value.isArray()) {
                 for (int i = 0; i < value.size(); i++) {
-                    walk(value.get(i), path + "." + field + segmentOf(value.get(i), i), out);
+                    walk(value.get(i), path + "." + field + segmentOf(value.get(i), i), visit);
                 }
             } else {
-                walk(value, path + "." + field, out);
+                walk(value, path + "." + field, visit);
             }
         });
     }

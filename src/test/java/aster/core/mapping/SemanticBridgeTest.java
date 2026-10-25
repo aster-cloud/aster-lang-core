@@ -3,6 +3,8 @@ package aster.core.mapping;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -104,5 +106,33 @@ class SemanticBridgeTest {
                 HUMAN_DOC.substring(q.span().start(), q.span().end()),
                 "数量 " + q.text() + " 的 span 与原文不符——双向导航会跳错位置。");
         }
+    }
+    @Test
+    @DisplayName("★候选区间是原文坐标：英文冠词被 canonicalize 删除后仍指向原文里的字面量（aster-lang-ts#238）")
+    void candidateSpansUseSourceCoordinates() {
+        String src = "Module m.\n\nRule f, produce Int:\n  Let the total be 42.\n  Return the total.\n";
+        SemanticBridge.BridgeResult r = SemanticBridge.run(src);
+        assertEquals(1, r.verified().size(), r.diagnostics().toString());
+        MappingIr.CandidateMapping m = r.verified().get(0).mapping();
+        assertEquals("42", src.substring(m.span().start(), m.span().end()));
+        assertEquals(m.text().length(), m.span().end() - m.span().start());
+    }
+
+    @Test
+    @DisplayName("★语法错误不得在残缺树上生成候选，必须报告为语法错误而非内部错误")
+    void syntaxErrorsSkipCandidateLayer() {
+        SemanticBridge.BridgeResult r = SemanticBridge.run("Module m.\n\nRule f, produce Int:\n  Return 42 +.\n");
+        assertEquals(List.of(), r.verified());
+        assertTrue(r.diagnostics().stream().anyMatch(d -> d.startsWith(SemanticBridge.SYNTAX_ERROR)), r.diagnostics().toString());
+        assertTrue(r.diagnostics().stream().noneMatch(d -> d.startsWith(SemanticBridge.INTERNAL_ERROR)), r.diagnostics().toString());
+    }
+
+    @Test
+    @DisplayName("★每条候选都带 64 位十六进制 contentHash（复核结论落库要用，与 TS 对等）")
+    void candidatesCarryContentHash() {
+        SemanticBridge.BridgeResult r = SemanticBridge.run(ASTER_SRC);
+        assertEquals(2, r.verified().size());
+        assertTrue(r.verified().stream().allMatch(v -> v.contentHash() != null && v.contentHash().matches("[0-9a-f]{64}")),
+            r.verified().toString());
     }
 }
