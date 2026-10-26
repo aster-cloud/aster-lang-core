@@ -593,5 +593,75 @@
     "severity": "error",
     "message": "Generated Cedar for rule '{rule}' failed schema validation: {detail}",
     "help": "This is an exporter defect; the export was withheld. Please report it."
+  },
+  "UNRESOLVED_TYPE": {
+    "code": "E800",
+    "category": "scope",
+    "severity": "error",
+    "message": "Cannot resolve type '{written}' in {role} position",
+    "help": "Check the spelling, import the type, or use a name from the active vocabulary."
+  },
+  "UNRESOLVED_FIELD": {
+    "code": "E801",
+    "category": "scope",
+    "severity": "error",
+    "message": "Cannot resolve field '{written}' in {role} position",
+    "help": "Check the field name against the data type declaration or the active vocabulary."
+  },
+  "UNRESOLVED_NAME": {
+    "code": "E802",
+    "category": "scope",
+    "severity": "error",
+    "message": "Cannot resolve name '{written}' in {role} position",
+    "help": "Declare the name, import it, or use a name from the active vocabulary."
+  },
+  "UNRESOLVED_PATTERN": {
+    "code": "E803",
+    "category": "scope",
+    "severity": "error",
+    "message": "Cannot resolve pattern '{written}' in {role} position",
+    "help": "Check that the pattern names an existing constructor or enum case of the scrutinee type."
+  },
+  "AMBIGUOUS_NAME": {
+    "code": "E804",
+    "category": "scope",
+    "severity": "error",
+    "message": "Name '{written}' in {role} position is ambiguous between: {candidates}",
+    "help": "Write a qualified name (e.g. Stufe.Hoch) or add a type annotation."
+  },
+  "AMBIGUOUS_FIELD": {
+    "code": "E805",
+    "category": "scope",
+    "severity": "error",
+    "message": "Field '{written}' in {role} position is ambiguous between: {candidates}",
+    "help": "Qualify the field with its owning type or add a type annotation to the receiver."
+  },
+  "AMBIGUOUS_PATTERN": {
+    "code": "E806",
+    "category": "scope",
+    "severity": "error",
+    "message": "Pattern '{written}' in {role} position is ambiguous between: {candidates}",
+    "help": "Write a qualified name (e.g. Stufe.Hoch) or add a type annotation."
+  },
+  "DUPLICATE_DECLARATION": {
+    "code": "E807",
+    "category": "scope",
+    "severity": "error",
+    "message": "Duplicate declaration of '{written}' in {role} position",
+    "help": "Rename one of the declarations or remove the duplicate."
+  },
+  "SHADOWED_VOCABULARY": {
+    "code": "W800",
+    "category": "scope",
+    "severity": "warning",
+    "message": "Declaration '{written}' in {role} position shadows a vocabulary entry",
+    "help": "Rename the declaration if the shadowing is unintended; the declaration wins over the vocabulary entry."
+  },
+  "RESOLVED_WITHOUT_TYPE": {
+    "code": "W801",
+    "category": "scope",
+    "severity": "warning",
+    "message": "Resolved '{written}' in {role} position without a known receiver type",
+    "help": "Add a type annotation to the receiver so the name can be checked against its type."
   }
 }

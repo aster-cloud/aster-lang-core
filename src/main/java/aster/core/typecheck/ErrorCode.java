@@ -116,6 +116,16 @@ public enum ErrorCode {
   CEDAR_UNTYPED_CONTEXT_KEY("E722", Category.GOVERNANCE, Severity.ERROR, "Context key '{key}' in rule '{rule}' is used as both {first} and {second}", "Use each context key with a single type (number, text or boolean)."),
   CEDAR_EQUIVALENCE_MISMATCH("E723", Category.GOVERNANCE, Severity.ERROR, "Cedar export of rule '{rule}' disagrees with Aster on probe {probe}: Aster {aster}, Cedar {cedar}", "This is an exporter defect; the export was withheld. Please report it."),
   CEDAR_SCHEMA_INVALID("E724", Category.GOVERNANCE, Severity.ERROR, "Generated Cedar for rule '{rule}' failed schema validation: {detail}", "This is an exporter defect; the export was withheld. Please report it."),
+  UNRESOLVED_TYPE("E800", Category.SCOPE, Severity.ERROR, "Cannot resolve type '{written}' in {role} position", "Check the spelling, import the type, or use a name from the active vocabulary."),
+  UNRESOLVED_FIELD("E801", Category.SCOPE, Severity.ERROR, "Cannot resolve field '{written}' in {role} position", "Check the field name against the data type declaration or the active vocabulary."),
+  UNRESOLVED_NAME("E802", Category.SCOPE, Severity.ERROR, "Cannot resolve name '{written}' in {role} position", "Declare the name, import it, or use a name from the active vocabulary."),
+  UNRESOLVED_PATTERN("E803", Category.SCOPE, Severity.ERROR, "Cannot resolve pattern '{written}' in {role} position", "Check that the pattern names an existing constructor or enum case of the scrutinee type."),
+  AMBIGUOUS_NAME("E804", Category.SCOPE, Severity.ERROR, "Name '{written}' in {role} position is ambiguous between: {candidates}", "Write a qualified name (e.g. Stufe.Hoch) or add a type annotation."),
+  AMBIGUOUS_FIELD("E805", Category.SCOPE, Severity.ERROR, "Field '{written}' in {role} position is ambiguous between: {candidates}", "Qualify the field with its owning type or add a type annotation to the receiver."),
+  AMBIGUOUS_PATTERN("E806", Category.SCOPE, Severity.ERROR, "Pattern '{written}' in {role} position is ambiguous between: {candidates}", "Write a qualified name (e.g. Stufe.Hoch) or add a type annotation."),
+  DUPLICATE_DECLARATION("E807", Category.SCOPE, Severity.ERROR, "Duplicate declaration of '{written}' in {role} position", "Rename one of the declarations or remove the duplicate."),
+  SHADOWED_VOCABULARY("W800", Category.SCOPE, Severity.WARNING, "Declaration '{written}' in {role} position shadows a vocabulary entry", "Rename the declaration if the shadowing is unintended; the declaration wins over the vocabulary entry."),
+  RESOLVED_WITHOUT_TYPE("W801", Category.SCOPE, Severity.WARNING, "Resolved '{written}' in {role} position without a known receiver type", "Add a type annotation to the receiver so the name can be checked against its type."),
   ;
 
   private final String code;
