@@ -103,7 +103,7 @@ public final class VocabularyRegistry {
      * 注册领域词汇表。
      *
      * @param vocabulary 领域词汇表
-     * @throws IllegalArgumentException 如果词汇表验证失败
+     * @throws IllegalArgumentException 如果词汇表验证失败，或 VocabularyScopes 拒绝该词汇
      */
     public void register(DomainVocabulary vocabulary) {
         DomainVocabulary.ValidationResult result = vocabulary.validate();
@@ -120,8 +120,7 @@ public final class VocabularyRegistry {
         }
 
         String key = makeKey(vocabulary.id(), vocabulary.locale());
-        IdentifierIndex index = IdentifierIndex.build(vocabulary);
-        vocabularies.put(key, new VocabularyEntry(vocabulary, index));
+        vocabularies.put(key, VocabularyEntry.of(vocabulary));
     }
 
     /**
@@ -140,8 +139,7 @@ public final class VocabularyRegistry {
         }
 
         String key = makeCustomKey(tenantId, vocabulary.id(), vocabulary.locale());
-        IdentifierIndex index = IdentifierIndex.build(vocabulary);
-        customVocabularies.put(key, new VocabularyEntry(vocabulary, index));
+        customVocabularies.put(key, VocabularyEntry.of(vocabulary));
     }
 
     /**
@@ -337,9 +335,37 @@ public final class VocabularyRegistry {
 
     /**
      * 词汇表条目。
+     *
+     * @param vocabulary 源词汇表
+     * @param index      展示用的扁平索引
+     * @param scopes     编译用的按位置词汇视图（ADR 0051）
      */
     public record VocabularyEntry(
         DomainVocabulary vocabulary,
-        IdentifierIndex index
-    ) {}
+        IdentifierIndex index,
+        VocabularyScopes scopes
+    ) {
+        /**
+         * 构建注册条目。按位置解析要求字段与枚举成员都有所属类型（ADR 0051 §7、§14.3），
+         * 没有 parent 的字段 / 枚举成员无法定位作用域，不进入 scopes（仍保留在 vocabulary 与 index 中）。
+         *
+         * @throws VocabularyScopeException 同折叠键的字面量宏内容冲突
+         */
+        static VocabularyEntry of(DomainVocabulary vocabulary) {
+            DomainVocabulary scoped = new DomainVocabulary(
+                vocabulary.id(), vocabulary.name(), vocabulary.locale(), vocabulary.version(),
+                vocabulary.structs(),
+                withParent(vocabulary.fields()),
+                vocabulary.functions(),
+                withParent(vocabulary.enumValues()),
+                vocabulary.literals(),
+                vocabulary.metadata()
+            );
+            return new VocabularyEntry(vocabulary, IdentifierIndex.build(vocabulary), VocabularyScopes.build(scoped));
+        }
+
+        private static List<IdentifierMapping> withParent(List<IdentifierMapping> mappings) {
+            return mappings.stream().filter(m -> m.parent() != null).toList();
+        }
+    }
 }

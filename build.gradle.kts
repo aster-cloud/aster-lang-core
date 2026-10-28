@@ -322,3 +322,59 @@ tasks.register<JavaExec>("exportVocabularies") {
 
     dependsOn("classes")
 }
+
+// Unicode 简单折叠表生成任务（ADR 0051 §6）。产物 CaseFoldTable.java 提交入库，
+// 常规构建不依赖兄弟仓库 aster-lang-locales；仅在升级 Unicode 版本时手动运行：
+//   ./gradlew generateCaseFold [-PcasefoldSource=<casefold-x.y.json 路径>]
+tasks.register("generateCaseFold") {
+    group = "codegen"
+    description = "Regenerate CaseFoldTable.java from aster-lang-locales casefold JSON"
+
+    val source = layout.projectDirectory.file(
+        providers.gradleProperty("casefoldSource")
+            .orElse("../aster-lang-locales/casefold/casefold-15.1.json")
+    )
+    val target = layout.projectDirectory.file("src/main/java/aster/core/identifier/CaseFoldTable.java")
+    inputs.file(source)
+    outputs.file(target)
+
+    doLast {
+        @Suppress("UNCHECKED_CAST")
+        val json = groovy.json.JsonSlurper().parse(source.get().asFile) as Map<String, Any>
+        val unicodeVersion = json["version"] as String
+        @Suppress("UNCHECKED_CAST")
+        val pairs = (json["map"] as Map<String, String>)
+            .map { (k, v) -> k.toInt(16) to v.toInt(16) }
+            .sortedBy { it.first }
+        fun hex(cp: Int) = "0x%04X".format(cp)
+        fun rows(values: List<Int>) = values.chunked(8)
+            .joinToString(",\n") { row -> "        " + row.joinToString(", ") { hex(it) } }
+        val text = """
+            |package aster.core.identifier;
+            |
+            |/**
+            | * 本文件由 Gradle 任务 generateCaseFold 生成，请勿手工修改。
+            | * 数据来源：aster-lang-locales/casefold/casefold-$unicodeVersion.json（Unicode $unicodeVersion CaseFolding.txt 的 C+S 状态）。
+            | * FROM 严格升序，TO[i] 为 FROM[i] 的简单折叠结果；未出现的码点折叠为自身。
+            | */
+            |final class CaseFoldTable {
+            |
+            |    /** 折叠表对应的 Unicode 版本，须与 toolchainId 的 casefold 分量一致。 */
+            |    static final String VERSION = "$unicodeVersion";
+            |
+            |    static final int[] FROM = {
+            |${rows(pairs.map { it.first })}
+            |    };
+            |
+            |    static final int[] TO = {
+            |${rows(pairs.map { it.second })}
+            |    };
+            |
+            |    private CaseFoldTable() {
+            |    }
+            |}
+            |""".trimMargin()
+        target.asFile.writeText(text)
+        logger.lifecycle("generateCaseFold: ${pairs.size} entries (Unicode $unicodeVersion) -> ${target.asFile}")
+    }
+}
