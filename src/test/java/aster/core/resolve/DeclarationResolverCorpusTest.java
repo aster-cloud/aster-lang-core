@@ -34,6 +34,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * R1 与 R1 → lower → R2 在无词汇时不得对既有语料产生诊断，也不改变 IR（ADR 0051 迁移安全网，对应 TS 端 0 诊断）。
  * 按每个文件的 {@code .meta.json} 驱动：仅纳入 engines 含 java 且非 {@code expect: reject} 的文件，
  * 以 meta 声明的 lexicon 解析；纳入的文件必须全部解析成功（显式登记的已知缺口除外），不允许静默跳过。
+ * 自带词汇的语料（同名 {@code .vocab.json}，ADR 0051 §8）不纳入：它们的名称解析结果依赖词汇，
+ * 由 aster-lang-test 的 tier1 parity 门把词汇同时传给两引擎来锁定，不属于“无词汇”安全网。
  * 语料来自同级仓库 aster-lang-test，缺失时跳过。
  */
 class DeclarationResolverCorpusTest {
@@ -67,7 +69,7 @@ class DeclarationResolverCorpusTest {
         List<Parsed> out = new ArrayList<>();
         for (Path file : files) {
             Meta meta = readMeta(file);
-            if (!meta.java() || meta.reject()) continue;
+            if (!meta.java() || meta.reject() || carriesVocabulary(file)) continue;
             included++;
             Module module = parse(file, meta.lexicon(), parseFailures);
             if (module != null) out.add(new Parsed(file, module));
@@ -108,6 +110,11 @@ class DeclarationResolverCorpusTest {
         System.out.println("R1+R2 corpus: diagnostics=" + findings.size() + " irChanged=" + changed.size() + " of " + parsed.size());
         assertEquals(List.of(), findings);
         assertEquals(List.of(), changed, "无词汇时名称解析不得改变 IR");
+    }
+
+    /** 样本旁有同名词汇文件（语料自带词汇）。 */
+    private static boolean carriesVocabulary(Path file) {
+        return Files.isRegularFile(file.resolveSibling(file.getFileName().toString().replaceFirst("\\.aster$", ".vocab.json")));
     }
 
     private static Meta readMeta(Path file) throws IOException {
