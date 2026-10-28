@@ -25,6 +25,19 @@ tokens { INDENT, DEDENT }
     protected boolean isStatementHead(int tokenType) {
         return STATEMENT_HEADS.contains(tokenType);
     }
+
+    /** 与 TS 一致的构造字段错误文案。 */
+    public static final String EXPECTED_SET_TO_IN_CONSTRUCTION = "Expected 'set to' in construction";
+
+    /**
+     * 构造字段缺少 `set to` 时报错。与 TS 一致定位在字段名之后应出现 `set` 的位置
+     * （如 `age = x` 的 `=`）；首个记号不是名字时直接定位在该记号上。
+     */
+    protected void reportMalformedConstruct() {
+        int first = _input.LA(1);
+        Token at = (first == IDENT || first == TYPE_IDENT) ? _input.LT(2) : _input.LT(1);
+        notifyErrorListeners(at, EXPECTED_SET_TO_IN_CONSTRUCTION, null);
+    }
 }
 
 // ============================================================
@@ -740,9 +753,12 @@ postfixExpr
     : primaryExpr postfixSuffix*
     ;
 
+/**
+ * 调用只有括号形式 `f(x, y)`；与 TS 一致，不存在 `f with x, y` 的自然语言调用后缀，
+ * `X with …` 只能是构造表达式（见 constructExpr）。
+ */
 postfixSuffix
     : LPAREN argumentList? RPAREN          # CallSuffix
-    | (WITH | HAS) argumentList             # WithCallSuffix
     | DOT (IDENT | TYPE_IDENT | structKeywordName)  # MemberSuffix
     ;
 
@@ -777,8 +793,27 @@ primaryExpr
     | LPAREN expr RPAREN                   # ParenExpr
     ;
 
+/**
+ * 构造表达式：`Type with field set to expr (and|, field set to expr)*`。
+ *
+ * 与 TS 解析器对齐（aster-lang-ts#244）：
+ * - 只接受 `with` 引导；`has` 只用于类型定义（TS 对 `X has f set to v` 同样报错）。
+ * - 字段只接受 `set to`。`X with f = v`、`X with a, b` 等写法走 MalformedConstructExpr，
+ *   在解析期报告 "Expected 'set to' in construction"，而不是被当作别的表达式静默接受。
+ *   该分支吞掉旧的逗号参数形式，使错误落在构造位置而非后续级联。
+ */
 constructExpr
-    : TYPE_IDENT (WITH | HAS) constructFieldList
+    : constructHead WITH constructFieldList                     # WellFormedConstructExpr
+    | constructHead WITH { reportMalformedConstruct(); } argumentList  # MalformedConstructExpr
+    ;
+
+/**
+ * 构造类型名：TYPE_IDENT，或后随 `with` 的 IDENT（TS 同样按此进入构造分支，
+ * 小写名后跟 `with` 一律视为构造，不存在 `f with x` 调用形式）。
+ */
+constructHead
+    : TYPE_IDENT
+    | IDENT
     ;
 
 constructFieldList

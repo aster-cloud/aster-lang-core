@@ -62,25 +62,14 @@ class TrailingMemberAccessTest {
   }
 
   @Test
-  void withCallSuffixOnCallResultAlsoFailsFast() {
-    // ★applyTrailingMembers 有**两个**调用点：postfixExpr 收尾（:1290）与
-    //   applyWithCallSuffix（:1316）。上面几条只覆盖前者——把后者的委托改回
-    //   静默构造 Call，全部 1541 条测试仍全绿（实测）。这是「只查首次出现」模式：
-    //   修复被验证在第一个调用点上，第二个溜过去。
-    //   自然语言调用形式 `f(x).bar with y` 走的正是第二个调用点。
-    var ex = assertThrows(IllegalStateException.class,
-        () -> build("Module t.\n\nRule r given x:\n  Return double(x).bar with x."));
-    assertTrue(ex.getMessage() != null && ex.getMessage().contains("bar"),
-        "with 调用形式同样须 fail-fast 并点名成员；实际: " + ex.getMessage());
-  }
-
-  @Test
-  void withCallSuffixOnLiteralAlsoFailsFast() {
-    // 字面量 base 同样不是 Name，走同一分支。
-    var ex = assertThrows(IllegalStateException.class,
-        () -> build("Module t.\n\nRule r given x:\n  Return 5.bar with x."));
-    assertTrue(ex.getMessage() != null && ex.getMessage().contains("bar"),
-        "实际: " + ex.getMessage());
+  void withAfterTrailingMemberIsRejected_notTreatedAsCall() {
+    // 不存在 `f with x` 调用后缀（与 TS 一致，aster-lang-ts#244）：尾随成员之后跟 `with`
+    // 不得被当作调用而产出树，只能报错。
+    for (String body : new String[] {"Return double(x).bar with x.", "Return 5.bar with x."}) {
+      var ex = assertThrows(IllegalStateException.class,
+          () -> build("Module t.\n\nRule r given x:\n  " + body));
+      assertNotNull(ex.getMessage(), body);
+    }
   }
 
   @Test

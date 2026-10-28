@@ -1425,16 +1425,6 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                 current = applyCallSuffix(current, baseIsTypeIdent, pendingMembers, args, callCtx);
                 pendingMembers.clear();
                 baseIsTypeIdent = false;
-            } else if (suffixCtx instanceof AsterParser.WithCallSuffixContext withCtx) {
-                // 处理自然语言函数调用: func with arg1, arg2
-                List<Expr> args = withCtx.argumentList() == null
-                    ? List.of()
-                    : withCtx.argumentList().expr().stream()
-                        .map(exprCtx -> (Expr) visit(exprCtx))
-                        .collect(Collectors.toList());
-                current = applyWithCallSuffix(current, pendingMembers, args, withCtx);
-                pendingMembers.clear();
-                baseIsTypeIdent = false;
             } else if (suffixCtx instanceof AsterParser.MemberSuffixContext memberCtx) {
                 // ADR 0019 G1：成员名可为 IDENT/TYPE_IDENT 或软关键字（小写结构词，
                 // 如 `x.let`）。软关键字走 structKeywordName 规则，取其文本与跨度。
@@ -1459,29 +1449,6 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         return current;
     }
 
-    /**
-     * 处理自然语言函数调用: func with arg1, arg2
-     */
-    private Expr applyWithCallSuffix(
-        Expr target,
-        List<MemberSegment> pendingMembers,
-        List<Expr> args,
-        AsterParser.WithCallSuffixContext withCtx
-    ) {
-        // 如果有待处理的成员访问，先构建完整的目标名称
-        if (!pendingMembers.isEmpty() && target instanceof Expr.Name baseName) {
-            String qualified = combineName(baseName.name(), pendingMembers);
-            Span nameSpan = mergeSpans(baseName.span(), pendingMembers.get(pendingMembers.size() - 1).span());
-            target = new Expr.Name(qualified, nameSpan);
-        } else if (!pendingMembers.isEmpty()) {
-            // 对于非 Name 表达式的成员访问，先应用成员
-            target = applyTrailingMembers(target, pendingMembers);
-        }
-
-        Span callSpan = mergeSpans(target.span(), spanFrom(withCtx));
-        return new Expr.Call(target, args, callSpan);
-    }
-
     @Override
     public Expr visitOperatorCallExpr(AsterParser.OperatorCallExprContext ctx) {
         return visitOperatorCall(ctx.operatorCall());
@@ -1489,12 +1456,20 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Expr visitConstructExprAlt(AsterParser.ConstructExprAltContext ctx) {
-        return visitConstructExpr(ctx.constructExpr());
+        return (Expr) visit(ctx.constructExpr());
     }
 
     @Override
-    public Expr visitConstructExpr(AsterParser.ConstructExprContext ctx) {
-        String typeName = ctx.TYPE_IDENT().getText();
+    public Expr visitMalformedConstructExpr(AsterParser.MalformedConstructExprContext ctx) {
+        // 解析器已通过错误监听器报告；未挂监听器的调用方（直接用 AstBuilder）同样不得拿到
+        // 一棵“看似合法”的树，故此处 fail-fast。
+        throw new IllegalStateException(AsterParser.EXPECTED_SET_TO_IN_CONSTRUCTION
+            + " at line " + ctx.getStart().getLine() + ":" + ctx.getStart().getCharPositionInLine());
+    }
+
+    @Override
+    public Expr visitWellFormedConstructExpr(AsterParser.WellFormedConstructExprContext ctx) {
+        String typeName = ctx.constructHead().getText();
         List<Expr.Construct.ConstructField> fields = ctx.constructFieldList().constructField().stream()
             .map(this::visitConstructField)
             .collect(Collectors.toList());

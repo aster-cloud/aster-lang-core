@@ -257,7 +257,7 @@ class AsterParserTest {
             Rule generateQuote given driver, vehicle:
               If driver.age < 18
                 Return Quote with approved set to false, premium set to 0, deductible set to 0, reason set to "Driver under 18".
-              Let basePremium be calculateBase with driver, vehicle.
+              Let basePremium be calculateBase(driver, vehicle).
               Return Quote with approved set to true, premium set to basePremium, deductible set to 500, reason set to "Approved".
 
             Rule calculateBase given driver, vehicle:

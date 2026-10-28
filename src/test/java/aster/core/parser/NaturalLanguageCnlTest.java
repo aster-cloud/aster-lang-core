@@ -121,7 +121,8 @@ class NaturalLanguageCnlTest {
     }
 
     @Test
-    void testWithCallSyntax() {
+    void testParenCallSyntax() {
+        // 调用只有括号形式；`computeSum with 10, 20` 不是调用（见 ConstructWithSetToParityTest）。
         String source = """
             Module test.
 
@@ -129,7 +130,7 @@ class NaturalLanguageCnlTest {
               Return a plus b.
 
             Rule main:
-              Let result be computeSum with 10, 20.
+              Let result be computeSum(10, 20).
               Return result.
             """;
 
@@ -137,11 +138,14 @@ class NaturalLanguageCnlTest {
         assertNotNull(module);
         assertEquals(2, module.decls().size());
 
-        // 验证 main 函数中的 WITH 调用语法
         Decl.Func mainFunc = (Decl.Func) module.decls().get(1);
         assertEquals("main", mainFunc.name());
         assertNotNull(mainFunc.body());
         assertEquals(2, mainFunc.body().statements().size());
+        var let = (aster.core.ast.Stmt.Let) mainFunc.body().statements().get(0);
+        var call = (aster.core.ast.Expr.Call) let.expr();
+        assertEquals("computeSum", ((aster.core.ast.Expr.Name) call.target()).name());
+        assertEquals(2, call.args().size());
     }
 
     @Test
@@ -210,8 +214,8 @@ class NaturalLanguageCnlTest {
                 Return Quote with approved set to false, premium set to 0, deductible set to 0, reason set to "Driver under 18".
               If driver.accidents greater than 3
                 Return Quote with approved set to false, premium set to 0, deductible set to 0, reason set to "Too many accidents".
-              Let basePremium be calculateBase with driver, vehicle.
-              Let riskFactor be calculateRisk with driver.
+              Let basePremium be calculateBase(driver, vehicle).
+              Let riskFactor be calculateRisk(driver).
               Let finalPremium be basePremium times riskFactor divided by 100.
               Return Quote with approved set to true, premium set to finalPremium, deductible set to 500, reason set to "Approved".
 
