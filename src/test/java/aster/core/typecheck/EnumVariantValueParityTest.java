@@ -209,14 +209,13 @@ class EnumVariantValueParityTest {
   }
 
   @Test
-  void typeQualifiedVariantIsUndefinedVariableLikeTs() {
-    // `DecisionStatus.Approved` 不是合法的值写法：TS 符号表查不到类型名 → E101，Java 对齐
+  void typeQualifiedVariantIsAcceptedLikeTs() {
+    // ADR 0051：限定成员 `DecisionStatus.Approved` 与裸成员同为枚举值（TS 同步接受），名称解析也保持限定形态
     var diags = check(DECLS
         + "Rule decide given x as Int, produce LoanDecision:\n"
         + "  Return LoanDecision with status set to DecisionStatus.Approved, reason set to \"ok\", riskTier set to Low.");
-    assertTrue(diags.stream().anyMatch(d -> d.code() == ErrorCode.UNDEFINED_VARIABLE
-            && d.message().contains("DecisionStatus")),
-        "类型名限定的变体应报 E101，实际: " + diags);
+    assertTrue(diags.stream().noneMatch(d -> d.severity() == Diagnostic.Severity.ERROR),
+        "类型名限定的变体应按枚举值通过检查，实际: " + diags);
   }
 
   @Test
