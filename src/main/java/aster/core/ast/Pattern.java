@@ -1,5 +1,6 @@
 package aster.core.ast;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -44,14 +45,21 @@ public sealed interface Pattern extends AstNode
      * @param names    绑定的变量名列表
      * @param args     嵌套模式列表（可能为 null）
      * @param span     源码位置信息
+     * @param resolved 构造器名的解析结果（ADR 0051，解析前为 null）
      */
     @JsonTypeName("PatternCtor")
     record PatternCtor(
         @JsonProperty("typeName") String typeName,
         @JsonProperty("names") List<String> names,
         @JsonProperty("args") List<Pattern> args,
-        @JsonProperty("span") Span span
+        @JsonProperty("span") Span span,
+        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved
     ) implements Pattern {
+        /** 未解析的构造器模式。 */
+        public PatternCtor(String typeName, List<String> names, List<Pattern> args, Span span) {
+            this(typeName, names, args, span, null);
+        }
+
         @Override
         public String kind() {
             return "PatternCtor";
@@ -61,14 +69,21 @@ public sealed interface Pattern extends AstNode
     /**
      * 名称模式（绑定变量名）
      *
-     * @param name 变量名称
-     * @param span 源码位置信息
+     * @param name     变量名称
+     * @param span     源码位置信息
+     * @param resolved 期望枚举下裸名的成员解析结果（ADR 0051，由 R2 写入；绑定名为 null）
      */
     @JsonTypeName("PatternName")
     record PatternName(
         @JsonProperty("name") String name,
-        @JsonProperty("span") Span span
+        @JsonProperty("span") Span span,
+        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved
     ) implements Pattern {
+        /** 未解析的名称模式。 */
+        public PatternName(String name, Span span) {
+            this(name, span, null);
+        }
+
         @Override
         public String kind() {
             return "PatternName";

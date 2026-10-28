@@ -1,5 +1,6 @@
 package aster.core.ast;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -37,17 +38,24 @@ public sealed interface Type extends AstNode
     /**
      * TypeName 类型名称（如 Int, String, User）
      *
-     * @param name 类型名称
-     * @param span 源码位置信息
+     * @param name     类型名称（源码原写法）
+     * @param span     源码位置信息
+     * @param resolved 名称解析结果（ADR 0051，解析前或保留的类型参数为 null）
      */
     @JsonTypeName("TypeName")
     record TypeName(
         @JsonProperty("name") java.lang.String name,
         @JsonProperty("annotations") java.util.List<Annotation> annotations,
-        @JsonProperty("span") Span span
+        @JsonProperty("span") Span span,
+        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved
     ) implements Type {
         public TypeName {
             annotations = annotations == null ? java.util.List.of() : java.util.List.copyOf(annotations);
+        }
+
+        /** 未解析的类型名。 */
+        public TypeName(java.lang.String name, java.util.List<Annotation> annotations, Span span) {
+            this(name, annotations, span, null);
         }
 
         @Override
@@ -81,20 +89,27 @@ public sealed interface Type extends AstNode
     /**
      * TypeApp 类型应用（泛型实例化，如 List<Int>）
      *
-     * @param base 基础类型名称
-     * @param args 类型参数列表
-     * @param span 源码位置信息
+     * @param base     基础类型名称（源码原写法）
+     * @param args     类型参数列表
+     * @param span     源码位置信息
+     * @param resolved 基础类型名的解析结果（ADR 0051，解析前为 null）
      */
     @JsonTypeName("TypeApp")
     record TypeApp(
         @JsonProperty("base") java.lang.String base,
         @JsonProperty("annotations") java.util.List<Annotation> annotations,
         @JsonProperty("args") java.util.List<Type> args,
-        @JsonProperty("span") Span span
+        @JsonProperty("span") Span span,
+        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved
     ) implements Type {
         public TypeApp {
             annotations = annotations == null ? java.util.List.of() : java.util.List.copyOf(annotations);
             args = args == null ? java.util.List.of() : java.util.List.copyOf(args);
+        }
+
+        /** 未解析的类型应用。 */
+        public TypeApp(java.lang.String base, java.util.List<Annotation> annotations, java.util.List<Type> args, Span span) {
+            this(base, annotations, args, span, null);
         }
 
         @Override

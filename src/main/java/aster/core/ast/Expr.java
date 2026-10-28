@@ -1,5 +1,6 @@
 package aster.core.ast;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -43,14 +44,21 @@ public sealed interface Expr extends AstNode
     /**
      * Name 名称表达式（变量引用或函数名）
      *
-     * @param name 名称
-     * @param span 源码位置信息
+     * @param name     名称（源码原写法）
+     * @param span     源码位置信息
+     * @param resolved 名称解析结果（ADR 0051，解析前为 null）
      */
     @JsonTypeName("Name")
     record Name(
         @JsonProperty("name") java.lang.String name,
-        @JsonProperty("span") Span span
+        @JsonProperty("span") Span span,
+        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved
     ) implements Expr {
+        /** 未解析的名称。 */
+        public Name(java.lang.String name, Span span) {
+            this(name, span, null);
+        }
+
         @Override
         public java.lang.String kind() {
             return "Name";
@@ -215,16 +223,23 @@ public sealed interface Expr extends AstNode
     /**
      * Construct 构造表达式（创建 Data 实例）
      *
-     * @param typeName 类型名称
+     * @param typeName 类型名称（源码原写法）
      * @param fields   字段初始化列表
      * @param span     源码位置信息
+     * @param resolved 类型名的解析结果（ADR 0051，解析前为 null）
      */
     @JsonTypeName("Construct")
     record Construct(
         @JsonProperty("typeName") java.lang.String typeName,
         @JsonProperty("fields") List<ConstructField> fields,
-        @JsonProperty("span") Span span
+        @JsonProperty("span") Span span,
+        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved
     ) implements Expr {
+        /** 未解析的构造表达式。 */
+        public Construct(java.lang.String typeName, List<ConstructField> fields, Span span) {
+            this(typeName, fields, span, null);
+        }
+
         @Override
         public java.lang.String kind() {
             return "Construct";
@@ -233,13 +248,20 @@ public sealed interface Expr extends AstNode
         /**
          * ConstructField 构造字段（用于 Construct 表达式）
          *
-         * @param name 字段名称
-         * @param expr 字段值表达式
+         * @param name     字段名称（源码原写法）
+         * @param expr     字段值表达式
+         * @param resolved 字段名的解析结果（ADR 0051，解析前为 null）
          */
         public record ConstructField(
             @JsonProperty("name") java.lang.String name,
-            @JsonProperty("expr") Expr expr
-        ) {}
+            @JsonProperty("expr") Expr expr,
+            @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved
+        ) {
+            /** 未解析的构造字段。 */
+            public ConstructField(java.lang.String name, Expr expr) {
+                this(name, expr, null);
+            }
+        }
     }
 
     /**

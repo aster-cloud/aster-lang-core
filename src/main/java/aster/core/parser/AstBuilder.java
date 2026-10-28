@@ -225,6 +225,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             retTypeInferred = true;
         }
 
+        boolean typeParamsInferred = false;
         if (typeParams.isEmpty()) {
             LinkedHashSet<String> inferred = new LinkedHashSet<>();
             for (Decl.Parameter param : params) {
@@ -232,6 +233,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             }
             collectTypeParamCandidates(retType, inferred);
             typeParams = new ArrayList<>(inferred);
+            typeParamsInferred = !typeParams.isEmpty();
         }
 
         List<String> finalTypeParams = typeParams.isEmpty() ? List.of() : List.copyOf(typeParams);
@@ -286,7 +288,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             effectCaps,
             effectCapsExplicit,
             spanFrom(ctx),
-            retTypeInferred
+            retTypeInferred,
+            typeParamsInferred,
+            null
         );
     }
 
