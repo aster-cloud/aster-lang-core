@@ -1,5 +1,6 @@
 package aster.core.ast;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
@@ -192,13 +193,21 @@ public sealed interface Expr extends AstNode
      * @param target 目标表达式（函数名或 Lambda）
      * @param args   参数列表
      * @param span   源码位置信息
+     * @param ufcs   由 {@code recv.method(…)} 改写而来（target 为方法名、args[0] 为接收者）。仅供名称解析
+     *               （ADR 0051）区分可能的命名空间限定调用，不进 AST JSON
      */
     @JsonTypeName("Call")
     record Call(
         @JsonProperty("target") Expr target,
         @JsonProperty("args") List<Expr> args,
-        @JsonProperty("span") Span span
+        @JsonProperty("span") Span span,
+        @JsonIgnore boolean ufcs
     ) implements Expr {
+        /** 普通调用。 */
+        public Call(Expr target, List<Expr> args, Span span) {
+            this(target, args, span, false);
+        }
+
         @Override
         public java.lang.String kind() {
             return "Call";

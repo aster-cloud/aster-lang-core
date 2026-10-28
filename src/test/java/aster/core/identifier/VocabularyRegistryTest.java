@@ -25,6 +25,23 @@ class VocabularyRegistryTest {
         registry.reset(); // 重置为初始状态
     }
 
+    /**
+     * 写法在 zh-CN 词汇作用域（类型 / 函数 / 字段 / 枚举成员）中精确命中的唯一规范名；未命中返回原写法。
+     * 本地化名 → 规范名不再有扁平翻译（ADR 0051），映射关系以 VocabularyScopes 断言。
+     */
+    private String scopeCanonical(String domain, String written) {
+        VocabularyScopes scopes = registry.get(domain, "zh-CN").orElseThrow().scopes();
+        List<java.util.Map<String, List<Candidate>>> maps = new java.util.ArrayList<>(List.of(scopes.types(), scopes.functions()));
+        maps.addAll(scopes.fields().values());
+        maps.addAll(scopes.enumMembers().values());
+        List<String> hits = maps.stream()
+            .flatMap(m -> VocabularyScopes.lookup(m, written).exact().stream())
+            .map(Candidate::canonical)
+            .distinct()
+            .toList();
+        return hits.size() == 1 ? hits.get(0) : written;
+    }
+
     // ============================================================
     // 内置词汇表测试
     // ============================================================
@@ -89,10 +106,10 @@ class VocabularyRegistryTest {
         void buildBidirectionalIndex() {
             IdentifierIndex index = registry.getIndex("insurance.auto", "zh-CN").orElseThrow();
 
-            // 测试本地化 → 规范化
-            assertEquals("Driver", index.canonicalize("驾驶员"));
-            assertEquals("age", index.canonicalize("年龄"));
-            assertEquals("monthlyPremium", index.canonicalize("月保费"));
+            // 测试本地化 → 规范化（按词汇作用域）
+            assertEquals("Driver", scopeCanonical("insurance.auto", "驾驶员"));
+            assertEquals("age", scopeCanonical("insurance.auto", "年龄"));
+            assertEquals("monthlyPremium", scopeCanonical("insurance.auto", "月保费"));
 
             // 测试规范化 → 本地化
             assertEquals("驾驶员", index.localize("Driver"));
@@ -102,12 +119,10 @@ class VocabularyRegistryTest {
         @Test
         @DisplayName("支持别名映射")
         void aliasMapping() {
-            IdentifierIndex index = registry.getIndex("insurance.auto", "zh-CN").orElseThrow();
-
             // 别名应该也能映射到规范化名称
-            assertEquals("Driver", index.canonicalize("司机"));
-            assertEquals("Driver", index.canonicalize("驾驶人"));
-            assertEquals("plateNo", index.canonicalize("车牌"));
+            assertEquals("Driver", scopeCanonical("insurance.auto", "司机"));
+            assertEquals("Driver", scopeCanonical("insurance.auto", "驾驶人"));
+            assertEquals("plateNo", scopeCanonical("insurance.auto", "车牌"));
         }
 
         @Test
@@ -126,7 +141,7 @@ class VocabularyRegistryTest {
         void unmappedIdentifierReturnsOriginal() {
             IdentifierIndex index = registry.getIndex("insurance.auto", "zh-CN").orElseThrow();
 
-            assertEquals("未知标识符", index.canonicalize("未知标识符"));
+            assertEquals("未知标识符", scopeCanonical("insurance.auto", "未知标识符"));
             assertEquals("UnknownIdentifier", index.localize("UnknownIdentifier"));
         }
     }
@@ -142,33 +157,27 @@ class VocabularyRegistryTest {
         @Test
         @DisplayName("汽车保险领域标识符转换")
         void insuranceAutoIdentifiers() {
-            IdentifierIndex index = registry.getIndex("insurance.auto", "zh-CN").orElseThrow();
-
-            assertEquals("Driver", index.canonicalize("驾驶员"));
-            assertEquals("Vehicle", index.canonicalize("车辆"));
-            assertEquals("QuoteResult", index.canonicalize("报价结果"));
-            assertEquals("calculatePremium", index.canonicalize("计算保费"));
+            assertEquals("Driver", scopeCanonical("insurance.auto", "驾驶员"));
+            assertEquals("Vehicle", scopeCanonical("insurance.auto", "车辆"));
+            assertEquals("QuoteResult", scopeCanonical("insurance.auto", "报价结果"));
+            assertEquals("calculatePremium", scopeCanonical("insurance.auto", "计算保费"));
         }
 
         @Test
         @DisplayName("贷款金融领域标识符转换")
         void financeLoanIdentifiers() {
-            IdentifierIndex index = registry.getIndex("finance.loan", "zh-CN").orElseThrow();
-
-            assertEquals("Applicant", index.canonicalize("申请人"));
-            assertEquals("LoanRequest", index.canonicalize("贷款申请"));
-            assertEquals("creditScore", index.canonicalize("信用评分"));
-            assertEquals("evaluateLoan", index.canonicalize("评估贷款"));
+            assertEquals("Applicant", scopeCanonical("finance.loan", "申请人"));
+            assertEquals("LoanRequest", scopeCanonical("finance.loan", "贷款申请"));
+            assertEquals("creditScore", scopeCanonical("finance.loan", "信用评分"));
+            assertEquals("evaluateLoan", scopeCanonical("finance.loan", "评估贷款"));
         }
 
         @Test
         @DisplayName("贷款领域别名")
         void financeLoanAliases() {
-            IdentifierIndex index = registry.getIndex("finance.loan", "zh-CN").orElseThrow();
-
-            assertEquals("Applicant", index.canonicalize("借款人"));
-            assertEquals("creditScore", index.canonicalize("征信分"));
-            assertEquals("workYears", index.canonicalize("工龄"));
+            assertEquals("Applicant", scopeCanonical("finance.loan", "借款人"));
+            assertEquals("creditScore", scopeCanonical("finance.loan", "征信分"));
+            assertEquals("workYears", scopeCanonical("finance.loan", "工龄"));
         }
     }
 

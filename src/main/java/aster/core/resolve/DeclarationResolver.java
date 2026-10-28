@@ -457,7 +457,7 @@ public final class DeclarationResolver {
     private Expr resolveExpr(Scope scope, Expr e) {
         return switch (e) {
             case Expr.Name n -> resolveName(scope, n);
-            case Expr.Call c -> new Expr.Call(resolveExpr(scope, c.target()), resolveExprs(scope, c.args()), c.span());
+            case Expr.Call c -> new Expr.Call(resolveExpr(scope, c.target()), resolveExprs(scope, c.args()), c.span(), c.ufcs());
             case Expr.Construct c -> resolveConstruct(scope, c);
             case Expr.Ok o -> new Expr.Ok(resolveExpr(scope, o.expr()), o.span());
             case Expr.Err x -> new Expr.Err(resolveExpr(scope, x.expr()), x.span());

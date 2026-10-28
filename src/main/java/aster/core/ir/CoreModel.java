@@ -1,5 +1,6 @@
 package aster.core.ir;
 
+import aster.core.ast.ResolvedRole;
 import com.fasterxml.jackson.annotation.*;
 import java.util.*;
 
@@ -36,7 +37,41 @@ public final class CoreModel {
     public String file;        // 源文件路径
     public Position start;     // 起始位置
     public Position end;       // 结束位置
+    /** ADR 0051：源码原写法，仅在与规范名不同时写入；缺省不输出，未改写的 IR 逐字节不变。 */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public String written;
+    /** ADR 0051：该写法按哪种角色解析，与 written 同时出现。 */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public ResolvedRole role;
+
+    /**
+     * 记录名称解析的原写法与角色：仅当写法与规范名不同且 origin 存在时返回带 written/role 的副本，
+     * 否则原样返回（不新增 origin）。
+     */
+    public static Origin withResolution(Origin origin, String written, String canonical, ResolvedRole role) {
+      if (origin == null || written == null || written.equals(canonical)) {
+        return origin;
+      }
+      Origin out = new Origin();
+      out.file = origin.file;
+      out.start = origin.start;
+      out.end = origin.end;
+      out.written = written;
+      out.role = role;
+      return out;
+    }
   }
+
+  /**
+   * R1 未定点的标记（ADR 0051 §4 ResolutionMark）。lower 对 R1 无法决定的位置保留原写法并登记标记，
+   * R2 只读取、不删除，因此同一 Core 上重复运行 R2 结果相同；R2 的输出由新节点构成，不再携带标记。
+   * 与 {@link Field#typeInferred} 同为不进 IR JSON 的旁路信息：反序列化得到的 Core 不带标记。
+   *
+   * @param written 源码原写法
+   * @param r1Role  裸单段名在 R1（无期望类型规则）下得到的角色；null 表示 R1 未命中
+   * @param ufcs    由 UFCS 拆分 {@code recv.method(…)} 得到的接收者或方法名：首段可能是命名空间，未命中不报错
+   */
+  public record ResolutionMark(String written, ResolvedRole r1Role, boolean ufcs) {}
 
   /**
    * 模块定义（编译单元）
@@ -292,6 +327,9 @@ public final class CoreModel {
     public String name;     // 变量名
     public Expr expr;       // 新值表达式
     public Origin origin;
+    /** 留给 R2 的解析标记（ADR 0051），不进 IR JSON。 */
+    @JsonIgnore
+    public ResolutionMark mark;
   }
 
   @JsonTypeName("Return")
@@ -404,12 +442,18 @@ public final class CoreModel {
     public List<String> names;      // 位置绑定变量名列表（遗留字段，保持向后兼容）
     public List<Pattern> args;      // 嵌套模式列表（新字段，用于递归模式匹配）
     public Origin origin;
+    /** 留给 R2 的解析标记（ADR 0051），不进 IR JSON。 */
+    @JsonIgnore
+    public ResolutionMark mark;
   }
 
   @JsonTypeName("PatName")
   public static final class PatName implements Pattern {
     public String name;     // 变量绑定名
     public Origin origin;
+    /** 留给 R2 的解析标记（ADR 0051），不进 IR JSON。 */
+    @JsonIgnore
+    public ResolutionMark mark;
   }
 
   @JsonTypeName("PatInt")
@@ -450,6 +494,9 @@ public final class CoreModel {
   public static final class Name implements Expr {
     public String name;     // 变量名或函数名
     public Origin origin;
+    /** 留给 R2 的解析标记（ADR 0051），不进 IR JSON。 */
+    @JsonIgnore
+    public ResolutionMark mark;
   }
 
   @JsonTypeName("Bool")

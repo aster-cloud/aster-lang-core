@@ -42,12 +42,12 @@ class VocabularyLoaderTest {
         assertEquals(1, vocab.structs().size());
         assertEquals(1, vocab.fields().size());
 
-        IdentifierIndex index = IdentifierIndex.build(vocab);
-        // 结构体 + 字段都应可翻译（含大小写不敏感，与 TS 等价）。
-        assertEquals("Driver", index.canonicalize("Fahrer"));
-        assertEquals("Driver", index.canonicalize("fahrer"));
-        assertEquals("age", index.canonicalize("alter"));
-        assertEquals("age", index.canonicalize("ALTER"));
+        VocabularyScopes scopes = VocabularyScopes.build(vocab);
+        // 结构体 + 字段都进入作用域（折叠键查找大小写不敏感，与 TS 等价）。
+        assertEquals("Driver", folded(scopes.types(), "Fahrer"));
+        assertEquals("Driver", folded(scopes.types(), "fahrer"));
+        assertEquals("age", folded(scopes.fields().get("Driver"), "alter"));
+        assertEquals("age", folded(scopes.fields().get("Driver"), "ALTER"));
     }
 
     @Test
@@ -62,8 +62,15 @@ class VocabularyLoaderTest {
             }
             """;
         DomainVocabulary vocab = VocabularyLoader.loadFromString(json);
-        IdentifierIndex index = IdentifierIndex.build(vocab);
-        assertEquals("Driver", index.canonicalize("Fahrer"));
-        assertEquals("age", index.canonicalize("alter"));
+        VocabularyScopes scopes = VocabularyScopes.build(vocab);
+        assertEquals("Driver", folded(scopes.types(), "Fahrer"));
+        assertEquals("age", folded(scopes.fields().get("Driver"), "alter"));
+    }
+
+    /** 折叠命中的唯一规范名。 */
+    private static String folded(Map<String, List<Candidate>> index, String written) {
+        List<Candidate> hits = VocabularyScopes.lookup(index, written).folded();
+        assertEquals(1, hits.size(), written);
+        return hits.get(0).canonical();
     }
 }

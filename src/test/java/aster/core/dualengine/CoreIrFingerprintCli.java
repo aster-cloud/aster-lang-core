@@ -2,10 +2,11 @@ package aster.core.dualengine;
 
 import aster.core.canonicalizer.Canonicalizer;
 import aster.core.ir.CoreModel;
-import aster.core.lowering.CoreLowering;
 import aster.core.parser.AstBuilder;
 import aster.core.parser.AsterCustomLexer;
 import aster.core.parser.AsterParser;
+import aster.core.resolve.NameResolution;
+import aster.core.resolve.ResolutionContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -33,7 +34,7 @@ import java.util.TreeMap;
  * affected. When present, the system property points at a stdin-like input
  * file whose lines are absolute paths to {@code .aster} samples; the runner
  * loads each one through the full Java pipeline
- * (Canonicalize → ANTLR Parse → AstBuilder → CoreLowering), then emits a
+ * (Canonicalize → ANTLR Parse → AstBuilder → R1 → CoreLowering → R2), then emits a
  * compact "fingerprint" JSON object per sample to {@code parity.ir.output}.
  *
  * <p>The fingerprint is intentionally structural, not field-by-field:
@@ -84,7 +85,6 @@ class CoreIrFingerprintCli {
         }
 
         Canonicalizer canonicalizer = new Canonicalizer();
-        CoreLowering lowering = new CoreLowering();
 
         try (BufferedReader reader = Files.newBufferedReader(inputPath, StandardCharsets.UTF_8);
              var writer = Files.newBufferedWriter(outputPath, StandardCharsets.UTF_8)) {
@@ -110,7 +110,9 @@ class CoreIrFingerprintCli {
                     AstBuilder builder = new AstBuilder();
                     aster.core.ast.Module ast = builder.visitModule(moduleCtx);
 
-                    CoreModel.Module coreModule = lowering.lowerModule(ast);
+                    // 名称解析 R1 → lower → R2（ADR 0051）；E8xx 时该样本记为失败、不产出 IR
+                    CoreModel.Module coreModule =
+                        NameResolution.resolveAndLowerChecked(ast, ResolutionContext.none()).core();
                     JsonNode coreJson = MAPPER.valueToTree(coreModule);
                     record.put("ok", true);
                     record.set("fingerprint", fingerprint(coreJson));

@@ -1864,7 +1864,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         List<Expr> methodArgs = new ArrayList<>();
         methodArgs.add(base);
         methodArgs.addAll(args);
-        return new Expr.Call(target, methodArgs, callSpan);
+        return new Expr.Call(target, methodArgs, callSpan, true);
     }
 
     private Expr applyTrailingMembers(Expr base, List<MemberSegment> members) {

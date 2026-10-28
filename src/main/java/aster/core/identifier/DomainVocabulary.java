@@ -80,9 +80,8 @@ public record DomainVocabulary(
         List<String> warnings = new ArrayList<>();
         // 触发词（localized + aliases，小写）→ (是否字面量宏, 规范名)。
         // 字面量宏触发词须全局唯一（Codex 复审 P0）；此外**非字面量**触发词若映射到
-        // 不同 canonical 也必须报错（issue #88）——IdentifierIndex.build 用
-        // toCanonical.put 无条件覆盖，两条冲突映射的胜者取决于 allMappings() 的迭代
-        // 顺序，同一份词汇集合换个合并次序就会得到不同的编译结果。
+        // 不同 canonical 需提示（issue #88）——ADR 0051 之前的解析前全局替换按触发词
+        // 无条件覆盖，胜者取决于 allMappings() 的迭代顺序；现由名称解析按位置判定。
         record TriggerInfo(boolean isLiteral, String canonical) {}
         java.util.Map<String, TriggerInfo> seenTrigger = new java.util.HashMap<>();
 
@@ -109,14 +108,13 @@ public record DomainVocabulary(
             triggers.add(mapping.localized());
             if (mapping.aliases() != null) triggers.addAll(mapping.aliases());
             for (String t : triggers) {
-                String key = t.toLowerCase(java.util.Locale.ROOT); // 与 IdentifierIndex.build 一致
+                String key = t.toLowerCase(java.util.Locale.ROOT);
                 TriggerInfo prev = seenTrigger.get(key);
                 if (prev != null && (prev.isLiteral() || isLit)) {
                     errors.add("触发词 '" + t + "' 与另一条映射冲突（字面量宏触发词须全局唯一，防\"字符串 vs 标识符\"替换歧义）");
                 } else if (prev != null && !prev.canonical().equals(mapping.canonical())) {
-                    // 同一触发词映射到不同 canonical：IdentifierIndex.build 的
-                    // toCanonical.put 无条件覆盖，胜者取决于 allMappings() 的迭代顺序
-                    // ——同一份词汇集合换个合并次序就得到不同的编译结果（issue #88）。
+                    // 同一触发词映射到不同 canonical：同角色同作用域时由名称解析报歧义（ADR 0051），
+                    // 此处只提示（issue #88）。
                     //
                     // ★定为 warning 而非 error：现网词汇表（含内置 SPI 插件）里已存在
                     // 这类重叠声明，直接报 error 会让 VocabularyRegistry.register 抛异常、

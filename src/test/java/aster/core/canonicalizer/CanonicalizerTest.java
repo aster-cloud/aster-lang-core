@@ -1,7 +1,7 @@
 package aster.core.canonicalizer;
 
 import aster.core.identifier.DomainVocabulary;
-import aster.core.identifier.IdentifierIndex;
+import aster.core.identifier.VocabularyScopes;
 import aster.core.identifier.VocabularyRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -219,272 +219,52 @@ class CanonicalizerTest {
     // ============================================================
 
     @Nested
-    @DisplayName("领域词汇表集成")
+    @DisplayName("领域词汇（ADR 0051：只展开字面量宏，不替换标识符）")
     class VocabularyIntegrationTests {
 
         @BeforeEach
         void setUp() {
-            // 确保 VocabularyRegistry 处于初始状态
             VocabularyRegistry.getInstance().reset();
         }
 
-        @Test
-        @DisplayName("使用单领域词汇表构造")
-        void constructWithSingleDomain() {
-            var canon = new Canonicalizer(
-                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
-                "insurance.auto",
-                "zh-CN"
-            );
-
-            assertTrue(canon.hasIdentifierTranslation(), "应启用标识符翻译");
-            assertNotNull(canon.getIdentifierIndex(), "应有标识符索引");
+        private VocabularyScopes insuranceAutoScopes() {
+            return VocabularyRegistry.getInstance().get("insurance.auto", "zh-CN").orElseThrow().scopes();
         }
 
         @Test
-        @DisplayName("使用多领域词汇表构造")
-        void constructWithMultipleDomains() {
+        @DisplayName("词汇不在 canonicalize 中替换标识符")
+        void vocabularyDoesNotRewriteIdentifiers() {
             var canon = new Canonicalizer(
-                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
-                List.of("insurance.auto", "finance.loan"),
-                "zh-CN"
-            );
-
-            assertTrue(canon.hasIdentifierTranslation(), "应启用标识符翻译");
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"), insuranceAutoScopes());
+            String result = canon.canonicalize("令 驾驶员 为 新建 驾驶员。");
+            assertTrue(result.contains("驾驶员"), "本地化标识符保持原写法，实际: " + result);
+            assertFalse(result.contains("Driver"), "不得在解析前替换为规范名，实际: " + result);
+            assertFalse(canon.hasLiteralMacros(), "内置词汇无字面量宏");
         }
 
         @Test
-        @DisplayName("无效领域返回无索引")
-        void constructWithInvalidDomain() {
-            var canon = new Canonicalizer(
-                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
-                "nonexistent.domain",
-                "zh-CN"
-            );
-
-            assertFalse(canon.hasIdentifierTranslation(), "无效领域不应启用标识符翻译");
-            assertNull(canon.getIdentifierIndex(), "无效领域应返回 null 索引");
-        }
-
-        @Test
-        @DisplayName("基本结构体标识符翻译")
-        void translateStructIdentifier() {
-            var canon = new Canonicalizer(
-                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
-                "insurance.auto",
-                "zh-CN"
-            );
-
-            String input = "令 驾驶员 为 新建 驾驶员。";
-            String result = canon.canonicalize(input);
-
-            assertTrue(result.contains("Driver"), "结构体'驾驶员'应翻译为'Driver'，实际结果: " + result);
-        }
-
-        @Test
-        @DisplayName("字段标识符翻译")
-        void translateFieldIdentifier() {
-            var canon = new Canonicalizer(
-                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
-                "insurance.auto",
-                "zh-CN"
-            );
-
-            String input = "令 结果 为 驾驶员 的 年龄。";
-            String result = canon.canonicalize(input);
-
-            assertTrue(result.contains("Driver"), "'驾驶员'应翻译为'Driver'");
-            assertTrue(result.contains("age"), "'年龄'应翻译为'age'，实际结果: " + result);
-        }
-
-        @Test
-        @DisplayName("函数标识符翻译")
-        void translateFunctionIdentifier() {
-            var canon = new Canonicalizer(
-                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
-                "insurance.auto",
-                "zh-CN"
-            );
-
-            String input = "调用 计算保费 以 驾驶员。";
-            String result = canon.canonicalize(input);
-
-            assertTrue(result.contains("calculatePremium"), "'计算保费'应翻译为'calculatePremium'，实际结果: " + result);
-            assertTrue(result.contains("Driver"), "'驾驶员'应翻译为'Driver'");
-        }
-
-        @Test
-        @DisplayName("别名标识符翻译")
-        void translateAliasIdentifier() {
-            var canon = new Canonicalizer(
-                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
-                "insurance.auto",
-                "zh-CN"
-            );
-
-            // "司机" 是 "驾驶员" 的别名
-            String input = "令 司机 为 新建 驾驶人。";
-            String result = canon.canonicalize(input);
-
-            // 两个别名都应翻译为 Driver
-            assertTrue(result.contains("Driver"), "别名'司机'和'驾驶人'应翻译为'Driver'，实际结果: " + result);
-        }
-
-        @Test
-        @DisplayName("保留字符串内的标识符")
-        void preserveIdentifiersInStrings() {
-            var canon = new Canonicalizer(
-                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
-                "insurance.auto",
-                "zh-CN"
-            );
-
-            String input = "返回 \"驾驶员信息\"。";
-            String result = canon.canonicalize(input);
-
-            assertTrue(result.contains("\"驾驶员信息\""), "字符串内的标识符不应翻译，实际结果: " + result);
-        }
-
-        @Test
-        @DisplayName("未映射标识符保持原样")
-        void preserveUnmappedIdentifiers() {
-            var canon = new Canonicalizer(
-                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
-                "insurance.auto",
-                "zh-CN"
-            );
-
-            String input = "令 自定义变量 为 10。";
-            String result = canon.canonicalize(input);
-
-            assertTrue(result.contains("自定义变量"), "未映射的标识符应保留，实际结果: " + result);
-        }
-
-        @Test
-        @DisplayName("关键字与标识符翻译组合")
-        void combineKeywordAndIdentifierTranslation() {
-            var canon = new Canonicalizer(
-                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
-                "insurance.auto",
-                "zh-CN"
-            );
-
-            // 同时包含关键字和领域标识符
-            // ADR-0008 v2：单字关键字（真/假/或/且）已升级为多字（真值/假值/或者/并且），
-            // 避免与中文常用业务标识符冲突。本测试同步使用 v2 形态。
-            String input = "如果 驾驶员 的 年龄 大于 18，返回 真值。";
-            String result = canon.canonicalize(input);
-
-            assertTrue(result.contains("If"), "'如果'关键字应翻译为'If'");
-            assertTrue(result.contains("Driver"), "'驾驶员'应翻译为'Driver'");
-            assertTrue(result.contains("age"), "'年龄'应翻译为'age'");
-            assertTrue(result.contains("Return"), "'返回'应翻译为'Return'");
-            assertTrue(result.contains("true"), "'真值'应翻译为'true' (ADR-0008 v2)");
-        }
-
-        @Test
-        @DisplayName("多领域词汇表标识符翻译")
-        void translateMultiDomainIdentifiers() {
-            var canon = new Canonicalizer(
-                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
-                List.of("insurance.auto", "finance.loan"),
-                "zh-CN"
-            );
-
-            // 包含两个领域的标识符
-            String input = "令 司机 为 驾驶员，令 借款人 为 申请人。";
-            String result = canon.canonicalize(input);
-
-            assertTrue(result.contains("Driver"), "汽车保险领域的'驾驶员'/'司机'应翻译为'Driver'，实际结果: " + result);
-            assertTrue(result.contains("Applicant"), "贷款金融领域的'申请人'/'借款人'应翻译为'Applicant'，实际结果: " + result);
-        }
-
-        @Test
-        @DisplayName("完整 CNL 语句翻译")
-        void translateCompleteCnlStatement() {
-            var canon = new Canonicalizer(
-                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
-                "insurance.auto",
-                "zh-CN"
-            );
-
-            String input = """
-                模块 汽车保险报价。
-
-                生成报价 入参 驾驶员：驾驶员，车辆：车辆，产出 报价结果：
-                  令 年龄因子 为 计算年龄因子 以 驾驶员 的 年龄。
-                  令 驾龄因子 为 计算驾龄因子 以 驾驶员 的 驾龄。
-                  返回 新建 报价结果。
-                """;
-
-            String result = canon.canonicalize(input);
-
-            // 验证关键词翻译
-            assertTrue(result.contains("Module"), "'模块'应翻译为'Module'");
-
-            // 验证领域标识符翻译
-            assertTrue(result.contains("generateQuote") || result.contains("生成报价"),
-                "函数名'生成报价'应翻译为'generateQuote'或保留");
-            assertTrue(result.contains("Driver"), "'驾驶员'应翻译为'Driver'");
-            assertTrue(result.contains("Vehicle"), "'车辆'应翻译为'Vehicle'");
-            assertTrue(result.contains("QuoteResult"), "'报价结果'应翻译为'QuoteResult'");
-            assertTrue(result.contains("age"), "'年龄'应翻译为'age'");
-            assertTrue(result.contains("drivingYears"), "'驾龄'应翻译为'drivingYears'");
-        }
-
-        @Test
-        @DisplayName("使用自定义 IdentifierIndex 构造")
-        void constructWithCustomIdentifierIndex() {
-            // 创建自定义词汇表
-            DomainVocabulary customVocab = DomainVocabulary.builder("custom", "自定义", "zh-CN")
-                .addStruct("MyStruct", "我的结构体")
-                .addField("myField", "我的字段", "MyStruct")
+        @DisplayName("字面量宏按折叠键展开，字符串内不展开，幂等")
+        void literalMacroExpandsOutsideStringsOnly() {
+            DomainVocabulary vocab = DomainVocabulary.builder("custom", "自定义", "en-US")
+                .addStruct("MyStruct", "Struktur")
+                .addLiteral("Hallo Welt", "gruss")
                 .build();
-
-            IdentifierIndex customIndex = IdentifierIndex.build(customVocab);
-
             var canon = new Canonicalizer(
-                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
-                customIndex
-            );
-
-            String input = "令 变量 为 新建 我的结构体。";
-            String result = canon.canonicalize(input);
-
-            assertTrue(result.contains("MyStruct"), "'我的结构体'应翻译为'MyStruct'，实际结果: " + result);
+                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("en-US"), VocabularyScopes.build(vocab));
+            String result = canon.canonicalize("Return GRUSS plus \"gruss\" plus Struktur.");
+            assertEquals("Return \"Hallo Welt\" plus \"gruss\" plus Struktur.", result);
+            assertEquals(result, canon.canonicalize(result), "展开后再规范化应幂等");
+            assertTrue(canon.hasLiteralMacros());
         }
 
         @Test
-        @DisplayName("标识符翻译幂等性")
-        void identifierTranslationIdempotency() {
-            var canon = new Canonicalizer(
-                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
-                "insurance.auto",
-                "zh-CN"
-            );
-
-            String input = "令 驾驶员 为 新建 驾驶员。";
-            String first = canon.canonicalize(input);
-            String second = canon.canonicalize(first);
-
-            assertEquals(first, second, "标识符翻译应该是幂等的");
-        }
-
-        @Test
-        @DisplayName("贷款金融领域标识符翻译")
-        void translateFinanceLoanIdentifiers() {
-            var canon = new Canonicalizer(
-                aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("zh-CN"),
-                "finance.loan",
-                "zh-CN"
-            );
-
-            String input = "若 申请人 的 信用评分 大于 700，返回 新建 审批结果。";
-            String result = canon.canonicalize(input);
-
-            assertTrue(result.contains("Applicant"), "'申请人'应翻译为'Applicant'，实际结果: " + result);
-            assertTrue(result.contains("creditScore"), "'信用评分'应翻译为'creditScore'，实际结果: " + result);
-            assertTrue(result.contains("ApprovalResult"), "'审批结果'应翻译为'ApprovalResult'，实际结果: " + result);
+        @DisplayName("无词汇与空词汇的规范化结果相同")
+        void emptyVocabularyEqualsNone() {
+            var lexicon = aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("en-US");
+            DomainVocabulary empty = DomainVocabulary.builder("empty", "空", "en-US").build();
+            String input = "Rule f given x as Int, produce Int:\n  Return x.\n";
+            assertEquals(new Canonicalizer(lexicon).canonicalize(input),
+                new Canonicalizer(lexicon, VocabularyScopes.build(empty)).canonicalize(input));
         }
     }
 

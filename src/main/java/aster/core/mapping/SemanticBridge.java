@@ -2,11 +2,12 @@ package aster.core.mapping;
 
 import aster.core.canonicalizer.Canonicalizer;
 import aster.core.ir.CoreModel;
-import aster.core.lowering.CoreLowering;
 import aster.core.nodeid.NodeIdMap;
 import aster.core.parser.AstBuilder;
 import aster.core.parser.AsterCustomLexer;
 import aster.core.parser.AsterParser;
+import aster.core.resolve.NameResolution;
+import aster.core.resolve.ResolutionContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.antlr.v4.runtime.BaseErrorListener;
@@ -173,7 +174,9 @@ public final class SemanticBridge {
                 diagnostics.add(SYNTAX_ERROR + syntaxErrors.get(0));
                 return List.of();
             }
-            CoreModel.Module core = new CoreLowering().lowerModule(new AstBuilder().visitModule(tree));
+            // 名称解析 R1 → lower → R2（ADR 0051）；E8xx 抛 NameResolutionException，归入编译失败
+            CoreModel.Module core = NameResolution.resolveAndLowerChecked(
+                new AstBuilder().visitModule(tree), ResolutionContext.none()).core();
             ir = MAPPER.valueToTree(core);
         } catch (IllegalStateException | IllegalArgumentException e) {
             diagnostics.add(COMPILE_FAILED + describe(e));
