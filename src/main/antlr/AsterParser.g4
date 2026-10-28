@@ -33,6 +33,12 @@ tokens { INDENT, DEDENT }
      * 构造字段缺少 `set to` 时报错。与 TS 一致定位在字段名之后应出现 `set` 的位置
      * （如 `age = x` 的 `=`）；首个记号不是名字时直接定位在该记号上。
      */
+    /** 当前 DOT 是否为语句结束句点：其后紧跟换行、缩进变化或文件结束。 */
+    protected boolean isStatementEndDot() {
+        int next = _input.LA(2);
+        return next == NEWLINE || next == DEDENT || next == INDENT || next == EOF;
+    }
+
     protected void reportMalformedConstruct() {
         int first = _input.LA(1);
         Token at = (first == IDENT || first == TYPE_IDENT) ? _input.LT(2) : _input.LT(1);
@@ -796,15 +802,47 @@ primaryExpr
 /**
  * 构造表达式：`Type with field set to expr (and|, field set to expr)*`。
  *
- * 与 TS 解析器对齐（aster-lang-ts#244）：
- * - 只接受 `with` 引导；`has` 只用于类型定义（TS 对 `X has f set to v` 同样报错）。
- * - 字段只接受 `set to`。`X with f = v`、`X with a, b` 等写法走 MalformedConstructExpr，
- *   在解析期报告 "Expected 'set to' in construction"，而不是被当作别的表达式静默接受。
- *   该分支吞掉旧的逗号参数形式，使错误落在构造位置而非后续级联。
+ * 与 TS 解析器对齐（aster-lang-ts#244）：字段只接受 `set to`。首个字段名后不是 `set`
+ * 时（`X with f = v`、`X with a, b`）走 MalformedConstructBody：只报告一条
+ * "Expected 'set to' in construction"，并吞掉本语句余下记号，不产生级联诊断。
+ *
+ * 引导词仍接受 `has`：zh-CN 的 `包含` 同时映射 TYPE_WITH/TYPE_HAS（等长歧义表面），
+ * Canonicalizer 取哪个取决于词表 map 的迭代顺序，随 JVM 进程变化（见 aster-lang-zh
+ * ZhCnCanonicalizerTest 审计 #25）。只收 `with` 会让合法的中文构造随机失败。
+ * 代价是英文 `X has f set to v` 在 Java 上仍被接受而 TS 拒绝，待规范化确定后再收紧。
  */
 constructExpr
-    : constructHead WITH constructFieldList                     # WellFormedConstructExpr
-    | constructHead WITH { reportMalformedConstruct(); } argumentList  # MalformedConstructExpr
+    : constructHead (WITH | HAS) constructBody
+    ;
+
+/**
+ * 良构与畸形在第二个记号处即可区分：良构字段以 `name set` 开头；畸形字段的第二个
+ * 记号不得是 `set`，故 `X with f set to` 之后的错误（缺值、尾随多余记号）仍按良构
+ * 构造报告。后续字段同理（`X with a set to 1, b = 2` 在 `=` 处报错）。
+ */
+constructBody
+    : constructFieldList                   # WellFormedConstructBody
+    | malformedConstructField              # MalformedConstructBody
+    ;
+
+constructFieldList
+    : constructField ((AND | COMMA) constructField)* ((AND | COMMA) malformedConstructField)?
+    ;
+
+/**
+ * 缺 `set to` 的字段：报告一条诊断后吞到语句结束句点为止（不含），不产生级联。
+ */
+malformedConstructField
+    : { reportMalformedConstruct(); }
+      ~(DOT | NEWLINE | INDENT | DEDENT | EOF)
+      ( ~(SET | DOT | NEWLINE | INDENT | DEDENT | EOF) malformedConstructTail )?
+    ;
+
+/**
+ * 畸形构造的残余：成员访问里的点（`person.age`）后面不是语句边界，照常吞掉。
+ */
+malformedConstructTail
+    : ( {!isStatementEndDot()}? DOT | ~(DOT | NEWLINE | INDENT | DEDENT | EOF) )*
     ;
 
 /**
@@ -816,9 +854,6 @@ constructHead
     | IDENT
     ;
 
-constructFieldList
-    : constructField ((AND | COMMA) constructField)*
-    ;
 
 constructField
     : (IDENT | TYPE_IDENT | structKeywordName) SET TO_WORD expr

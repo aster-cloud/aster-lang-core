@@ -1460,21 +1460,26 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     }
 
     @Override
-    public Expr visitMalformedConstructExpr(AsterParser.MalformedConstructExprContext ctx) {
-        // 解析器已通过错误监听器报告；未挂监听器的调用方（直接用 AstBuilder）同样不得拿到
-        // 一棵“看似合法”的树，故此处 fail-fast。
-        throw new IllegalStateException(AsterParser.EXPECTED_SET_TO_IN_CONSTRUCTION
-            + " at line " + ctx.getStart().getLine() + ":" + ctx.getStart().getCharPositionInLine());
-    }
-
-    @Override
-    public Expr visitWellFormedConstructExpr(AsterParser.WellFormedConstructExprContext ctx) {
+    public Expr visitConstructExpr(AsterParser.ConstructExprContext ctx) {
+        // 解析器已通过错误监听器报告畸形字段；未挂监听器的调用方（直接用 AstBuilder）
+        // 同样不得拿到一棵“看似合法”的树，故此处 fail-fast。
+        if (!(ctx.constructBody() instanceof AsterParser.WellFormedConstructBodyContext body)) {
+            throw malformedConstruct(ctx.constructBody().getStart());
+        }
+        if (body.constructFieldList().malformedConstructField() != null) {
+            throw malformedConstruct(body.constructFieldList().malformedConstructField().getStart());
+        }
         String typeName = ctx.constructHead().getText();
-        List<Expr.Construct.ConstructField> fields = ctx.constructFieldList().constructField().stream()
+        List<Expr.Construct.ConstructField> fields = body.constructFieldList().constructField().stream()
             .map(this::visitConstructField)
             .collect(Collectors.toList());
         List<Expr.Construct.ConstructField> finalFields = fields.isEmpty() ? List.of() : List.copyOf(fields);
         return new Expr.Construct(typeName, finalFields, spanFrom(ctx));
+    }
+
+    private static IllegalStateException malformedConstruct(Token start) {
+        return new IllegalStateException(AsterParser.EXPECTED_SET_TO_IN_CONSTRUCTION
+            + " at line " + start.getLine() + ":" + start.getCharPositionInLine());
     }
 
     public Expr.Construct.ConstructField visitConstructField(AsterParser.ConstructFieldContext ctx) {
