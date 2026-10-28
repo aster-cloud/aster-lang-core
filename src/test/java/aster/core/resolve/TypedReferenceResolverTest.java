@@ -736,6 +736,22 @@ class TypedReferenceResolverTest {
         }
 
         @Test
+        void untypedLambdaParamPathFallsBackWithW801() {
+            Run r = run(MODULE + DRIVER_DECL + "Rule f given x as Int, produce Int:\n"
+                + "  Let g be function with fahrer, produce Int:\n    Return fahrer.alter.\n  Return x.\n", DRIVER);
+            assertEquals(List.of(ErrorCode.RESOLVED_WITHOUT_TYPE), r.r2Codes());
+            CoreModel.Lambda lambda = assertInstanceOf(CoreModel.Lambda.class, stmt(func(r.module(), "f"), 0, CoreModel.Let.class).expr);
+            assertEquals("fahrer.age", nameOf(((CoreModel.Return) lambda.body.statements.get(0)).expr).name);
+        }
+
+        @Test
+        void untypedLambdaParamUnknownFieldReportsE801() {
+            Run r = run(MODULE + DRIVER_DECL + "Rule f given x as Int, produce Int:\n"
+                + "  Let g be function with y, produce Int:\n    Return y.foo.\n  Return x.\n", DRIVER);
+            assertEquals(List.of(ErrorCode.UNRESOLVED_FIELD), r.r2Codes());
+        }
+
+        @Test
         void keywordCtorNameIsNotE802() {
             Run r = run(MODULE + "Rule f given x as Int, produce Int:\n  Let g be Some.\n  Return x.\n", List.of());
             assertEquals(List.of(), r.all());

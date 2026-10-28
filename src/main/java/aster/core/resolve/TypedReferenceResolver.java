@@ -616,8 +616,8 @@ public final class TypedReferenceResolver {
         List<Map<String, Set<String>>> captures = new ArrayList<>(f.captures());
         captures.add(renames);
         Frame inner = new Frame(new Scope(f.scope()), e.ret, captures, f.typeParams());
-        // 与 TS 一致：lambda 参数取其类型（未标注时为按名推断的占位），不按 typeInferred 视为未知
-        e.params.forEach(p -> inner.declare(p.name, declared(p.type, f.typeParams())));
+        // 只有声明类型是类型来源（§4、裁决 R31）：未标注类型的参数视为未知
+        e.params.forEach(p -> inner.declare(p.name, declared(declaredType(p), f.typeParams())));
         CoreModel.Block body = resolveBlock(inner, e.body);
         return CoreCopies.lambda(e, body, e.captures == null ? null : rewriteCaptures(e.captures, renames));
     }
