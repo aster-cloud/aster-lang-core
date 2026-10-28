@@ -29,16 +29,16 @@ tokens { INDENT, DEDENT }
     /** 与 TS 一致的构造字段错误文案。 */
     public static final String EXPECTED_SET_TO_IN_CONSTRUCTION = "Expected 'set to' in construction";
 
-    /**
-     * 构造字段缺少 `set to` 时报错。与 TS 一致定位在字段名之后应出现 `set` 的位置
-     * （如 `age = x` 的 `=`）；首个记号不是名字时直接定位在该记号上。
-     */
-    /** 当前 DOT 是否为语句结束句点：其后紧跟换行、缩进变化或文件结束。 */
+    /** 当前 DOT 是否为语句结束句点（其后紧跟换行、缩进变化或文件结束），用于区分成员访问的点。 */
     protected boolean isStatementEndDot() {
         int next = _input.LA(2);
         return next == NEWLINE || next == DEDENT || next == INDENT || next == EOF;
     }
 
+    /**
+     * 构造字段缺少 `set to` 时报错。与 TS 一致定位在字段名之后应出现 `set` 的位置
+     * （如 `age = x` 的 `=`）；首个记号不是名字时直接定位在该记号上。
+     */
     protected void reportMalformedConstruct() {
         int first = _input.LA(1);
         Token at = (first == IDENT || first == TYPE_IDENT) ? _input.LT(2) : _input.LT(1);

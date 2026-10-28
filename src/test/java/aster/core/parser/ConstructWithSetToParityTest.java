@@ -162,13 +162,13 @@ class ConstructWithSetToParityTest {
   void trailingJunkAfterSetToValueIsAnOrdinaryError() {
     // TS: 1 条 "Expected '.' at end of statement" 6:35（指向 extra）。
     // Java: 2 条，均在句点处——这是表达式层 `1 extra` 的既有恢复行为（`Return 1 extra.`
-    // 同样报 softComparator 谓词失败），与构造无关；此处钉住，且不得出现 set to 误报。
+    // 同样如此），与构造无关。只钉条数与位置，ANTLR 原始文案不钉；关键是不得误报 set to。
     var p = parse(en("Return Driver with age set to 1 extra."), "en-US");
-    assertEquals(List.of(
-        new Diag(6, 39, ".", "no viable alternative at input 'extra.'"),
-        new Diag(6, 39, ".", "rule softComparator failed predicate: "
-            + "{ $word.getText().equals(\"under\") || $word.getText().equals(\"over\") }?")),
-        p.diags());
+    assertEquals(2, p.diags().size(), p.diags().toString());
+    for (Diag d : p.diags()) {
+      assertEquals(List.of(6, 39, "."), List.of(d.line(), d.col(), d.token()), d.toString());
+      assertTrue(!MSG.equals(d.msg()), "不得报构造 set to 错误: " + d);
+    }
   }
 
   // ---------- English：接受的形式 ----------
