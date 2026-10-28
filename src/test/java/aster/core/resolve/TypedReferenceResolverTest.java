@@ -708,6 +708,40 @@ class TypedReferenceResolverTest {
         }
     }
 
+    // ---- 裁决 R30：未注解参数类型未知、关键词构造器不是待解析的名字 ----
+
+    @Nested
+    class UntypedParametersAndKeywordCtors {
+
+        @Test
+        void untypedParamPathFallsBackToGlobalCandidateWithW801() {
+            Run r = run(MODULE + DRIVER_DECL + "Rule f given fahrer, produce Int:\n  Return fahrer.alter.\n", DRIVER);
+            assertEquals(List.of(ErrorCode.RESOLVED_WITHOUT_TYPE), r.r2Codes());
+            assertEquals("fahrer.age", nameOf(returned(func(r.module(), "f"), 0)).name);
+        }
+
+        @Test
+        void untypedSubjectBareMemberAdoptedWithW801() {
+            Run r = run(MODULE + LEVEL_DECL
+                + "Rule f given s, produce Int:\n  Match s:\n    When Hoch, Return 1.\n    When andere, Return 2.\n", LEVEL);
+            assertEquals(List.of(ErrorCode.RESOLVED_WITHOUT_TYPE), r.r2Codes());
+            List<CoreModel.Case> cases = stmt(func(r.module(), "f"), 0, CoreModel.Match.class).cases;
+            assertEquals("High", ((CoreModel.PatCtor) cases.get(0).pattern).typeName);
+        }
+
+        @Test
+        void untypedParamUnknownFieldReportsE801() {
+            Run r = run(MODULE + DRIVER_DECL + "Rule f given x, produce Int:\n  Return x.foo.\n", DRIVER);
+            assertEquals(List.of(ErrorCode.UNRESOLVED_FIELD), r.r2Codes());
+        }
+
+        @Test
+        void keywordCtorNameIsNotE802() {
+            Run r = run(MODULE + "Rule f given x as Int, produce Int:\n  Let g be Some.\n  Return x.\n", List.of());
+            assertEquals(List.of(), r.all());
+        }
+    }
+
     // ---- lower 在未运行 R1 时行为不变 ----
 
     @Test

@@ -1,5 +1,6 @@
 package aster.core.ast;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
@@ -235,17 +236,25 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
      * @param annotations 注解列表（可能为 null）
      * @param span        参数整体的源码范围
      * @param resolved    参数名的解析结果（ADR 0051，LOCAL；解析前为 null）
+     * @param typeInferred 源码未标注类型：type 只是按参数名推断的占位，名称解析（ADR 0051 R2）视其类型未知；
+     *                     不进 AST JSON
      */
     record Parameter(
         @JsonProperty("name") String name,
         @JsonProperty("type") Type type,
         @JsonProperty("annotations") List<Annotation> annotations,
         @JsonProperty("span") Span span,
-        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved
+        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved,
+        @JsonIgnore boolean typeInferred
     ) {
-        /** 未解析的参数。 */
+        /** 未解析、带显式类型的参数。 */
         public Parameter(String name, Type type, List<Annotation> annotations, Span span) {
-            this(name, type, annotations, span, null);
+            this(name, type, annotations, span, null, false);
+        }
+
+        /** 带显式类型的参数。 */
+        public Parameter(String name, Type type, List<Annotation> annotations, Span span, Resolved resolved) {
+            this(name, type, annotations, span, resolved, false);
         }
     }
 }

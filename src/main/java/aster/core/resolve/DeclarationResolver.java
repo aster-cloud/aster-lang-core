@@ -449,7 +449,7 @@ public final class DeclarationResolver {
         String typeName = type instanceof Type.TypeName tn && tn.resolved() != null ? tn.resolved().canonical() : null;
         scope.locals.add(new Local(CaseFold.nfc(p.name()), typeName));
         Resolved resolved = new Resolved(p.name(), ResolvedRole.LOCAL, p.name());
-        return new Decl.Parameter(p.name(), type, p.annotations(), p.span(), resolved);
+        return new Decl.Parameter(p.name(), type, p.annotations(), p.span(), resolved, p.typeInferred());
     }
 
     // ---- 表达式 ----

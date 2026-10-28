@@ -141,6 +141,7 @@ public final class CoreLowering {
     out.name = param.name();
     out.type = param.type() == null ? null : lowerType(param.type());
     out.annotations = lowerAnnotations(param.annotations());
+    out.typeInferred = param.typeInferred();
     return out;
   }
 

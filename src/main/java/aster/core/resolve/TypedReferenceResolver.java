@@ -42,9 +42,10 @@ import java.util.stream.Stream;
  */
 public final class TypedReferenceResolver {
 
-    /** 内置运算符与 await：解析器降为 {@code Call(Name(op))}，不是待解析的名字。 */
-    private static final Set<String> BUILTIN_VALUES = Set.of(
-        "+", "-", "*", "/", "//", "%", ">", "<", ">=", "<=", "==", "!=", "and", "or", "not", "await");
+    /** 内置运算符、await 与关键词构造器：不是待解析的名字。 */
+    private static final Set<String> BUILTIN_VALUES = Stream.concat(
+        Stream.of("+", "-", "*", "/", "//", "%", ">", "<", ">=", "<=", "==", "!=", "and", "or", "not", "await"),
+        ResolutionChoice.KEYWORD_CTORS.stream()).collect(java.util.stream.Collectors.toUnmodifiableSet());
 
     /**
      * 无字段结构、点分段只能是动态键的类型名（白名单）：内置标量与 Map / Json / Any。容器类型
@@ -80,6 +81,11 @@ public final class TypedReferenceResolver {
         CoreModel.TypeVar v = new CoreModel.TypeVar();
         v.name = tn.name;
         return new Known(v);
+    }
+
+    /** 参数的声明类型；未标注类型（type 为按名推断的占位）时为 null，即类型未知。 */
+    private static CoreModel.Type declaredType(CoreModel.Param p) {
+        return p.typeInferred ? null : p.type;
     }
 
     private static Set<String> typeParamsOf(CoreModel.Func f) {
@@ -591,7 +597,7 @@ public final class TypedReferenceResolver {
         List<CoreModel.Param> params = callee == null ? List.of() : callee.params;
         List<CoreModel.Expr> args = new ArrayList<>();
         for (int i = 0; i < e.args.size(); i++) {
-            CoreModel.Type expected = i < params.size() ? params.get(i).type : null;
+            CoreModel.Type expected = i < params.size() ? declaredType(params.get(i)) : null;
             args.add(resolveExpr(f, e.args.get(i), expected));
         }
         return CoreCopies.call(e, target, args);
@@ -610,6 +616,7 @@ public final class TypedReferenceResolver {
         List<Map<String, Set<String>>> captures = new ArrayList<>(f.captures());
         captures.add(renames);
         Frame inner = new Frame(new Scope(f.scope()), e.ret, captures, f.typeParams());
+        // 与 TS 一致：lambda 参数取其类型（未标注时为按名推断的占位），不按 typeInferred 视为未知
         e.params.forEach(p -> inner.declare(p.name, declared(p.type, f.typeParams())));
         CoreModel.Block body = resolveBlock(inner, e.body);
         return CoreCopies.lambda(e, body, e.captures == null ? null : rewriteCaptures(e.captures, renames));
@@ -844,7 +851,7 @@ public final class TypedReferenceResolver {
         if (!(d instanceof CoreModel.Func fn)) return d;
         Set<String> typeParams = typeParamsOf(fn);
         Frame f = new Frame(new Scope(null), declaredRet(fn), List.of(), typeParams);
-        fn.params.forEach(p -> f.declare(p.name, declared(p.type, typeParams)));
+        fn.params.forEach(p -> f.declare(p.name, declared(declaredType(p), typeParams)));
         return CoreCopies.func(fn, resolveBlock(f, fn.body));
     }
 }

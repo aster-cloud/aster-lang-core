@@ -183,6 +183,12 @@ public final class CoreModel {
     public String name;                          // 参数名
     public Type type;                            // 参数类型
     public List<Annotation> annotations;         // 注解列表（默认空）
+    /**
+     * 源码未标注类型：type 只是按参数名推断的占位，名称解析（ADR 0051 R2）视其类型未知。
+     * 与 {@link Field#typeInferred} 同为不进 IR JSON 的旁路信息。
+     */
+    @JsonIgnore
+    public boolean typeInferred;
 
     public Param() {
       this.annotations = Collections.emptyList();

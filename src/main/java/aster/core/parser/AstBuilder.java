@@ -320,7 +320,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         List<Annotation> allAnnotations = new ArrayList<>(prefixAnnotations);
         allAnnotations.addAll(typeAnnotations);
         List<Annotation> finalAnnotations = allAnnotations.isEmpty() ? List.of() : List.copyOf(allAnnotations);
-        return new Decl.Parameter(name, type, finalAnnotations, span);
+        return new Decl.Parameter(name, type, finalAnnotations, span, null, ctx.annotatedType() == null);
     }
 
     private void collectTypeParamCandidates(Type type, Set<String> acc) {
