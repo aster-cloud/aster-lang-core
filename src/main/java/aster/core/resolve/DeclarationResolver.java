@@ -46,12 +46,12 @@ import java.util.stream.Stream;
 public final class DeclarationResolver {
 
     /**
-     * 内置类型：TS BUILTIN_TYPE_NAMES，另加 Java 类型系统承认的 Number / String，以及 Java 解析器对
-     * 关键词 {@code result of} / {@code option of} / {@code maybe of} 产出的小写 TypeApp 基名（TS 为专门节点）。
+     * 内置类型：与 TS BUILTIN_TYPE_NAMES 一致，另加 Java 解析器对关键词 {@code result of} /
+     * {@code option of} / {@code maybe of} 产出的小写 TypeApp 基名（TS 为专门节点，不经名称查找）。
      */
     private static final Set<String> BUILTIN_TYPE_NAMES = Set.of(
         "Text", "Int", "Bool", "Float", "Long", "Double", "Unit", "Decimal", "DateTime",
-        "Result", "Option", "List", "Map", "Set", "Workflow", "Verdict", "Number", "String",
+        "Result", "Option", "List", "Map", "Set", "Workflow", "Verdict",
         "result", "option", "maybe");
 
     /** 解析器在 Lambda 缺省返回类型等处合成的占位类型名，交由类型推断处理。 */
@@ -654,16 +654,25 @@ public final class DeclarationResolver {
         return new Decl.Data(d.name(), out, d.span(), resolved);
     }
 
-    /** 省略返回类型时 retType 是解析器按函数名合成的占位（如 generateQuote → Quote），不按 TYPE 解析。 */
     private Decl.Func rewriteFunc(Decl.Func d, Resolved resolved) {
         List<String> typeParams = keptTypeParams(d);
         Scope scope = rootScope(typeParams);
         List<Decl.Parameter> params = d.params().stream().map(p -> resolveParam(scope, p)).toList();
-        Type retType = d.retTypeInferred() ? d.retType() : resolveType(scope, d.retType());
+        Type retType = d.retTypeInferred() ? inferredRetType(d.retType()) : resolveType(scope, d.retType());
         Block body = resolveOptionalBlock(scope, d.body());
         return new Decl.Func(d.name(), d.nameSpan(), typeParams, params, retType, d.annotations(), d.retAnnotations(),
             body, d.effects(), d.effectCaps(), d.effectCapsExplicit(), d.span(), d.retTypeInferred(),
             d.typeParamsInferred(), resolved);
+    }
+
+    /**
+     * 省略返回类型时 retType 是解析器按函数名合成的占位（如 getKunde → Kunde）：静默探测，命中声明 / 导入 /
+     * 词汇时写入规范名（与 R13 移除同名隐式类型参数配套，避免本地化写法流入 lowering）；未命中保持原样，不报 E800。
+     */
+    private Type inferredRetType(Type retType) {
+        if (!(retType instanceof Type.TypeName tn) || !(probeTypeChoice(tn.name()) instanceof Hit h)) return retType;
+        Resolved stamped = new Resolved(h.entry().canonical(), ResolvedRole.TYPE, tn.name());
+        return new Type.TypeName(tn.name(), tn.annotations(), tn.span(), stamped);
     }
 
     /**

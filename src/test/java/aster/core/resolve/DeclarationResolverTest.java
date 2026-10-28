@@ -468,6 +468,17 @@ class DeclarationResolverTest {
             assertEquals(List.of(), codes(r));
         }
 
+        /** 与 TS BUILTIN_TYPE_NAMES 一致：Number / String 不是内置类型（裁决 R27）。 */
+        @Test
+        void numberAndStringAreNotBuiltinAndReportE800() {
+            for (String name : List.of("Number", "String")) {
+                Module m = parse("Module m.\n\nDefine P has t as " + name + ".\n");
+                ResolutionResult<Module> r = DeclarationResolver.resolve(m, ResolutionContext.none());
+                assertEquals(List.of(ErrorCode.UNRESOLVED_TYPE), codes(r), name);
+                assertTrue(r.diagnostics().get(0).message().contains(name));
+            }
+        }
+
         @Test
         void dateTimeIsBuiltin() {
             Module m = parse("Module m.\n\nDefine Fahrer has seit as DateTime.\n");
@@ -616,7 +627,22 @@ class DeclarationResolverTest {
         assertEquals("Int", typeResolved(data.fields().get(0).type()).canonical());
     }
 
-    /** Java 独有：省略返回类型时解析器按函数名合成的占位类型（如 generateQuote → Quote）不按 TYPE 解析。 */
+    /** Java 独有：省略返回类型时按函数名合成的占位（getKunde → Kunde）命中词汇 → 写入规范名，且隐式类型参数被移除（裁决 R27）。 */
+    @Test
+    void inferredReturnTypePlaceholderHittingVocabularyIsStamped() {
+        Module m = parse("Module m.\n\nRule getKunde given x as Int, produce:\n  Return x.\n");
+        Decl.Func parsed = decl(m, 0, Decl.Func.class);
+        assertTrue(parsed.retTypeInferred(), "前提：返回类型为推断占位");
+        assertEquals(List.of("Kunde"), parsed.typeParams(), "前提：占位名被推断为隐式类型参数");
+        ResolutionResult<Module> r = DeclarationResolver.resolve(m, ctxOf(List.of(struct("Customer", "Kunde"))));
+        Decl.Func f = decl(r.value(), 0, Decl.Func.class);
+        assertEquals(List.of(), f.typeParams());
+        assertEquals(res("Customer", ResolvedRole.TYPE, "Kunde"), typeResolved(f.retType()));
+        assertEquals("Kunde", ((Type.TypeName) f.retType()).name(), "原写法保持");
+        assertEquals(List.of(), codes(r));
+    }
+
+    /** Java 独有：占位类型（如 generateQuote → Quote）未命中时保持原样，不报 E800。 */
     @Test
     void inferredReturnTypePlaceholderIsNotResolved() {
         Module m = parse("Module m.\n\nRule generateQuote given x as Int, produce:\n  Return x.\n");
