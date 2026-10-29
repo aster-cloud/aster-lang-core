@@ -44,6 +44,20 @@ tokens { INDENT, DEDENT }
         Token at = (first == IDENT || first == TYPE_IDENT) ? _input.LT(2) : _input.LT(1);
         notifyErrorListeners(at, EXPECTED_SET_TO_IN_CONSTRUCTION, null);
     }
+
+    /**
+     * 下一个记号是否为无大小写文字开头的 IDENT（ADR 0051 裁决 R53）。
+     * 天城文无大小写，词法上与 TS 一致归 IDENT，但须能出现在类型名位置；
+     * 码点范围与 AsterLexer.g4 的 DevanagariChar 一致（不含 danda U+0964/U+0965）。
+     */
+    protected boolean isCaselessScriptIdent() {
+        Token t = _input.LT(1);
+        if (t == null || t.getType() != IDENT || t.getText().isEmpty()) {
+            return false;
+        }
+        char c = t.getText().charAt(0);
+        return (c >= '\u0900' && c <= '\u0963') || (c >= '\u0966' && c <= '\u097F');
+    }
 }
 
 // ============================================================
@@ -202,8 +216,18 @@ capabilityAnnotation
  *   age: Int.
  */
 dataDecl
-    : DEFINE article? TYPE_IDENT (HAS | WITH) fieldList DOT (NEWLINE* DEDENT)?
-    | article? TYPE_IDENT (HAS | WITH) fieldList DOT (NEWLINE* DEDENT)?
+    : DEFINE article? typeIdent (HAS | WITH) fieldList DOT (NEWLINE* DEDENT)?
+    | article? typeIdent (HAS | WITH) fieldList DOT (NEWLINE* DEDENT)?
+    ;
+
+/**
+ * 类型名（声明名、枚举值、类型引用、构造模式名）：TYPE_IDENT，或无大小写文字（天城文）开头的 IDENT。
+ * R53：无大小写文字的作者无法“写成大写”，故在类型名位置放行；只放宽语法、不改词法，
+ * 天城文在表达式位置仍是普通名字引用。小写拉丁 IDENT 不在放宽范围内。
+ */
+typeIdent
+    : TYPE_IDENT
+    | {isCaselessScriptIdent()}? IDENT
     ;
 
 /**
@@ -302,7 +326,7 @@ structKeywordName
  * 语法: Define Status as one of Success, Failure, Pending.
  */
 enumDecl
-    : DEFINE article? TYPE_IDENT AS ONE OF variantList DOT
+    : DEFINE article? typeIdent AS ONE OF variantList DOT
     ;
 
 article
@@ -314,7 +338,7 @@ article
  * 语法: Success, Failure, Pending
  */
 variantList
-    : TYPE_IDENT ((COMMA | OR | AND) TYPE_IDENT)*
+    : typeIdent ((COMMA | OR | AND) typeIdent)*
     ;
 
 /**
@@ -391,7 +415,7 @@ type
     | MAP annotatedType TO_WORD annotatedType  # MapType
     | (TYPE_IDENT | IDENT) OF annotatedType ((AND | COMMA) annotatedType)*  # OfGenericType
     | TYPE_IDENT LT typeList GT           # GenericType
-    | TYPE_IDENT                          # TypeName
+    | typeIdent                           # TypeName
     | LPAREN type RPAREN                  # ParenType
     ;
 
@@ -630,9 +654,11 @@ matchCase
  */
 pattern
     : NULL_LITERAL                         # PatternNull
-    | TYPE_IDENT (LPAREN pattern (COMMA pattern)* RPAREN)?  # PatternCtor
-    | INT_LITERAL                         # PatternInt
+    // PatternName 须排在 PatternCtor 之前：无括号的天城文 IDENT 两者皆可匹配，取先列者，
+    // 与 TS 一致产出 PatternName（按位置解析为枚举成员）；后随 `(` 时只有 PatternCtor 可行。
     | IDENT                               # PatternName
+    | typeIdent (LPAREN pattern (COMMA pattern)* RPAREN)?  # PatternCtor
+    | INT_LITERAL                         # PatternInt
     // ADR 0019 G1：match 绑定名可为软关键字（小写结构词，如 `when return, ...`）。
     | structKeywordName                   # PatternStructKeywordName
     ;

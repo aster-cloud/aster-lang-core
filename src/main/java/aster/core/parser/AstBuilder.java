@@ -91,15 +91,15 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
         declContexts.forEach(declCtx -> {
             if (declCtx.dataDecl() != null) {
-                // 防御性 null-check：正常 dataDecl 一定有 TYPE_IDENT，但若文法
+                // 防御性 null-check：正常 dataDecl 一定有 typeIdent，但若文法
                 // 误路由（历史上 funcDecl 歧义导致过），这里宁可跳过也不 NPE。
-                TerminalNode typeName = declCtx.dataDecl().TYPE_IDENT();
+                AsterParser.TypeIdentContext typeName = declCtx.dataDecl().typeIdent();
                 if (typeName != null) {
                     declaredTypeNames.add(typeName.getText());
                     declaredRecordTypeNames.add(typeName.getText());  // 可构造
                 }
             } else if (declCtx.enumDecl() != null) {
-                TerminalNode typeName = declCtx.enumDecl().TYPE_IDENT();
+                AsterParser.TypeIdentContext typeName = declCtx.enumDecl().typeIdent();
                 if (typeName != null) {
                     declaredTypeNames.add(typeName.getText());
                     declaredRecordTypeNames.add(typeName.getText());  // 可构造
@@ -453,7 +453,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Decl.Data visitDataDecl(AsterParser.DataDeclContext ctx) {
-        String name = ctx.TYPE_IDENT().getText();
+        String name = ctx.typeIdent().getText();
         List<Decl.Field> fields = ctx.fieldList().field().stream()
             .map(this::visitField)
             .collect(Collectors.toList());
@@ -512,9 +512,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Decl.Enum visitEnumDecl(AsterParser.EnumDeclContext ctx) {
-        String name = ctx.TYPE_IDENT().getText();
-        List<String> variants = ctx.variantList().TYPE_IDENT().stream()
-            .map(TerminalNode::getText)
+        String name = ctx.typeIdent().getText();
+        List<String> variants = ctx.variantList().typeIdent().stream()
+            .map(AsterParser.TypeIdentContext::getText)
             .collect(Collectors.toList());
         return new Decl.Enum(name, variants, spanFrom(ctx));
     }
@@ -709,7 +709,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Type visitTypeName(AsterParser.TypeNameContext ctx) {
-        String name = ctx.TYPE_IDENT().getText();
+        String name = ctx.typeIdent().getText();
         return new Type.TypeName(name, List.of(), spanFrom(ctx));
     }
 
@@ -1151,7 +1151,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Pattern visitPatternCtor(AsterParser.PatternCtorContext ctx) {
-        String typeName = ctx.TYPE_IDENT().getText();
+        String typeName = ctx.typeIdent().getText();
         List<Pattern> args = ctx.pattern().stream()
             .map(this::visitPattern)
             .collect(Collectors.toList());
