@@ -82,10 +82,11 @@ public final class ResolutionChoice {
         return choose(direct, List.of());
     }
 
-    /** 歧义候选的确定性文本：`规范名 (写法)` 按码点序以逗号连接。 */
+    /** 歧义候选的确定性文本：`规范名 (写法)` 去重后按码点序以逗号连接（同一候选可经源码声明与词汇两层命中）。 */
     public static String formatCandidates(List<Entry> candidates) {
         return String.join(", ", candidates.stream()
             .map(c -> c.canonical() + " (" + c.written() + ")")
+            .distinct()
             .sorted(CaseFold::compareCodePoints)
             .toList());
     }
