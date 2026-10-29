@@ -329,6 +329,83 @@ class TypedReferenceResolverTest {
             assertEquals("High", nameOf(c.fields.get(0).expr).name);
         }
 
+        // ---- 相等比较：一侧为已知枚举时另一侧裸名以其为期望类型（裁决 R49） ----
+
+        private static final String CMP_DECLS = MODULE + LEVEL_DECL + "Define Fahrer has stufe as Stufe.\n\n";
+        private static final List<IdentifierMapping> CMP_VOCAB =
+            concat(LEVEL, List.of(struct("Driver", "Fahrer"), field("Driver", "level", "stufe")));
+
+        private static CoreModel.Call ifCond(CoreModel.Module m) {
+            return assertInstanceOf(CoreModel.Call.class, stmt(func(m, "f"), 0, CoreModel.If.class).cond);
+        }
+
+        @Test
+        void equalityWithKnownEnumOperandResolvesBareMember() {
+            Run r = run(CMP_DECLS + "Rule f given d as Fahrer, produce Int:\n  If d.stufe equals to Hoch:\n    Return 1.\n  Return 0.\n",
+                CMP_VOCAB);
+            assertEquals(List.of(), r.all());
+            CoreModel.Call cond = ifCond(r.module());
+            assertEquals("==", nameOf(cond.target).name);
+            assertEquals("d.level", nameOf(cond.args.get(0)).name);
+            CoreModel.Name member = nameOf(cond.args.get(1));
+            assertEquals("High", member.name);
+            assertEquals("Hoch", member.origin.written);
+            assertEquals(ResolvedRole.MEMBER_REF, member.origin.role);
+        }
+
+        @Test
+        void bareMemberOnLeftAndEnumLocalOnRightResolves() {
+            Run r = run(CMP_DECLS + "Rule f given s as Stufe, produce Int:\n  If Niedrig equals to s:\n    Return 1.\n  Return 0.\n",
+                CMP_VOCAB);
+            assertEquals(List.of(), r.all());
+            CoreModel.Call cond = ifCond(r.module());
+            assertEquals("Low", nameOf(cond.args.get(0)).name);
+            assertEquals("s", nameOf(cond.args.get(1)).name);
+        }
+
+        @Test
+        void inequalityAlsoProvidesExpectedType() {
+            Run r = run("Module m.\n\nDefine Level as one of High, Low.\n\n"
+                + "Rule f given s as Level, produce Int:\n  If s not equal to Low:\n    Return 1.\n  Return 0.\n", List.of());
+            assertEquals(List.of(), r.all());
+            CoreModel.Call cond = ifCond(r.module());
+            assertEquals("!=", nameOf(cond.target).name);
+            assertEquals("Low", nameOf(cond.args.get(1)).name);
+        }
+
+        @Test
+        void vocabularyFunctionHochInComparisonReportsE804WithQualifiedHelp() {
+            Run r = run(CMP_DECLS + "Rule f given d as Fahrer, produce Int:\n  If d.stufe equals to Hoch:\n    Return 1.\n  Return 0.\n",
+                concat(CMP_VOCAB, List.of(fn("high", "hoch"))));
+            // error 级诊断使调用方不发出 IR，因此 R1 的函数命中不会静默进入产物
+            assertEquals(List.of(ErrorCode.AMBIGUOUS_NAME), r.r2Codes());
+            Diagnostic d = r.r2().get(0);
+            assertTrue(d.message().contains("High (Hoch)"), d.message());
+            assertTrue(d.help().orElse("").contains("Stufe.Hoch"), d.help().toString());
+        }
+
+        @Test
+        void sourceRuleAndVocabularyFunctionCandidatesAreDeduplicated() {
+            Run r = run(CMP_DECLS
+                    + "Rule hoch given x as Int, produce Int:\n  Return x.\n\n"
+                    + "Rule f given s as Stufe, produce Int:\n  If s equals to Hoch:\n    Return 1.\n  Return 0.\n",
+                concat(CMP_VOCAB, List.of(fn("high", "hoch"))));
+            assertEquals(List.of(ErrorCode.AMBIGUOUS_NAME), r.r2Codes());
+            String message = r.r2().get(0).message();
+            List<String> candidates = List.of(message.substring(message.lastIndexOf(": ") + 2).split(", "));
+            assertEquals(candidates.stream().distinct().toList(), candidates, message);
+        }
+
+        @Test
+        void nonEnumOtherOperandKeepsE802WithValueRole() {
+            Run r = run(CMP_DECLS + "Rule f given x as Int, produce Int:\n  If x equals to Hoch:\n    Return 1.\n  Return 0.\n",
+                CMP_VOCAB);
+            assertEquals(List.of(ErrorCode.UNRESOLVED_NAME), r.r2Codes());
+            Diagnostic d = r.r2().get(0);
+            assertTrue(d.message().contains("VALUE_REF"), d.message());
+            assertTrue(d.help().orElse("").contains("Stufe.Hoch"), d.help().toString());
+        }
+
         @Test
         void bareMemberWithoutExpectedTypeReportsE802() {
             Run r = run(MODULE + LEVEL_DECL

@@ -527,7 +527,7 @@ public final class TypedReferenceResolver {
             List<Entry> cands = owners.stream().map(e -> new Entry(mark.written(), e + "." + w, ResolvedRole.MEMBER_REF)).toList();
             report(ErrorCode.AMBIGUOUS_NAME, n.origin, mark.written(), ResolvedRole.MEMBER_REF, cands);
         }
-        if (owners.isEmpty() && !callee) report(ErrorCode.UNRESOLVED_NAME, n.origin, mark.written(), ResolvedRole.FUNC_REF, List.of());
+        if (owners.isEmpty() && !callee) report(ErrorCode.UNRESOLVED_NAME, n.origin, mark.written(), ResolvedRole.VALUE_REF, List.of());
         return unmarked(n);
     }
 
@@ -586,13 +586,45 @@ public final class TypedReferenceResolver {
         return target instanceof CoreModel.Name n && n.name.contains(".");
     }
 
-    /** 调用实参的期望类型取被调源码函数对应参数的声明类型。 */
+    /** 相等 / 不等比较（{@code equals to}、{@code not equal to}、{@code ==}、{@code !=} 及其本地化关键词均降为这两个运算符）。 */
+    private static final Set<String> EQUALITY_OPS = Set.of("==", "!=");
+
+    private static boolean isEquality(CoreModel.Expr target, List<CoreModel.Expr> args) {
+        return target instanceof CoreModel.Name n && EQUALITY_OPS.contains(n.name) && args.size() == 2;
+    }
+
+    /** 期望类型待定的比较操作数：带标记的单段裸名且不是局部名（局部名按 LOCAL 解析，与期望类型无关）。 */
+    private static boolean isBareOperand(Frame f, CoreModel.Expr e) {
+        if (!(e instanceof CoreModel.Name n) || n.mark == null || n.mark.written().contains(".")) return false;
+        return findLocal(f.scope(), n.mark.written()).choice() instanceof Miss;
+    }
+
+    /**
+     * 相等比较的期望类型来源（裁决 R49）：先解析非裸名一侧，其 §4 静态类型为枚举 E 时，另一侧裸名以 E 为期望类型
+     * （与 Return / 实参同一套 §6.2 跨层裁决）。两侧都是裸名时均无期望类型。
+     */
+    private List<CoreModel.Expr> resolveEquality(Frame f, List<CoreModel.Expr> args) {
+        boolean[] bare = {isBareOperand(f, args.get(0)), isBareOperand(f, args.get(1))};
+        List<CoreModel.Expr> out = new ArrayList<>(args);
+        for (int i = 0; i < 2; i++) {
+            if (!bare[i]) out.set(i, sub(f, args.get(i)));
+        }
+        for (int i = 0; i < 2; i++) {
+            if (!bare[i]) continue;
+            CoreModel.Type other = bare[1 - i] ? null : asType(typeOf(f.scope(), out.get(1 - i)));
+            out.set(i, resolveExpr(f, args.get(i), other));
+        }
+        return out;
+    }
+
+    /** 调用实参的期望类型取被调源码函数对应参数的声明类型；相等比较另见 {@link #resolveEquality}。 */
     private CoreModel.Call resolveCall(Frame f, CoreModel.Call e) {
         CoreModel.Expr target = switch (e.target) {
             case CoreModel.Name n when isQualifiedCall(n) -> unmarked(n);
             case CoreModel.Name n -> resolveName(f, n, null, true);
             default -> sub(f, e.target);
         };
+        if (isEquality(target, e.args)) return CoreCopies.call(e, target, resolveEquality(f, e.args));
         CoreModel.Func callee = calleeOf(f.scope(), target);
         List<CoreModel.Param> params = callee == null ? List.of() : callee.params;
         List<CoreModel.Expr> args = new ArrayList<>();
