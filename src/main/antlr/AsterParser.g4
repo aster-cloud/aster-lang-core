@@ -25,6 +25,25 @@ tokens { INDENT, DEDENT }
     protected boolean isStatementHead(int tokenType) {
         return STATEMENT_HEADS.contains(tokenType);
     }
+
+    /** 与 TS 一致的构造字段错误文案。 */
+    public static final String EXPECTED_SET_TO_IN_CONSTRUCTION = "Expected 'set to' in construction";
+
+    /** 当前 DOT 是否为语句结束句点（其后紧跟换行、缩进变化或文件结束），用于区分成员访问的点。 */
+    protected boolean isStatementEndDot() {
+        int next = _input.LA(2);
+        return next == NEWLINE || next == DEDENT || next == INDENT || next == EOF;
+    }
+
+    /**
+     * 构造字段缺少 `set to` 时报错。与 TS 一致定位在字段名之后应出现 `set` 的位置
+     * （如 `age = x` 的 `=`）；首个记号不是名字时直接定位在该记号上。
+     */
+    protected void reportMalformedConstruct() {
+        int first = _input.LA(1);
+        Token at = (first == IDENT || first == TYPE_IDENT) ? _input.LT(2) : _input.LT(1);
+        notifyErrorListeners(at, EXPECTED_SET_TO_IN_CONSTRUCTION, null);
+    }
 }
 
 // ============================================================
@@ -740,9 +759,12 @@ postfixExpr
     : primaryExpr postfixSuffix*
     ;
 
+/**
+ * 调用只有括号形式 `f(x, y)`；与 TS 一致，不存在 `f with x, y` 的自然语言调用后缀，
+ * `X with …` 只能是构造表达式（见 constructExpr）。
+ */
 postfixSuffix
     : LPAREN argumentList? RPAREN          # CallSuffix
-    | (WITH | HAS) argumentList             # WithCallSuffix
     | DOT (IDENT | TYPE_IDENT | structKeywordName)  # MemberSuffix
     ;
 
@@ -777,13 +799,61 @@ primaryExpr
     | LPAREN expr RPAREN                   # ParenExpr
     ;
 
+/**
+ * 构造表达式：`Type with field set to expr (and|, field set to expr)*`。
+ *
+ * 与 TS 解析器对齐（aster-lang-ts#244）：字段只接受 `set to`。首个字段名后不是 `set`
+ * 时（`X with f = v`、`X with a, b`）走 MalformedConstructBody：只报告一条
+ * "Expected 'set to' in construction"，并吞掉本语句余下记号，不产生级联诊断。
+ *
+ * 引导词仍接受 `has`：zh-CN 的 `包含` 同时映射 TYPE_WITH/TYPE_HAS（等长歧义表面），
+ * Canonicalizer 取哪个取决于词表 map 的迭代顺序，随 JVM 进程变化（见 aster-lang-zh
+ * ZhCnCanonicalizerTest 审计 #25）。只收 `with` 会让合法的中文构造随机失败。
+ * 代价是英文 `X has f set to v` 在 Java 上仍被接受而 TS 拒绝，待规范化确定后再收紧。
+ */
 constructExpr
-    : TYPE_IDENT (WITH | HAS) constructFieldList
+    : constructHead (WITH | HAS) constructBody
+    ;
+
+/**
+ * 良构与畸形在第二个记号处即可区分：良构字段以 `name set` 开头；畸形字段的第二个
+ * 记号不得是 `set`，故 `X with f set to` 之后的错误（缺值、尾随多余记号）仍按良构
+ * 构造报告。后续字段同理（`X with a set to 1, b = 2` 在 `=` 处报错）。
+ */
+constructBody
+    : constructFieldList                   # WellFormedConstructBody
+    | malformedConstructField              # MalformedConstructBody
     ;
 
 constructFieldList
-    : constructField ((AND | COMMA) constructField)*
+    : constructField ((AND | COMMA) constructField)* ((AND | COMMA) malformedConstructField)?
     ;
+
+/**
+ * 缺 `set to` 的字段：报告一条诊断后吞到语句结束句点为止（不含），不产生级联。
+ */
+malformedConstructField
+    : { reportMalformedConstruct(); }
+      ~(DOT | NEWLINE | INDENT | DEDENT | EOF)
+      ( ~(SET | DOT | NEWLINE | INDENT | DEDENT | EOF) malformedConstructTail )?
+    ;
+
+/**
+ * 畸形构造的残余：成员访问里的点（`person.age`）后面不是语句边界，照常吞掉。
+ */
+malformedConstructTail
+    : ( {!isStatementEndDot()}? DOT | ~(DOT | NEWLINE | INDENT | DEDENT | EOF) )*
+    ;
+
+/**
+ * 构造类型名：TYPE_IDENT，或后随 `with` 的 IDENT（TS 同样按此进入构造分支，
+ * 小写名后跟 `with` 一律视为构造，不存在 `f with x` 调用形式）。
+ */
+constructHead
+    : TYPE_IDENT
+    | IDENT
+    ;
+
 
 constructField
     : (IDENT | TYPE_IDENT | structKeywordName) SET TO_WORD expr

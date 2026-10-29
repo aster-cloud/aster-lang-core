@@ -76,12 +76,13 @@ public class AsterCustomLexer extends AsterLexer {
     // 只保留【后继判定不足以消歧】的真声明头。注意:
     //  - 不含 `as`/`produce`:引出【类型】,OF 家族在该位置是类型构造关键词,不能当标识符。
     //  - 不含 `set`/`and`:construct 字段名在 set 之前;`and` 只是列表延续。
-    //  - 不含 `has`/`with`:它们也是函数调用后缀(`f with 成功值 x`),全局进列表会把调用参数里
-    //    的 OF 家族构造器误当标识符。改靠【后继 token 判定】消歧:
+    //  - 不含 `has`/`with`:全局进列表会把其后非标识符位置的 OF 家族构造器误当标识符。
+    //    改靠【后继 token 判定】消歧:
     //      has 结果 .        → 后继是 `.` → 字段名(还原)
     //      has 结果 as Text. → 后继是 `as` → 字段名(还原)
     //      with 结果 set to  → 后继是 `set` → 构造字段名(还原)
-    //      f with 成功值 x   → 后继是 `x`(表达式起点) → 构造器(展开)
+    //      with 成功值 x     → 后继是 `x`(表达式起点) → 构造器(展开);该写法缺 `set to`,
+    //                          由解析器按构造字段报错(无 `f with x` 调用形式,与 TS 一致)
     private static final Set<String> IDENTIFIER_INTRODUCERS = Set.of(
         "define", "rule", "given", "let"
     );

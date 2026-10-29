@@ -146,10 +146,13 @@ class KeywordAsIdentifierTest {
     }
 
     @Test
-    void withAsCallSuffixStaysKeyword() {
-        // with(包含) 也是函数调用后缀(`g 包含 成功值 x`),其参数位置的 OF 家族是构造器关键词,
-        // 不能被误当声明字段名 → 靠后继(x 是表达式起点)判定为关键词展开
-        assertTrue(parses("模块 a.b。\n规则 g 给定 a 产出：\n  返回 a。\n\n"
-            + "规则 f 给定 x 产出：\n  返回 g 包含 成功值 x。\n"), "g 包含 成功值 x");
+    void withIsConstructionNotCallSuffix() {
+        // 包含(with) 不是函数调用后缀：与 TS 一致，`g 包含 成功值 x` 进入构造分支并因缺
+        // `将 设为` 报错（aster-lang-ts#244），不得被当作调用 g(成功值 x) 静默接受。
+        assertFalse(parses("模块 a.b。\n规则 g 给定 a 产出：\n  返回 a。\n\n"
+            + "规则 f 给定 x 产出：\n  返回 g 包含 成功值 x。\n"), "g 包含 成功值 x 应拒绝");
+        // 构造字段值位置的 OF 家族仍是构造器关键词。
+        assertTrue(parses("模块 a.b。\n定义 盒子 包含 值。\n"
+            + "规则 f 给定 x 产出：\n  返回 盒子 包含 值 将 设为 成功值 x。\n"), "构造字段值 成功值 x");
     }
 }
