@@ -26,6 +26,9 @@ public final class CoreLowering {
   /**
    * 将 AST 模块降级为 Core IR 模块。
    *
+   * @apiNote 内部 API（ADR 0051 裁决 R49）：未经名称解析 R1/R2 的 AST 降级后名字保持原写法（可能是本地化名），
+   *     产物不得作为对外 IR。仅供 {@link aster.core.resolve.NameResolution} 与测试使用；保持 public 只因跨包调用方
+   *     （resolve 包、下游测试）。编译入口请使用 {@link aster.core.resolve.NameResolution#resolveAndLowerChecked}。
    * @param ast 模块 AST 节点
    * @return Core IR 模块节点
    */

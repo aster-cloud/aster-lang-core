@@ -34,7 +34,12 @@ public final class NameResolution {
         }
     }
 
-    /** R1 → lower → R2。返回全部诊断，不因 error 抛出（供需要展示诊断的入口使用）。 */
+    /**
+     * R1 → lower → R2。返回全部诊断，不因 error 抛出（供需要展示诊断的入口使用）。
+     *
+     * @apiNote 内部 API（ADR 0051 裁决 R49）：有 E8xx 时返回值仍含 core，调用方必须自行以 {@link #hasErrors} 拒绝发出 IR。
+     *     对外编译入口请使用 {@link #resolveAndLowerChecked}。
+     */
     public static ResolvedCore resolveAndLower(Module ast, ResolutionContext ctx) {
         ResolutionResult<Module> r1 = DeclarationResolver.resolve(ast, ctx);
         ResolutionResult<CoreModel.Module> r2 = TypedReferenceResolver.resolve(new CoreLowering().lowerModule(r1.value()), ctx);
@@ -42,7 +47,7 @@ public final class NameResolution {
         return new ResolvedCore(r1.value(), r2.value(), diagnostics);
     }
 
-    /** 同 {@link #resolveAndLower}，但任一 E8xx 时抛出 {@link NameResolutionException}（供只需要 IR 的入口使用）。 */
+    /** 同 {@link #resolveAndLower}，但任一 E8xx 时抛出 {@link NameResolutionException}：产出 IR 的公开入口。 */
     public static ResolvedCore resolveAndLowerChecked(Module ast, ResolutionContext ctx) {
         ResolvedCore resolved = resolveAndLower(ast, ctx);
         if (hasErrors(resolved.diagnostics())) throw new NameResolutionException(resolved.diagnostics());
