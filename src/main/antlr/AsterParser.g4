@@ -638,7 +638,8 @@ inlineReturn
  *     When v, Return v.
  */
 matchStmt
-    : MATCH expr COLON NEWLINE INDENT matchCase (NEWLINE+ matchCase)* NEWLINE* DEDENT
+    // 分支间用 NEWLINE*：块体分支以 block 的 `NEWLINE* DEDENT` 收尾，下一个 When 前不再有 NEWLINE（同 #218）
+    : MATCH expr COLON NEWLINE INDENT matchCase (NEWLINE* matchCase)* NEWLINE* DEDENT
     ;
 
 /**
@@ -646,7 +647,8 @@ matchStmt
  * 语法: When pattern, body.
  */
 matchCase
-    : WHEN pattern COMMA (returnStmt | block)
+    // 块体：`When pat,` 后换行再缩进（与 TS 一致，产出 Block 分支体）；词法器在行尾先发 NEWLINE 再发 INDENT
+    : WHEN pattern COMMA (returnStmt | NEWLINE block)
     ;
 
 /**
