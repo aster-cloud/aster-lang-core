@@ -217,7 +217,8 @@ capabilityAnnotation
  */
 dataDecl
     : DEFINE article? typeIdent (HAS | WITH) fieldList DOT (NEWLINE* DEDENT)?
-    | article? typeIdent (HAS | WITH) fieldList DOT (NEWLINE* DEDENT)?
+    // 省略 Define 的写法是 Java 独有（TS 报 P005），R53 不扩展到这里：仍只收 TYPE_IDENT
+    | article? TYPE_IDENT (HAS | WITH) fieldList DOT (NEWLINE* DEDENT)?
     ;
 
 /**

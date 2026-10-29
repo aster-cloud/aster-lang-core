@@ -93,9 +93,11 @@ class DevanagariTypeNameTest {
   }
 
   @Test
-  void dataDeclarationWithoutDefineKeyword() {
-    Module m = parseOk("Module p.\n\nराशि has x as Int.\n");
-    assertEquals("राशि", decl(m, 0, Decl.Data.class).name());
+  void dataDeclarationWithoutDefineKeywordRejectsDevanagari() {
+    // R53 只覆盖引用类型名的位置，不扩展到省略 Define 的 Java 独有写法（TS 对该写法一律报 P005）。
+    // 拉丁写法 `Acct has …` 仍被 Java 接受，是既有 parity 缺口，不在本次范围。
+    assertFalse(parse("Module p.\n\nराशि has x as Int.\n", "en-US").errors().isEmpty());
+    assertEquals("Acct", decl(parseOk("Module p.\n\nAcct has x as Int.\n"), 0, Decl.Data.class).name());
   }
 
   @Test

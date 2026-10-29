@@ -91,12 +91,12 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
         declContexts.forEach(declCtx -> {
             if (declCtx.dataDecl() != null) {
-                // 防御性 null-check：正常 dataDecl 一定有 typeIdent，但若文法
+                // 防御性 null-check：正常 dataDecl 一定有名字，但若文法
                 // 误路由（历史上 funcDecl 歧义导致过），这里宁可跳过也不 NPE。
-                AsterParser.TypeIdentContext typeName = declCtx.dataDecl().typeIdent();
+                String typeName = dataDeclName(declCtx.dataDecl());
                 if (typeName != null) {
-                    declaredTypeNames.add(typeName.getText());
-                    declaredRecordTypeNames.add(typeName.getText());  // 可构造
+                    declaredTypeNames.add(typeName);
+                    declaredRecordTypeNames.add(typeName);  // 可构造
                 }
             } else if (declCtx.enumDecl() != null) {
                 AsterParser.TypeIdentContext typeName = declCtx.enumDecl().typeIdent();
@@ -453,11 +453,17 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Decl.Data visitDataDecl(AsterParser.DataDeclContext ctx) {
-        String name = ctx.typeIdent().getText();
+        String name = dataDeclName(ctx);
         List<Decl.Field> fields = ctx.fieldList().field().stream()
             .map(this::visitField)
             .collect(Collectors.toList());
         return new Decl.Data(name, fields, spanFrom(ctx));
+    }
+
+    /** Define 形态的名字是 typeIdent（R53），省略 Define 的形态只收 TYPE_IDENT；缺失时返回 null。 */
+    private static String dataDeclName(AsterParser.DataDeclContext ctx) {
+        if (ctx.typeIdent() != null) return ctx.typeIdent().getText();
+        return ctx.TYPE_IDENT() != null ? ctx.TYPE_IDENT().getText() : null;
     }
 
     @Override
