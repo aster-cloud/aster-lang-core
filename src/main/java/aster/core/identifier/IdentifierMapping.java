@@ -82,15 +82,15 @@ public record IdentifierMapping(
     /**
      * 创建枚举值映射的便捷方法。
      */
-    public static IdentifierMapping enumValue(String canonical, String localized) {
-        return new IdentifierMapping(canonical, localized, IdentifierKind.ENUM_VALUE, null, null, null);
+    public static IdentifierMapping enumValue(String canonical, String localized, String parent) {
+        return new IdentifierMapping(canonical, localized, IdentifierKind.ENUM_VALUE, parent, null, null);
     }
 
     /**
      * 创建枚举值映射的便捷方法（带别名）。
      */
-    public static IdentifierMapping enumValue(String canonical, String localized, String... aliases) {
-        return new IdentifierMapping(canonical, localized, IdentifierKind.ENUM_VALUE, null, null, List.of(aliases));
+    public static IdentifierMapping enumValue(String canonical, String localized, String parent, String... aliases) {
+        return new IdentifierMapping(canonical, localized, IdentifierKind.ENUM_VALUE, parent, null, List.of(aliases));
     }
 
     /**

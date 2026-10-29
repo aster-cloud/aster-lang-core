@@ -128,6 +128,7 @@ public final class VocabularyRegistry {
      *
      * @param tenantId   租户标识符
      * @param vocabulary 领域词汇表
+     * @throws IllegalArgumentException 如果词汇表验证失败（含字段 / 枚举成员缺 parent、同角色同作用域写法冲突）
      */
     public void registerCustom(String tenantId, DomainVocabulary vocabulary) {
         DomainVocabulary.ValidationResult result = vocabulary.validate();
@@ -344,26 +345,13 @@ public final class VocabularyRegistry {
         VocabularyScopes scopes
     ) {
         /**
-         * 构建注册条目。按位置解析要求字段与枚举成员都有所属类型（ADR 0051 §7、§14.3），
-         * 没有 parent 的字段 / 枚举成员无法定位作用域，不进入 scopes（仍保留在 vocabulary 与 index 中）。
+         * 构建注册条目。注册前已经 {@link DomainVocabulary#validate()} 校验（字段与枚举成员都有所属类型，
+         * ADR 0051 §7、§14.3），故词汇整体进入按位置解析的作用域（与 TS makeEntry 一致）。
          *
          * @throws VocabularyScopeException 同折叠键的字面量宏内容冲突
          */
         static VocabularyEntry of(DomainVocabulary vocabulary) {
-            DomainVocabulary scoped = new DomainVocabulary(
-                vocabulary.id(), vocabulary.name(), vocabulary.locale(), vocabulary.version(),
-                vocabulary.structs(),
-                withParent(vocabulary.fields()),
-                vocabulary.functions(),
-                withParent(vocabulary.enumValues()),
-                vocabulary.literals(),
-                vocabulary.metadata()
-            );
-            return new VocabularyEntry(vocabulary, IdentifierIndex.build(vocabulary), VocabularyScopes.build(scoped));
-        }
-
-        private static List<IdentifierMapping> withParent(List<IdentifierMapping> mappings) {
-            return mappings.stream().filter(m -> m.parent() != null).toList();
+            return new VocabularyEntry(vocabulary, IdentifierIndex.build(vocabulary), VocabularyScopes.build(vocabulary));
         }
     }
 }

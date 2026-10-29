@@ -71,85 +71,119 @@ public record DomainVocabulary(
     }
 
     /**
-     * 验证词汇表。
+     * 验证词汇表（ADR 0051：名称按位置解析），规则与 TS {@code validateVocabulary} 逐条一致：
+     * <ul>
+     *   <li>规范名必须是 ASCII 标识符；字面量宏内容做注入防护。</li>
+     *   <li>字段与枚举成员必须有 parent（按父类型分作用域；不支持全局字段）。</li>
+     *   <li>冲突只在同一角色、同一作用域内判定：NFC 后写法（本地化名或同义词）完全相同却对应不同规范名 → error。
+     *       同规范名的多个写法（同义词）、仅大小写不同的写法、不同父类型下的同名字段都合法，使用点由解析器
+     *       按位置精确优先、折叠唯一再判定。</li>
+     *   <li>字面量宏触发词须全局唯一：canonicalize 在解析前做上下文无关替换，触发词若与任何其它映射同名，
+     *       一个词展开成字符串还是标识符就不可预测。</li>
+     * </ul>
      *
-     * @return 验证结果
+     * @return 验证结果（warnings 目前恒为空，保留字段以兼容调用方）
      */
     public ValidationResult validate() {
         List<String> errors = new ArrayList<>();
-        List<String> warnings = new ArrayList<>();
-        // 触发词（localized + aliases，小写）→ (是否字面量宏, 规范名)。
-        // 字面量宏触发词须全局唯一（Codex 复审 P0）；此外**非字面量**触发词若映射到
-        // 不同 canonical 需提示（issue #88）——ADR 0051 之前的解析前全局替换按触发词
-        // 无条件覆盖，胜者取决于 allMappings() 的迭代顺序；现由名称解析按位置判定。
-        record TriggerInfo(boolean isLiteral, String canonical) {}
-        java.util.Map<String, TriggerInfo> seenTrigger = new java.util.HashMap<>();
+        Validation v = new Validation(errors);
+        checkAll(v, "structs", structs);
+        checkAll(v, "fields", fields);
+        checkAll(v, "functions", functions);
+        checkAll(v, "enumValues", enumValues);
+        checkAll(v, "literals", literals);
+        return new ValidationResult(errors.isEmpty(), errors, List.of());
+    }
 
-        // 验证所有映射
-        for (IdentifierMapping mapping : allMappings()) {
-            if (mapping.kind() == IdentifierKind.LITERAL) {
-                // 字面量宏：canonical 是字符串内容（非 ASCII 标识符），校验防注入。
-                if (!mapping.isValidLiteralContent()) {
-                    errors.add("无效的字面量宏内容 '" + mapping.canonical() +
-                        "': 须为单行、无控制字符、无引号定界符或反斜杠（防编译期注入）");
-                }
-            } else {
-                if (!mapping.isValidCanonical()) {
-                    errors.add("无效的规范化名称 '" + mapping.canonical() +
-                        "': 必须是有效的 ASCII 标识符");
-                }
-            }
+    private static void checkAll(Validation v, String list, List<IdentifierMapping> mappings) {
+        for (int i = 0; i < mappings.size(); i++) v.check(mappings.get(i), list + "[" + i + "]");
+    }
 
-            // 字面量宏触发词隔离（Codex 复审 P0）：字面量宏展开成字符串、普通标识符展开成
-            // 标识符，语义天差地别。要求字面量宏触发词不得与任何其它映射触发词冲突；普通标识符
-            // 之间同名（不同 kind 靠上下文消歧）仍是既有 warning 行为，不在此报 error。
-            boolean isLit = mapping.kind() == IdentifierKind.LITERAL;
-            java.util.List<String> triggers = new ArrayList<>();
+    /** 一次校验的累积状态：作用域内写法与字面量宏触发词。 */
+    private static final class Validation {
+        private record Seen(String canonical, String context) {}
+
+        private final List<String> errors;
+        /** 作用域 + NFC 写法 → 首个映射的规范名与位置，用于判定同写法不同规范名。 */
+        private final java.util.Map<String, Seen> seenWritten = new java.util.HashMap<>();
+        /** 触发词（小写）→ 是否字面量宏；一旦记为字面量宏不回退，保证后续普通标识符同名也报错。 */
+        private final java.util.Map<String, Boolean> seenTrigger = new java.util.HashMap<>();
+
+        Validation(List<String> errors) {
+            this.errors = errors;
+        }
+
+        void check(IdentifierMapping mapping, String context) {
+            checkCanonical(mapping, context);
+            String missingParent = missingParentMessage(mapping, context);
+            if (missingParent != null) errors.add(missingParent);
+            List<String> triggers = new ArrayList<>();
             triggers.add(mapping.localized());
             if (mapping.aliases() != null) triggers.addAll(mapping.aliases());
-            for (String t : triggers) {
-                String key = t.toLowerCase(java.util.Locale.ROOT);
-                TriggerInfo prev = seenTrigger.get(key);
-                if (prev != null && (prev.isLiteral() || isLit)) {
-                    errors.add("触发词 '" + t + "' 与另一条映射冲突（字面量宏触发词须全局唯一，防\"字符串 vs 标识符\"替换歧义）");
-                } else if (prev != null && !prev.canonical().equals(mapping.canonical())) {
-                    // 同一触发词映射到不同 canonical：同角色同作用域时由名称解析报歧义（ADR 0051），
-                    // 此处只提示（issue #88）。
-                    //
-                    // ★定为 warning 而非 error：现网词汇表（含内置 SPI 插件）里已存在
-                    // 这类重叠声明，直接报 error 会让 VocabularyRegistry.register 抛异常、
-                    // 整个词汇体系无法注册（实测 29 个测试挂、注册数归零）。既有数据的
-                    // 合法性不该由一次缺陷修复单方面推翻，故先让歧义**可见**：
-                    // 调用方能从 warnings 里看到并逐个消解，待现网清理干净后再升级为 error。
-                    warnings.add("触发词 '" + t + "' 被映射到两个不同的规范名（'"
-                        + prev.canonical() + "' 与 '" + mapping.canonical()
-                        + "'）；实际生效者取决于合并顺序，建议消除歧义");
-                }
-                seenTrigger.put(key, new TriggerInfo(
-                    (prev != null && prev.isLiteral()) || isLit,
-                    prev != null && prev.isLiteral() ? prev.canonical() : mapping.canonical()));
-            }
-
-            // 检查字段是否有父结构体
-            if (mapping.kind() == IdentifierKind.FIELD && mapping.parent() == null) {
-                warnings.add("字段 '" + mapping.canonical() +
-                    "' 没有指定父结构体");
+            for (String trigger : triggers) {
+                checkScopeConflict(mapping, context, CaseFold.nfc(trigger));
+                checkTrigger(mapping, context, trigger);
             }
         }
 
-        // 检查结构体名称是否唯一
-        List<String> structNames = structs.stream()
-            .map(IdentifierMapping::canonical)
-            .toList();
-        for (int i = 0; i < structNames.size(); i++) {
-            for (int j = i + 1; j < structNames.size(); j++) {
-                if (structNames.get(i).equalsIgnoreCase(structNames.get(j))) {
-                    errors.add("重复的结构体名称: " + structNames.get(i));
+        /** 字面量宏内容的注入防护校验；普通标识符校验规范名是 ASCII 标识符。 */
+        private void checkCanonical(IdentifierMapping mapping, String context) {
+            if (mapping.kind() != IdentifierKind.LITERAL) {
+                if (!mapping.isValidCanonical()) {
+                    errors.add(context + ": 规范化名称 \"" + mapping.canonical() + "\" 必须是有效的 ASCII 标识符");
                 }
+                return;
+            }
+            if (!mapping.isValidLiteralContent()) {
+                errors.add(context + ": 字面量宏内容 \"" + mapping.canonical()
+                    + "\" 须为单行、非空、无控制字符、无引号定界符或反斜杠（防编译期注入）");
             }
         }
 
-        return new ValidationResult(errors.isEmpty(), errors, warnings);
+        private void checkScopeConflict(IdentifierMapping mapping, String context, String written) {
+            String scope = scopeOf(mapping);
+            if (scope == null) return;
+            String key = scope + '\u0000' + written;
+            Seen prev = seenWritten.get(key);
+            if (prev == null) {
+                seenWritten.put(key, new Seen(mapping.canonical(), context));
+            } else if (!prev.canonical().equals(mapping.canonical())) {
+                errors.add(context + ": 写法 \"" + written + "\" 在 " + scope + " 中对应多个规范名（"
+                    + prev.canonical() + "、" + mapping.canonical() + "，另见 " + prev.context() + "）");
+            }
+        }
+
+        private void checkTrigger(IdentifierMapping mapping, String context, String trigger) {
+            boolean isLit = mapping.kind() == IdentifierKind.LITERAL;
+            String key = trigger.toLowerCase(java.util.Locale.ROOT);
+            Boolean prev = seenTrigger.get(key);
+            if (prev != null && (prev || isLit)) {
+                errors.add(context + ": 触发词 \"" + trigger
+                    + "\" 与另一条映射冲突（字面量宏触发词须全局唯一，防\"字符串 vs 标识符\"替换歧义）");
+            }
+            seenTrigger.put(key, (prev != null && prev) || isLit);
+        }
+    }
+
+    /** 映射所属的解析作用域（ADR 0051 §7）：字段 / 枚举成员按规范父名分作用域；字面量宏不在其中。 */
+    private static String scopeOf(IdentifierMapping mapping) {
+        return switch (mapping.kind()) {
+            case STRUCT -> "types";
+            case FUNCTION -> "functions";
+            case FIELD -> mapping.parent() == null ? null : "fields[" + mapping.parent() + "]";
+            case ENUM_VALUE -> mapping.parent() == null ? null : "enumMembers[" + mapping.parent() + "]";
+            default -> null;
+        };
+    }
+
+    /** 缺 parent 时的诊断（字段与枚举成员措辞不同，下游按文案识别原因）。 */
+    private static String missingParentMessage(IdentifierMapping mapping, String context) {
+        if (mapping.parent() != null && !mapping.parent().isEmpty()) return null;
+        return switch (mapping.kind()) {
+            case FIELD -> context + ": 字段 \"" + mapping.localized() + "\" 没有指定父结构体";
+            case ENUM_VALUE -> context + ": 枚举成员 \"" + mapping.localized() + "\" 没有指定父枚举";
+            default -> null;
+        };
     }
 
     /**
@@ -214,8 +248,8 @@ public record DomainVocabulary(
             return this;
         }
 
-        public Builder addEnumValue(String canonical, String localized, String... aliases) {
-            enumValues.add(IdentifierMapping.enumValue(canonical, localized, aliases));
+        public Builder addEnumValue(String canonical, String localized, String parent, String... aliases) {
+            enumValues.add(IdentifierMapping.enumValue(canonical, localized, parent, aliases));
             return this;
         }
 

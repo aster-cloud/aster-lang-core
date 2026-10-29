@@ -127,7 +127,7 @@ class VocabularyScopesTest {
 
         @Test
         void enumMemberWithoutParentRejected() {
-            DomainVocabulary v = base(List.of(), List.of(), List.of(IdentifierMapping.enumValue("X", "X")), List.of());
+            DomainVocabulary v = base(List.of(), List.of(), List.of(new IdentifierMapping("X", "X", IdentifierKind.ENUM_VALUE, null, null, null)), List.of());
             var e = assertThrows(VocabularyScopeException.class, () -> VocabularyScopes.build(v));
             assertEquals(VocabularyScopeException.Code.MEMBER_PARENT_REQUIRED, e.code());
         }
@@ -241,23 +241,37 @@ class VocabularyScopesTest {
     class Registry {
 
         @Test
-        void entriesCarryScopesAndSkipParentlessFieldsAndMembers() {
+        void entriesCarryScopes() {
             VocabularyRegistry reg = VocabularyRegistry.getInstance();
             DomainVocabulary v = DomainVocabulary.builder("scope.test", "作用域", "zh-CN")
                 .addStruct("Level", "等级")
                 .addField("rank", "级别", "Level")
-                .addField("orphan", "孤立", null)
-                .addEnumValue("High", "高")
+                .addEnumValue("High", "高", "Tier")
                 .build();
             try {
                 reg.registerCustom("tenant-scope", v);
                 VocabularyScopes s = reg.getWithCustom("tenant-scope", "scope.test", "zh-CN").orElseThrow().scopes();
                 assertEquals(List.of("Level"), List.copyOf(s.fields().keySet()));
-                assertTrue(s.enumMembers().isEmpty());
+                assertEquals(List.of("Tier"), List.copyOf(s.enumMembers().keySet()));
                 assertEquals(List.of("Level"), canonicals(VocabularyScopes.lookup(s.types(), "等级").exact()));
             } finally {
                 reg.unregisterCustom("tenant-scope", "scope.test", "zh-CN");
             }
+        }
+
+        @Test
+        void parentlessFieldsAndMembersRejectedByRegisterCustom() {
+            VocabularyRegistry reg = VocabularyRegistry.getInstance();
+            DomainVocabulary v = DomainVocabulary.builder("scope.test", "作用域", "zh-CN")
+                .addStruct("Level", "等级")
+                .addField("rank", "级别", "Level")
+                .addField("orphan", "孤立", null)
+                .addEnumValue("Low", "低", null)
+                .build();
+            var e = assertThrows(IllegalArgumentException.class, () -> reg.registerCustom("tenant-scope", v));
+            assertTrue(e.getMessage().contains("字段 \"孤立\" 没有指定父结构体"), e.getMessage());
+            assertTrue(e.getMessage().contains("枚举成员 \"低\" 没有指定父枚举"), e.getMessage());
+            assertTrue(reg.getWithCustom("tenant-scope", "scope.test", "zh-CN").isEmpty());
         }
 
         @Test
