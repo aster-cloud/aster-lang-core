@@ -1,5 +1,6 @@
 package aster.core.ast;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -30,16 +31,23 @@ public sealed interface Stmt extends AstNode
     /**
      * Let 绑定语句（不可变变量声明）
      *
-     * @param name 变量名称
-     * @param expr 初始化表达式
-     * @param span 源码位置信息
+     * @param name     变量名称
+     * @param expr     初始化表达式
+     * @param span     源码位置信息
+     * @param resolved 绑定名的解析结果（ADR 0051，LOCAL；解析前为 null）
      */
     @JsonTypeName("Let")
     record Let(
         @JsonProperty("name") String name,
         @JsonProperty("expr") Expr expr,
-        @JsonProperty("span") Span span
+        @JsonProperty("span") Span span,
+        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved
     ) implements Stmt {
+        /** 未解析的绑定语句。 */
+        public Let(String name, Expr expr, Span span) {
+            this(name, expr, span, null);
+        }
+
         @Override
         public String kind() {
             return "Let";

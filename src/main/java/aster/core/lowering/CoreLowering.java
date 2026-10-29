@@ -4,6 +4,7 @@ import aster.core.ast.*;
 import aster.core.capability.CapabilityInference;
 import aster.core.capability.CapabilityKind;
 import aster.core.ir.CoreModel;
+import aster.core.resolve.ResolutionChoice;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,6 +26,9 @@ public final class CoreLowering {
   /**
    * 将 AST 模块降级为 Core IR 模块。
    *
+   * @apiNote 内部 API（ADR 0051 裁决 R49）：未经名称解析 R1/R2 的 AST 降级后名字保持原写法（可能是本地化名），
+   *     产物不得作为对外 IR。仅供 {@link aster.core.resolve.NameResolution} 与测试使用；保持 public 只因跨包调用方
+   *     （resolve 包、下游测试）。编译入口请使用 {@link aster.core.resolve.NameResolution#resolveAndLowerChecked}。
    * @param ast 模块 AST 节点
    * @return Core IR 模块节点
    */
@@ -76,20 +80,20 @@ public final class CoreLowering {
 
   private CoreModel.Data lowerData(Decl.Data data) {
     CoreModel.Data out = new CoreModel.Data();
-    out.name = data.name();
+    out.name = canonicalOf(data.name(), data.resolved());
     out.fields = new ArrayList<>();
     if (data.fields() != null) {
       for (Decl.Field field : data.fields()) {
         out.fields.add(lowerField(field));
       }
     }
-    out.origin = spanToOrigin(data.span());
+    out.origin = withResolution(spanToOrigin(data.span()), data.resolved());
     return out;
   }
 
   private CoreModel.Field lowerField(Decl.Field field) {
     CoreModel.Field out = new CoreModel.Field();
-    out.name = field.name();
+    out.name = canonicalOf(field.name(), field.resolved());
     out.type = lowerType(field.type());
     out.annotations = lowerAnnotations(field.annotations());
     out.typeInferred = field.typeInferred();
@@ -98,15 +102,20 @@ public final class CoreLowering {
 
   private CoreModel.Enum lowerEnum(Decl.Enum en) {
     CoreModel.Enum out = new CoreModel.Enum();
-    out.name = en.name();
-    out.variants = en.variants() == null ? new ArrayList<>() : new ArrayList<>(en.variants());
-    out.origin = spanToOrigin(en.span());
+    out.name = canonicalOf(en.name(), en.resolved());
+    out.variants = new ArrayList<>();
+    List<String> variants = en.variants() == null ? List.of() : en.variants();
+    for (int i = 0; i < variants.size(); i++) {
+      Resolved r = en.resolvedVariants() == null ? null : en.resolvedVariants().get(i);
+      out.variants.add(canonicalOf(variants.get(i), r));
+    }
+    out.origin = withResolution(spanToOrigin(en.span()), en.resolved());
     return out;
   }
 
   private CoreModel.Func lowerFunc(Decl.Func func) {
     CoreModel.Func out = new CoreModel.Func();
-    out.name = func.name();
+    out.name = canonicalOf(func.name(), func.resolved());
     out.typeParams = func.typeParams() == null ? new ArrayList<>() : new ArrayList<>(func.typeParams());
     out.params = new ArrayList<>();
     if (func.params() != null) {
@@ -125,7 +134,7 @@ public final class CoreLowering {
     out.effectCaps = func.effectCaps() == null ? new ArrayList<>() : new ArrayList<>(func.effectCaps());
     out.effectCapsExplicit = func.effectCapsExplicit();
     out.body = func.body() == null ? emptyBlock(func.span()) : lowerBlock(func.body());
-    out.origin = spanToOrigin(func.span());
+    out.origin = withResolution(spanToOrigin(func.span()), func.resolved());
     annotateFuncPii(out);
     return out;
   }
@@ -135,6 +144,7 @@ public final class CoreLowering {
     out.name = param.name();
     out.type = param.type() == null ? null : lowerType(param.type());
     out.annotations = lowerAnnotations(param.annotations());
+    out.typeInferred = param.typeInferred();
     return out;
   }
 
@@ -161,10 +171,12 @@ public final class CoreLowering {
         yield out;
       }
       case Stmt.Set set -> {
+        // Set 目标属于 FIELD_REF，R1 不解析：保留原写法交给 R2
         CoreModel.Set out = new CoreModel.Set();
         out.name = set.name();
         out.expr = lowerExpr(set.expr());
         out.origin = spanToOrigin(set.span());
+        out.mark = new CoreModel.ResolutionMark(set.name(), null, false);
         yield out;
       }
       case Stmt.Return ret -> {
@@ -331,12 +343,7 @@ public final class CoreLowering {
   private CoreModel.Expr lowerExpr(Expr expr) {
     Objects.requireNonNull(expr, "expr");
     return switch (expr) {
-      case Expr.Name name -> {
-        CoreModel.Name out = new CoreModel.Name();
-        out.name = name.name();
-        out.origin = spanToOrigin(name.span());
-        yield out;
-      }
+      case Expr.Name name -> lowerName(name, false);
       case Expr.Bool bool -> {
         CoreModel.Bool out = new CoreModel.Bool();
         out.value = bool.value();
@@ -378,31 +385,20 @@ public final class CoreLowering {
         out.origin = spanToOrigin(nul.span());
         yield out;
       }
-      case Expr.Call call -> {
-        CoreModel.Call out = new CoreModel.Call();
-        out.target = lowerExpr(call.target());
-        out.args = new ArrayList<>();
-        if (call.args() != null) {
-          for (Expr arg : call.args()) {
-            out.args.add(lowerExpr(arg));
-          }
-        }
-        out.origin = spanToOrigin(call.span());
-        yield out;
-      }
+      case Expr.Call call -> lowerCall(call);
       case Expr.Construct construct -> {
         CoreModel.Construct out = new CoreModel.Construct();
-        out.typeName = construct.typeName();
+        out.typeName = canonicalOf(construct.typeName(), construct.resolved());
         out.fields = new ArrayList<>();
         if (construct.fields() != null) {
           for (Expr.Construct.ConstructField field : construct.fields()) {
             CoreModel.FieldInit init = new CoreModel.FieldInit();
-            init.name = field.name();
+            init.name = canonicalOf(field.name(), field.resolved());
             init.expr = lowerExpr(field.expr());
             out.fields.add(init);
           }
         }
-        out.origin = spanToOrigin(construct.span());
+        out.origin = withResolution(spanToOrigin(construct.span()), construct.resolved());
         yield out;
       }
       case Expr.Ok ok -> {
@@ -486,7 +482,7 @@ public final class CoreLowering {
       }
       case Pattern.PatternCtor ctor -> {
         CoreModel.PatCtor out = new CoreModel.PatCtor();
-        out.typeName = ctor.typeName();
+        out.typeName = canonicalOf(ctor.typeName(), ctor.resolved());
         out.names = ctor.names() == null ? new ArrayList<>() : new ArrayList<>(ctor.names());
         if (ctor.args() != null) {
           out.args = new ArrayList<>();
@@ -496,13 +492,19 @@ public final class CoreLowering {
         } else {
           out.args = null;
         }
-        out.origin = spanToOrigin(ctor.span());
+        out.origin = withResolution(spanToOrigin(ctor.span()), ctor.resolved());
+        // 主语类型在 R1 未知的用户构造器（含 Java 的裸名构造器 `When Hoch,`）留给 R2；关键词构造器不查词汇
+        if (ctor.resolved() == null && !ResolutionChoice.KEYWORD_CTORS.contains(ctor.typeName())) {
+          out.mark = new CoreModel.ResolutionMark(ctor.typeName(), null, false);
+        }
         yield out;
       }
       case Pattern.PatternName name -> {
+        // 模式名可能是期望枚举下的成员（ADR 0051 裁决 R12），由 R2 判定
         CoreModel.PatName out = new CoreModel.PatName();
         out.name = name.name();
         out.origin = spanToOrigin(name.span());
+        out.mark = new CoreModel.ResolutionMark(name.name(), null, false);
         yield out;
       }
       case Pattern.PatternInt in -> {
@@ -521,8 +523,8 @@ public final class CoreLowering {
     CoreModel.Type lowered = switch (type) {
       case Type.TypeName name -> {
         CoreModel.TypeName out = new CoreModel.TypeName();
-        out.name = name.name();
-        out.origin = spanToOrigin(name.span());
+        out.name = canonicalOf(name.name(), name.resolved());
+        out.origin = withResolution(spanToOrigin(name.span()), name.resolved());
         yield out;
       }
       case Type.TypeVar var -> {
@@ -533,14 +535,14 @@ public final class CoreLowering {
       }
       case Type.TypeApp app -> {
         CoreModel.TypeApp out = new CoreModel.TypeApp();
-        out.base = app.base();
+        out.base = canonicalOf(app.base(), app.resolved());
         out.args = new ArrayList<>();
         if (app.args() != null) {
           for (Type arg : app.args()) {
             out.args.add(lowerType(arg));
           }
         }
-        out.origin = spanToOrigin(app.span());
+        out.origin = withResolution(spanToOrigin(app.span()), app.resolved());
         yield out;
       }
       case Type.Result result -> {
@@ -747,6 +749,55 @@ public final class CoreLowering {
     return out;
   }
 
+  /** 名称解析（ADR 0051）：有 R1 结果时取规范名，否则保留原写法。 */
+  private static String canonicalOf(String name, Resolved resolved) {
+    return resolved == null ? name : resolved.canonical();
+  }
+
+  /**
+   * 在 origin 上记录 R1 的原写法与角色（仅 written 与规范名不同且有 origin 时）；
+   * 无 R1 结果时原样返回，保证未解析 AST 的降级结果不变。
+   */
+  private static CoreModel.Origin withResolution(CoreModel.Origin origin, Resolved resolved) {
+    if (resolved == null) {
+      return origin;
+    }
+    return CoreModel.Origin.withResolution(origin, resolved.written(), resolved.canonical(), resolved.role());
+  }
+
+  /**
+   * 值位置名字：R1 已解析的取规范名。裸单段名一律交给 R2（期望类型为枚举时结果可能改变），并记下
+   * R1 的角色；R1 未决定的点分名（字段路径、限定调用）同样交给 R2。ufcs 表示由方法调用改写而来。
+   */
+  private CoreModel.Name lowerName(Expr.Name name, boolean ufcs) {
+    CoreModel.Name out = new CoreModel.Name();
+    out.name = canonicalOf(name.name(), name.resolved());
+    out.origin = withResolution(spanToOrigin(name.span()), name.resolved());
+    boolean bare = !name.name().contains(".");
+    if (bare || name.resolved() == null) {
+      ResolvedRole r1Role = bare && name.resolved() != null ? name.resolved().role() : null;
+      out.mark = new CoreModel.ResolutionMark(name.name(), r1Role, ufcs);
+    }
+    return out;
+  }
+
+  /** 调用：UFCS 改写得到的方法名与接收者（裸名）标记为 ufcs，交给 R2 时首段可能是命名空间。 */
+  private CoreModel.Call lowerCall(Expr.Call call) {
+    CoreModel.Call out = new CoreModel.Call();
+    out.target = lowerCallPart(call.target(), call.ufcs());
+    out.args = new ArrayList<>();
+    List<Expr> args = call.args() == null ? List.of() : call.args();
+    for (int i = 0; i < args.size(); i++) {
+      out.args.add(lowerCallPart(args.get(i), call.ufcs() && i == 0));
+    }
+    out.origin = spanToOrigin(call.span());
+    return out;
+  }
+
+  private CoreModel.Expr lowerCallPart(Expr e, boolean ufcs) {
+    return ufcs && e instanceof Expr.Name name ? lowerName(name, true) : lowerExpr(e);
+  }
+
   private CoreModel.Origin spanToOrigin(Span span) {
     if (span == null) {
       return null;
@@ -857,8 +908,10 @@ public final class CoreLowering {
       return;
     }
     if (expr instanceof Expr.Name name) {
-      if (name.name() != null && !name.name().contains(".") && !isBound(name.name(), scopes)) {
-        captures.add(name.name());
+      // 以 R1 规范名记录捕获（未解析时即原写法；R2 再按其解析结果改写）
+      String captured = name.name() == null ? null : canonicalOf(name.name(), name.resolved());
+      if (captured != null && !captured.contains(".") && !isBound(captured, scopes)) {
+        captures.add(captured);
       }
       return;
     }

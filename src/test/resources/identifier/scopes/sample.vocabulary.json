@@ -1,0 +1,31 @@
+{
+  "id": "sample.scopes",
+  "name": "作用域样例",
+  "locale": "de-DE",
+  "version": "1.0.0",
+  "structs": [
+    { "canonical": "Level", "localized": "Stufe", "kind": "struct", "aliases": ["Niveau"] },
+    { "canonical": "Person", "localized": "Person", "kind": "struct" },
+    { "canonical": "Cafe", "localized": "Cafe\u0301", "kind": "struct" },
+    { "canonical": "Order", "localized": "订单", "kind": "struct" }
+  ],
+  "fields": [
+    { "canonical": "level", "localized": "stufe", "kind": "field", "parent": "Level" },
+    { "canonical": "Alter", "localized": "Alter", "kind": "field", "parent": "Person" },
+    { "canonical": "alter", "localized": "alter", "kind": "field", "parent": "Person" },
+    { "canonical": "name", "localized": "Name", "kind": "field", "parent": "Person", "aliases": ["Bezeichnung"] },
+    { "canonical": "amount", "localized": "金额", "kind": "field", "parent": "Order" }
+  ],
+  "functions": [
+    { "canonical": "total", "localized": "Gesamt", "kind": "function" },
+    { "canonical": "emoji", "localized": "𝒜bc", "kind": "function" },
+    { "canonical": "ctrl", "localized": "Tab\tX\u2028Y", "kind": "function" }
+  ],
+  "enumValues": [
+    { "canonical": "High", "localized": "Hoch", "kind": "enum_value", "parent": "Level" },
+    { "canonical": "Low", "localized": "Niedrig", "kind": "enum_value", "parent": "Level" }
+  ],
+  "literals": [
+    { "canonical": "Gute Nacht", "localized": "Nacht", "kind": "literal" }
+  ]
+}

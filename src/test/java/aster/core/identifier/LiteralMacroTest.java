@@ -16,7 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 字面量宏（IdentifierKind.LITERAL）—— Java 引擎。canonicalize 时把 localized token
  * 展开成字符串字面量（用当前 lexicon 的 stringQuotes 包裹），内容受严格校验防注入。
- * 与 aster-lang-ts 的 validateVocabulary/translateIdentifiersInSegment 逐条对齐（双引擎 parity）。
+ * 与 aster-lang-ts 的 validateVocabulary/expandLiteralMacros 逐条对齐（双引擎 parity）。字面量宏按
+ * {@link VocabularyScopes#literals()}（折叠键）匹配，是词汇中唯一在解析前处理的部分（ADR 0051）。
  *
  * <p>动机：《静夜思》demo 里 `思故乡 → "静夜思"`——把领域术语固定展开成标准文案。
  */
@@ -40,14 +41,13 @@ class LiteralMacroTest {
         // 校验通过（字面量内容合法）
         assertTrue(vocab.validate().valid(), "合法字面量宏应通过校验: " + vocab.validate().errors());
 
-        IdentifierIndex index = IdentifierIndex.build(vocab);
-        assertTrue(index.isLiteral("思故乡"), "思故乡 应被标记为字面量宏");
-        assertEquals("静夜思", index.canonicalize("思故乡"), "canonicalize 返回内容（不含引号）");
+        VocabularyScopes scopes = VocabularyScopes.build(vocab);
+        assertEquals("静夜思", scopes.literals().get(CaseFold.foldKey("思故乡")), "作用域记录字面量内容（不含引号）");
 
         // canonicalize 把 思故乡 展开成 lexicon 引号「静夜思」，随后（ANTLR 兼容步）「」→ ASCII "，
         // 最终得 ASCII 字符串字面量 "静夜思"（ANTLR 词法器认的形态）。
         Canonicalizer canon = new Canonicalizer(
-            LexiconRegistry.getInstance().getOrThrow("zh-CN"), index);
+            LexiconRegistry.getInstance().getOrThrow("zh-CN"), scopes);
         String out = canon.canonicalize("低头 思故乡。");
         assertTrue(out.contains("\"静夜思\""),
             "字面量宏应展开成字符串字面量 \"静夜思\"（「」经 ANTLR 兼容步转 ASCII \"），实际: " + out);
@@ -184,7 +184,7 @@ class LiteralMacroTest {
      * false，把 जागे 切成 ज+ग 丢失元音 → 天城文字面量宏触发词永不匹配。修为纳入 Mark 后
      * जागे 作为整词匹配并展开。与 TS 的 {@code [\p{L}_][\p{L}\p{M}\p{Nd}_]*} 对齐。
      * 动机：Gitanjali #35 印地语 demo。注意 lexer 早已修（见 DevanagariLexerTest），
-     * canonicalizer 的 translateIdentifiers 是独立路径，本次才补齐。
+     * canonicalizer 的字面量宏展开是独立路径，本次才补齐。
      */
     @Test
     void hindiLiteralMacroWithMatraExpands() {
@@ -193,13 +193,12 @@ class LiteralMacroTest {
             .build();
         assertTrue(vocab.validate().valid(), "合法字面量宏应通过校验: " + vocab.validate().errors());
 
-        IdentifierIndex index = IdentifierIndex.build(vocab);
-        assertTrue(index.isLiteral("जागे"), "जागे（含元音符号 matra）应作为整词标记为字面量宏");
+        VocabularyScopes scopes = VocabularyScopes.build(vocab);
         assertEquals("Into that heaven of freedom, let my country awake",
-            index.canonicalize("जागे"), "canonicalize 返回内容");
+            scopes.literals().get(CaseFold.foldKey("जागे")), "जागे（含元音符号 matra）应作为整词登记为字面量宏");
 
         // Hindi stringQuotes 是 ASCII "，无「」→" 转换。जागे 应整词展开成 ASCII 字符串字面量。
-        Canonicalizer canon = new Canonicalizer(hindiLexicon(), index);
+        Canonicalizer canon = new Canonicalizer(hindiLexicon(), scopes);
         String out = canon.canonicalize("लौटाएं जागे।");
         assertTrue(out.contains("\"Into that heaven of freedom, let my country awake\""),
             "天城文触发词应展开成 ASCII 字符串字面量，实际: " + out);

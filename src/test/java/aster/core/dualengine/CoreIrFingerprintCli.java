@@ -1,17 +1,26 @@
 package aster.core.dualengine;
 
 import aster.core.canonicalizer.Canonicalizer;
+import aster.core.identifier.VocabularyLoader;
+import aster.core.identifier.VocabularyScopes;
 import aster.core.ir.CoreModel;
-import aster.core.lowering.CoreLowering;
+import aster.core.lexicon.LexiconRegistry;
 import aster.core.parser.AstBuilder;
 import aster.core.parser.AsterCustomLexer;
 import aster.core.parser.AsterParser;
+import aster.core.resolve.NameResolution;
+import aster.core.resolve.NameResolutionException;
+import aster.core.resolve.ResolutionContext;
+import aster.core.typecheck.model.Diagnostic;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.RecognitionException;
+import org.antlr.v4.runtime.Recognizer;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -33,7 +42,7 @@ import java.util.TreeMap;
  * affected. When present, the system property points at a stdin-like input
  * file whose lines are absolute paths to {@code .aster} samples; the runner
  * loads each one through the full Java pipeline
- * (Canonicalize → ANTLR Parse → AstBuilder → CoreLowering), then emits a
+ * (Canonicalize → ANTLR Parse → AstBuilder → R1 → CoreLowering → R2), then emits a
  * compact "fingerprint" JSON object per sample to {@code parity.ir.output}.
  *
  * <p>The fingerprint is intentionally structural, not field-by-field:
@@ -61,6 +70,15 @@ import java.util.TreeMap;
  *
  * <p>The output is JSONL (one fingerprint per line) — easier to stream and
  * parse than a single huge JSON array.
+ *
+ * <p>输入行的两种形式（ADR 0051 语料自带词汇）：
+ * <ul>
+ *   <li>纯路径：按 en-US 默认词法、无词汇处理（既有语料）；</li>
+ *   <li>JSON 对象 {@code {"path":…,"lexicon":"de-DE","vocabulary":"/abs/x.vocab.json"}}：
+ *       按声明的词法表规范化关键词，并以该词汇（DomainVocabulary JSON）做名称解析。</li>
+ * </ul>
+ * 输出记录另带 {@code diagnostics}（成功时的警告码，如 W800）或 {@code codes}（名称解析失败时的错误码），
+ * 供 parity 门比较两引擎的诊断码；语法错误记为 {@code stage: "syntax"} 失败，不再静默按 ANTLR 恢复结果继续。
  */
 @Tag("parity-ir")
 class CoreIrFingerprintCli {
@@ -83,55 +101,107 @@ class CoreIrFingerprintCli {
             throw new IllegalStateException("parity.ir.input not found: " + inputPath);
         }
 
-        Canonicalizer canonicalizer = new Canonicalizer();
-        CoreLowering lowering = new CoreLowering();
-
         try (BufferedReader reader = Files.newBufferedReader(inputPath, StandardCharsets.UTF_8);
              var writer = Files.newBufferedWriter(outputPath, StandardCharsets.UTF_8)) {
             String line;
             while ((line = reader.readLine()) != null) {
-                String samplePath = line.trim();
-                if (samplePath.isEmpty()) continue;
-
-                ObjectNode record = MAPPER.createObjectNode();
-                record.put("path", samplePath);
-                try {
-                    String source = Files.readString(Paths.get(samplePath), StandardCharsets.UTF_8);
-                    String canonical = canonicalizer.canonicalize(source);
-
-                    AsterCustomLexer lexer = new AsterCustomLexer(CharStreams.fromString(canonical));
-                    CommonTokenStream tokens = new CommonTokenStream(lexer);
-                    tokens.fill();
-                    tokens.seek(0);
-
-                    AsterParser parser = new AsterParser(tokens);
-                    AsterParser.ModuleContext moduleCtx = parser.module();
-
-                    AstBuilder builder = new AstBuilder();
-                    aster.core.ast.Module ast = builder.visitModule(moduleCtx);
-
-                    CoreModel.Module coreModule = lowering.lowerModule(ast);
-                    JsonNode coreJson = MAPPER.valueToTree(coreModule);
-                    record.put("ok", true);
-                    record.set("fingerprint", fingerprint(coreJson));
-                    // ADR 0016 阶段1：-Dparity.ir.full=true 时附带完整 Core IR JSON，
-                    // 供 parity-tier1.mjs 的归一化字段级比较器消费（默认仍只发指纹，
-                    // 保持现有 IR-mode 行为不变）。
-                    if (Boolean.getBoolean("parity.ir.full")) {
-                        record.set("ir", coreJson);
-                    }
-                } catch (Throwable t) {
-                    // A failure on one sample shouldn't abort the whole batch.
-                    // The parity runner needs every sample's verdict so it can
-                    // report which one regressed.
-                    record.put("ok", false);
-                    String msg = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
-                    record.put("error", msg.length() > 240 ? msg.substring(0, 240) : msg);
-                }
-                writer.write(MAPPER.writeValueAsString(record));
+                String trimmed = line.trim();
+                if (trimmed.isEmpty()) continue;
+                writer.write(MAPPER.writeValueAsString(emitOne(Request.parse(trimmed))));
                 writer.newLine();
             }
         }
+    }
+
+    /** 单个样本的输入：路径、可选词法表 id、可选词汇文件。 */
+    private record Request(String path, String lexicon, String vocabulary) {
+        static Request parse(String line) throws Exception {
+            if (!line.startsWith("{")) return new Request(line, null, null);
+            JsonNode n = MAPPER.readTree(line);
+            return new Request(n.path("path").asText(""), textOrNull(n.path("lexicon")), textOrNull(n.path("vocabulary")));
+        }
+
+        private static String textOrNull(JsonNode n) {
+            return n.isTextual() && !n.asText().isEmpty() ? n.asText() : null;
+        }
+    }
+
+    private static ObjectNode emitOne(Request req) {
+        ObjectNode record = MAPPER.createObjectNode();
+        record.put("path", req.path());
+        try {
+            String source = Files.readString(Paths.get(req.path()), StandardCharsets.UTF_8);
+            VocabularyScopes scopes = req.vocabulary() == null ? null
+                : VocabularyScopes.build(VocabularyLoader.loadFromFile(Paths.get(req.vocabulary())));
+            // 未声明词法表时保持既有行为（默认构造 = en-US、无词汇）
+            Canonicalizer canonicalizer = req.lexicon() == null && scopes == null
+                ? new Canonicalizer()
+                : new Canonicalizer(LexiconRegistry.getInstance().getOrThrow(req.lexicon() == null ? "en-US" : req.lexicon()), scopes);
+            String canonical = canonicalizer.canonicalize(source);
+
+            List<String> syntaxErrors = new ArrayList<>();
+            BaseErrorListener collect = new BaseErrorListener() {
+                @Override
+                public void syntaxError(Recognizer<?, ?> r, Object sym, int line, int col, String msg, RecognitionException e) {
+                    syntaxErrors.add("L" + line + ":" + col + " " + msg);
+                }
+            };
+            AsterCustomLexer lexer = new AsterCustomLexer(CharStreams.fromString(canonical));
+            lexer.removeErrorListeners();
+            lexer.addErrorListener(collect);
+            CommonTokenStream tokens = new CommonTokenStream(lexer);
+            tokens.fill();
+            tokens.seek(0);
+
+            AsterParser parser = new AsterParser(tokens);
+            parser.removeErrorListeners();
+            parser.addErrorListener(collect);
+            AsterParser.ModuleContext moduleCtx = parser.module();
+            if (!syntaxErrors.isEmpty()) {
+                record.put("ok", false);
+                record.put("stage", "syntax");
+                record.put("error", truncate(syntaxErrors.get(0)));
+                return record;
+            }
+
+            aster.core.ast.Module ast = new AstBuilder().visitModule(moduleCtx);
+
+            // 名称解析 R1 → lower → R2（ADR 0051）；E8xx 时该样本记为失败、不产出 IR
+            NameResolution.ResolvedCore resolved =
+                NameResolution.resolveAndLowerChecked(ast, new ResolutionContext(scopes, null));
+            JsonNode coreJson = MAPPER.valueToTree(resolved.core());
+            record.put("ok", true);
+            record.set("diagnostics", codesOf(resolved.diagnostics()));
+            record.set("fingerprint", fingerprint(coreJson));
+            // ADR 0016 阶段1：-Dparity.ir.full=true 时附带完整 Core IR JSON，
+            // 供 parity-tier1.mjs 的归一化字段级比较器消费（默认仍只发指纹，
+            // 保持现有 IR-mode 行为不变）。
+            if (Boolean.getBoolean("parity.ir.full")) {
+                record.set("ir", coreJson);
+            }
+        } catch (NameResolutionException e) {
+            record.put("ok", false);
+            record.put("stage", "resolve");
+            record.set("codes", codesOf(e.diagnostics()));
+            record.put("error", truncate(e.getMessage()));
+        } catch (Throwable t) {
+            // A failure on one sample shouldn't abort the whole batch.
+            // The parity runner needs every sample's verdict so it can
+            // report which one regressed.
+            record.put("ok", false);
+            record.put("error", truncate(t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName()));
+        }
+        return record;
+    }
+
+    private static ArrayNode codesOf(List<Diagnostic> diagnostics) {
+        ArrayNode out = MAPPER.createArrayNode();
+        diagnostics.forEach(d -> out.add(d.code().code()));
+        return out;
+    }
+
+    private static String truncate(String msg) {
+        return msg.length() > 240 ? msg.substring(0, 240) : msg;
     }
 
     /**

@@ -1,7 +1,7 @@
 package aster.core.canonicalizer;
 
-import aster.core.identifier.IdentifierIndex;
-import aster.core.identifier.VocabularyRegistry;
+import aster.core.identifier.CaseFold;
+import aster.core.identifier.VocabularyScopes;
 import aster.core.lexicon.CanonicalizationConfig;
 import aster.core.lexicon.CompoundPattern;
 import aster.core.lexicon.Lexicon;
@@ -76,8 +76,11 @@ public final class Canonicalizer {
     private final StringSegmenter stringSegmenter;
     /** 预编译的多词关键字 Pattern 缓存（避免每次规范化时重新编译） */
     private final List<Map.Entry<String, Pattern>> multiWordKeywordPatterns;
-    /** 标识符索引（用于领域词汇翻译，如 "驾驶员" → "Driver"） */
-    private final IdentifierIndex identifierIndex;
+    /**
+     * 字面量宏：折叠键(触发词) → 字面量内容（来自 {@link VocabularyScopes#literals()}）。词汇中只有字面量宏在
+     * 解析前处理（它决定 token 类别）；标识符按位置在解析后解析（ADR 0051），不在此替换。空表示无宏。
+     */
+    private final Map<String, String> literalMacros;
     /**
      * 关键词「词」集合（小写，含 customRules 转写前后两种形态）。
      * <p>
@@ -242,36 +245,12 @@ public final class Canonicalizer {
     }
 
     /**
-     * 使用指定词法表和领域词汇表创建规范化器
+     * 使用指定词法表和领域词汇作用域创建规范化器
      *
-     * @param lexicon 词法表（定义关键词、标点符号和规范化规则）
-     * @param domain  领域标识符（如 "insurance.auto"），从 VocabularyRegistry 加载词汇表
-     * @param locale  语言代码（如 "zh-CN"）
+     * @param lexicon    词法表（定义关键词、标点符号和规范化规则）
+     * @param vocabulary 领域词汇作用域；canonicalize 只用其中的字面量宏（可为 null，表示无宏）
      */
-    public Canonicalizer(Lexicon lexicon, String domain, String locale) {
-        this(lexicon, VocabularyRegistry.getInstance()
-            .getIndex(domain, locale)
-            .orElse(null));
-    }
-
-    /**
-     * 使用指定词法表和多领域词汇表创建规范化器
-     *
-     * @param lexicon 词法表（定义关键词、标点符号和规范化规则）
-     * @param domains 领域标识符列表（将合并多个领域的词汇）
-     * @param locale  语言代码（如 "zh-CN"）
-     */
-    public Canonicalizer(Lexicon lexicon, List<String> domains, String locale) {
-        this(lexicon, buildMergedIndex(domains, locale));
-    }
-
-    /**
-     * 使用指定词法表和标识符索引创建规范化器
-     *
-     * @param lexicon         词法表（定义关键词、标点符号和规范化规则）
-     * @param identifierIndex 标识符索引（可为 null，表示不进行标识符翻译）
-     */
-    public Canonicalizer(Lexicon lexicon, IdentifierIndex identifierIndex) {
+    public Canonicalizer(Lexicon lexicon, VocabularyScopes vocabulary) {
         this.lexicon = lexicon;
         this.config = lexicon.getCanonicalization();
         // 预编译 customRules（热路径，避免按词重复编译正则）。审计 #58：提前到此处，使
@@ -322,8 +301,7 @@ public final class Canonicalizer {
             mwkPatterns.add(Map.entry(keyword, pattern));
         }
         this.multiWordKeywordPatterns = List.copyOf(mwkPatterns);  // 不可变视图
-        // 设置标识符索引（用于领域词汇翻译）
-        this.identifierIndex = identifierIndex;
+        this.literalMacros = vocabulary == null ? Map.of() : vocabulary.literals();
         // compiledCustomRules 已在构造器开头预编译（供 applyCustomRulesToKey 复用，见上）。
         // 构建关键词词集合，供 customRules 转写限定使用
         this.keywordWordSet = buildKeywordWordSet(lexicon);
@@ -353,23 +331,6 @@ public final class Canonicalizer {
             }
         }
         return set;
-    }
-
-    /**
-     * 从多领域构建合并的标识符索引
-     *
-     * @param domains 领域标识符列表
-     * @param locale  语言代码
-     * @return 合并后的标识符索引，如果没有匹配返回 null
-     */
-    private static IdentifierIndex buildMergedIndex(List<String> domains, String locale) {
-        if (domains == null || domains.isEmpty()) {
-            return null;
-        }
-        return VocabularyRegistry.getInstance()
-            .merge(domains, locale)
-            .map(IdentifierIndex::build)
-            .orElse(null);
     }
 
     /**
@@ -670,21 +631,10 @@ public final class Canonicalizer {
     }
 
     /**
-     * 获取当前使用的标识符索引
-     *
-     * @return 标识符索引，如果未配置则返回 null
+     * 是否配置了字面量宏
      */
-    public IdentifierIndex getIdentifierIndex() {
-        return identifierIndex;
-    }
-
-    /**
-     * 检查是否启用了标识符翻译
-     *
-     * @return 如果配置了标识符索引则返回 true
-     */
-    public boolean hasIdentifierTranslation() {
-        return identifierIndex != null;
+    public boolean hasLiteralMacros() {
+        return !literalMacros.isEmpty();
     }
 
     /**
@@ -761,10 +711,10 @@ public final class Canonicalizer {
             s = translateKeywords(s);
         }
 
-        // 8.5 翻译领域标识符（如 "驾驶员" → "Driver"，用于多语言 CNL）
-        // 必须在关键词翻译之后执行，确保关键词不会被误识别为标识符
-        if (identifierIndex != null) {
-            s = translateIdentifiers(s);
+        // 8.5 展开字面量宏（触发词 → 字符串字面量）。必须在关键词翻译之后执行，确保关键词不会被误识别为触发词；
+        //     其余领域词汇（类型 / 字段 / 成员 / 函数）不在此替换，由解析后的名称解析按位置处理（ADR 0051）
+        if (!literalMacros.isEmpty()) {
+            s = expandLiteralMacros(s);
         }
 
         // 8.6-8.9 执行关键词翻译后的语法变换器链
@@ -911,109 +861,49 @@ public final class Canonicalizer {
     }
 
     /**
-     * 翻译领域标识符（如 "驾驶员" → "Driver"）
-     * <p>
-     * 使用 VocabularyRegistry 提供的标识符索引，将本地化标识符翻译为规范化标识符。
-     * 翻译时保留字符串字面量内的内容不变。
-     * <p>
-     * <b>词边界规则</b>：
-     * <ul>
-     *   <li>标识符前必须是行首、空格、标点或非标识符字符</li>
-     *   <li>标识符后必须是空格、标点、字符串结尾或非标识符字符</li>
-     * </ul>
-     *
-     * @param s 输入字符串
-     * @return 翻译后的字符串
+     * 展开字面量宏：字符串字面量之外的完整标识符 token 按折叠键命中触发词时，替换为用当前 lexicon 引号
+     * 包裹的字面量内容，使其被后续 segmentString 当作字符串保护。与 TS expandLiteralMacros 对齐。
      */
-    private String translateIdentifiers(String s) {
-        // 将源码分段为字符串内和字符串外的片段
-        List<Segment> segments = segmentString(s);
-
+    private String expandLiteralMacros(String s) {
         StringBuilder result = new StringBuilder();
-        for (Segment segment : segments) {
-            if (segment.inString) {
-                // 字符串内，保持原样
-                result.append(segment.text);
-            } else {
-                // 字符串外，翻译标识符
-                String translated = translateIdentifiersInSegment(segment.text);
-                result.append(translated);
-            }
+        for (Segment segment : segmentString(s)) {
+            result.append(segment.inString ? segment.text : expandLiteralMacrosInSegment(segment.text));
         }
-
         return result.toString();
     }
 
-    /**
-     * 翻译单个代码片段中的标识符
-     * <p>
-     * 识别代码片段中的标识符并使用词汇表翻译。
-     * 标识符定义：以字母或下划线开头，后跟字母、数字或下划线的连续字符序列。
-     * 支持中文标识符（Unicode 字母）。
-     *
-     * @param text 代码片段
-     * @return 翻译后的代码片段
-     */
-    private String translateIdentifiersInSegment(String text) {
+    /** 逐个识别标识符 token（字母或下划线起头，后接字母 / 数字 / 下划线 / 组合记号）并展开命中的触发词。 */
+    private String expandLiteralMacrosInSegment(String text) {
         StringBuilder result = new StringBuilder();
-        StringBuilder currentToken = new StringBuilder();
-        boolean inIdentifier = false;
-
-        for (int i = 0; i < text.length(); i++) {
-            char ch = text.charAt(i);
-
-            if (isIdentifierStart(ch)) {
-                // 开始一个新的标识符
-                if (!inIdentifier) {
-                    inIdentifier = true;
-                }
-                currentToken.append(ch);
-            } else if (inIdentifier && isIdentifierPart(ch)) {
-                // 继续当前标识符
-                currentToken.append(ch);
-            } else {
-                // 标识符结束，翻译并输出
-                if (inIdentifier) {
-                    result.append(translateToken(currentToken.toString()));
-                    currentToken.setLength(0);
-                    inIdentifier = false;
-                }
-                // 输出非标识符字符
-                result.append(ch);
+        int i = 0;
+        while (i < text.length()) {
+            if (!isIdentifierStart(text.charAt(i))) {
+                result.append(text.charAt(i++));
+                continue;
             }
+            int end = i + 1;
+            while (end < text.length() && isIdentifierPart(text.charAt(end))) end++;
+            result.append(expandToken(text.substring(i, end)));
+            i = end;
         }
-
-        // 处理末尾的标识符
-        if (inIdentifier) {
-            result.append(translateToken(currentToken.toString()));
-        }
-
         return result.toString();
     }
 
-    /**
-     * 翻译单个标识符 token。普通映射返回规范化名；字面量宏（kind = LITERAL）把
-     * 索引里存的**内容**用当前 lexicon 的 stringQuotes 包裹成字符串字面量返回
-     * （{@code <open>content<close>}），使其被后续 segmentString 正确保护。
-     * 与 aster-lang-ts translateIdentifiersInSegment 的字面量分支逐字节对齐。
-     */
-    private String translateToken(String token) {
-        String translated = identifierIndex.canonicalize(token);
-        if (identifierIndex.isLiteral(token)) {
-            // 审计 #58：字面量宏内容会被原样包进当前 lexicon 的引号注入源码。公共构造器
-            // Canonicalizer(Lexicon, IdentifierIndex) 与 IdentifierIndex.build 接受【未经
-            // DomainVocabulary.validate 校验】的词汇表，故一个 canonical 为 x".\nRule evil
-            // 的字面量宏会被展开成"编译进制品的源码注入"。这里对内容再做一次防注入校验（含
-            // 当前 lexicon 的引号字符），未通过则拒绝展开、大声抛错，而非注入源码。
-            if (!isSafeLiteralContent(translated)) {
-                throw new IllegalStateException(
-                    "Unsafe literal-macro content for token '" + token
-                    + "': contains quote/backslash/control characters "
-                    + "(source-injection guard, audit #58)");
-            }
-            return stringQuoteOpen + translated + stringQuoteClose;
+    /** 触发词 → {@code <open>内容<close>}；未命中原样返回。 */
+    private String expandToken(String token) {
+        String content = literalMacros.get(CaseFold.foldKey(token));
+        if (content == null) {
+            return token;
         }
-        return translated;
+        // 审计 #58：字面量宏内容会被原样包进当前 lexicon 的引号注入源码。词汇作用域虽已校验，这里仍按当前
+        // lexicon 的引号再做一次防注入校验，未通过则拒绝展开、大声抛错，而非注入源码。
+        if (!isSafeLiteralContent(content)) {
+            throw new IllegalStateException(
+                "Unsafe literal-macro content for token '" + token
+                + "': contains quote/backslash/control characters "
+                + "(source-injection guard, audit #58)");
+        }
+        return stringQuoteOpen + content + stringQuoteClose;
     }
 
     /**

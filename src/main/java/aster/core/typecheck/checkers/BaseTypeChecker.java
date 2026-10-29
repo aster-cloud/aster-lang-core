@@ -99,6 +99,25 @@ public final class BaseTypeChecker {
     return Optional.empty();
   }
 
+  /**
+   * 限定枚举成员 {@code E.M}（ADR 0051）：与裸成员 {@code M} 同为枚举 E 的值。首段为局部值时不适用
+   * （局部名优先，按字段路径处理）；首段为类型名或未登记时才按枚举成员判定。
+   */
+  private Optional<String> qualifiedEnumOf(String name, VisitorContext ctx) {
+    var parts = name.split("\\.", -1);
+    var enums = ctx.getEnumDecls();
+    if (parts.length != 2 || enums == null) {
+      return Optional.empty();
+    }
+    var head = symbolTable.lookup(parts[0]);
+    if (head.isPresent() && head.get().kind() != SymbolInfo.SymbolKind.DATA_TYPE) {
+      return Optional.empty();
+    }
+    var enumDecl = enums.get(parts[0]);
+    boolean member = enumDecl != null && enumDecl.variants != null && enumDecl.variants.contains(parts[1]);
+    return member ? Optional.of(enumDecl.name) : Optional.empty();
+  }
+
   // ========== 核心方法：表达式类型推断 ==========
 
   /**
@@ -132,6 +151,10 @@ public final class BaseTypeChecker {
           if (!name.name.contains(".")) {
             diagnostics.undefinedVariable(name.name, Optional.ofNullable(name.origin));
             yield TypeSystem.unknown();
+          }
+          var qualified = qualifiedEnumOf(name.name, ctx);
+          if (qualified.isPresent()) {
+            yield createTypeName(qualified.get());
           }
           yield fieldPathType(name, ctx);
         }

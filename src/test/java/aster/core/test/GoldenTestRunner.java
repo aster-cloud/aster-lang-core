@@ -2,10 +2,11 @@ package aster.core.test;
 
 import aster.core.canonicalizer.Canonicalizer;
 import aster.core.ir.CoreModel;
-import aster.core.lowering.CoreLowering;
 import aster.core.parser.AstBuilder;
 import aster.core.parser.AsterCustomLexer;
 import aster.core.parser.AsterParser;
+import aster.core.resolve.NameResolution;
+import aster.core.resolve.ResolutionContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.antlr.v4.runtime.BaseErrorListener;
@@ -117,7 +118,7 @@ public class GoldenTestRunner {
                 yield mapper.valueToTree(canonicalized);
             }
             case "core-ir" -> {
-                // 完整管线：Canonicalize → ANTLR Parse → AstBuilder → CoreLowering → JSON
+                // 完整管线：Canonicalize → ANTLR Parse → AstBuilder → R1 → CoreLowering → R2 → JSON
                 var canonicalizer = new Canonicalizer();
                 String canonicalized = canonicalizer.canonicalize(source);
 
@@ -140,8 +141,8 @@ public class GoldenTestRunner {
                 var builder = new AstBuilder();
                 aster.core.ast.Module ast = builder.visitModule(moduleCtx);
 
-                var lowering = new CoreLowering();
-                CoreModel.Module coreModule = lowering.lowerModule(ast);
+                // 名称解析 R1 → lower → R2（ADR 0051）；E8xx 抛错，与 TS golden 一致
+                CoreModel.Module coreModule = NameResolution.resolveAndLowerChecked(ast, ResolutionContext.none()).core();
 
                 yield mapper.valueToTree(coreModule);
             }

@@ -103,7 +103,7 @@ public final class VocabularyRegistry {
      * 注册领域词汇表。
      *
      * @param vocabulary 领域词汇表
-     * @throws IllegalArgumentException 如果词汇表验证失败
+     * @throws IllegalArgumentException 如果词汇表验证失败，或 VocabularyScopes 拒绝该词汇
      */
     public void register(DomainVocabulary vocabulary) {
         DomainVocabulary.ValidationResult result = vocabulary.validate();
@@ -120,8 +120,7 @@ public final class VocabularyRegistry {
         }
 
         String key = makeKey(vocabulary.id(), vocabulary.locale());
-        IdentifierIndex index = IdentifierIndex.build(vocabulary);
-        vocabularies.put(key, new VocabularyEntry(vocabulary, index));
+        vocabularies.put(key, VocabularyEntry.of(vocabulary));
     }
 
     /**
@@ -129,6 +128,7 @@ public final class VocabularyRegistry {
      *
      * @param tenantId   租户标识符
      * @param vocabulary 领域词汇表
+     * @throws IllegalArgumentException 如果词汇表验证失败（含字段 / 枚举成员缺 parent、同角色同作用域写法冲突）
      */
     public void registerCustom(String tenantId, DomainVocabulary vocabulary) {
         DomainVocabulary.ValidationResult result = vocabulary.validate();
@@ -140,8 +140,7 @@ public final class VocabularyRegistry {
         }
 
         String key = makeCustomKey(tenantId, vocabulary.id(), vocabulary.locale());
-        IdentifierIndex index = IdentifierIndex.build(vocabulary);
-        customVocabularies.put(key, new VocabularyEntry(vocabulary, index));
+        customVocabularies.put(key, VocabularyEntry.of(vocabulary));
     }
 
     /**
@@ -232,11 +231,9 @@ public final class VocabularyRegistry {
             allStructs, allFields, allFunctions, allEnumValues, allLiterals, null
         );
 
-        // 审计 #58：合并后的词汇表此前直接喂给 IdentifierIndex.build（Canonicalizer.buildMergedIndex）
-        // 而不校验。"字面量宏触发词全局唯一" 的 P0 不变式只在**单领域** validate() 里执行，
+        // 审计 #58："字面量宏触发词全局唯一" 的 P0 不变式只在**单领域** validate() 里执行，
         // 跨领域合并会产生新的触发词冲突（如 A 域的字面量宏触发词 == B 域某标识符触发词），
-        // 使 translateToken 把一个标识符的规范名当作字符串字面量包裹。故此处对合并结果整体
-        // validate()，跨域冲突大声失败而非静默污染。
+        // 使一个标识符被当作字面量宏展开。故此处对合并结果整体 validate()，跨域冲突大声失败而非静默污染。
         DomainVocabulary.ValidationResult validation = merged.validate();
         if (!validation.valid()) {
             throw new IllegalArgumentException(
@@ -337,9 +334,24 @@ public final class VocabularyRegistry {
 
     /**
      * 词汇表条目。
+     *
+     * @param vocabulary 源词汇表
+     * @param index      展示用的扁平索引
+     * @param scopes     编译用的按位置词汇视图（ADR 0051）
      */
     public record VocabularyEntry(
         DomainVocabulary vocabulary,
-        IdentifierIndex index
-    ) {}
+        IdentifierIndex index,
+        VocabularyScopes scopes
+    ) {
+        /**
+         * 构建注册条目。注册前已经 {@link DomainVocabulary#validate()} 校验（字段与枚举成员都有所属类型，
+         * ADR 0051 §7、§14.3），故词汇整体进入按位置解析的作用域（与 TS makeEntry 一致）。
+         *
+         * @throws VocabularyScopeException 同折叠键的字面量宏内容冲突
+         */
+        static VocabularyEntry of(DomainVocabulary vocabulary) {
+            return new VocabularyEntry(vocabulary, IdentifierIndex.build(vocabulary), VocabularyScopes.build(vocabulary));
+        }
+    }
 }

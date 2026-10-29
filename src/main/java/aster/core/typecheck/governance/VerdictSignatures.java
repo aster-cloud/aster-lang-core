@@ -2,6 +2,7 @@ package aster.core.typecheck.governance;
 
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -22,7 +23,13 @@ public final class VerdictSignatures {
       "Verdict.escalate", 1);
 
   /** Verdict 值上可读取的字段（全部为 Text；值形状见 ADR 0039 §2.1，TS 侧同表）。 */
-  private static final Set<String> FIELDS = Set.of("outcome", "role", "reason");
+  private static final List<String> FIELD_ORDER = List.of("outcome", "role", "reason");
+  private static final Set<String> FIELDS = Set.copyOf(FIELD_ORDER);
+
+  /** Verdict 字段名（与 TS VERDICT_FIELDS 同序），供名称解析（ADR 0051 R2）把 Verdict 当作已知 Data。 */
+  public static List<String> fields() {
+    return FIELD_ORDER;
+  }
 
   public static boolean isVerdictField(String field) {
     return field != null && FIELDS.contains(field);
