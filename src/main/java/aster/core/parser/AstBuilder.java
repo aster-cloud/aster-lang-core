@@ -488,7 +488,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         List<Annotation> allAnnotations = new ArrayList<>(prefixAnnotations);
         allAnnotations.addAll(typeAnnotations);
         List<Annotation> finalAnnotations = allAnnotations.isEmpty() ? List.of() : List.copyOf(allAnnotations);
-        return new Decl.Field(name, type, finalAnnotations, typeInferred);
+        // 条目位置从字段名起（前置注解不计入，与 TS 一致）至类型/约束止
+        Span span = mergeSpans(spanFrom(ctx.nameIdent()), spanFrom(ctx));
+        return new Decl.Field(name, type, finalAnnotations, typeInferred, span);
     }
 
     private String nameIdentText(AsterParser.NameIdentContext ctx) {
@@ -516,7 +518,10 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         List<String> variants = ctx.variantList().typeIdent().stream()
             .map(AsterParser.TypeIdentContext::getText)
             .collect(Collectors.toList());
-        return new Decl.Enum(name, variants, spanFrom(ctx));
+        List<Span> variantSpans = ctx.variantList().typeIdent().stream()
+            .map(this::spanFrom)
+            .toList();
+        return new Decl.Enum(name, variants, spanFrom(ctx), variantSpans);
     }
 
     @Override
@@ -1496,7 +1501,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             name = ctx.IDENT() != null ? ctx.IDENT().getText() : ctx.TYPE_IDENT().getText();
         }
         Expr value = (Expr) visit(ctx.expr());
-        return new Expr.Construct.ConstructField(name, value);
+        return new Expr.Construct.ConstructField(name, value, spanFrom(ctx));
     }
 
     @Override

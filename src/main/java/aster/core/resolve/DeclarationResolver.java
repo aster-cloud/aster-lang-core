@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
@@ -273,20 +274,31 @@ public final class DeclarationResolver {
 
     private void declareFields(Decl.Data data, String parent) {
         List<VocabMap> maps = scopedVocab(VocabularyScopes::fields, parent, ResolvedRole.FIELD_REF);
-        List<Resolved> names = data.fields().stream()
-            .map(f -> declare(f.name(), ResolvedRole.FIELD_DECL, maps, data.span())).toList();
-        checkDuplicates(names.stream().map(n -> new DeclaredSite(n, data.span())).toList());
+        List<Span> spans = data.fields().stream().map(f -> f.span() != null ? f.span() : data.span()).toList();
+        List<Resolved> names = new ArrayList<>();
+        for (int i = 0; i < spans.size(); i++) {
+            names.add(declare(data.fields().get(i).name(), ResolvedRole.FIELD_DECL, maps, spans.get(i)));
+        }
+        checkDuplicates(sites(names, spans));
         fieldNames.put(data, names);
         fields.put(parent, names.stream().map(n -> refEntry(n, ResolvedRole.FIELD_REF)).toList());
     }
 
     private void declareVariants(Decl.Enum en, String parent) {
         List<VocabMap> maps = scopedVocab(VocabularyScopes::enumMembers, parent, ResolvedRole.MEMBER_REF);
-        List<Resolved> names = en.variants().stream()
-            .map(v -> declare(v, ResolvedRole.MEMBER_DECL, maps, en.span())).toList();
-        checkDuplicates(names.stream().map(n -> new DeclaredSite(n, en.span())).toList());
+        List<Span> spans = IntStream.range(0, en.variants().size()).mapToObj(en::variantSpan).toList();
+        List<Resolved> names = new ArrayList<>();
+        for (int i = 0; i < spans.size(); i++) {
+            names.add(declare(en.variants().get(i), ResolvedRole.MEMBER_DECL, maps, spans.get(i)));
+        }
+        checkDuplicates(sites(names, spans));
         variantNames.put(en, names);
         members.put(parent, names.stream().map(n -> refEntry(n, ResolvedRole.MEMBER_REF)).toList());
+    }
+
+    /** 条目声明与其位置一一配对（诊断落在条目上，aster-lang-test#174 子项 2）。 */
+    private static List<DeclaredSite> sites(List<Resolved> names, List<Span> spans) {
+        return IntStream.range(0, names.size()).mapToObj(i -> new DeclaredSite(names.get(i), spans.get(i))).toList();
     }
 
     private static Entry refEntry(Resolved resolved, ResolvedRole role) {
@@ -489,20 +501,21 @@ public final class DeclarationResolver {
         List<Entry> decls = fields.getOrDefault(parent, List.of());
         List<VocabMap> maps = scopedVocab(VocabularyScopes::fields, parent, ResolvedRole.FIELD_REF);
         List<Expr.Construct.ConstructField> out = e.fields().stream()
-            .map(f -> resolveConstructField(scope, f, type.unresolved() ? null : decls, maps, e.span()))
+            .map(f -> resolveConstructField(scope, f, type.unresolved() ? null : decls, maps, f.span() != null ? f.span() : e.span()))
             .toList();
         return new Expr.Construct(e.typeName(), out, e.span(), type.resolved());
     }
 
-    /** decls 为 null 表示构造类型未解析：只解析字段值表达式。 */
+    /** decls 为 null 表示构造类型未解析：只解析字段值表达式。span 为该字段条目位置（缺失时为整个构造表达式）。 */
     private Expr.Construct.ConstructField resolveConstructField(Scope scope, Expr.Construct.ConstructField f,
                                                                 List<Entry> decls, List<VocabMap> maps, Span span) {
         Expr expr = resolveExpr(scope, f.expr());
-        if (decls == null) return new Expr.Construct.ConstructField(f.name(), expr);
+        if (decls == null) return new Expr.Construct.ConstructField(f.name(), expr, null, f.span());
         RefSite site = new RefSite(f.name(), ResolvedRole.FIELD_REF, span, ErrorCode.AMBIGUOUS_FIELD);
         RefResult ref = resolveRef(site, decls, maps);
         if (!ref.found()) reportUnresolved(ErrorCode.UNRESOLVED_FIELD, f.name(), ResolvedRole.FIELD_REF, span);
-        return new Expr.Construct.ConstructField(f.name(), expr, new Resolved(ref.canonical(), ResolvedRole.FIELD_REF, f.name()));
+        return new Expr.Construct.ConstructField(f.name(), expr,
+            new Resolved(ref.canonical(), ResolvedRole.FIELD_REF, f.name()), f.span());
     }
 
     /** 构造表达式不单独记录类型名 span：取表达式起点加类型名长度（类型名为单个 token）。 */
@@ -635,7 +648,8 @@ public final class DeclarationResolver {
         return switch (d) {
             case Decl.Import ignored -> d;
             case Decl.Data data -> rewriteData(data, resolved);
-            case Decl.Enum en -> new Decl.Enum(en.name(), en.variants(), en.span(), resolved, variantNames.get(en));
+            case Decl.Enum en -> new Decl.Enum(en.name(), en.variants(), en.span(), resolved, variantNames.get(en),
+                en.variantSpans());
             // 别名右侧与 TS 一致不解析（TS AST 不保留右侧），只写入别名名的 TYPE_DECL
             case Decl.TypeAlias alias -> new Decl.TypeAlias(alias.annotations(), alias.name(), alias.type(),
                 alias.span(), resolved);
@@ -649,7 +663,8 @@ public final class DeclarationResolver {
         List<Decl.Field> out = new ArrayList<>();
         for (int i = 0; i < d.fields().size(); i++) {
             Decl.Field f = d.fields().get(i);
-            out.add(new Decl.Field(f.name(), resolveType(scope, f.type()), f.annotations(), f.typeInferred(), names.get(i)));
+            out.add(new Decl.Field(f.name(), resolveType(scope, f.type()), f.annotations(), f.typeInferred(), names.get(i),
+                f.span()));
         }
         return new Decl.Data(d.name(), out, d.span(), resolved);
     }

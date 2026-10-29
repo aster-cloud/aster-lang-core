@@ -78,6 +78,7 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
      * @param type        字段类型
      * @param annotations 注解列表（可能为 null）
      * @param resolved    字段声明名的解析结果（ADR 0051，FIELD_DECL；解析前为 null）
+     * @param span        字段条目位置（字段名起至类型止，与 TS 一致）；手工构建的 AST 可为 null，诊断退回声明位置
      */
     record Field(
         @JsonProperty("name") String name,
@@ -85,7 +86,8 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
         @JsonProperty("annotations") List<Annotation> annotations,
         /** 源码未声明类型（`Define X has a, b.`）：type 是按字段名推断的占位，成员访问时按动态值处理，与 TS 对齐。 */
         @JsonProperty("typeInferred") @JsonInclude(JsonInclude.Include.NON_DEFAULT) boolean typeInferred,
-        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved
+        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved,
+        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("span") Span span
     ) {
         /** 旧签名构造器：显式类型字段。 */
         public Field(String name, Type type, List<Annotation> annotations) {
@@ -94,7 +96,17 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
 
         /** 未解析的字段。 */
         public Field(String name, Type type, List<Annotation> annotations, boolean typeInferred) {
-            this(name, type, annotations, typeInferred, null);
+            this(name, type, annotations, typeInferred, null, null);
+        }
+
+        /** 未解析、带条目位置的字段。 */
+        public Field(String name, Type type, List<Annotation> annotations, boolean typeInferred, Span span) {
+            this(name, type, annotations, typeInferred, null, span);
+        }
+
+        /** 无条目位置的已解析字段。 */
+        public Field(String name, Type type, List<Annotation> annotations, boolean typeInferred, Resolved resolved) {
+            this(name, type, annotations, typeInferred, resolved, null);
         }
     }
 
@@ -106,6 +118,7 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
      * @param span             源码位置信息
      * @param resolved         声明名的解析结果（ADR 0051，TYPE_DECL；解析前为 null）
      * @param resolvedVariants 变体的解析结果（MEMBER_DECL，与 variants 同长；解析前为 null）
+     * @param variantSpans     各变体的位置（与 variants 同长，与 TS 同名）；手工构建的 AST 可为 null，诊断退回声明位置
      */
     @JsonTypeName("Enum")
     record Enum(
@@ -113,11 +126,27 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
         @JsonProperty("variants") List<String> variants,
         @JsonProperty("span") Span span,
         @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved,
-        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolvedVariants") List<Resolved> resolvedVariants
+        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolvedVariants") List<Resolved> resolvedVariants,
+        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("variantSpans") List<Span> variantSpans
     ) implements Decl {
         /** 未解析的枚举声明。 */
         public Enum(String name, List<String> variants, Span span) {
-            this(name, variants, span, null, null);
+            this(name, variants, span, null, null, null);
+        }
+
+        /** 未解析、带变体位置的枚举声明。 */
+        public Enum(String name, List<String> variants, Span span, List<Span> variantSpans) {
+            this(name, variants, span, null, null, variantSpans);
+        }
+
+        /** 无变体位置的已解析枚举声明。 */
+        public Enum(String name, List<String> variants, Span span, Resolved resolved, List<Resolved> resolvedVariants) {
+            this(name, variants, span, resolved, resolvedVariants, null);
+        }
+
+        /** 第 i 个变体的位置；无条目位置时退回整条声明。 */
+        public Span variantSpan(int i) {
+            return variantSpans != null && i < variantSpans.size() && variantSpans.get(i) != null ? variantSpans.get(i) : span;
         }
 
         @Override

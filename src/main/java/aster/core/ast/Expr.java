@@ -260,15 +260,27 @@ public sealed interface Expr extends AstNode
          * @param name     字段名称（源码原写法）
          * @param expr     字段值表达式
          * @param resolved 字段名的解析结果（ADR 0051，解析前为 null）
+         * @param span     字段条目位置（字段名起至值表达式止，与 TS 一致）；手工构建的 AST 可为 null，诊断退回构造表达式位置
          */
         public record ConstructField(
             @JsonProperty("name") java.lang.String name,
             @JsonProperty("expr") Expr expr,
-            @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved
+            @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved,
+            @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("span") Span span
         ) {
             /** 未解析的构造字段。 */
             public ConstructField(java.lang.String name, Expr expr) {
-                this(name, expr, null);
+                this(name, expr, null, null);
+            }
+
+            /** 未解析、带条目位置的构造字段。 */
+            public ConstructField(java.lang.String name, Expr expr, Span span) {
+                this(name, expr, null, span);
+            }
+
+            /** 无条目位置的已解析构造字段。 */
+            public ConstructField(java.lang.String name, Expr expr, Resolved resolved) {
+                this(name, expr, resolved, null);
             }
         }
     }
