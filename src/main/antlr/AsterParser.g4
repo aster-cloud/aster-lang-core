@@ -475,15 +475,20 @@ workflowStmt
     : WORKFLOW COLON NEWLINE INDENT workflowBody DEDENT DOT
     ;
 
+/**
+ * workflow 主体：step+，其后可选 retry、timeout（顺序固定）。
+ * 元素之间用 NEWLINE*（而非 NEWLINE+）：前一元素若以 block/retrySection 收尾，
+ * 其 `NEWLINE* DEDENT` 已吞掉行尾换行，词法器在下一元素前不会再发 NEWLINE（issue #218）。
+ */
 workflowBody
-    : workflowStep (NEWLINE+ workflowStep)*
-      (NEWLINE+ retrySection)?
-      (NEWLINE+ timeoutSection)?
+    : workflowStep (NEWLINE* workflowStep)*
+      (NEWLINE* retrySection)?
+      (NEWLINE* timeoutSection)?
       NEWLINE*
     ;
 
 workflowStep
-    : STEP nameIdent stepDependencies? COLON NEWLINE block (NEWLINE+ compensateSection)?
+    : STEP nameIdent stepDependencies? COLON NEWLINE block (NEWLINE* compensateSection)?
     ;
 
 stepDependencies
