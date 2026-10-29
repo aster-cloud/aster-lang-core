@@ -388,7 +388,10 @@ public final class CoreModel {
   public static final class Workflow implements Stmt {
     public List<Step> steps = Collections.emptyList();     // 步骤列表
     public List<String> effectCaps = Collections.emptyList(); // 工作流声明的能力
+    // retry / timeout / Step.compensate 为 null 时不输出键，与 TS IR（undefined 省略）一致
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public RetryPolicy retry;                              // 重试策略
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public Timeout timeout;                                // 超时配置
     public Origin origin;
   }
@@ -397,6 +400,7 @@ public final class CoreModel {
     public String kind = "step";                   // 与 TS IR 对齐
     public String name;                            // 步骤名称
     public Block body;                             // 主体代码块
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public Block compensate;                       // 补偿代码块（可选）
     public List<String> dependencies = Collections.emptyList(); // 依赖步骤名称
     public List<String> effectCaps = Collections.emptyList();   // 步骤能力

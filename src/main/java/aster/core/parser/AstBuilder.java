@@ -91,15 +91,15 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
         declContexts.forEach(declCtx -> {
             if (declCtx.dataDecl() != null) {
-                // 防御性 null-check：正常 dataDecl 一定有 TYPE_IDENT，但若文法
+                // 防御性 null-check：正常 dataDecl 一定有名字，但若文法
                 // 误路由（历史上 funcDecl 歧义导致过），这里宁可跳过也不 NPE。
-                TerminalNode typeName = declCtx.dataDecl().TYPE_IDENT();
+                String typeName = dataDeclName(declCtx.dataDecl());
                 if (typeName != null) {
-                    declaredTypeNames.add(typeName.getText());
-                    declaredRecordTypeNames.add(typeName.getText());  // 可构造
+                    declaredTypeNames.add(typeName);
+                    declaredRecordTypeNames.add(typeName);  // 可构造
                 }
             } else if (declCtx.enumDecl() != null) {
-                TerminalNode typeName = declCtx.enumDecl().TYPE_IDENT();
+                AsterParser.TypeIdentContext typeName = declCtx.enumDecl().typeIdent();
                 if (typeName != null) {
                     declaredTypeNames.add(typeName.getText());
                     declaredRecordTypeNames.add(typeName.getText());  // 可构造
@@ -453,11 +453,17 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Decl.Data visitDataDecl(AsterParser.DataDeclContext ctx) {
-        String name = ctx.TYPE_IDENT().getText();
+        String name = dataDeclName(ctx);
         List<Decl.Field> fields = ctx.fieldList().field().stream()
             .map(this::visitField)
             .collect(Collectors.toList());
         return new Decl.Data(name, fields, spanFrom(ctx));
+    }
+
+    /** Define 形态的名字是 typeIdent（R53），省略 Define 的形态只收 TYPE_IDENT；缺失时返回 null。 */
+    private static String dataDeclName(AsterParser.DataDeclContext ctx) {
+        if (ctx.typeIdent() != null) return ctx.typeIdent().getText();
+        return ctx.TYPE_IDENT() != null ? ctx.TYPE_IDENT().getText() : null;
     }
 
     @Override
@@ -488,7 +494,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         List<Annotation> allAnnotations = new ArrayList<>(prefixAnnotations);
         allAnnotations.addAll(typeAnnotations);
         List<Annotation> finalAnnotations = allAnnotations.isEmpty() ? List.of() : List.copyOf(allAnnotations);
-        return new Decl.Field(name, type, finalAnnotations, typeInferred);
+        // 条目位置从字段名起（前置注解不计入，与 TS 一致）至类型/约束止
+        Span span = mergeSpans(spanFrom(ctx.nameIdent()), spanFrom(ctx));
+        return new Decl.Field(name, type, finalAnnotations, typeInferred, span);
     }
 
     private String nameIdentText(AsterParser.NameIdentContext ctx) {
@@ -512,11 +520,14 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Decl.Enum visitEnumDecl(AsterParser.EnumDeclContext ctx) {
-        String name = ctx.TYPE_IDENT().getText();
-        List<String> variants = ctx.variantList().TYPE_IDENT().stream()
-            .map(TerminalNode::getText)
+        String name = ctx.typeIdent().getText();
+        List<String> variants = ctx.variantList().typeIdent().stream()
+            .map(AsterParser.TypeIdentContext::getText)
             .collect(Collectors.toList());
-        return new Decl.Enum(name, variants, spanFrom(ctx));
+        List<Span> variantSpans = ctx.variantList().typeIdent().stream()
+            .map(this::spanFrom)
+            .toList();
+        return new Decl.Enum(name, variants, spanFrom(ctx), variantSpans);
     }
 
     @Override
@@ -709,7 +720,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Type visitTypeName(AsterParser.TypeNameContext ctx) {
-        String name = ctx.TYPE_IDENT().getText();
+        String name = ctx.typeIdent().getText();
         return new Type.TypeName(name, List.of(), spanFrom(ctx));
     }
 
@@ -1151,7 +1162,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Pattern visitPatternCtor(AsterParser.PatternCtorContext ctx) {
-        String typeName = ctx.TYPE_IDENT().getText();
+        String typeName = ctx.typeIdent().getText();
         List<Pattern> args = ctx.pattern().stream()
             .map(this::visitPattern)
             .collect(Collectors.toList());
@@ -1496,7 +1507,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             name = ctx.IDENT() != null ? ctx.IDENT().getText() : ctx.TYPE_IDENT().getText();
         }
         Expr value = (Expr) visit(ctx.expr());
-        return new Expr.Construct.ConstructField(name, value);
+        return new Expr.Construct.ConstructField(name, value, spanFrom(ctx));
     }
 
     @Override

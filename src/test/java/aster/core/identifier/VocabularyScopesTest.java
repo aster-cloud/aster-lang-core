@@ -216,6 +216,32 @@ class VocabularyScopesTest {
         }
 
         @Test
+        void paragraphSeparatorRawInKeyAndValue() {
+            // 与 JSON.stringify 一致：U+2029（同 U+2028）不转义，键与 written 值都原样输出
+            String json = VocabularyScopes.build(functionsOnly(IdentifierMapping.function("c", "a\u2029b"))).canonicalJson();
+            assertTrue(json.contains("\"a\u2029b\":["), json);
+            assertTrue(json.contains("\"written\":\"a\u2029b\""), json);
+            assertFalse(json.contains("\\u2029"), json);
+            // TS 1.1.0 canonicalScopesJson 对同一词汇的输出（逐字节对拍）
+            assertEquals("{\"enumMembers\":{},\"fields\":{},\"functions\":{\"a\u2029b\":[{\"canonical\":\"c\","
+                + "\"kind\":\"function\",\"source\":\"term\",\"written\":\"a\u2029b\"}]},\"literals\":{},"
+                + "\"schemaVersion\":1,\"types\":{}}", json);
+        }
+
+        @Test
+        void deleteRawInKeyAndValue() {
+            // U+007F 不属于 JSON 必须转义的 U+0000–U+001F，键位置同样原样输出
+            String json = VocabularyScopes.build(functionsOnly(IdentifierMapping.function("c", "a\u007fb"))).canonicalJson();
+            assertTrue(json.contains("\"a\u007fb\":["), json);
+            assertTrue(json.contains("\"written\":\"a\u007fb\""), json);
+            assertFalse(json.contains("\\u007f"), json);
+            // TS 1.1.0 canonicalScopesJson 对同一词汇的输出（逐字节对拍）
+            assertEquals("{\"enumMembers\":{},\"fields\":{},\"functions\":{\"a\u007fb\":[{\"canonical\":\"c\","
+                + "\"kind\":\"function\",\"source\":\"term\",\"written\":\"a\u007fb\"}]},\"literals\":{},"
+                + "\"schemaVersion\":1,\"types\":{}}", json);
+        }
+
+        @Test
         void loneSurrogateWrittenAsLowercaseEscape() {
             String json = VocabularyScopes.build(functionsOnly(IdentifierMapping.function("c", "x\uD83Dy"))).canonicalJson();
             assertTrue(json.contains("\"written\":\"x\\ud83dy\""), json);
