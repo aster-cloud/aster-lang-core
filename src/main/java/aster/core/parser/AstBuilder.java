@@ -895,6 +895,13 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     }
 
     @Override
+    public Stmt.Set visitSetStmt(AsterParser.SetStmtContext ctx) {
+        String name = nameIdentText(ctx.nameIdent());
+        Expr expr = (Expr) visit(ctx.expr());
+        return new Stmt.Set(name, expr, spanFrom(ctx));
+    }
+
+    @Override
     public Stmt.Let visitDefineStmt(AsterParser.DefineStmtContext ctx) {
         String name = nameIdentText(ctx.nameIdent());
         Expr expr = (Expr) visit(ctx.expr());
