@@ -385,10 +385,7 @@ public class AsterCustomLexer extends AsterLexer {
         if (asIdentifier) {
             // 单 IDENT/TYPE_IDENT，文本=源词（与 TS 引擎标识符名一致）
             int kind = isUppercaseStart(source) ? AsterParser.TYPE_IDENT : AsterParser.IDENT;
-            CommonToken id = new CommonToken(kind, source);
-            id.setLine(t.getLine());
-            id.setCharPositionInLine(t.getCharPositionInLine());
-            return id;
+            return synthetic(kind, source, t);
         }
 
         // 关键词位置：把英文展开形重新词法化成 token 入 pending。
@@ -454,10 +451,7 @@ public class AsterCustomLexer extends AsterLexer {
             if (type == NEWLINE || type == AsterParser.INDENT || type == AsterParser.DEDENT) {
                 continue;
             }
-            CommonToken ct = new CommonToken(type, st.getText());
-            ct.setLine(at.getLine());
-            ct.setCharPositionInLine(at.getCharPositionInLine());
-            pending.add(ct);
+            pending.add(synthetic(type, st.getText(), at));
         }
     }
 
@@ -543,29 +537,45 @@ public class AsterCustomLexer extends AsterLexer {
      * 创建 INDENT token
      */
     private Token createIndent() {
-        CommonToken t = new CommonToken(AsterParser.INDENT, "<INDENT>");
-        t.setLine(getLine());
-        t.setCharPositionInLine(getCharPositionInLine());
-        return t;
+        return synthetic(AsterParser.INDENT, "<INDENT>");
     }
 
     /**
      * 创建错误 token（替代 RuntimeException，维持解析器继续运行）
      */
     private Token createErrorToken(String message) {
-        CommonToken t = new CommonToken(Token.INVALID_TYPE, "<ERROR: " + message + ">");
-        t.setLine(getLine());
-        t.setCharPositionInLine(getCharPositionInLine());
-        return t;
+        return synthetic(Token.INVALID_TYPE, "<ERROR: " + message + ">");
     }
 
     /**
      * 创建 DEDENT token
      */
     private Token createDedent() {
-        CommonToken t = new CommonToken(AsterParser.DEDENT, "<DEDENT>");
-        t.setLine(getLine());
-        t.setCharPositionInLine(getCharPositionInLine());
+        return synthetic(AsterParser.DEDENT, "<DEDENT>");
+    }
+
+    /** 在当前输入位置合成一个零宽 token（缩进标记、错误标记）。 */
+    private CommonToken synthetic(int type, String text) {
+        int index = _input.index();
+        return synthetic(type, text, getLine(), getCharPositionInLine(), index, index - 1);
+    }
+
+    /** 合成一个覆盖 {@code at} 原文范围的 token（关键词还原成的标识符、展开出的英文关键词）。 */
+    private CommonToken synthetic(int type, String text, Token at) {
+        return synthetic(type, text, at.getLine(), at.getCharPositionInLine(), at.getStartIndex(), at.getStopIndex());
+    }
+
+    /**
+     * 合成 token 必须带本词法器的来源（token source + char stream）：ANTLR 的单 token 补全恢复
+     * （{@code DefaultErrorStrategy.getMissingSymbol}）用当前 token 的 {@code getTokenSource().getInputStream()}
+     * 构造缺失 token。没有来源时，缺句末标点且紧接文件末尾的源码会在恢复中抛 NullPointerException，
+     * 而不是报告语法错误。
+     */
+    private CommonToken synthetic(int type, String text, int line, int column, int start, int stop) {
+        CommonToken t = new CommonToken(_tokenFactorySourcePair, type, Token.DEFAULT_CHANNEL, start, stop);
+        t.setText(text);
+        t.setLine(line);
+        t.setCharPositionInLine(column);
         return t;
     }
 }
