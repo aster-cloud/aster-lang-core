@@ -20,7 +20,7 @@ tokens { INDENT, DEDENT }
 @parser::members {
     /** 由 stmt 按关键词独占分派的语句头；exprStmt 不得以它们开头。 */
     private static final java.util.Set<Integer> STATEMENT_HEADS =
-        java.util.Set.of(RETURN, LET, IF, MATCH, WHEN, ELSE, WORKFLOW);
+        java.util.Set.of(RETURN, LET, SET, IF, MATCH, WHEN, ELSE, WORKFLOW);
 
     protected boolean isStatementHead(int tokenType) {
         return STATEMENT_HEADS.contains(tokenType);
@@ -461,6 +461,7 @@ explicitBlock
  */
 stmt
     : letStmt
+    | setStmt
     | defineStmt
     | startStmt
     | waitStmt
@@ -486,6 +487,15 @@ letStmt
 
 defineStmt
     : DEFINE nameIdent AS expr DOT
+    ;
+
+/**
+ * Set 语句（ADR 0052）：给已有的 Let 绑定赋值，写到该名字最近的那层绑定。
+ * 语法: Set total to total plus 1.
+ * 与 TS parseStatement 的 `Set x to <expr>.` 一致；目标是否可赋值由类型检查判定。
+ */
+setStmt
+    : SET nameIdent TO_WORD expr DOT
     ;
 
 startStmt

@@ -111,7 +111,7 @@
       ["GREATER_THAN", "MORE_THAN", "OVER"]
     ],
     "preTranslationTransformers": ["english-possessive"],
-    "postTranslationTransformers": ["result-is", "set-to"]
+    "postTranslationTransformers": ["result-is"]
   },
   "messages": {
     "unexpectedToken": "Unexpected token: {token}",
