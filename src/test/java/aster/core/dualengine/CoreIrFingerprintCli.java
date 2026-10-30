@@ -78,6 +78,7 @@ import java.util.TreeMap;
  *       按声明的词法表规范化关键词，并以该词汇（DomainVocabulary JSON）做名称解析。</li>
  * </ul>
  * 输出记录另带 {@code diagnostics}（成功时的警告码，如 W800）或 {@code codes}（名称解析失败时的错误码），
+ * 以及与之一一对应的 {@code locs: [{code, line, col}]}（诊断起始位置），
  * 供 parity 门比较两引擎的诊断码；语法错误记为 {@code stage: "syntax"} 失败，不再静默按 ANTLR 恢复结果继续。
  */
 @Tag("parity-ir")
@@ -114,7 +115,7 @@ class CoreIrFingerprintCli {
     }
 
     /** 单个样本的输入：路径、可选词法表 id、可选词汇文件。 */
-    private record Request(String path, String lexicon, String vocabulary) {
+    record Request(String path, String lexicon, String vocabulary) {
         static Request parse(String line) throws Exception {
             if (!line.startsWith("{")) return new Request(line, null, null);
             JsonNode n = MAPPER.readTree(line);
@@ -126,7 +127,7 @@ class CoreIrFingerprintCli {
         }
     }
 
-    private static ObjectNode emitOne(Request req) {
+    static ObjectNode emitOne(Request req) {
         ObjectNode record = MAPPER.createObjectNode();
         record.put("path", req.path());
         try {
@@ -172,6 +173,7 @@ class CoreIrFingerprintCli {
             JsonNode coreJson = MAPPER.valueToTree(resolved.core());
             record.put("ok", true);
             record.set("diagnostics", codesOf(resolved.diagnostics()));
+            record.set("locs", locsOf(resolved.diagnostics()));
             record.set("fingerprint", fingerprint(coreJson));
             // ADR 0016 阶段1：-Dparity.ir.full=true 时附带完整 Core IR JSON，
             // 供 parity-tier1.mjs 的归一化字段级比较器消费（默认仍只发指纹，
@@ -183,6 +185,7 @@ class CoreIrFingerprintCli {
             record.put("ok", false);
             record.put("stage", "resolve");
             record.set("codes", codesOf(e.diagnostics()));
+            record.set("locs", locsOf(e.diagnostics()));
             record.put("error", truncate(e.getMessage()));
         } catch (Throwable t) {
             // A failure on one sample shouldn't abort the whole batch.
@@ -197,6 +200,27 @@ class CoreIrFingerprintCli {
     private static ArrayNode codesOf(List<Diagnostic> diagnostics) {
         ArrayNode out = MAPPER.createArrayNode();
         diagnostics.forEach(d -> out.add(d.code().code()));
+        return out;
+    }
+
+    /**
+     * 诊断位置 {@code [{code, line, col}]}，与 {@link #codesOf} 一一对应、顺序相同；无位置的诊断 line/col 为 null。
+     * 与 aster-lang-test parity-tier1.mjs 中 TS 侧 {@code locsOf} 同形，供 {@code compareDiagnosticLines} 比较起始行。
+     */
+    private static ArrayNode locsOf(List<Diagnostic> diagnostics) {
+        ArrayNode out = MAPPER.createArrayNode();
+        for (Diagnostic d : diagnostics) {
+            ObjectNode loc = out.addObject();
+            loc.put("code", d.code().code());
+            CoreModel.Position start = d.span().map(o -> o.start).orElse(null);
+            if (start == null) {
+                loc.putNull("line");
+                loc.putNull("col");
+            } else {
+                loc.put("line", start.line);
+                loc.put("col", start.col);
+            }
+        }
         return out;
     }
 
