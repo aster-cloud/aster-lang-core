@@ -159,4 +159,60 @@ class SetStatementPipelineTest {
       "  Return total."));
     assertTrue(codes.contains("E002@5"), codes.toString());
   }
+
+  @Test
+  void lowercaseSetParsesAsSetStatement() {
+    Module ast = parse("Module probe.\n\nRule r given n as Int, produce Int:\n  Let total be 0.\n  set total to n.\n  Return total.\n");
+    var func = assertInstanceOf(Decl.Func.class, ast.decls().get(0));
+    assertInstanceOf(Stmt.Set.class, func.body().statements().get(1));
+  }
+
+  /**
+   * 有意的破坏性变更（ADR 0052 §6）：旧版 en-US 规范化把 `Set x to` 改写成 `Let x be`，
+   * 首次声明用 Set 也能编译；现在 Set 只能赋值给已有的 Let 绑定，首次声明用 Set 报 E101。
+   */
+  @Test
+  void firstDeclarationWithSetIsRejectedAsUndefined() {
+    var codes = codesAndLines(typecheck(
+      "Rule r given n as Int, produce Int:",
+      "  Set x to 1.",
+      "  Return n."));
+    assertEquals(List.of("E101@4"), codes);
+  }
+
+  @Test
+  void setFunctionNameReportsE101LikeTs() {
+    var diagnostics = typecheck(
+      "Rule g given n as Int, produce Int:",
+      "  Return n.",
+      "",
+      "Rule r given n as Int, produce Int:",
+      "  Set g to 1.",
+      "  Return n.");
+    assertEquals(List.of("E101@7"), codesAndLines(diagnostics));
+  }
+
+  @Test
+  void setCapturedOuterLetInsideLambdaReportsE001() {
+    var diagnostics = typecheck(
+      "Rule r given n as Int, produce Int:",
+      "  Let acc be 0.",
+      "  Let f be function with k as Int, produce Int:",
+      "    Set acc to acc plus k.",
+      "    Return acc.",
+      "  Return f(n).");
+    assertEquals(List.of("E001@6"), codesAndLines(diagnostics));
+    assertTrue(diagnostics.get(0).message().contains("captured variable 'acc'"), diagnostics.get(0).message());
+  }
+
+  @Test
+  void setLetDeclaredInsideLambdaIsClean() {
+    assertEquals(List.of(), codesAndLines(typecheck(
+      "Rule r given n as Int, produce Int:",
+      "  Let f be function with k as Int, produce Int:",
+      "    Let local be k.",
+      "    Set local to local plus 1.",
+      "    Return local.",
+      "  Return f(n).")));
+  }
 }

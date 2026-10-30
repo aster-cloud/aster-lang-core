@@ -304,6 +304,23 @@ public final class SymbolTable {
   }
 
   /**
+   * name 的最近绑定是否在某个 Lambda 作用域之外（即 lambda 体内引用的是捕获的外层变量）。
+   * 名字未定义时返回 false。
+   */
+  public boolean resolvesAcrossLambda(String name) {
+    boolean crossed = false;
+    for (Scope s = current; s != null; s = s.getParent()) {
+      if (s.lookupLocal(name).isPresent()) {
+        return crossed;
+      }
+      if (s.getType() == ScopeType.LAMBDA) {
+        crossed = true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * 仅在当前作用域查找符号
    */
   public Optional<SymbolInfo> lookupInCurrentScope(String name) {

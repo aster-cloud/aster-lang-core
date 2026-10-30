@@ -39,6 +39,8 @@ public record SymbolInfo(
     VARIABLE,
     /** 参数（函数参数） */
     PARAMETER,
+    /** 模式绑定（match 分支中 `When x,`、`Ok(v)` 等引入的名字，不可赋值） */
+    PATTERN,
     /** 函数（fun 声明） */
     FUNCTION,
     /** 数据类型（data/enum 声明） */

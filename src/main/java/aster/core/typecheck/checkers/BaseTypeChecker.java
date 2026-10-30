@@ -269,37 +269,46 @@ public final class BaseTypeChecker {
 
   /**
    * Set 语句（ADR 0052），诊断与 TS assignSymbol 逐码一致：
-   * 未定义 → E101；目标不是 Let 绑定（形参、lambda 形参、模式绑定）→ E001；
+   * 未定义或不是局部名（函数、类型）→ E101；目标是形参、模式绑定，或 lambda 体内捕获的外层变量 → E001；
    * 值类型既不等于也不是目标类型的子类型 → E002。
    */
   private void checkSet(CoreModel.Set set, Type exprType) {
     var origin = Optional.ofNullable(set.origin);
-    var found = symbolTable.lookup(set.name);
-    if (found.isEmpty()) {
+    var symbol = symbolTable.lookup(set.name)
+      .filter(s -> s.kind() != SymbolInfo.SymbolKind.FUNCTION && s.kind() != SymbolInfo.SymbolKind.DATA_TYPE);
+    if (symbol.isEmpty()) {
       diagnostics.undefinedVariable(set.name, origin);
       return;
     }
-    var symbol = found.get();
-    if (!symbol.mutable()) {
-      String kind = symbol.kind() == SymbolInfo.SymbolKind.PARAMETER ? "parameter" : "pattern binding";
+    String immutable = immutableTargetLabel(set.name, symbol.get());
+    if (immutable != null) {
       diagnostics.error(
         ErrorCode.TYPE_MISMATCH,
         origin,
-        Map.of("expected", "a Let binding", "actual", kind + " '" + set.name + "'")
+        Map.of("expected", "a Let binding", "actual", immutable + " '" + set.name + "'")
       );
       return;
     }
-    if (!TypeSystem.equals(symbol.type(), exprType, false) && !TypeSystem.isSubtype(exprType, symbol.type())) {
+    Type target = symbol.get().type();
+    if (!TypeSystem.equals(target, exprType, false) && !TypeSystem.isSubtype(exprType, target)) {
       diagnostics.error(
         ErrorCode.TYPE_MISMATCH_ASSIGN,
         origin,
-        Map.of(
-          "name", set.name,
-          "expected", TypeSystem.format(symbol.type()),
-          "actual", TypeSystem.format(exprType)
-        )
+        Map.of("name", set.name, "expected", TypeSystem.format(target), "actual", TypeSystem.format(exprType))
       );
     }
+  }
+
+  /**
+   * 不可赋值目标在诊断里的英文称呼（与 TS 一致）；可赋值时返回 null。
+   * lambda 按值捕获外层变量，体内 Set 捕获变量的语义未定义，故一律拒绝（ADR 0052 §2.2）。
+   */
+  private String immutableTargetLabel(String name, SymbolInfo symbol) {
+    return switch (symbol.kind()) {
+      case PARAMETER -> "parameter";
+      case PATTERN -> "pattern binding";
+      default -> symbolTable.resolvesAcrossLambda(name) ? "captured variable" : null;
+    };
   }
 
   // ========== 语句类型检查 ==========
@@ -794,7 +803,7 @@ public final class BaseTypeChecker {
         defineOrReportDuplicate(
           name.name,
           scrutineeType,
-          SymbolInfo.SymbolKind.VARIABLE,
+          SymbolInfo.SymbolKind.PATTERN,
           SymbolTable.DefineOptions.immutable(origin)
         );
       }
@@ -813,7 +822,7 @@ public final class BaseTypeChecker {
             defineOrReportDuplicate(
               bound,
               TypeSystem.unknown(),
-              SymbolInfo.SymbolKind.VARIABLE,
+              SymbolInfo.SymbolKind.PATTERN,
               SymbolTable.DefineOptions.immutable(origin)
             );
           }
