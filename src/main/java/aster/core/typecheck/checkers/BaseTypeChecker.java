@@ -267,6 +267,41 @@ public final class BaseTypeChecker {
     return thenType;
   }
 
+  /**
+   * Set 语句（ADR 0052），诊断与 TS assignSymbol 逐码一致：
+   * 未定义 → E101；目标不是 Let 绑定（形参、lambda 形参、模式绑定）→ E001；
+   * 值类型既不等于也不是目标类型的子类型 → E002。
+   */
+  private void checkSet(CoreModel.Set set, Type exprType) {
+    var origin = Optional.ofNullable(set.origin);
+    var found = symbolTable.lookup(set.name);
+    if (found.isEmpty()) {
+      diagnostics.undefinedVariable(set.name, origin);
+      return;
+    }
+    var symbol = found.get();
+    if (!symbol.mutable()) {
+      String kind = symbol.kind() == SymbolInfo.SymbolKind.PARAMETER ? "parameter" : "pattern binding";
+      diagnostics.error(
+        ErrorCode.TYPE_MISMATCH,
+        origin,
+        Map.of("expected", "a Let binding", "actual", kind + " '" + set.name + "'")
+      );
+      return;
+    }
+    if (!TypeSystem.equals(symbol.type(), exprType, false) && !TypeSystem.isSubtype(exprType, symbol.type())) {
+      diagnostics.error(
+        ErrorCode.TYPE_MISMATCH_ASSIGN,
+        origin,
+        Map.of(
+          "name", set.name,
+          "expected", TypeSystem.format(symbol.type()),
+          "actual", TypeSystem.format(exprType)
+        )
+      );
+    }
+  }
+
   // ========== 语句类型检查 ==========
 
   /**
@@ -276,29 +311,18 @@ public final class BaseTypeChecker {
     return switch (stmt) {
       case CoreModel.Let let -> {
         var exprType = typeOfExpr(let.expr, ctx);
+        // ADR 0052：Let 绑定可被 Set 赋值（写回其所在作用域）；形参、lambda 形参、模式绑定不可变。
         defineOrReportDuplicate(
           let.name,
           exprType,
           SymbolInfo.SymbolKind.VARIABLE,
-          SymbolTable.DefineOptions.immutable(let.origin)
+          SymbolTable.DefineOptions.mutable(let.origin)
         );
         yield Optional.empty();
       }
 
       case CoreModel.Set set -> {
-        var exprType = typeOfExpr(set.expr, ctx);
-        var symbol = symbolTable.lookup(set.name);
-        if (symbol.isPresent()) {
-          if (!symbol.get().mutable()) {
-            diagnostics.error(
-              ErrorCode.TYPE_MISMATCH,
-              Optional.ofNullable(set.origin),
-              Map.of("error", "Cannot assign to immutable variable " + set.name)
-            );
-          } else if (!TypeSystem.equals(symbol.get().type(), exprType, false)) {
-            diagnostics.typeMismatch(symbol.get().type(), exprType, Optional.ofNullable(set.origin));
-          }
-        }
+        checkSet(set, typeOfExpr(set.expr, ctx));
         yield Optional.empty();
       }
 
