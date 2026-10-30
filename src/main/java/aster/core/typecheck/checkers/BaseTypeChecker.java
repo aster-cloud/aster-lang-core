@@ -307,7 +307,8 @@ public final class BaseTypeChecker {
     return switch (symbol.kind()) {
       case PARAMETER -> "parameter";
       case PATTERN -> "pattern binding";
-      default -> symbolTable.resolvesAcrossLambda(name) ? "captured variable" : null;
+      default -> !symbol.mutable() ? "immutable binding"
+        : symbolTable.resolvesAcrossLambda(name) ? "captured variable" : null;
     };
   }
 
