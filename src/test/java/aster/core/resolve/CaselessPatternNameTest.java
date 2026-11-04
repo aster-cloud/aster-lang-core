@@ -18,11 +18,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 /**
- * 无大小写文字（中文等）的裸模式名（ADR 0051 裁决 R54，aster-lang-core#227）。
+ * 无大小写文字（中文等）的裸模式名（ADR 0051 裁决 R55，aster-lang-core#227）。
  *
  * <p>成员还是绑定由 R2 按 R12 判定（主语为枚举时查该枚举的成员，主语类型未知时查全部枚举成员的精确写法，
  * 其余为绑定），两引擎一致；R2 再按判定结果给出统一的 IR 形态：成员为无参数 PatCtor，绑定为 PatName。
- * 首字母为 ASCII 大写的名字保持原有形态（两侧运行时都按大小写区分，parity 归一化已视为等价）。
+ * 首字母为 ASCII 大写的名字 IR 不变；de 以变音字母开头的成员同样产出 PatCtor。
  * 用例与 aster-lang-ts 的 caseless-pattern-name.test.ts 同输入同断言。
  */
 class CaselessPatternNameTest {
@@ -100,6 +100,23 @@ class CaselessPatternNameTest {
         List<CoreModel.Pattern> ps = patterns(core, "选择");
         assertVariant("已删除", ps.get(0));
         assertBinding("别的", ps.get(1));
+    }
+
+    private static final String LAUNE_DE = "Modul probe.de.\n\nDefiniere Laune als eines von Übel, Gut, Ärger.\n\n";
+
+    @Test
+    void germanUmlautInitialMemberIsAVariantAndNonMemberBinds() {
+        // 变音字母开头不是 ASCII 大写：成员产出 PatCtor，非成员（整数主语下的 Ärger）产出 PatName
+        CoreModel.Module core = compileClean("de-DE", LAUNE_DE
+            + "Regel wert gegeben l als Laune, liefert Ganzzahl:\n  pruefe l:\n    bei Übel, gib zurueck 1.\n"
+            + "    bei Gut, gib zurueck 2.\n    bei rest, gib zurueck 9.\n\n"
+            + "Regel bind gegeben n als Ganzzahl, liefert Ganzzahl:\n  pruefe n:\n    bei 0, gib zurueck 100.\n"
+            + "    bei Ärger, gib zurueck Ärger.\n");
+        List<CoreModel.Pattern> ps = patterns(core, "wert");
+        assertVariant("Übel", ps.get(0));
+        assertVariant("Gut", ps.get(1));
+        assertBinding("rest", ps.get(2));
+        assertBinding("Ärger", patterns(core, "bind").get(1));
     }
 
     @Test

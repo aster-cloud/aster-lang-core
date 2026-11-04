@@ -34,7 +34,7 @@ final class CoreCopies {
         return out;
     }
 
-    /** R54：判为枚举成员的无大小写裸名，以无参数构造器模式表示（与 Java 解析器的裸 TYPE_IDENT 同形）。 */
+    /** R55：判为枚举成员的无大小写裸名，以无参数构造器模式表示（与 Java 解析器的裸 TYPE_IDENT 同形）。 */
     static CoreModel.PatCtor variantCtor(String typeName, CoreModel.Origin origin) {
         CoreModel.PatCtor out = new CoreModel.PatCtor();
         out.typeName = typeName;
@@ -44,7 +44,7 @@ final class CoreCopies {
         return out;
     }
 
-    /** R54：判为绑定的无大小写裸名，以名字模式表示（与 TS 解析器的 PatternName 同形）。 */
+    /** R55：判为绑定的无大小写裸名，以名字模式表示（与 TS 解析器的 PatternName 同形）。 */
     static CoreModel.PatName bindingName(String name, CoreModel.Origin origin) {
         CoreModel.PatName out = new CoreModel.PatName();
         out.name = name;
