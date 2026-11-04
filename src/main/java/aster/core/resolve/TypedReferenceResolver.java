@@ -762,6 +762,7 @@ public final class TypedReferenceResolver {
      * 模式名：主语为枚举 E 时，命中 enumMembers[E] 即为成员（与其它层同时命中 → E804）；主语类型未知时，
      * 仅当写法精确等于某枚举成员才视为成员（唯一 → 写法不同时 W801，多个 → E806）；其余为绑定名。
      * 模式名是声明而非引用，故不经过 LOCAL 层。
+     * 首字母不是 ASCII 大写的成员产出无参数 PatCtor（裁决 R55，见 {@link #isCased}）。
      */
     private CoreModel.Pattern resolvePatName(Frame f, CoreModel.PatName p, Static subject) {
         BareOutcome outcome = p.mark == null ? BINDING : bareOutcome(p.mark, p.name, p.origin, subject);
@@ -771,23 +772,42 @@ public final class TypedReferenceResolver {
                 yield p;
             }
             case Kept ignored -> CoreCopies.patName(p, p.name, p.origin);
-            case MemberOf m -> CoreCopies.patName(p, m.canonical(),
-                CoreModel.Origin.withResolution(p.origin, p.mark.written(), m.canonical(), ResolvedRole.MEMBER_REF));
+            case MemberOf m -> {
+                CoreModel.Origin origin =
+                    CoreModel.Origin.withResolution(p.origin, p.mark.written(), m.canonical(), ResolvedRole.MEMBER_REF);
+                yield isCased(m.canonical()) ? CoreCopies.patName(p, m.canonical(), origin)
+                    : CoreCopies.variantCtor(m.canonical(), origin);
+            }
         };
     }
 
-    /** 裸名构造器模式按裁决 R12 与 PatName 同规则；关键词构造器（无标记）保持原样。 */
+    /**
+     * 裸名构造器模式按裁决 R12 与 PatName 同规则；关键词构造器（无标记）保持原样。
+     * 判为绑定且首字母不是 ASCII 大写时产出 PatName（裁决 R55）：Java 把中文等裸名词法化为 TYPE_IDENT，
+     * 解析为无参数 PatCtor，而 TS 解析为 PatName；绑定统一为 PatName，两引擎 IR 与运行时语义才一致。
+     */
     private CoreModel.Pattern resolveBareCtor(Frame f, CoreModel.PatCtor p, Static subject) {
         if (p.mark == null) return p;
         return switch (bareOutcome(p.mark, p.typeName, p.origin, subject)) {
             case Binding ignored -> {
                 f.declare(p.typeName, UNKNOWN);
-                yield CoreCopies.patCtor(p, p.typeName, p.args, p.origin);
+                yield isCased(p.typeName) ? CoreCopies.patCtor(p, p.typeName, p.args, p.origin)
+                    : CoreCopies.bindingName(p.typeName, p.origin);
             }
             case Kept ignored -> CoreCopies.patCtor(p, p.typeName, p.args, p.origin);
             case MemberOf m -> CoreCopies.patCtor(p, m.canonical(), p.args,
                 CoreModel.Origin.withResolution(p.origin, p.mark.written(), m.canonical(), ResolvedRole.MEMBER_REF));
         };
+    }
+
+    /**
+     * 裁决 R55：运行时（TS 解释器、truffle）与 parity 归一化都按「PatName 首字母为 ASCII 大写 = 变体，否则 = 绑定」区分。
+     * 中文、天城文等无大小写文字无法用大小写表达，故 R2 按判定结果直接给出形态：成员 → 无参数 PatCtor，绑定 → PatName。
+     * 首字母为 ASCII 大写的名字 IR 不变；de 以变音字母（Ä / Ö / Ü）开头的成员同样产出 PatCtor。
+     * 判定只看 ASCII，两引擎（Java 与 JS）结果相同。
+     */
+    static boolean isCased(String name) {
+        return name != null && !name.isEmpty() && name.charAt(0) >= 'A' && name.charAt(0) <= 'Z';
     }
 
     private BareOutcome bareOutcome(CoreModel.ResolutionMark mark, String name, CoreModel.Origin at, Static subject) {
