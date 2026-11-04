@@ -46,7 +46,9 @@ public final class BaseTypeChecker {
    * <ul>
    *   <li>只按名字推断出的类型：未写类型的形参 / lambda 形参的占位类型（如 amount → Float）、
    *       省略返回类型且按函数体推断失败时按规则名猜出的返回类型占位；</li>
-   *   <li>泛型规则签名里的类型参数（`Rule id of T given x as T`，解析后是名为 T 的 TypeName）。</li>
+   *   <li>泛型规则签名里的类型参数（`Rule id of T given x as T`，解析后是名为 T 的 TypeName）。
+   *       代价：类型参数之间不做合一，会放过 `inc(id(t))`（t 为 Text）、`pick(t, 1)` 这类真实错误；
+   *       TS 对含类型变量的形参同样放行，两引擎一致，待统一实现泛型合一后再收紧。</li>
    * </ul>
    * 实参比较与「调用目标是否为函数」两项检查把它们当作 Unknown，与 TS 一致：拿不准时放行。
    * 其他用途（悬浮提示、函数体内的检查、其余诊断）不变。按引用识别使其能随 Let 绑定、
@@ -591,8 +593,10 @@ public final class BaseTypeChecker {
 
     // 推断参数类型列表（只执行一次，避免重复推断）。比较用的类型先把按名字推断的部分与
     // 泛型类型参数换成 Unknown（形参与实参两侧都是），再展开别名；返回类型仍用原签名，不影响下游推断。
-    var argTypes = call.args.stream()
-      .map(arg -> expandType(eraseUncheckedForCalls(typeOfExpr(arg, ctx))))
+    // 诊断文本用原始（仅展开别名的）类型，不暴露擦除后的 Unknown。
+    var rawArgTypes = call.args.stream().map(arg -> typeOfExpr(arg, ctx)).toList();
+    var argTypes = rawArgTypes.stream()
+      .map(arg -> expandType(eraseUncheckedForCalls(arg)))
       .toList();
     var paramTypes = ft.params.stream()
       .map(param -> expandType(eraseUncheckedForCalls(param)))
@@ -611,7 +615,8 @@ public final class BaseTypeChecker {
         var argType = argTypes.get(i);
         var paramType = genericChecker.substituteTypeVars(paramTypes.get(i), bindings);
         if (!TypeSystem.isSubtype(argType, paramType)) {
-          diagnostics.typeMismatch(paramType, argType, Optional.ofNullable(call.origin));
+          diagnostics.typeMismatch(genericChecker.substituteTypeVars(expandedFt.params.get(i), bindings),
+            expandType(rawArgTypes.get(i)), Optional.ofNullable(call.origin));
         }
       }
 
@@ -623,7 +628,7 @@ public final class BaseTypeChecker {
         var argType = argTypes.get(i);
         var paramType = paramTypes.get(i);
         if (!TypeSystem.isSubtype(argType, paramType)) {
-          diagnostics.typeMismatch(paramType, argType, Optional.ofNullable(call.origin));
+          diagnostics.typeMismatch(expandedFt.params.get(i), expandType(rawArgTypes.get(i)), Optional.ofNullable(call.origin));
         }
       }
 
@@ -652,9 +657,11 @@ public final class BaseTypeChecker {
   /**
    * 单段名字是否为类型已知、且不可能是函数的局部名（形参、Let、模式绑定）。
    * 函数类型、类型变量、Unknown 以及只按名字推断出的类型 / 泛型类型参数都视为可能可调用。
+   * 与运行期 builtin 同名的局部名不算：truffle 在调用位置先分派 builtin（见 {@link CallTargetBuiltins}），
+   * `given add as Int … add(1, 2)` 能正常运行。
    */
   private boolean isNonCallableLocal(String name) {
-    if (name == null || name.contains(".") || isBuiltinOperator(name)) {
+    if (name == null || name.contains(".") || isBuiltinOperator(name) || CallTargetBuiltins.NAMES.contains(name)) {
       return false;
     }
     var symbol = symbolTable.lookup(name);

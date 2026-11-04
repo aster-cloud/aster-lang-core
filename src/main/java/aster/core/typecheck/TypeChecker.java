@@ -286,7 +286,8 @@ public final class TypeChecker {
         baseChecker.markUncheckedForCalls(funcType.ret);
       }
     }
-    // 泛型规则的类型参数（解析后是同名 TypeName）：调用检查不按字面类型名比较，与 TS 放行含类型变量的形参一致
+    // 泛型规则的类型参数（解析后是同名 TypeName）：调用检查不按字面类型名比较，与 TS 放行含类型变量的形参一致。
+    // 类型参数之间不做合一，`inc(id(t))`（t 为 Text）这类真实错误会被放过；两引擎一致，待泛型合一后收紧。
     funcType.params.forEach(p -> baseChecker.markTypeParamsUncheckedForCalls(p, func.typeParams));
     baseChecker.markTypeParamsUncheckedForCalls(funcType.ret, func.typeParams);
     funcType.origin = func.origin;

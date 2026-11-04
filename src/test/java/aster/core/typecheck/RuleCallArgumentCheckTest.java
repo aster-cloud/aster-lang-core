@@ -100,6 +100,50 @@ class RuleCallArgumentCheckTest {
     assertMismatch("Int", "Int?", INC, "Rule main given n as Int?, produce Int:\n  Return inc(n).");
   }
 
+  @Test
+  void longToIntStillRejected() {
+    assertMismatch("Int", "Long", INC, "Rule main given m as Long, produce Int:\n  Return inc(m).");
+  }
+
+  @Test
+  void optionToPlainStillRejected() {
+    assertMismatch("Int", "option<Int>", INC, "Rule main given o as Option of Int, produce Int:\n  Return inc(o).");
+  }
+
+  @Test
+  void doubleAndDecimalDoNotMix() {
+    // ADR 0025：Double ↔ Decimal 不做隐式转换（变量与字面量都拒绝）
+    String money = "Rule money given x as Decimal, produce Decimal:\n  Return x.";
+    String real = "Rule real given x as Double, produce Double:\n  Return x.";
+    assertMismatch("Decimal", "Double", money, "Rule main given d as Double, produce Decimal:\n  Return money(d).");
+    assertMismatch("Decimal", "Double", money, "Rule main given n as Int, produce Decimal:\n  Return money(1.5).");
+    assertMismatch("Double", "Decimal", real, "Rule main given m as Decimal, produce Double:\n  Return real(m).");
+  }
+
+  @Test
+  void constructFieldNarrowingStillRejected() {
+    var diags = errors("Define Box has count as Int, label as Text.",
+      "Rule main given f as Float, t as Text?, produce Box:\n  Return Box with count set to f, label set to t.");
+    assertEquals(List.of("E012 Field 'count' expects Int, got Float", "E012 Field 'label' expects String, got String?"),
+      codes(diags).stream().sorted().toList());
+  }
+
+  @Test
+  void setNarrowingStillRejected() {
+    var diags = errors("Rule main given f as Float, o as Int?, produce Int:\n  Let x be 1.\n  Set x to f.\n  Set x to o.\n  Return x.");
+    assertEquals(List.of("E002", "E002"), diags.stream().map(d -> d.code().code()).toList());
+  }
+
+  @Test
+  void mismatchMessageShowsOriginalTypes() {
+    // 比较时擦除的部分（泛型类型参数、按名字推断）不出现在诊断文本里
+    assertMismatch("List<T>", "String",
+      "Rule size of T given xs as List of T, produce Int:\n  Return 1.",
+      "Rule main given t as Text, produce Int:\n  Return size(t).");
+    assertMismatch("Int", "Option<Float>", INC,
+      "Rule main given amount, produce Int:\n  Return inc(Some(amount)).");
+  }
+
   // ========== 数值拓宽 ==========
 
   @Test
@@ -251,6 +295,13 @@ class RuleCallArgumentCheckTest {
   }
 
   @Test
+  void genericArgumentsAreNotUnified() {
+    // 已知放过的真实错误（两引擎一致）：类型参数之间不做合一，`inc(id(t))` 与 `pick(t, 1)` 都不报
+    assertClean(ID, INC, "Rule pick of T given a as T, b as T, produce T:\n  Return a.",
+      "Rule main given t as Text, produce Int:\n  Let p be pick(t, 1).\n  Return inc(id(t)).");
+  }
+
+  @Test
   void genericRuleAsFunctionValue() {
     assertClean(ID, TWICE, "Rule main given n as Int, produce Int:\n  Return twice(id, n).");
   }
@@ -274,6 +325,19 @@ class RuleCallArgumentCheckTest {
   void callingNonFunctionLet() {
     assertMismatch("a function", "'score' of type Int",
       "Rule main given n as Int, produce Int:\n  Let score be 1.\n  Return score(n).");
+  }
+
+  @Test
+  void localNamedLikeBuiltinIsNotReported() {
+    // truffle 在调用位置先按 builtin 分派（add / sub / … 不看局部名），这类程序能正常运行
+    assertClean("Rule main given add as Int, produce Int:\n  Return add(1, 2).");
+    assertClean("Rule main given n as Int, produce Int:\n  Let sub be 3.\n  Return sub(5, n).");
+  }
+
+  @Test
+  void callTargetBuiltinsMirrorTruffle() {
+    assertEquals(java.util.Set.of("add", "sub", "mul", "div", "intdiv", "mod", "eq", "ne", "lt", "lte",
+        "gt", "gte", "and", "or", "not", "await"), CallTargetBuiltins.NAMES);
   }
 
   @Test
