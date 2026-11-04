@@ -221,50 +221,136 @@ public final class TypeSystem {
   }
 
   /**
-   * 子类型关系检查
+   * 子类型关系检查（可赋值性：sub 类型的值能否用在期望 sup 的位置）
    * <p>
-   * 支持特殊规则：
-   * - Maybe<T> ⊆ Option<T>（双向）
-   * - Result<T1, E1> ⊆ Result<T2, E2> 当且仅当 T1 ⊆ T2 且 E1 ⊆ E2
+   * 原则：不对能正确运行的代码报错。在 {@link #equals 非严格相等} 之外放行：
+   * - 数值拓宽：Int → Long → Float/Double（Float 与 Double 同为二进制浮点，互通），
+   *   Int/Long → Decimal（整数到精确小数无损；Double ↔ Decimal 混用仍由 ADR 0025 拦截，这里不放行）
+   * - 可空：T → T?、None → T?、Maybe ↔ Option（含 `Option of T` 写法的 TypeApp）
+   * - 容器协变：List / Map / Maybe / Option / Result 的类型参数逐个按本关系比较
+   * - 函数类型：形参位逆变、返回位协变
+   * 调用方负责先展开类型别名（Text → String）。
    *
    * @param sub 子类型
    * @param sup 父类型
    * @return 存在子类型关系返回 true
    */
   public static boolean isSubtype(Type sub, Type sup) {
-    // 相等类型
+    // 相等类型（非严格：任一侧 Unknown 即相等）
     if (equals(sub, sup, false)) {
       return true;
-    }
-
-    // Unknown 作为 top type
-    if (isUnknown(sup)) {
-      return true;
-    }
-
-    // Unknown 作为 bottom type 的否定
-    if (isUnknown(sub)) {
-      return false;
     }
 
     if (sub instanceof CoreModel.PiiType || sup instanceof CoreModel.PiiType) {
       return isSubtype(unwrapPii(sub), unwrapPii(sup));
     }
 
-    // Maybe/Option 互转
-    if (sup instanceof CoreModel.Option supOpt && sub instanceof CoreModel.Maybe subMaybe) {
-      return isSubtype(subMaybe.type, supOpt.type);
-    }
-    if (sup instanceof CoreModel.Maybe supMaybe && sub instanceof CoreModel.Option subOpt) {
-      return isSubtype(subOpt.type, supMaybe.type);
+    var from = normalizeBuiltinApp(sub);
+    var to = normalizeBuiltinApp(sup);
+    if (from != sub || to != sup) {
+      return isSubtype(from, to);
     }
 
-    // Result 协变
-    if (sup instanceof CoreModel.Result supRes && sub instanceof CoreModel.Result subRes) {
-      return isSubtype(subRes.ok, supRes.ok) && isSubtype(subRes.err, supRes.err);
-    }
+    return switch (to) {
+      case CoreModel.TypeName toName ->
+        from instanceof CoreModel.TypeName fromName && widensTo(fromName.name, toName.name);
+      // 可空：两侧都可空时比较内层；否则非空值可直接放进可空位置
+      case CoreModel.Maybe m -> isSubtype(optionalInner(from), m.type);
+      case CoreModel.Option o -> isSubtype(optionalInner(from), o.type);
+      case CoreModel.ListT l -> from instanceof CoreModel.ListT fl && isSubtype(fl.type, l.type);
+      case CoreModel.MapT m -> from instanceof CoreModel.MapT fm
+        && isSubtype(fm.key, m.key) && isSubtype(fm.val, m.val);
+      case CoreModel.Result r -> from instanceof CoreModel.Result fr
+        && isSubtype(fr.ok, r.ok) && isSubtype(fr.err, r.err);
+      case CoreModel.FuncType f -> from instanceof CoreModel.FuncType ff && funcFits(ff, f);
+      default -> false;
+    };
+  }
 
-    return false;
+  /** 数值拓宽链：Int → Long → Float/Double（Float、Double、Number 同属二进制浮点），Int/Long → Decimal。 */
+  private static boolean widensTo(String from, String to) {
+    int fromRank = numericRank(from);
+    int toRank = numericRank(to);
+    if (fromRank < 0 || toRank < 0) {
+      return false;
+    }
+    if ("Decimal".equals(to)) {
+      return fromRank <= 1;
+    }
+    if ("Decimal".equals(from)) {
+      return false;
+    }
+    return fromRank <= toRank;
+  }
+
+  private static int numericRank(String name) {
+    if (name == null) return -1;
+    return switch (name) {
+      case "Int" -> 0;
+      case "Long" -> 1;
+      case "Float", "Double", "Number", "Decimal" -> 2;
+      default -> -1;
+    };
+  }
+
+  /** 可空值的内层类型；非可空类型原样返回（T → T? 时按 T 与内层比较）。 */
+  private static Type optionalInner(Type type) {
+    return switch (type) {
+      case CoreModel.Maybe m -> m.type;
+      case CoreModel.Option o -> o.type;
+      default -> type;
+    };
+  }
+
+  /** 函数类型：个数相同，形参位逆变（期望 (Int) -> X 时可传 (Float) -> X），返回位协变。 */
+  private static boolean funcFits(CoreModel.FuncType actual, CoreModel.FuncType expected) {
+    if (actual.params == null || expected.params == null) {
+      return actual.params == expected.params && isSubtype(actual.ret, expected.ret);
+    }
+    if (actual.params.size() != expected.params.size()) {
+      return false;
+    }
+    for (int i = 0; i < expected.params.size(); i++) {
+      if (!isSubtype(expected.params.get(i), actual.params.get(i))) {
+        return false;
+      }
+    }
+    return isSubtype(actual.ret, expected.ret);
+  }
+
+  /**
+   * `Option of T` / `Maybe of T` / `Result of T and E` / `List of T` / `Map of K and V` 在解析后是
+   * TypeApp（基名经规范化后可能是小写），与 `T?`、`Some(x)`、`[x]` 得到的结构化类型是同一种类型。
+   * 比较前把它们归一成结构化类型；其他 TypeApp 原样返回。
+   */
+  private static Type normalizeBuiltinApp(Type type) {
+    if (!(type instanceof CoreModel.TypeApp ta) || ta.base == null || ta.args == null) {
+      return type;
+    }
+    var base = ta.base.toLowerCase(Locale.ROOT);
+    if (ta.args.size() == 1 && ("option".equals(base) || "maybe".equals(base))) {
+      var option = new CoreModel.Option();
+      option.type = ta.args.get(0);
+      return option;
+    }
+    if (ta.args.size() == 1 && "list".equals(base)) {
+      var list = new CoreModel.ListT();
+      list.type = ta.args.get(0);
+      return list;
+    }
+    if (ta.args.size() == 2 && "result".equals(base)) {
+      var result = new CoreModel.Result();
+      result.ok = ta.args.get(0);
+      result.err = ta.args.get(1);
+      return result;
+    }
+    if (ta.args.size() == 2 && "map".equals(base)) {
+      var map = new CoreModel.MapT();
+      map.key = ta.args.get(0);
+      map.val = ta.args.get(1);
+      return map;
+    }
+    return type;
   }
 
   /**
