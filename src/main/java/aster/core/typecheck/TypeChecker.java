@@ -79,6 +79,7 @@ public final class TypeChecker {
       return List.of();
     }
     diagnostics.clear();
+    baseChecker.clearUncheckedForCalls();
     importAliases.clear();
     moduleTopLevelNames.clear();
     symbolTable.enterScope(SymbolTable.ScopeType.MODULE);
@@ -147,6 +148,7 @@ public final class TypeChecker {
       }
     } finally {
       symbolTable.exitScope();
+      baseChecker.clearUncheckedForCalls();
     }
 
     var baseDiagnostics = new ArrayList<>(diagnostics.getDiagnostics());
@@ -270,6 +272,8 @@ public final class TypeChecker {
     // 构建函数类型
     var funcType = new CoreModel.FuncType();
     funcType.params = func.params.stream().map(p -> p.type).toList();
+    // 未写类型的形参：类型只是按名字猜的，调用检查视为 Unknown（#229，与 TS signatureParamTypes 对齐）
+    func.params.stream().filter(p -> p.typeInferred).forEach(p -> baseChecker.markUncheckedForCalls(p.type));
     // 省略 produce 类型时 func.ret 只是解析器给的占位：与 TS 一样先按函数体推断，
     // 推断不出再退回占位，这样调用方拿到的返回类型才与 TS 一致。
     funcType.ret = func.ret;
@@ -277,8 +281,14 @@ public final class TypeChecker {
       var inferred = TypeSystem.inferFunctionType(func.params, func.body, moduleFieldTypes).ret;
       if (inferred != null && !TypeSystem.isUnknown(inferred)) {
         funcType.ret = inferred;
+      } else {
+        // 推断失败时的占位按函数名猜出，调用方把它当实参传递时不作约束（#229）
+        baseChecker.markUncheckedForCalls(funcType.ret);
       }
     }
+    // 泛型规则的类型参数（解析后是同名 TypeName）：调用检查不按字面类型名比较，与 TS 放行含类型变量的形参一致
+    funcType.params.forEach(p -> baseChecker.markTypeParamsUncheckedForCalls(p, func.typeParams));
+    baseChecker.markTypeParamsUncheckedForCalls(funcType.ret, func.typeParams);
     funcType.origin = func.origin;
 
     // 存储函数声明的最高级别效果，用于后续效果推断

@@ -41,6 +41,66 @@ public final class BaseTypeChecker {
     this.knownQualifier = knownQualifier == null ? name -> false : knownQualifier;
   }
 
+  /**
+   * 调用检查中视为 Unknown 的类型实例（按引用识别）：
+   * <ul>
+   *   <li>只按名字推断出的类型：未写类型的形参 / lambda 形参的占位类型（如 amount → Float）、
+   *       省略返回类型且按函数体推断失败时按规则名猜出的返回类型占位；</li>
+   *   <li>泛型规则签名里的类型参数（`Rule id of T given x as T`，解析后是名为 T 的 TypeName）。</li>
+   * </ul>
+   * 实参比较与「调用目标是否为函数」两项检查把它们当作 Unknown，与 TS 一致：拿不准时放行。
+   * 其他用途（悬浮提示、函数体内的检查、其余诊断）不变。按引用识别使其能随 Let 绑定、
+   * 函数值、Some(...) 等原样传播，且不改动 IR。
+   */
+  private final java.util.Set<Type> uncheckedForCalls = Collections.newSetFromMap(new IdentityHashMap<>());
+
+  /** 登记一个调用检查中视为 Unknown 的类型实例（见 {@link #uncheckedForCalls}）。 */
+  public void markUncheckedForCalls(Type type) {
+    if (type != null) {
+      uncheckedForCalls.add(type);
+    }
+  }
+
+  /** 登记类型中所有名字属于 {@code typeParams} 的 TypeName（泛型规则的类型参数）。 */
+  public void markTypeParamsUncheckedForCalls(Type type, Collection<String> typeParams) {
+    if (type == null || typeParams == null || typeParams.isEmpty()) {
+      return;
+    }
+    switch (type) {
+      case CoreModel.TypeName tn -> {
+        if (typeParams.contains(tn.name)) {
+          markUncheckedForCalls(tn);
+        }
+      }
+      case CoreModel.TypeApp ta -> {
+        if (ta.args != null) ta.args.forEach(arg -> markTypeParamsUncheckedForCalls(arg, typeParams));
+      }
+      case CoreModel.FuncType f -> {
+        if (f.params != null) f.params.forEach(param -> markTypeParamsUncheckedForCalls(param, typeParams));
+        markTypeParamsUncheckedForCalls(f.ret, typeParams);
+      }
+      case CoreModel.ListT l -> markTypeParamsUncheckedForCalls(l.type, typeParams);
+      case CoreModel.Maybe m -> markTypeParamsUncheckedForCalls(m.type, typeParams);
+      case CoreModel.Option o -> markTypeParamsUncheckedForCalls(o.type, typeParams);
+      case CoreModel.Result r -> {
+        markTypeParamsUncheckedForCalls(r.ok, typeParams);
+        markTypeParamsUncheckedForCalls(r.err, typeParams);
+      }
+      case CoreModel.MapT m -> {
+        markTypeParamsUncheckedForCalls(m.key, typeParams);
+        markTypeParamsUncheckedForCalls(m.val, typeParams);
+      }
+      case CoreModel.PiiType pii -> markTypeParamsUncheckedForCalls(pii.baseType, typeParams);
+      default -> {
+      }
+    }
+  }
+
+  /** 清空登记（每次检查模块前后调用，避免跨模块持有 IR 引用）。 */
+  public void clearUncheckedForCalls() {
+    uncheckedForCalls.clear();
+  }
+
   // ========== 构造器 ==========
 
   public BaseTypeChecker(SymbolTable symbolTable, DiagnosticBuilder diagnostics, GenericTypeChecker genericChecker) {
@@ -492,6 +552,23 @@ public final class BaseTypeChecker {
       return createTypeName(VerdictSignatures.TYPE_NAME);
     }
 
+    // #268：局部名遮蔽同名规则；局部值类型已知且不可能是函数时报 E001（与 TS 同文案）。
+    // 运行期 truffle / TS 解释器同样按局部值分派，不会改调同名规则。
+    if (call.target instanceof CoreModel.Name local && isNonCallableLocal(local.name)) {
+      for (var arg : call.args) {
+        typeOfExpr(arg, ctx);
+      }
+      diagnostics.error(
+        ErrorCode.TYPE_MISMATCH,
+        Optional.ofNullable(call.origin),
+        Map.of(
+          "expected", "a function",
+          "actual", "'" + local.name + "' of type " + TypeSystem.format(funcType)
+        )
+      );
+      return TypeSystem.unknown();
+    }
+
     // 如果不是函数类型，返回 unknown
     if (!(funcType instanceof CoreModel.FuncType ft)) {
       return TypeSystem.unknown();
@@ -512,21 +589,28 @@ public final class BaseTypeChecker {
       );
     }
 
-    // 推断参数类型列表（只执行一次，避免重复推断）
-    // 同时展开参数类型中的别名
+    // 推断参数类型列表（只执行一次，避免重复推断）。比较用的类型先把按名字推断的部分与
+    // 泛型类型参数换成 Unknown（形参与实参两侧都是），再展开别名；返回类型仍用原签名，不影响下游推断。
     var argTypes = call.args.stream()
-      .map(arg -> expandType(typeOfExpr(arg, ctx)))
+      .map(arg -> expandType(eraseUncheckedForCalls(typeOfExpr(arg, ctx))))
+      .toList();
+    var paramTypes = ft.params.stream()
+      .map(param -> expandType(eraseUncheckedForCalls(param)))
       .toList();
 
     // 检查是否是泛型函数调用，如果是则进行类型统一和替换
     if (containsTypeVar(expandedFt)) {
-      var bindings = genericChecker.unifyGenericCall(expandedFt, argTypes, Optional.ofNullable(call.origin));
+      var checkFt = new CoreModel.FuncType();
+      checkFt.params = paramTypes;
+      checkFt.ret = expandedFt.ret;
+      checkFt.origin = expandedFt.origin;
+      var bindings = genericChecker.unifyGenericCall(checkFt, argTypes, Optional.ofNullable(call.origin));
 
       // 参数类型检查（使用替换后的类型）
-      for (int i = 0; i < Math.min(call.args.size(), expandedFt.params.size()); i++) {
+      for (int i = 0; i < Math.min(call.args.size(), paramTypes.size()); i++) {
         var argType = argTypes.get(i);
-        var paramType = genericChecker.substituteTypeVars(expandedFt.params.get(i), bindings);
-        if (!TypeSystem.equals(argType, paramType, false)) {
+        var paramType = genericChecker.substituteTypeVars(paramTypes.get(i), bindings);
+        if (!TypeSystem.isSubtype(argType, paramType)) {
           diagnostics.typeMismatch(paramType, argType, Optional.ofNullable(call.origin));
         }
       }
@@ -534,17 +618,120 @@ public final class BaseTypeChecker {
       // 返回替换后的返回类型
       return genericChecker.substituteTypeVars(expandedFt.ret, bindings);
     } else {
-      // 非泛型函数：传统类型检查（使用展开后的类型）
-      for (int i = 0; i < Math.min(call.args.size(), expandedFt.params.size()); i++) {
+      // 非泛型函数：可赋值性检查（数值拓宽、T → T?、容器协变等见 TypeSystem.isSubtype）
+      for (int i = 0; i < Math.min(call.args.size(), paramTypes.size()); i++) {
         var argType = argTypes.get(i);
-        var paramType = expandedFt.params.get(i);
-        if (!TypeSystem.equals(argType, paramType, false)) {
+        var paramType = paramTypes.get(i);
+        if (!TypeSystem.isSubtype(argType, paramType)) {
           diagnostics.typeMismatch(paramType, argType, Optional.ofNullable(call.origin));
         }
       }
 
-      return expandedFt.ret;
+      return carryUncheckedForCalls(ft.ret, expandedFt.ret);
     }
+  }
+
+  /**
+   * 返回类型占位展开别名后（如 Text → 内置别名表里共享的 String 实例）会丢掉登记；
+   * 复制一份展开结果再登记，让调用结果作为实参时同样不作约束。共享实例本身不登记。
+   */
+  private Type carryUncheckedForCalls(Type raw, Type expanded) {
+    if (!uncheckedForCalls.contains(raw) || uncheckedForCalls.contains(expanded)) {
+      return expanded;
+    }
+    if (!(expanded instanceof CoreModel.TypeName tn)) {
+      return expanded;
+    }
+    var copy = new CoreModel.TypeName();
+    copy.name = tn.name;
+    copy.origin = tn.origin;
+    markUncheckedForCalls(copy);
+    return copy;
+  }
+
+  /**
+   * 单段名字是否为类型已知、且不可能是函数的局部名（形参、Let、模式绑定）。
+   * 函数类型、类型变量、Unknown 以及只按名字推断出的类型 / 泛型类型参数都视为可能可调用。
+   */
+  private boolean isNonCallableLocal(String name) {
+    if (name == null || name.contains(".") || isBuiltinOperator(name)) {
+      return false;
+    }
+    var symbol = symbolTable.lookup(name);
+    if (symbol.isEmpty() || symbol.get().kind() == SymbolInfo.SymbolKind.FUNCTION
+        || symbol.get().kind() == SymbolInfo.SymbolKind.DATA_TYPE) {
+      return false;
+    }
+    var type = eraseUncheckedForCalls(symbol.get().type());
+    var expanded = TypeSystem.isUnknown(type) ? type : expandType(type);
+    return !(TypeSystem.isUnknown(expanded)
+        || expanded instanceof CoreModel.FuncType
+        || expanded instanceof CoreModel.TypeVar
+        || (expanded instanceof CoreModel.PiiType pii && pii.baseType instanceof CoreModel.FuncType));
+  }
+
+  /** 把类型中调用检查视为未知的部分（见 {@link #uncheckedForCalls}）换成 Unknown，其余结构保持不变。 */
+  private Type eraseUncheckedForCalls(Type type) {
+    if (type == null || uncheckedForCalls.contains(type)) {
+      return TypeSystem.unknown();
+    }
+    return switch (type) {
+      case CoreModel.FuncType f -> {
+        var out = new CoreModel.FuncType();
+        out.params = f.params == null ? null : f.params.stream().map(this::eraseUncheckedForCalls).toList();
+        out.ret = eraseUncheckedForCalls(f.ret);
+        out.origin = f.origin;
+        yield out;
+      }
+      case CoreModel.ListT l -> {
+        var out = new CoreModel.ListT();
+        out.type = eraseUncheckedForCalls(l.type);
+        out.origin = l.origin;
+        yield out;
+      }
+      case CoreModel.Maybe m -> {
+        var out = new CoreModel.Maybe();
+        out.type = eraseUncheckedForCalls(m.type);
+        out.origin = m.origin;
+        yield out;
+      }
+      case CoreModel.Option o -> {
+        var out = new CoreModel.Option();
+        out.type = eraseUncheckedForCalls(o.type);
+        out.origin = o.origin;
+        yield out;
+      }
+      case CoreModel.Result r -> {
+        var out = new CoreModel.Result();
+        out.ok = eraseUncheckedForCalls(r.ok);
+        out.err = eraseUncheckedForCalls(r.err);
+        out.origin = r.origin;
+        yield out;
+      }
+      case CoreModel.MapT m -> {
+        var out = new CoreModel.MapT();
+        out.key = eraseUncheckedForCalls(m.key);
+        out.val = eraseUncheckedForCalls(m.val);
+        out.origin = m.origin;
+        yield out;
+      }
+      case CoreModel.TypeApp ta -> {
+        var out = new CoreModel.TypeApp();
+        out.base = ta.base;
+        out.args = ta.args == null ? null : ta.args.stream().map(this::eraseUncheckedForCalls).toList();
+        out.origin = ta.origin;
+        yield out;
+      }
+      case CoreModel.PiiType pii -> {
+        var out = new CoreModel.PiiType();
+        out.baseType = eraseUncheckedForCalls(pii.baseType);
+        out.sensitivity = pii.sensitivity;
+        out.category = pii.category;
+        out.origin = pii.origin;
+        yield out;
+      }
+      default -> type;
+    };
   }
 
   /**
@@ -593,6 +780,9 @@ public final class BaseTypeChecker {
     // 都不能把 LAMBDA 作用域留在栈上，否则外层后续语句全在错误作用域里检查。
     try {
       for (var param : lambda.params) {
+        if (param.typeInferred) {
+          markUncheckedForCalls(param.type);
+        }
         defineOrReportDuplicate(
           param.name,
           param.type,
