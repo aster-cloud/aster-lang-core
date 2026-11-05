@@ -350,11 +350,10 @@ public final class TypeChecker {
 
       // 验证返回类型（展开别名后再比较）。返回类型是推断占位时跳过——TS 侧同样以
       // retTypeInferred 跳过，否则按函数名猜出的占位类型会对合法策略报假 E003。
+      // Return 与实参同一套可赋值规则：数值拓宽、T → T?、None → T? 放行，收窄仍报错；
+      // 按名字推断的类型（`Return amount`）视为未知（#232）。
       if (bodyReturnType.isPresent() && !func.retTypeInferred) {
-        var expandedBodyType = baseChecker.expandType(bodyReturnType.get());
-        var expandedDeclaredType = baseChecker.expandType(func.ret);
-        
-        if (!TypeSystem.equals(expandedBodyType, expandedDeclaredType, false)) {
+        if (!baseChecker.isAssignable(bodyReturnType.get(), func.ret)) {
           diagnostics.error(
             ErrorCode.RETURN_TYPE_MISMATCH,
             Optional.ofNullable(func.origin),
