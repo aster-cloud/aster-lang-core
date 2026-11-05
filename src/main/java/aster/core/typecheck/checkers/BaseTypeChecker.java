@@ -111,6 +111,9 @@ public final class BaseTypeChecker {
     uncheckedForCalls.clear();
   }
 
+  /** 当前函数体的声明返回类型（null = 不逐条比对 Return，如 lambda 体或返回类型按名推断）。 */
+  private Type declaredReturn_;
+
   // ========== 构造器 ==========
 
   public BaseTypeChecker(SymbolTable symbolTable, DiagnosticBuilder diagnostics, GenericTypeChecker genericChecker) {
@@ -406,7 +409,11 @@ public final class BaseTypeChecker {
         yield Optional.empty();
       }
 
-      case CoreModel.Return ret -> Optional.of(typeOfExpr(ret.expr, ctx));
+      case CoreModel.Return ret -> {
+        var retType = typeOfExpr(ret.expr, ctx);
+        checkReturnAgainstDeclared(ret, retType);
+        yield Optional.of(retType);
+      }
 
       case CoreModel.If ifStmt -> checkIf(ifStmt, ctx);
 
@@ -458,11 +465,50 @@ public final class BaseTypeChecker {
       return;
     }
     symbolTable.enterScope(SymbolTable.ScopeType.BLOCK);
+    // step / compensate 体内的 Return 是该 step 的结果（truffle WorkflowNode 捕获 ReturnException 作为
+    // step 返回值），不是函数返回值，所以不与函数声明的返回类型比对（#239）。
+    var saved = declaredReturn_;
+    declaredReturn_ = null;
     try {
       checkBlock(block, ctx);
     } finally {
+      declaredReturn_ = saved;
       symbolTable.exitScope();
     }
+  }
+
+  /**
+   * 检查函数体：体内每条 Return（任意嵌套 If / Match 分支 / workflow step）都与声明返回类型比对（#239）。
+   *
+   * <p>块结果类型只保留最后一条有类型的语句，无 Otherwise 的 If 不产生类型，所以只比较块结果会漏掉
+   * 分支里的提前 Return；改为在 Return 处逐条比对，E003 落在该 Return 的位置。
+   * {@code declaredReturn} 为 null 表示不比对（按名推断的返回类型占位）。
+   */
+  public Optional<Type> checkFunctionBody(Block block, Type declaredReturn, VisitorContext ctx) {
+    var saved = declaredReturn_;
+    declaredReturn_ = declaredReturn;
+    try {
+      return checkBlock(block, ctx);
+    } finally {
+      declaredReturn_ = saved;
+    }
+  }
+
+  /**
+   * Return 与声明类型同一套可赋值规则：数值拓宽、T → T?、None → T? 放行，Unknown 与按名推断的类型视为未知（#232）。
+   */
+  private void checkReturnAgainstDeclared(CoreModel.Return ret, Type actual) {
+    if (declaredReturn_ == null || isAssignable(actual, declaredReturn_)) {
+      return;
+    }
+    diagnostics.error(
+      ErrorCode.RETURN_TYPE_MISMATCH,
+      Optional.ofNullable(ret.origin),
+      Map.of(
+        "expected", TypeSystem.format(declaredReturn_),
+        "actual", TypeSystem.format(actual)
+      )
+    );
   }
 
   /**
@@ -826,7 +872,8 @@ public final class BaseTypeChecker {
         );
       }
 
-      var bodyType = checkBlock(lambda.body, ctx);
+      // lambda 体的 Return 由下方按 lambda 声明类型整体比对，不与外层函数的返回类型比对
+      var bodyType = checkFunctionBody(lambda.body, null, ctx);
 
       // 验证返回类型前先展开别名
       if (bodyType.isPresent()) {

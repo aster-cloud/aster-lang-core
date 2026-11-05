@@ -346,24 +346,10 @@ public final class TypeChecker {
   /** 检查函数体：返回类型、效果兼容性与异步纪律（调用方已进入函数作用域）。 */
   private void checkFunctionBody(CoreModel.Func func, VisitorContext ctx) {
     if (func.body != null) {
-      var bodyReturnType = baseChecker.checkBlock(func.body, ctx);
-
-      // 验证返回类型（展开别名后再比较）。返回类型是推断占位时跳过——TS 侧同样以
-      // retTypeInferred 跳过，否则按函数名猜出的占位类型会对合法策略报假 E003。
-      // Return 与实参同一套可赋值规则：数值拓宽、T → T?、None → T? 放行，收窄仍报错；
-      // 按名字推断的类型（`Return amount`）视为未知（#232）。
-      if (bodyReturnType.isPresent() && !func.retTypeInferred) {
-        if (!baseChecker.isAssignable(bodyReturnType.get(), func.ret)) {
-          diagnostics.error(
-            ErrorCode.RETURN_TYPE_MISMATCH,
-            Optional.ofNullable(func.origin),
-            Map.of(
-              "expected", TypeSystem.format(func.ret),
-              "actual", TypeSystem.format(bodyReturnType.get())
-            )
-          );
-        }
-      }
+      // 每条 Return 在 BaseTypeChecker 内逐条与声明返回类型比对，E003 落在该 Return 的位置（#239）。
+      // 返回类型是推断占位时不比对——TS 侧同样以 retTypeInferred 跳过，否则按函数名猜出的占位类型
+      // 会对合法策略报假 E003。
+      baseChecker.checkFunctionBody(func.body, func.retTypeInferred ? null : func.ret, ctx);
 
       // 检查效果兼容性：验证推断效果在声明效果范围内
       var inferredEffect = effectChecker.inferBlockEffect(func.body, ctx);

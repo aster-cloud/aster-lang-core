@@ -1,0 +1,70 @@
+[
+ {
+  "name": "early_return_in_if_wrong",
+  "source": "Module m.\nRule r given x as Int, produce Int:\n  If x greater than 700\n    Return \"high\".\n  Return 0.\n",
+  "success": false,
+  "errors": [
+   [
+    "E003",
+    4
+   ]
+  ]
+ },
+ {
+  "name": "nested_if_wrong",
+  "source": "Module m.\nRule r given x as Int, produce Int:\n  If x greater than 700\n    If x greater than 900\n      Return \"very\".\n    Return 1.\n  Return 0.\n",
+  "success": false,
+  "errors": [
+   [
+    "E003",
+    5
+   ]
+  ]
+ },
+ {
+  "name": "plain_wrong",
+  "source": "Module m.\nRule r given x as Int, produce Int:\n  Return \"high\".\n",
+  "success": false,
+  "errors": [
+   [
+    "E003",
+    3
+   ]
+  ]
+ },
+ {
+  "name": "final_wrong",
+  "source": "Module m.\nRule r given x as Int, produce Int:\n  If x greater than 700\n    Return 1.\n  Return \"low\".\n",
+  "success": false,
+  "errors": [
+   [
+    "E003",
+    5
+   ]
+  ]
+ },
+ {
+  "name": "early_return_ok",
+  "source": "Module m.\nRule r given x as Int, produce Int:\n  If x greater than 700\n    Return 1.\n  Return 0.\n",
+  "success": true,
+  "errors": []
+ },
+ {
+  "name": "widen_decimal_early",
+  "source": "Module m.\nRule r given x as Int, produce Decimal:\n  If x greater than 700\n    Return 1.\n  Return x.\n",
+  "success": true,
+  "errors": []
+ },
+ {
+  "name": "widen_float",
+  "source": "Module m.\nRule r given x as Int, produce Float:\n  Return 1.\n",
+  "success": true,
+  "errors": []
+ },
+ {
+  "name": "unknown_field_early",
+  "source": "Module m.\nDefine A has score, label.\nRule r given a as A, produce Int:\n  If a.score greater than 700\n    Return a.label.\n  Return 0.\n",
+  "success": true,
+  "errors": []
+ }
+]
