@@ -98,6 +98,14 @@ public final class BaseTypeChecker {
     }
   }
 
+  /**
+   * 赋值类位置（Set、Return、lambda 返回）的可赋值性：先把按名字推断的部分换成 Unknown（{@link #uncheckedForCalls}），
+   * 再展开别名，按 {@link TypeSystem#isSubtype} 判定（数值拓宽、T → T?、None → T? 放行，收窄仍不放行，#232）。
+   */
+  public boolean isAssignable(Type value, Type target) {
+    return TypeSystem.isSubtype(expandType(eraseUncheckedForCalls(value)), expandType(eraseUncheckedForCalls(target)));
+  }
+
   /** 清空登记（每次检查模块前后调用，避免跨模块持有 IR 引用）。 */
   public void clearUncheckedForCalls() {
     uncheckedForCalls.clear();
@@ -311,7 +319,7 @@ public final class BaseTypeChecker {
    */
   private Type checkIfExpr(CoreModel.IfE ifx, VisitorContext ctx) {
     var condType = typeOfExpr(ifx.cond, ctx);
-    if (!TypeSystem.equals(condType, createTypeName("Bool"), false)) {
+    if (!TypeSystem.equals(eraseUncheckedForCalls(condType), createTypeName("Bool"), false)) {
       diagnostics.typeMismatch(createTypeName("Bool"), condType, Optional.ofNullable(ifx.origin));
     }
     var thenType = typeOfExpr(ifx.thenE, ctx);
@@ -352,7 +360,7 @@ public final class BaseTypeChecker {
       return;
     }
     Type target = symbol.get().type();
-    if (!TypeSystem.equals(target, exprType, false) && !TypeSystem.isSubtype(exprType, target)) {
+    if (!isAssignable(exprType, target)) {
       diagnostics.error(
         ErrorCode.TYPE_MISMATCH_ASSIGN,
         origin,
@@ -433,17 +441,28 @@ public final class BaseTypeChecker {
       case CoreModel.Workflow workflow -> {
         if (workflow.steps != null) {
           for (var step : workflow.steps) {
-            if (step.body != null) {
-              checkBlock(step.body, ctx);
-            }
-            if (step.compensate != null) {
-              checkBlock(step.compensate, ctx);
-            }
+            // step 体与 compensate 体各有独立作用域（与 truffle#163 一致，#236）：体内 Let 不外泄，
+            // 跨 step 读取另一 step 的 Let 报未定义；不同 step 的同名 Let 互不冲突。
+            checkScopedBlock(step.body, ctx);
+            checkScopedBlock(step.compensate, ctx);
           }
         }
         yield Optional.empty();
       }
     };
+  }
+
+  /** 在独立的块作用域中检查代码块（null 跳过）；finally 退出，异常也不把作用域留在栈上。 */
+  private void checkScopedBlock(Block block, VisitorContext ctx) {
+    if (block == null) {
+      return;
+    }
+    symbolTable.enterScope(SymbolTable.ScopeType.BLOCK);
+    try {
+      checkBlock(block, ctx);
+    } finally {
+      symbolTable.exitScope();
+    }
   }
 
   /**
@@ -471,7 +490,7 @@ public final class BaseTypeChecker {
     // 带点的调用目标（`List.contains`、`Decimal.round`、`Verdict.allow`）是内置命名空间函数：
     // TS 从不把它当 Name 表达式求类型（命名空间不是值符号），各自由下方专项分支或运行时校验；
     // 这里同样跳过，否则会对命名空间首段误报 UNDEFINED_VARIABLE。
-    Type funcType = isOperatorTarget(call.target) || isNamespacedTarget(call.target)
+    Type funcType = isOperatorTarget(call.target) || isNamespacedTarget(call.target) || isUndeclaredBuiltinTarget(call.target)
         ? TypeSystem.unknown()
         : typeOfExpr(call.target, ctx);
 
@@ -655,13 +674,22 @@ public final class BaseTypeChecker {
   }
 
   /**
+   * 未声明的单段 builtin 调用目标（`add(1, 2)`、`divide(10, 2)`）：truffle 在没有同名规则时直接分派 builtin，
+   * 能正常运行，不报 E101（#233，与 TS 一致）。有同名符号（规则、局部名）时照常按符号检查。
+   */
+  private boolean isUndeclaredBuiltinTarget(CoreModel.Expr target) {
+    return target instanceof CoreModel.Name n && CallTargetBuiltins.isCallTarget(n.name)
+      && symbolTable.lookup(n.name).isEmpty();
+  }
+
+  /**
    * 单段名字是否为类型已知、且不可能是函数的局部名（形参、Let、模式绑定）。
    * 函数类型、类型变量、Unknown 以及只按名字推断出的类型 / 泛型类型参数都视为可能可调用。
    * 与运行期 builtin 同名的局部名不算：truffle 在调用位置先分派 builtin（见 {@link CallTargetBuiltins}），
    * `given add as Int … add(1, 2)` 能正常运行。
    */
   private boolean isNonCallableLocal(String name) {
-    if (name == null || name.contains(".") || isBuiltinOperator(name) || CallTargetBuiltins.NAMES.contains(name)) {
+    if (name == null || name.contains(".") || isBuiltinOperator(name) || CallTargetBuiltins.isCallTarget(name)) {
       return false;
     }
     var symbol = symbolTable.lookup(name);
@@ -802,10 +830,8 @@ public final class BaseTypeChecker {
 
       // 验证返回类型前先展开别名
       if (bodyType.isPresent()) {
-        var expandedBodyType = expandType(bodyType.get());
-        var expandedDeclaredType = expandType(lambda.ret);
-
-        if (!TypeSystem.equals(expandedBodyType, expandedDeclaredType, false)) {
+        // 与规则 Return 同一套可赋值规则（数值拓宽、T → T?；按名字推断的类型视为未知，#232）
+        if (!isAssignable(bodyType.get(), lambda.ret)) {
           diagnostics.error(
             ErrorCode.RETURN_TYPE_MISMATCH,
             Optional.ofNullable(lambda.origin),
@@ -870,6 +896,11 @@ public final class BaseTypeChecker {
           continue;
         }
         var valueType = typeOfExpr(field.expr, ctx);
+        // 未写类型的字段：类型只是按字段名猜的，不作约束（#232，与 TS isFieldTypeInferred 一致）。
+        // 值表达式照常推断（上一行），其中的未定义名等诊断不受影响。
+        if (schemaField.typeInferred) {
+          continue;
+        }
         // 用 isSubtype 而非 equals：与 TS 的 isAssignable 一致，允许 Int → Float
         // 等数值提升。unknown 一侧跳过——推断不出类型时报「不匹配」是误报，
         // 那属于类型推断的问题，不该在这里制造噪声。
@@ -881,10 +912,11 @@ public final class BaseTypeChecker {
         //   而 data 声明常写 Text——不展开就会对**完全正确**的构造器报
         //   FIELD_TYPE_MISMATCH（实测确认过这个误报）。
         //   同 checkAwait 的做法，用 ctx 的别名表展开两侧。
+        //   按名字推断类型的值（未写类型的形参等）视为未知，不作约束（#232）。
         var aliases = ctx.getTypeAliases();
         var expectedType = TypeSystem.expand(schemaField.type, aliases);
         var actualType = TypeSystem.expand(valueType, aliases);
-        if (!TypeSystem.isSubtype(actualType, expectedType)) {
+        if (!TypeSystem.isSubtype(TypeSystem.expand(eraseUncheckedForCalls(valueType), aliases), expectedType)) {
           diagnostics.error(ErrorCode.FIELD_TYPE_MISMATCH,
               Optional.ofNullable(field.expr instanceof CoreModel.Name n ? n.origin : construct.origin),
               Map.of("field", field.name,
@@ -945,7 +977,8 @@ public final class BaseTypeChecker {
   private Optional<Type> checkIf(CoreModel.If ifStmt, VisitorContext ctx) {
     // 检查条件
     var condType = typeOfExpr(ifStmt.cond, ctx);
-    if (!TypeSystem.equals(condType, createTypeName("Bool"), false)) {
+    // 条件的类型只来自名字推断（`If approved_status:`）时视为未知（#232）
+    if (!TypeSystem.equals(eraseUncheckedForCalls(condType), createTypeName("Bool"), false)) {
       diagnostics.typeMismatch(createTypeName("Bool"), condType, Optional.ofNullable(ifStmt.origin));
     }
 
@@ -1014,8 +1047,11 @@ public final class BaseTypeChecker {
       //   unknown 是本检查器既有的「类型不可确定，不要级联报错」哨兵
       //   （typeOfExpr 对未知名称、Ok/Err 的 err 侧都用它）。
       //   精确推导需先给 Enum 加载荷类型，那是独立的语言层变更。
+      // 与 truffle PatCtorNode 一致：位置 i 有嵌套模式（args）时以 args 为准，names 只补 args 之后的位置。
+      // lowering 对 `Some(v)` 同时产出 names=[v] 与 args=[PatName v]，两处都登记会报假 E104（#233）。
+      int argCount = ctor.args == null ? 0 : ctor.args.size();
       if (ctor.names != null) {
-        for (String bound : ctor.names) {          // 遗留的位置绑定字段
+        for (String bound : ctor.names.subList(Math.min(argCount, ctor.names.size()), ctor.names.size())) {
           if (bound != null) {
             defineOrReportDuplicate(
               bound,
@@ -1463,6 +1499,16 @@ public final class BaseTypeChecker {
         yield expanded;
       }
       case CoreModel.FuncType ft -> expandFuncType(ft);
+      // PII 包装内层同样展开别名（`@pii(L2, email) Text` → String），否则 PII 实参传给 Text 形参时
+      // 剥壳后 Text 与 String 不等，在 E073 之外多报 E001（#233）
+      case CoreModel.PiiType pii -> {
+        var expanded = new CoreModel.PiiType();
+        expanded.baseType = expandType(pii.baseType);
+        expanded.sensitivity = pii.sensitivity;
+        expanded.category = pii.category;
+        expanded.origin = pii.origin;
+        yield expanded;
+      }
       case CoreModel.TypeApp ta -> {
         // 【关键修复】展开 TypeApp 的基类并执行类型参数替换
         // 场景：type Box<T> = Result<T, String>
