@@ -2,7 +2,6 @@ package aster.core.typecheck;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import aster.core.canonicalizer.Canonicalizer;
 import aster.core.lowering.CoreLowering;
@@ -15,7 +14,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Stream;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
@@ -44,24 +42,10 @@ class ReturnPathsFixtureTest {
     }
   }
 
-  /**
-   * Java Canonicalizer 已知缺陷：单字母类型名 {@code A} 后跟 {@code has} 时被当冠词删除（{@code Define A has}
-   * → {@code Define has}），解析失败，与本 issue 无关，另行跟踪。语义由 {@link #unknownFieldEarlyReturnWithMultiLetterType} 覆盖。
-   */
-  private static final Set<String> KNOWN_CANONICALIZER_GAPS = Set.of("unknown_field_early");
-
   @ParameterizedTest(name = "{0}")
   @MethodSource("fixtures")
   void matchesFixture(String name, String source, boolean success, JsonNode expectedErrors) {
-    assumeFalse(KNOWN_CANONICALIZER_GAPS.contains(name), "Canonicalizer 冠词缺陷，见类注释");
     assertDiagnostics(name, source, success, expectedErrors);
-  }
-
-  @Test
-  void unknownFieldEarlyReturnWithMultiLetterType() throws Exception {
-    var src = "Module m.\nDefine Rec has score, label.\nRule r given a as Rec, produce Int:\n"
-      + "  If a.score greater than 700\n    Return a.label.\n  Return 0.\n";
-    assertDiagnostics("unknown_field_early(Rec)", src, true, new ObjectMapper().readTree("[]"));
   }
 
   @Test

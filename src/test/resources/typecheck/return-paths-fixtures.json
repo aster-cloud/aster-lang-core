@@ -63,7 +63,7 @@
  },
  {
   "name": "unknown_field_early",
-  "source": "Module m.\nDefine A has score, label.\nRule r given a as A, produce Int:\n  If a.score greater than 700\n    Return a.label.\n  Return 0.\n",
+  "source": "Module m.\nDefine Ab has score, label.\nRule r given a as Ab, produce Int:\n  If a.score greater than 700\n    Return a.label.\n  Return 0.\n",
   "success": true,
   "errors": []
  }
