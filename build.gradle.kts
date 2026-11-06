@@ -119,7 +119,7 @@ tasks.test {
     // Codex review R-Phase-B-W3: forward EXACT keys (not a wildcard
     // `parity.*` prefix) so future tests can't accidentally collide
     // with the parity runner's property namespace.
-    listOf("parity.ir.input", "parity.ir.output", "parity.ir.full").forEach { key ->
+    listOf("parity.ir.input", "parity.ir.output", "parity.ir.full", "corpus.snapshot.out").forEach { key ->
         val v = System.getProperty(key)
         if (v != null) systemProperty(key, v)
     }
