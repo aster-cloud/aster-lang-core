@@ -327,17 +327,17 @@ public final class CoreLowering {
     return out;
   }
 
+  // CaseBody 是 sealed 接口（Return | Block）：穷尽 switch 由编译器保证，不需要运行期兜底。
   private CoreModel.Stmt lowerCaseBody(Stmt.Case.CaseBody body) {
-    if (body instanceof Stmt.Return ret) {
-      CoreModel.Return out = new CoreModel.Return();
-      out.expr = lowerExpr(ret.expr());
-      out.origin = spanToOrigin(ret.span());
-      return out;
-    }
-    if (body instanceof Block block) {
-      return lowerBlock(block);
-    }
-    throw new IllegalStateException("未知的 CaseBody 类型：" + body);
+    return switch (body) {
+      case Stmt.Return ret -> {
+        CoreModel.Return out = new CoreModel.Return();
+        out.expr = lowerExpr(ret.expr());
+        out.origin = spanToOrigin(ret.span());
+        yield out;
+      }
+      case Block block -> lowerBlock(block);
+    };
   }
 
   private CoreModel.Expr lowerExpr(Expr expr) {

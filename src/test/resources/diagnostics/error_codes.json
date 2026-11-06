@@ -615,6 +615,55 @@
     "message": "Wait for async task '{task}' occurs before any matching start",
     "help": "Execute start before wait, and ensure both are on compatible control paths."
   },
+  "LOWER_UNKNOWN_DECL_KIND": {
+    "code": "E600",
+    "category": "lowering",
+    "severity": "error",
+    "message": "Unknown declaration kind: {kind}",
+    "help": "The lowering stage received a declaration node it does not recognize. This is an engine defect, not a problem with the policy; report it together with the source."
+  },
+  "LOWER_UNKNOWN_EFFECT": {
+    "code": "E601",
+    "category": "lowering",
+    "severity": "error",
+    "message": "Unknown effect '{effect}', valid values: {valid}",
+    "help": "Declare only the supported effects (io, cpu) or an effect variable declared on the rule."
+  },
+  "LOWER_UNKNOWN_STMT_KIND": {
+    "code": "E602",
+    "category": "lowering",
+    "severity": "error",
+    "message": "lowerStmt: unhandled statement kind '{kind}'",
+    "help": "The lowering stage received a statement node it does not recognize. This is an engine defect, not a problem with the policy; report it together with the source."
+  },
+  "LOWER_UNKNOWN_EXPR_KIND": {
+    "code": "E603",
+    "category": "lowering",
+    "severity": "error",
+    "message": "Unknown expression kind: {kind}",
+    "help": "The lowering stage received an expression node it does not recognize. This is an engine defect, not a problem with the policy; report it together with the source."
+  },
+  "LOWER_UNKNOWN_PATTERN_KIND": {
+    "code": "E604",
+    "category": "lowering",
+    "severity": "error",
+    "message": "Unknown pattern kind: {kind}",
+    "help": "The lowering stage received a pattern node it does not recognize. This is an engine defect, not a problem with the policy; report it together with the source."
+  },
+  "LOWER_UNKNOWN_TYPE_KIND": {
+    "code": "E605",
+    "category": "lowering",
+    "severity": "error",
+    "message": "Unknown type kind: {kind}",
+    "help": "The lowering stage received a type node it does not recognize. This is an engine defect, not a problem with the policy; report it together with the source."
+  },
+  "LOWER_INTERNAL_ERROR": {
+    "code": "E606",
+    "category": "lowering",
+    "severity": "error",
+    "message": "Internal error during lowering: {detail}",
+    "help": "The compiler failed while lowering the policy to Core IR. This is an engine defect, not a problem with the policy; report it together with the source."
+  },
   "PII_IMPLICIT_UPLEVEL": {
     "code": "W071",
     "category": "pii",

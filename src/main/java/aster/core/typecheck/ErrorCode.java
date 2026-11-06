@@ -118,6 +118,16 @@ public enum ErrorCode {
   ASYNC_DUPLICATE_START("E502", Category.ASYNC, Severity.ERROR, "Async task '{task}' started multiple times ({count} occurrences)", "Avoid starting the same task multiple times; reuse or rename."),
   ASYNC_DUPLICATE_WAIT("E503", Category.ASYNC, Severity.WARNING, "Async task '{task}' waited multiple times ({count} occurrences)", "Ensure each task is waited on only once, or use a separate synchronization mechanism."),
   ASYNC_WAIT_BEFORE_START("E504", Category.ASYNC, Severity.ERROR, "Wait for async task '{task}' occurs before any matching start", "Execute start before wait, and ensure both are on compatible control paths."),
+  // lowering 诊断码（aster-lang-ts#302，category=lowering）：AST → Core IR 阶段的不变量守卫与内部异常。
+  // Java 侧 CoreLowering 对 sealed AST 做穷尽 switch，没有可达的发出点；此处登记以保持
+  // shared/error_codes.json 单源码表两端一致（ErrorCodeParityTest 锁定），aster-api 按码取译文。
+  LOWER_UNKNOWN_DECL_KIND("E600", Category.LOWERING, Severity.ERROR, "Unknown declaration kind: {kind}", "The lowering stage received a declaration node it does not recognize. This is an engine defect, not a problem with the policy; report it together with the source."),
+  LOWER_UNKNOWN_EFFECT("E601", Category.LOWERING, Severity.ERROR, "Unknown effect '{effect}', valid values: {valid}", "Declare only the supported effects (io, cpu) or an effect variable declared on the rule."),
+  LOWER_UNKNOWN_STMT_KIND("E602", Category.LOWERING, Severity.ERROR, "lowerStmt: unhandled statement kind '{kind}'", "The lowering stage received a statement node it does not recognize. This is an engine defect, not a problem with the policy; report it together with the source."),
+  LOWER_UNKNOWN_EXPR_KIND("E603", Category.LOWERING, Severity.ERROR, "Unknown expression kind: {kind}", "The lowering stage received an expression node it does not recognize. This is an engine defect, not a problem with the policy; report it together with the source."),
+  LOWER_UNKNOWN_PATTERN_KIND("E604", Category.LOWERING, Severity.ERROR, "Unknown pattern kind: {kind}", "The lowering stage received a pattern node it does not recognize. This is an engine defect, not a problem with the policy; report it together with the source."),
+  LOWER_UNKNOWN_TYPE_KIND("E605", Category.LOWERING, Severity.ERROR, "Unknown type kind: {kind}", "The lowering stage received a type node it does not recognize. This is an engine defect, not a problem with the policy; report it together with the source."),
+  LOWER_INTERNAL_ERROR("E606", Category.LOWERING, Severity.ERROR, "Internal error during lowering: {detail}", "The compiler failed while lowering the policy to Core IR. This is an engine defect, not a problem with the policy; report it together with the source."),
   // P0-R3 (codex review High #3): 与 TS 端 ERROR_METADATA 对齐
   PII_IMPLICIT_UPLEVEL("W071", Category.PII, Severity.WARNING, "Implicit PII level escalation detected: {source} -> {target}", "Add explicit type annotations for level changes to aid auditing."),
   PII_SINK_UNKNOWN("W074", Category.PII, Severity.WARNING, "PII data may flow to {sinkKind} without annotation", "Add @pii annotation to track sensitive data flow."),
@@ -229,6 +239,7 @@ public enum ErrorCode {
     CAPABILITY,
     PII,
     ASYNC,
+    LOWERING,
     GOVERNANCE,
     OTHER
   }
