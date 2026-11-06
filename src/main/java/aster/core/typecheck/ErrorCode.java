@@ -42,6 +42,27 @@ public enum ErrorCode {
   // 与精确 Decimal 混算会注入舍入误差，破坏可证明性；Int/Long→Decimal 精确提升放行。
   DECIMAL_DOUBLE_MIXING("E031", Category.TYPE, Severity.ERROR, "Cannot combine Decimal and Double in '{operator}'. Double is binary floating-point and would inject rounding error into an exact Decimal. Use Decimal literals (e.g. 1.08m) on both sides, or Int/Long (exact promotion).", "Make both operands Decimal (suffix m), or use Int/Long which promote exactly to Decimal."),
   CALL_ARITY_MISMATCH("E032", Category.TYPE, Severity.ERROR, "Function '{func}' expects {expected} argument(s), got {actual}.", "Adjust the call to pass exactly the declared number of arguments."),
+  // ADR 0051 §16 R56：解析诊断码（category=syntax）。
+  PARSE_UNEXPECTED_CHARACTER("E050", Category.SYNTAX, Severity.ERROR, "Unrecognized character {char}", "Remove the character or replace it with valid Aster syntax."),
+  PARSE_UNTERMINATED_STRING("E051", Category.SYNTAX, Severity.ERROR, "Unterminated string literal", "Close the string with a matching quote on the same line."),
+  PARSE_INDENTATION("E052", Category.SYNTAX, Severity.ERROR, "Incorrect indentation: one level too deep or inconsistent. Indent with 2 spaces", "Indent each nested block by exactly 2 spaces and dedent back to an enclosing level."),
+  PARSE_LITERAL_OUT_OF_RANGE("E053", Category.SYNTAX, Severity.ERROR, "{kind} literal {literal} is out of range", "Use a smaller value, add the 'L' suffix for Long, or write a Decimal literal."),
+  PARSE_NESTING_TOO_DEEP("E054", Category.SYNTAX, Severity.ERROR, "Nesting is too deep (limit {limit})", "Split the expression or statement into smaller named parts."),
+  PARSE_EXPECTED("E055", Category.SYNTAX, Severity.ERROR, "Expected {token}", "Insert the expected token at this position."),
+  PARSE_EXPECTED_AFTER("E056", Category.SYNTAX, Severity.ERROR, "Expected {token} after {after}", "Insert the expected token after the preceding construct."),
+  PARSE_EXPECTED_IN("E057", Category.SYNTAX, Severity.ERROR, "Expected {token} in {context}", "Complete the construct with the expected token."),
+  PARSE_EXPECTED_AFTER_IN("E058", Category.SYNTAX, Severity.ERROR, "Expected {token} after {after} in {context}", "Insert the expected token after the preceding part of the construct."),
+  PARSE_EXPECTED_STATEMENT_END("E059", Category.SYNTAX, Severity.ERROR, "Expected {token} at end of statement", "End the statement with the statement terminator."),
+  PARSE_EXPECTED_BEFORE("E060", Category.SYNTAX, Severity.ERROR, "Expected {token} before {before}", "Insert the expected token before the highlighted token."),
+  PARSE_UNEXPECTED_TOKEN("E061", Category.SYNTAX, Severity.ERROR, "Unexpected {token}", "Remove the token or check the surrounding syntax."),
+  PARSE_UNEXPECTED_EXPECTING("E062", Category.SYNTAX, Severity.ERROR, "Unexpected {token}; expected {expected}", "Replace the token with one of the expected tokens."),
+  PARSE_NO_VIABLE("E063", Category.SYNTAX, Severity.ERROR, "Cannot parse the syntax near {token}", "Check the spelling of keywords and operators near this position."),
+  PARSE_UNEXPECTED_CONSTRUCT("E064", Category.SYNTAX, Severity.ERROR, "Unexpected {construct}", "Check that the line starts with a valid declaration, statement or expression."),
+  PARSE_MISPLACED("E065", Category.SYNTAX, Severity.ERROR, "{construct} must appear {position}", "Move the construct to the required position."),
+  PARSE_EMPTY_BLOCK("E066", Category.SYNTAX, Severity.ERROR, "{block} must contain at least one {item}", "Add the missing item to the block."),
+  PARSE_INVALID_VALUE("E067", Category.SYNTAX, Severity.ERROR, "Invalid {construct} {value}; expected {allowed}", "Use one of the allowed values."),
+  PARSE_CALL_ARITY("E068", Category.SYNTAX, Severity.ERROR, "{callee} takes exactly {expected} argument(s), got {actual}", "Pass exactly the required number of arguments."),
+  PARSE_UNKNOWN_NAME("E069", Category.SYNTAX, Severity.ERROR, "Unknown {kind} {name}", "Check the spelling against the supported names."),
   // P0-R3 (codex review High #3): 与 TS 端 ERROR_METADATA category 对齐——
   // 5 个核心 PII codes 从 Category.TYPE 改为 Category.PII。之前的 'TYPE'
   // 分类是历史包袱，让任何按 category 派生 PII 集合的代码（如跨语言
@@ -202,6 +223,7 @@ public enum ErrorCode {
 
   public enum Category {
     TYPE,
+    SYNTAX,
     SCOPE,
     EFFECT,
     CAPABILITY,

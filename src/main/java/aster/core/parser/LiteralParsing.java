@@ -1,6 +1,10 @@
 package aster.core.parser;
 
+import aster.core.typecheck.ErrorCode;
+import org.antlr.v4.runtime.Token;
+
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * 数值字面量解析（带范围校验）。
@@ -26,10 +30,10 @@ final class LiteralParsing {
     }
 
     /** 解析 Int 字面量；超出 int 范围时抛出结构化错误而非 NumberFormatException。 */
-    static int parseInt(String raw) {
-        BigInteger value = toBigInteger(raw, "Integer");
+    static int parseInt(String raw, Token at) {
+        BigInteger value = toBigInteger(raw, "Integer", at);
         if (value.compareTo(INT_MIN) < 0 || value.compareTo(INT_MAX) > 0) {
-            throw new IllegalStateException(
+            throw outOfRange("Int", raw, at,
                 "Integer literal " + raw + " is out of range for Int "
                     + "(-2147483648..2147483647). "
                     + "Add the 'L' suffix for a 64-bit Long, or use a Decimal literal.");
@@ -38,10 +42,10 @@ final class LiteralParsing {
     }
 
     /** 解析 Long 字面量（调用方需先去掉 L/l 后缀）。 */
-    static long parseLong(String raw) {
-        BigInteger value = toBigInteger(raw, "Long");
+    static long parseLong(String raw, Token at) {
+        BigInteger value = toBigInteger(raw, "Long", at);
         if (value.compareTo(LONG_MIN) < 0 || value.compareTo(LONG_MAX) > 0) {
-            throw new IllegalStateException(
+            throw outOfRange("Long", raw, at,
                 "Long literal " + raw + " is out of range for Long "
                     + "(-9223372036854775808..9223372036854775807). "
                     + "Use a Decimal literal instead.");
@@ -55,26 +59,35 @@ final class LiteralParsing {
      * <p>两引擎的 IEEE 754 都会把超限字面量静默变成 Infinity，让明显不合法的数值继续
      * 参与运算、产出"看起来算出来了"的结果。这里拒掉，与 TS 的 L008 一致。
      */
-    static double parseDouble(String raw) {
+    static double parseDouble(String raw, Token at) {
         double value;
         try {
             value = Double.parseDouble(raw);
         } catch (NumberFormatException ex) {
-            throw new IllegalStateException("Malformed float literal " + raw + ".", ex);
+            throw new ParseDiagnosticException(ErrorCode.PARSE_LITERAL_OUT_OF_RANGE,
+                Map.of("kind", "Float", "literal", raw), "Malformed float literal " + raw + ".", at, ex);
         }
         if (!Double.isFinite(value)) {
-            throw new IllegalStateException(
+            throw outOfRange("Float", raw, at,
                 "Float literal " + raw + " overflows to Infinity and is not a finite Float. "
                     + "Use a Decimal literal for values beyond the double range.");
         }
         return value;
     }
 
-    private static BigInteger toBigInteger(String raw, String kind) {
+    private static BigInteger toBigInteger(String raw, String kind, Token at) {
         try {
             return new BigInteger(raw);
         } catch (NumberFormatException ex) {
-            throw new IllegalStateException("Malformed " + kind + " literal " + raw + ".", ex);
+            throw new ParseDiagnosticException(ErrorCode.PARSE_LITERAL_OUT_OF_RANGE,
+                Map.of("kind", "Integer".equals(kind) ? "Int" : kind, "literal", raw),
+                "Malformed " + kind + " literal " + raw + ".", at, ex);
         }
+    }
+
+    /** E053：字面量越界（ADR 0051 §16 R56）；消息原文不变。 */
+    private static ParseDiagnosticException outOfRange(String kind, String raw, Token at, String message) {
+        return new ParseDiagnosticException(ErrorCode.PARSE_LITERAL_OUT_OF_RANGE,
+            Map.of("kind", kind, "literal", raw), message, at);
     }
 }

@@ -3,9 +3,11 @@ package aster.core.parser;
 import org.antlr.v4.runtime.*;
 
 import aster.core.canonicalizer.Canonicalizer;
+import aster.core.typecheck.ErrorCode;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -282,8 +284,9 @@ public class AsterCustomLexer extends AsterLexer {
         if (type == AsterParser.LPAREN || type == AsterParser.LBRACKET) {
             if (++nestingDepth > MAX_NESTING_DEPTH) {
                 // 与 AstBuilder 深度守卫同一机制：抛可恢复的解析错误，而非放任 Error 穿透。
-                throw new IllegalStateException(
-                    "括号嵌套过深（> " + MAX_NESTING_DEPTH + "），拒绝以防栈溢出");
+                throw new ParseDiagnosticException(ErrorCode.PARSE_NESTING_TOO_DEEP,
+                    Map.of("limit", String.valueOf(MAX_NESTING_DEPTH)),
+                    "括号嵌套过深（> " + MAX_NESTING_DEPTH + "），拒绝以防栈溢出", getLine(), getCharPositionInLine() + 1);
             }
         } else if (type == AsterParser.RPAREN || type == AsterParser.RBRACKET) {
             if (nestingDepth > 0) {
@@ -296,8 +299,9 @@ public class AsterCustomLexer extends AsterLexer {
         //   把它算进去会误伤合法代码。
         if (type == AsterParser.NOT) {
             if (++consecutiveNotDepth > MAX_NESTING_DEPTH) {
-                throw new IllegalStateException(
-                    "not 链过长（> " + MAX_NESTING_DEPTH + "），拒绝以防栈溢出");
+                throw new ParseDiagnosticException(ErrorCode.PARSE_NESTING_TOO_DEEP,
+                    Map.of("limit", String.valueOf(MAX_NESTING_DEPTH)),
+                    "not 链过长（> " + MAX_NESTING_DEPTH + "），拒绝以防栈溢出", getLine(), getCharPositionInLine() + 1);
             }
         } else if (type != AsterParser.INDENT
                    && type != AsterParser.DEDENT && type != Token.EOF) {
