@@ -1,6 +1,10 @@
 package aster.core.parser;
 
+import aster.core.identifier.DomainVocabulary;
+import aster.core.identifier.IdentifierMapping;
+import aster.core.identifier.VocabularyScopes;
 import aster.core.lexicon.LexiconRegistry;
+import aster.core.resolve.ImportedDeclarations;
 import aster.core.resolve.DeclarationResolver;
 import aster.core.resolve.ResolutionContext;
 import aster.core.typecheck.ErrorCode;
@@ -38,7 +42,7 @@ class ParseDiagnosticsParityTest {
         }
     }
 
-    static List<List<Object>> coreCodes(String source, String lexiconId) {
+    static List<List<Object>> coreCodes(String source, String lexiconId, JsonNode structs) {
         var result = ParseDiagnostics.parse(source, LexiconRegistry.getInstance().getOrThrow(lexiconId));
         if (!result.diagnostics().isEmpty()) {
             ParseDiagnostic primary = result.diagnostics().stream()
@@ -48,7 +52,14 @@ class ParseDiagnosticsParityTest {
             return List.of(List.of(primary.code().code(), primary.line()));
         }
         List<List<Object>> out = new ArrayList<>();
-        for (Diagnostic d : DeclarationResolver.resolve(result.module(), ResolutionContext.none()).diagnostics()) {
+        List<IdentifierMapping> mappings = new ArrayList<>();
+        if (structs != null) {
+            structs.forEach(s -> mappings.add(IdentifierMapping.struct(s.get(0).asText(), s.get(1).asText())));
+        }
+        ResolutionContext ctx = mappings.isEmpty() ? ResolutionContext.none()
+            : new ResolutionContext(VocabularyScopes.build(new DomainVocabulary("t", "t", "de-DE", "1",
+                mappings, List.of(), List.of(), List.of(), List.of(), null)), ImportedDeclarations.NONE);
+        for (Diagnostic d : DeclarationResolver.resolve(result.module(), ctx).diagnostics()) {
             if (d.severity() == Diagnostic.Severity.ERROR) {
                 out.add(List.of(d.code().code(), d.span().map(o -> o.start.line).orElse(0)));
             }
@@ -67,7 +78,7 @@ class ParseDiagnosticsParityTest {
             c.get("codes").forEach(pair -> expected.add(List.of(pair.get(0).asText(), pair.get(1).asInt())));
             String lexicon = c.path("lexicon").asText("en-US");
             tests.add(DynamicTest.dynamicTest(c.get("name").asText(),
-                () -> assertEquals(expected, coreCodes(c.get("source").asText(), lexicon))));
+                () -> assertEquals(expected, coreCodes(c.get("source").asText(), lexicon, c.get("structs")))));
         }
         return tests.stream();
     }

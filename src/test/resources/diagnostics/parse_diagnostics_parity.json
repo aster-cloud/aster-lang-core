@@ -1,5 +1,5 @@
 {
-  "description": "ADR 0051 §16 R56/R57 双引擎诊断 parity 夹具。aster-lang-ts shared/parse_diagnostics_parity.json 与 aster-lang-core src/test/resources/diagnostics/parse_diagnostics_parity.json 必须 byte-identical。判定：有解析错误时，ts 取第一条错误，core 取第一条非 E063 的诊断（全是 E063 时取第一条），codes 恰为该条的 [码, 行]；无解析错误时 codes 为名称解析（R1）的全部 error [码, 行]。only=ts / only=core 表示该码在另一引擎结构上不产生（见 ADR 0051 §16 映射附件），只在该引擎断言。lexicon 缺省为 en-US。",
+  "description": "ADR 0051 §16 R56/R57 双引擎诊断 parity 夹具。aster-lang-ts shared/parse_diagnostics_parity.json 与 aster-lang-core src/test/resources/diagnostics/parse_diagnostics_parity.json 必须 byte-identical。判定：有解析错误时，ts 取第一条错误，core 取第一条非 E063 的诊断（全是 E063 时取第一条），codes 恰为该条的 [码, 行]；无解析错误时 codes 为名称解析（R1）的全部 error [码, 行]。only=ts / only=core 表示该码在另一引擎结构上不产生（见 ADR 0051 §16 映射附件），只在该引擎断言。lexicon 缺省为 en-US。 structs 为可选的类型词汇 [[规范名, 本地名]]（R1 以此建 VocabularyScopes）。",
   "cases": [
     {
       "name": "E050 非法字符",
@@ -331,6 +331,88 @@
     {
       "name": "R57 别名与函数同名不冲突",
       "source": "Module m.\n\nUse lib.calc as calc.\n\nRule calc given x as Int, produce Int:\n  Return x.\n",
+      "codes": []
+    },
+    {
+      "name": "R57 大小写不同不冲突（与 Data/Data 同口径：按规范名精确比较）",
+      "source": "Module m.\n\nUse lib.status as status.\n\nDefine Status as one of Active, Closed.\n",
+      "codes": []
+    },
+    {
+      "name": "R57 导入别名与枚举同名（zh-CN）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n引用 lib.status 作为 状态。\n\n定义 状态 为以下之一 待处理、已删除。\n",
+      "codes": [
+        [
+          "E807",
+          5
+        ]
+      ]
+    },
+    {
+      "name": "R57 导入别名与枚举不同名（zh-CN）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n引用 lib.status 作为 库。\n\n定义 状态 为以下之一 待处理、已删除。\n",
+      "codes": []
+    },
+    {
+      "name": "R57 导入别名与枚举同名（de-DE）",
+      "lexicon": "de-DE",
+      "source": "Modul m.\n\nverwende lib.status als Status.\n\nDefiniere Status als eines von Aktiv, Geloescht.\n",
+      "codes": [
+        [
+          "E807",
+          5
+        ]
+      ]
+    },
+    {
+      "name": "R57 导入别名与枚举不同名（de-DE）",
+      "lexicon": "de-DE",
+      "source": "Modul m.\n\nverwende lib.status als Bib.\n\nDefiniere Status als eines von Aktiv, Geloescht.\n",
+      "codes": []
+    },
+    {
+      "name": "R57 别名写本地名、类型写规范名（词汇折叠到同一规范名）",
+      "structs": [
+        [
+          "Status",
+          "Zustand"
+        ]
+      ],
+      "source": "Module m.\n\nUse lib.status as Zustand.\n\nDefine Status as one of Active, Closed.\n",
+      "codes": [
+        [
+          "E807",
+          5
+        ]
+      ]
+    },
+    {
+      "name": "R57 类型写本地名、别名写规范名（词汇折叠到同一规范名）",
+      "structs": [
+        [
+          "Status",
+          "Zustand"
+        ]
+      ],
+      "source": "Module m.\n\nDefine Zustand as one of Active, Closed.\n\nUse lib.status as Status.\n",
+      "codes": [
+        [
+          "E807",
+          5
+        ]
+      ]
+    },
+    {
+      "name": "R57 有词汇但别名不同名不冲突",
+      "structs": [
+        [
+          "Status",
+          "Zustand"
+        ]
+      ],
+      "source": "Module m.\n\nUse lib.status as Bib.\n\nDefine Zustand as one of Active, Closed.\n",
       "codes": []
     }
   ]

@@ -640,6 +640,30 @@ class DeclarationResolverTest {
         }
 
         @Test
+        void localizedAliasConflictsWithCanonicalType() {
+            ResolutionResult<Module> r = DeclarationResolver.resolve(
+                parse("Module m.\n\nUse lib.status as Zustand.\n\nDefine Status as one of Active, Closed.\n"),
+                ctxOf(List.of(struct("Status", "Zustand"))));
+            assertEquals(List.of(ErrorCode.DUPLICATE_DECLARATION), codes(r));
+            assertEquals(5, r.diagnostics().get(0).span().orElseThrow().start.line);
+        }
+
+        @Test
+        void canonicalAliasConflictsWithLocalizedType() {
+            ResolutionResult<Module> r = DeclarationResolver.resolve(
+                parse("Module m.\n\nDefine Zustand as one of Active, Closed.\n\nUse lib.status as Status.\n"),
+                ctxOf(List.of(struct("Status", "Zustand"))));
+            assertEquals(List.of(ErrorCode.DUPLICATE_DECLARATION), codes(r));
+            assertEquals(5, r.diagnostics().get(0).span().orElseThrow().start.line);
+        }
+
+        @Test
+        void caseDifferenceWithoutVocabularyDoesNotConflict() {
+            assertEquals(List.of(), codes(resolveEn(
+                "Module m.\n\nUse lib.status as status.\n\nDefine Status as one of Active, Closed.\n")));
+        }
+
+        @Test
         void duplicateImportAliasesAreNotE807() {
             assertEquals(List.of(), codes(resolveEn("Module m.\n\nUse lib.a as Lib.\n\nUse lib.b as Lib.\n")));
         }

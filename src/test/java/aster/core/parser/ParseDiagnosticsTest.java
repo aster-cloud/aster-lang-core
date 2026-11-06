@@ -64,6 +64,15 @@ class ParseDiagnosticsTest {
         assertEquals(4, pde.line());
     }
 
+    /** 构造写法 `X with f = v`（cloud invalidConstructForm 启发式的对象）在 core 同为 E057，与 ts 一致。 */
+    @Test
+    void invalidConstructFormIsE057() {
+        ParseDiagnostic d = diags("Module m.\n\nDefine User has name as Text.\n\nRule f, produce User:\n"
+            + "  Return User with name = \"a\".\n").get(0);
+        assertEquals(ErrorCode.PARSE_EXPECTED_IN, d.code());
+        assertEquals(6, d.line());
+    }
+
     @Test
     void everyParseCodeIsSyntaxCategoryError() {
         for (ErrorCode code : ErrorCode.values()) {
