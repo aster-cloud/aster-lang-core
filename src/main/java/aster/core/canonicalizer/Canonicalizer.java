@@ -53,6 +53,10 @@ import java.util.regex.Pattern;
 public final class Canonicalizer {
 
     private final Lexicon lexicon;
+    /** 声明关键词的全部单词拼写（小写），见 {@link #isDeclarationName}。 */
+    private final Set<String> declarationSpellings;
+    /** 全部单词关键词拼写（小写），见 {@link #isDeclarationName}。 */
+    private final Set<String> keywordSpellings;
     private final CanonicalizationConfig config;
     private final List<String> multiWordKeywords;
     private final Pattern articlePattern;
@@ -265,6 +269,8 @@ public final class Canonicalizer {
         this.compiledCustomRules = List.copyOf(ccr);
         this.multiWordKeywords = lexicon.getMultiWordKeywords();
         this.articlePattern = buildArticlePattern();
+        this.declarationSpellings = singleWordSpellings(lexicon, declarationKinds(config));
+        this.keywordSpellings = singleWordSpellings(lexicon, lexicon.getKeywords().keySet());
         this.keywordTranslationMap = buildKeywordTranslationMap(lexicon);
         // 预排序翻译条目（按关键词长度降序，最长匹配优先）
         List<Map.Entry<String, String>> entries = new ArrayList<>(keywordTranslationMap.entrySet());
@@ -586,20 +592,12 @@ public final class Canonicalizer {
     /** 运算符翻译后的符号形态（见 OPERATOR_SYMBOL_MAP）：+ - * / < > = 及其复合。 */
     private static final String IDENTIFIER_FOLLOW_SYMBOLS = "[-+*/<>=%]";
 
-    /**
-     * 按语法位置保护声明名（#243）。Rule 名同理：{@code Rule <词> given} 中该词即函数名；
-     * 调用位 {@code a(…)} 同理。
-     * Define 名：语法 {@code DEFINE article? typeIdent (HAS|WITH)} 中，
-     * 紧跟 {@code Define} 且其后直接是 {@code has}/{@code with} 的"冠词"本身就是类型名
-     * （如 {@code Define A has …}），必须保留。仅当两侧位置同时成立才豁免，故
-     * {@code Define a User has …} 的真冠词照常删除；不扩展通用后继词表。
-     * lookbehind 长度有界（define + 空格 + 1..3 字母），步骤 6 已把空白折叠为单空格。
-     */
-    private static final String DEFINE_NAME_GUARD =
-            "(?!(?<=(?<![\\p{L}])define \\p{L}{1,3})\\s+(?:has|with)(?![\\p{L}]))"
-            + "(?!(?<=(?<![\\p{L}])rule \\p{L}{1,3})\\s+given(?![\\p{L}]))"
-            // 紧贴左括号即调用位的函数名（如 `Return a().`），冠词不会紧贴括号
-            + "(?!\\()";
+    /** 紧贴左括号即调用位的函数名（如 {@code Return a().}），冠词不会紧贴括号（#243）。 */
+    private static final String CALL_SITE_GUARD = "(?!\\()";
+
+    /** 声明关键词种类：其后紧跟的单词是声明名（类型名 / 函数名），#243。 */
+    private static final List<SemanticTokenKind> DECLARATION_KINDS =
+            List.of(SemanticTokenKind.TYPE_DEF, SemanticTokenKind.FUNC_TO);
 
     private Pattern buildArticlePattern() {
         if (!config.removeArticles() || config.articles() == null || config.articles().isEmpty()) {
@@ -631,7 +629,7 @@ public final class Canonicalizer {
                 + "(?!\\s+" + IDENTIFIER_FOLLOW_SYMBOLS + ")"
                 + "(?!\\s*[,.:)\\]])"
                 + "(?![ \\t]*\\n)"
-                + DEFINE_NAME_GUARD;
+                + CALL_SITE_GUARD;
         String pattern = "(?<![\\p{L}.])(" + quotedArticles + ")(?![\\p{L}.])"
                 + identifierGuard
                 + "(?=\\s|$|[\\p{Punct}\\u3001-\\u303F\\uFF00-\\uFF65])\\s?";
@@ -1665,6 +1663,58 @@ public final class Canonicalizer {
      * 2. 仅在字符串外的片段应用冠词移除正则
      * 3. 重新拼接所有片段
      */
+    /**
+     * 声明关键词种类及其 allowedDuplicates 同义种类（如 en-US 中 FUNC_TO 与 TO_WORD 同组，
+     * 故 {@code To a given …} 的 {@code To} 也是声明关键词），#243。
+     */
+    private static Set<SemanticTokenKind> declarationKinds(CanonicalizationConfig config) {
+        Set<SemanticTokenKind> kinds = new java.util.HashSet<>(DECLARATION_KINDS);
+        for (Set<SemanticTokenKind> group : config.allowedDuplicates() == null
+                ? List.<Set<SemanticTokenKind>>of() : config.allowedDuplicates()) {
+            if (group.stream().anyMatch(DECLARATION_KINDS::contains)) {
+                kinds.addAll(group);
+            }
+        }
+        return kinds;
+    }
+
+    /** 给定种类的全部单词拼写（主拼写 + 别名，小写）；多词拼写不可能紧邻冠词成词，略去。 */
+    private static Set<String> singleWordSpellings(Lexicon lexicon, java.util.Collection<SemanticTokenKind> kinds) {
+        Set<String> out = new java.util.HashSet<>();
+        for (SemanticTokenKind kind : kinds) {
+            List<String> words = new ArrayList<>(lexicon.getAliases().getOrDefault(kind, List.of()));
+            words.add(lexicon.getKeywords().get(kind));
+            for (String w : words) {
+                if (w != null && !w.isBlank() && w.chars().noneMatch(Character::isWhitespace)) {
+                    out.add(w.toLowerCase(java.util.Locale.ROOT));
+                }
+            }
+        }
+        return Set.copyOf(out);
+    }
+
+    /**
+     * 冠词是否占着声明名的位置（#243，与 aster-lang-ts articleReplacer 等价）：前一个词是
+     * 声明关键词（含别名 / 同义），且后一个词是 lexicon 关键词。声明名之后只能是关键词或
+     * 标点，名词短语 {@code Define a Customer has …} 之后则是名词，故真冠词照常删除。
+     */
+    private boolean isDeclarationName(String text, int start, int end) {
+        int p = start;
+        while (p > 0 && (text.charAt(p - 1) == ' ' || text.charAt(p - 1) == '\t')) p--;
+        int prevEnd = p;
+        while (p > 0 && !Character.isWhitespace(text.charAt(p - 1))) p--;
+        if (p == prevEnd || p == start
+                || !declarationSpellings.contains(text.substring(p, prevEnd).toLowerCase(java.util.Locale.ROOT))) {
+            return false;
+        }
+        int q = end;
+        while (q < text.length() && (text.charAt(q) == ' ' || text.charAt(q) == '\t')) q++;
+        int nextStart = q;
+        while (q < text.length() && !Character.isWhitespace(text.charAt(q)) && ".,:;()".indexOf(text.charAt(q)) < 0) q++;
+        return q > nextStart && nextStart > end
+                && keywordSpellings.contains(text.substring(nextStart, q).toLowerCase(java.util.Locale.ROOT));
+    }
+
     private String removeArticles(String s) {
         if (articlePattern == null) {
             return s;
@@ -1685,7 +1735,10 @@ public final class Canonicalizer {
                 result.append(segment.text);
             } else {
                 // 字符串外，移除冠词
-                String withoutArticles = articlePattern.matcher(segment.text).replaceAll("");
+                String text = segment.text;
+                String withoutArticles = articlePattern.matcher(text).replaceAll(m ->
+                        isDeclarationName(text, m.start(1), m.end(1))
+                                ? java.util.regex.Matcher.quoteReplacement(m.group()) : "");
                 result.append(withoutArticles);
             }
         }

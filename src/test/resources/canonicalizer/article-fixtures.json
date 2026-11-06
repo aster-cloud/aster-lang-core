@@ -91,6 +91,18 @@
       "source": "Module m.\n\nDefine Order has score as Int.\n\nRule f given o as Order, produce Int:\n  Return the o.score.\n",
       "success": true,
       "errors": []
+    },
+    {
+      "name": "Define A with（with 后继，冠词作类型名）",
+      "source": "Module m.\n\nDefine A with score as Int.\n\nRule f given x as A, produce Int:\n  Return x.score.\n",
+      "success": true,
+      "errors": []
+    },
+    {
+      "name": "Define a Customer with（with 前为名词，真冠词仍删除）",
+      "source": "Module m.\n\nDefine a Customer with name as Text.\n\nRule f given c as Customer, produce Text:\n  Return c.name.\n",
+      "success": true,
+      "errors": []
     }
   ]
 }

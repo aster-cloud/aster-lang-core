@@ -22,6 +22,7 @@ import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -63,5 +64,22 @@ class ArticleFixtureTest {
     expectedErrors.forEach(e -> expected.add(e.isArray() ? e.get(0).asText() : e.asText()));
     assertEquals(expected, actual, name);
     assertEquals(success, actual.isEmpty(), name);
+  }
+
+  /** 直接断言 canonicalize 输出：声明名位置保留，名词短语中的真冠词删除。 */
+  @ParameterizedTest(name = "{0}")
+  @CsvSource(delimiter = '|', textBlock = """
+    Define A has score as Int.             | Define A has score as Int.
+    Define The with score as Int.          | Define The with score as Int.
+    Define a Customer has name as Text.    | Define Customer has name as Text.
+    Define a Customer with name as Text.   | Define Customer with name as Text.
+    Rule a given x as Int, produce Int:    | Rule a given x as Int, produce Int:
+    To a given x as Int, produce Int:      | To a given x as Int, produce Int:
+    Return a Decision with ok set to true. | Return Decision with ok set to true.
+    Return the o.score.                    | Return o.score.
+    Return a().                            | Return a().
+    """)
+  void canonicalizeOutput(String input, String expected) {
+    assertEquals(expected, new Canonicalizer().canonicalize(input));
   }
 }
