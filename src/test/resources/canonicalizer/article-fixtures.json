@@ -1,0 +1,96 @@
+{
+  "description": "冠词删除不得吞掉声明名（aster-lang-ts / aster-lang-core 共享夹具，两仓字节一致）。en-US；success = 编译（解析、名称解析、类型检查）无 error 级诊断；errors = error 级诊断码（按出现顺序）。",
+  "locale": "en-US",
+  "cases": [
+    {
+      "name": "Define A has（大写冠词作类型名）",
+      "source": "Module m.\n\nDefine A has score as Int.\n\nRule f given x as A, produce Int:\n  Return x.score.\n",
+      "success": true,
+      "errors": []
+    },
+    {
+      "name": "Define An has",
+      "source": "Module m.\n\nDefine An has score as Int.\n\nRule f given x as An, produce Int:\n  Return x.score.\n",
+      "success": true,
+      "errors": []
+    },
+    {
+      "name": "Define The has",
+      "source": "Module m.\n\nDefine The has score as Int.\n\nRule f given x as The, produce Int:\n  Return x.score.\n",
+      "success": true,
+      "errors": []
+    },
+    {
+      "name": "Define A has 多字段",
+      "source": "Module m.\n\nDefine A has score as Int, label as Text.\n\nRule f given x as A, produce Text:\n  Return x.label.\n",
+      "success": true,
+      "errors": []
+    },
+    {
+      "name": "Define A as one of（枚举名，as 后继本已保护）",
+      "source": "Module m.\n\nDefine A as one of High, Low.\n\nRule f given x as A, produce Bool:\n  Return x is High.\n",
+      "success": true,
+      "errors": []
+    },
+    {
+      "name": "Rule a given（冠词作函数名）",
+      "source": "Module m.\n\nRule a given x as Int, produce Int:\n  Return x.\n",
+      "success": true,
+      "errors": []
+    },
+    {
+      "name": "Rule an given",
+      "source": "Module m.\n\nRule an given x as Int, produce Int:\n  Return x.\n",
+      "success": true,
+      "errors": []
+    },
+    {
+      "name": "Rule the given",
+      "source": "Module m.\n\nRule the given x as Int, produce Int:\n  Return x.\n",
+      "success": true,
+      "errors": []
+    },
+    {
+      "name": "Rule a, produce（逗号后继本已保护）",
+      "source": "Module m.\n\nRule a, produce Int:\n  Return 1.\n",
+      "success": true,
+      "errors": []
+    },
+    {
+      "name": "given a as Ab（参数名）",
+      "source": "Module m.\n\nDefine Ab has score as Int.\n\nRule f given a as Ab, produce Int:\n  Return a.score.\n",
+      "success": true,
+      "errors": []
+    },
+    {
+      "name": "Let a be / Return a.",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Let a be x.\n  Return a.\n",
+      "success": true,
+      "errors": []
+    },
+    {
+      "name": "Return a.（参数名在句末）",
+      "source": "Module m.\n\nRule f given a as Int, produce Int:\n  Return a.\n",
+      "success": true,
+      "errors": []
+    },
+    {
+      "name": "Return a Decision with（真冠词仍删除）",
+      "source": "Module m.\n\nDefine Decision has approved as Bool.\n\nRule f given x as Int, produce Decision:\n  Return a Decision with approved set to true.\n",
+      "success": true,
+      "errors": []
+    },
+    {
+      "name": "Define a Customer has（Define 后真冠词仍删除）",
+      "source": "Module m.\n\nDefine a Customer has name as Text.\n\nRule f given c as Customer, produce Text:\n  Return c.name.\n",
+      "success": true,
+      "errors": []
+    },
+    {
+      "name": "Return the o.score（真冠词仍删除）",
+      "source": "Module m.\n\nDefine Order has score as Int.\n\nRule f given o as Order, produce Int:\n  Return the o.score.\n",
+      "success": true,
+      "errors": []
+    }
+  ]
+}

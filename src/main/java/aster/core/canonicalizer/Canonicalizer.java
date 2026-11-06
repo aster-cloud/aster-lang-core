@@ -587,14 +587,16 @@ public final class Canonicalizer {
     private static final String IDENTIFIER_FOLLOW_SYMBOLS = "[-+*/<>=%]";
 
     /**
-     * 按语法位置保护 Define 名（#243）：语法 {@code DEFINE article? typeIdent (HAS|WITH)} 中，
+     * 按语法位置保护声明名（#243）。Rule 名同理：{@code Rule <词> given} 中该词即函数名。
+     * Define 名：语法 {@code DEFINE article? typeIdent (HAS|WITH)} 中，
      * 紧跟 {@code Define} 且其后直接是 {@code has}/{@code with} 的"冠词"本身就是类型名
      * （如 {@code Define A has …}），必须保留。仅当两侧位置同时成立才豁免，故
      * {@code Define a User has …} 的真冠词照常删除；不扩展通用后继词表。
      * lookbehind 长度有界（define + 空格 + 1..3 字母），步骤 6 已把空白折叠为单空格。
      */
     private static final String DEFINE_NAME_GUARD =
-            "(?!(?<=(?<![\\p{L}])define \\p{L}{1,3})\\s+(?:has|with)(?![\\p{L}]))";
+            "(?!(?<=(?<![\\p{L}])define \\p{L}{1,3})\\s+(?:has|with)(?![\\p{L}]))"
+            + "(?!(?<=(?<![\\p{L}])rule \\p{L}{1,3})\\s+given(?![\\p{L}]))";
 
     private Pattern buildArticlePattern() {
         if (!config.removeArticles() || config.articles() == null || config.articles().isEmpty()) {
