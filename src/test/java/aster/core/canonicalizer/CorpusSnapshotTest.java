@@ -46,27 +46,51 @@ class CorpusSnapshotTest {
     files.sort(Comparator.comparing(Path::toString));
     ObjectMapper om = new ObjectMapper().disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
     StringBuilder sb = new StringBuilder();
+    // 读取失败（I/O、JSON 解析）属于快照基础设施故障：不吞，直接让测试失败
     for (Path p : files) {
-      sb.append("=== ").append(p.toUri().toString().replaceAll("^.*!/", "").replaceAll("^.*/src/test/resources/", "resources/")).append('\n');
       List<String> srcs = new ArrayList<>();
-      if (p.toString().endsWith(".json")) { try { collect(om.readTree(p.toFile()), srcs); } catch (Exception e) { continue; } }
+      if (p.toString().endsWith(".json")) collect(om.readTree(Files.readString(p)), srcs);
       else srcs.add(Files.readString(p));
+      String name = p.toUri().toString().replaceAll("^.*!/", "").replaceAll("^.*/src/test/resources/", "resources/");
       for (String src : srcs) {
-      String canon;
-      try { canon = new Canonicalizer().canonicalize(src); } catch (Exception e) { sb.append("CANON-ERR ").append(e).append('\n'); continue; }
-      sb.append(canon).append('\n');
-      try {
-        var parser = new AsterParser(new CommonTokenStream(new AsterCustomLexer(CharStreams.fromString(canon))));
-        parser.removeErrorListeners();
-        List<String> errs = new ArrayList<>();
-        parser.addErrorListener(new BaseErrorListener() { @Override public void syntaxError(Recognizer<?, ?> r, Object o, int l, int c, String m, RecognitionException e) { errs.add(l + ":" + c + " " + m); } });
-        var ast = new AstBuilder().visitModule(parser.module());
-        sb.append("SYNTAX ").append(errs).append('\n');
-        sb.append("AST ").append(om.writeValueAsString(ast)).append('\n');
-        sb.append("CORE ").append(om.writeValueAsString(new CoreLowering().lowerModule(ast))).append('\n');
-      } catch (Exception e) { sb.append("ERR ").append(e.getClass().getName()).append('\n'); }
+        sb.append("=== ").append(name).append('\n');
+        snapshotSource(src, om, sb);
       }
     }
+    org.junit.jupiter.api.Assertions.assertTrue(sb.length() > 0, "语料为空");
     Files.writeString(Path.of(out), sb.toString());
+  }
+
+  /**
+   * 单份源码的快照。引擎对该源抛出的异常（tier1-reject 等语料本就应被拒绝）是被比较的
+   * 行为本身，连同完整消息写入快照，前后不一致即被 diff 发现；序列化失败同样记录。
+   */
+  private static void snapshotSource(String src, ObjectMapper om, StringBuilder sb) {
+    String canon;
+    try {
+      canon = new Canonicalizer().canonicalize(src);
+    } catch (RuntimeException e) {
+      sb.append("CANON-ERR ").append(e).append('\n');
+      return;
+    }
+    sb.append(canon).append('\n');
+    var parser = new AsterParser(new CommonTokenStream(new AsterCustomLexer(CharStreams.fromString(canon))));
+    parser.removeErrorListeners();
+    List<String> errs = new ArrayList<>();
+    parser.addErrorListener(new BaseErrorListener() {
+      @Override
+      public void syntaxError(Recognizer<?, ?> r, Object o, int l, int c, String m, RecognitionException e) {
+        errs.add(l + ":" + c + " " + m);
+      }
+    });
+    try {
+      var ast = new AstBuilder().visitModule(parser.module());
+      sb.append("SYNTAX ").append(errs).append('\n');
+      sb.append("AST ").append(om.writeValueAsString(ast)).append('\n');
+      sb.append("CORE ").append(om.writeValueAsString(new CoreLowering().lowerModule(ast))).append('\n');
+    } catch (Exception e) {
+      sb.append("SYNTAX ").append(errs).append('\n');
+      sb.append("ERR ").append(e).append('\n');
+    }
   }
 }

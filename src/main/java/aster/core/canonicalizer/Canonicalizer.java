@@ -269,7 +269,7 @@ public final class Canonicalizer {
         this.compiledCustomRules = List.copyOf(ccr);
         this.multiWordKeywords = lexicon.getMultiWordKeywords();
         this.articlePattern = buildArticlePattern();
-        this.declarationSpellings = singleWordSpellings(lexicon, declarationKinds(config));
+        this.declarationSpellings = singleWordSpellings(lexicon, DECLARATION_KINDS);
         this.keywordSpellings = singleWordSpellings(lexicon, lexicon.getKeywords().keySet());
         this.keywordTranslationMap = buildKeywordTranslationMap(lexicon);
         // 预排序翻译条目（按关键词长度降序，最长匹配优先）
@@ -1663,21 +1663,6 @@ public final class Canonicalizer {
      * 2. 仅在字符串外的片段应用冠词移除正则
      * 3. 重新拼接所有片段
      */
-    /**
-     * 声明关键词种类及其 allowedDuplicates 同义种类（如 en-US 中 FUNC_TO 与 TO_WORD 同组，
-     * 故 {@code To a given …} 的 {@code To} 也是声明关键词），#243。
-     */
-    private static Set<SemanticTokenKind> declarationKinds(CanonicalizationConfig config) {
-        Set<SemanticTokenKind> kinds = new java.util.HashSet<>(DECLARATION_KINDS);
-        for (Set<SemanticTokenKind> group : config.allowedDuplicates() == null
-                ? List.<Set<SemanticTokenKind>>of() : config.allowedDuplicates()) {
-            if (group.stream().anyMatch(DECLARATION_KINDS::contains)) {
-                kinds.addAll(group);
-            }
-        }
-        return kinds;
-    }
-
     /** 给定种类的全部单词拼写（主拼写 + 别名，小写）；多词拼写不可能紧邻冠词成词，略去。 */
     private static Set<String> singleWordSpellings(Lexicon lexicon, java.util.Collection<SemanticTokenKind> kinds) {
         Set<String> out = new java.util.HashSet<>();
@@ -1695,7 +1680,7 @@ public final class Canonicalizer {
 
     /**
      * 冠词是否占着声明名的位置（#243，与 aster-lang-ts articleReplacer 等价）：前一个词是
-     * 声明关键词（含别名 / 同义），且后一个词是 lexicon 关键词。声明名之后只能是关键词或
+     * 声明关键词（TYPE_DEF / FUNC_TO 主拼写 + 别名，不含 allowedDuplicates 同组种类），且后一个词是 lexicon 关键词。声明名之后只能是关键词或
      * 标点，名词短语 {@code Define a Customer has …} 之后则是名词，故真冠词照常删除。
      */
     private boolean isDeclarationName(String text, int start, int end) {

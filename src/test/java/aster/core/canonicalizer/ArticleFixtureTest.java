@@ -74,7 +74,7 @@ class ArticleFixtureTest {
     Define a Customer has name as Text.    | Define Customer has name as Text.
     Define a Customer with name as Text.   | Define Customer with name as Text.
     Rule a given x as Int, produce Int:    | Rule a given x as Int, produce Int:
-    To a given x as Int, produce Int:      | To a given x as Int, produce Int:
+    To a given x as Int, produce Int:      | To given x as Int, produce Int:
     Return a Decision with ok set to true. | Return Decision with ok set to true.
     Return the o.score.                    | Return o.score.
     Return a().                            | Return a().
