@@ -215,7 +215,12 @@ public final class DeclarationResolver {
         return new Resolved(CaseFold.nfc(written), role, written);
     }
 
-    private record DeclaredSite(Resolved resolved, Span span) {}
+    /** importAlias：导入别名（R57，只参与查重，不登记为类型）。 */
+    private record DeclaredSite(Resolved resolved, Span span, boolean importAlias) {
+        DeclaredSite(Resolved resolved, Span span) {
+            this(resolved, span, false);
+        }
+    }
 
     /** 同角色同作用域两个声明解析到同一规范名 → E807（报在后一处）。 */
     private void checkDuplicates(List<DeclaredSite> sites) {
@@ -234,6 +239,10 @@ public final class DeclarationResolver {
         List<DeclaredSite> typeSites = new ArrayList<>();
         List<DeclaredSite> funcSites = new ArrayList<>();
         for (Decl d : module.decls()) {
+            if (d instanceof Decl.Import imp) {
+                importAliasSite(imp, typeSites).ifPresent(typeSites::add);
+                continue;
+            }
             Resolved resolved = declareName(d);
             if (resolved == null) continue;
             byDecl.put(d, resolved);
@@ -242,6 +251,23 @@ public final class DeclarationResolver {
         checkDuplicates(typeSites);
         checkDuplicates(funcSites);
         module.decls().stream().filter(byDecl::containsKey).forEach(d -> registerDecl(d, byDecl.get(d)));
+    }
+
+    /**
+     * R57（ADR 0051 §16.2）：导入别名（{@code Use … as X} 的 X；无 as 时为模块路径末段）与顶层类型、枚举、
+     * 类型别名共用一个命名空间，按源码顺序一起查重，冲突报 E807，无优先级。别名只参与查重，不登记为类型；
+     * 两个同名导入别名之间不在本规则内（只保留第一个参与查重，重复导入别名由 TypeChecker 报 E103）。
+     */
+    private static Optional<DeclaredSite> importAliasSite(Decl.Import imp, List<DeclaredSite> typeSites) {
+        String path = imp.path() == null ? "" : imp.path();
+        String visible = imp.alias() != null && !imp.alias().isBlank()
+            ? imp.alias() : path.substring(path.lastIndexOf('.') + 1);
+        if (visible.isBlank()) return Optional.empty();
+        String canonical = CaseFold.nfc(visible);
+        boolean repeated = typeSites.stream()
+            .anyMatch(s -> s.importAlias() && s.resolved().canonical().equals(canonical));
+        if (repeated) return Optional.empty();
+        return Optional.of(new DeclaredSite(new Resolved(canonical, ResolvedRole.TYPE_DECL, visible), imp.span(), true));
     }
 
     private Resolved declareName(Decl d) {
