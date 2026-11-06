@@ -587,7 +587,8 @@ public final class Canonicalizer {
     private static final String IDENTIFIER_FOLLOW_SYMBOLS = "[-+*/<>=%]";
 
     /**
-     * 按语法位置保护声明名（#243）。Rule 名同理：{@code Rule <词> given} 中该词即函数名。
+     * 按语法位置保护声明名（#243）。Rule 名同理：{@code Rule <词> given} 中该词即函数名；
+     * 调用位 {@code a(…)} 同理。
      * Define 名：语法 {@code DEFINE article? typeIdent (HAS|WITH)} 中，
      * 紧跟 {@code Define} 且其后直接是 {@code has}/{@code with} 的"冠词"本身就是类型名
      * （如 {@code Define A has …}），必须保留。仅当两侧位置同时成立才豁免，故
@@ -596,7 +597,9 @@ public final class Canonicalizer {
      */
     private static final String DEFINE_NAME_GUARD =
             "(?!(?<=(?<![\\p{L}])define \\p{L}{1,3})\\s+(?:has|with)(?![\\p{L}]))"
-            + "(?!(?<=(?<![\\p{L}])rule \\p{L}{1,3})\\s+given(?![\\p{L}]))";
+            + "(?!(?<=(?<![\\p{L}])rule \\p{L}{1,3})\\s+given(?![\\p{L}]))"
+            // 紧贴左括号即调用位的函数名（如 `Return a().`），冠词不会紧贴括号
+            + "(?!\\()";
 
     private Pattern buildArticlePattern() {
         if (!config.removeArticles() || config.articles() == null || config.articles().isEmpty()) {

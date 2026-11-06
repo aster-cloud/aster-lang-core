@@ -41,26 +41,9 @@ class ArticleFixtureTest {
     }
   }
 
-  /**
-   * 与冠词无关的已知引擎分歧：{@code Return x is High.}（枚举值 is 比较）本引擎语法不支持，
-   * 换成非冠词枚举名 {@code Level} 同样报 softComparator 语法错误，属另行跟踪的独立问题。
-   * 此处断言其仍以该语法错误失败（而非 Define 名被吞），待分歧修复后该断言会转红，届时移出本集合。
-   */
-  private static final java.util.Set<String> KNOWN_UNRELATED_DIVERGENCE =
-    java.util.Set.of("Define A as one of（枚举名，as 后继本已保护）");
-
   @ParameterizedTest(name = "{0}")
   @MethodSource("fixtures")
   void matchesFixture(String name, String source, boolean success, JsonNode expectedErrors) {
-    if (KNOWN_UNRELATED_DIVERGENCE.contains(name)) {
-      String canon = new Canonicalizer().canonicalize(source);
-      org.junit.jupiter.api.Assertions.assertTrue(canon.contains("Define A as one of"), canon);
-      var p = new AsterParser(new CommonTokenStream(new AsterCustomLexer(CharStreams.fromString(canon))));
-      p.removeErrorListeners();
-      p.module();
-      assertEquals(1, p.getNumberOfSyntaxErrors(), "分歧已消失，请把该用例移出 KNOWN_UNRELATED_DIVERGENCE");
-      return;
-    }
     var parser = new AsterParser(new CommonTokenStream(new AsterCustomLexer(
       CharStreams.fromString(new Canonicalizer().canonicalize(source)))));
     parser.removeErrorListeners();

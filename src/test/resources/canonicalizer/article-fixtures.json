@@ -28,31 +28,31 @@
     },
     {
       "name": "Define A as one of（枚举名，as 后继本已保护）",
-      "source": "Module m.\n\nDefine A as one of High, Low.\n\nRule f given x as A, produce Bool:\n  Return x is High.\n",
+      "source": "Module m.\n\nDefine A as one of High, Low.\n\nRule f given x as A, produce A:\n  Return x.\n",
       "success": true,
       "errors": []
     },
     {
-      "name": "Rule a given（冠词作函数名）",
-      "source": "Module m.\n\nRule a given x as Int, produce Int:\n  Return x.\n",
+      "name": "Rule a given（冠词作函数名，调用方按名引用）",
+      "source": "Module m.\n\nRule a given x as Int, produce Int:\n  Return x.\n\nRule g, produce Int:\n  Return a(1).\n",
       "success": true,
       "errors": []
     },
     {
       "name": "Rule an given",
-      "source": "Module m.\n\nRule an given x as Int, produce Int:\n  Return x.\n",
+      "source": "Module m.\n\nRule an given x as Int, produce Int:\n  Return x.\n\nRule g, produce Int:\n  Return an(1).\n",
       "success": true,
       "errors": []
     },
     {
       "name": "Rule the given",
-      "source": "Module m.\n\nRule the given x as Int, produce Int:\n  Return x.\n",
+      "source": "Module m.\n\nRule the given x as Int, produce Int:\n  Return x.\n\nRule g, produce Int:\n  Return the(1).\n",
       "success": true,
       "errors": []
     },
     {
       "name": "Rule a, produce（逗号后继本已保护）",
-      "source": "Module m.\n\nRule a, produce Int:\n  Return 1.\n",
+      "source": "Module m.\n\nRule a, produce Int:\n  Return 1.\n\nRule g, produce Int:\n  Return a().\n",
       "success": true,
       "errors": []
     },
