@@ -284,6 +284,30 @@ class CanonicalizerTest {
     class ArticleOperandTests {
 
         /**
+         * #243：{@code Define <冠词同形词> has|with} 中该词即类型名（语法
+         * {@code DEFINE article? typeIdent (HAS|WITH)}），按位置保护，不能当冠词删。
+         */
+        @Test
+        @DisplayName("Define 名为冠词同形词时保留 #243")
+        void defineNameHomographOfArticleKept() {
+            for (String name : new String[] {"A", "An", "The", "a", "an", "the"}) {
+                for (String kw : new String[] {"has", "with"}) {
+                    String out = canonicalizer.canonicalize("Define " + name + " " + kw + " score: Int.");
+                    assertEquals("Define " + name + " " + kw + " score: Int.", out, "Define 名被当冠词吞掉");
+                }
+            }
+        }
+
+        /** 反向护栏：Define 后真冠词修饰类型名、Return 中自然语言冠词仍删除。 */
+        @Test
+        @DisplayName("Define/Return 中的真冠词仍删除 #243")
+        void realArticlesAroundDefineStillRemoved() {
+            assertEquals("Define User has score: Int.", canonicalizer.canonicalize("Define a User has score: Int."));
+            assertEquals("Define User with score: Int.", canonicalizer.canonicalize("Define the User with score: Int."));
+            assertEquals("Return Decision with ok = true.", canonicalizer.canonicalize("Return a Decision with ok = true."));
+        }
+
+        /**
          * 裸 {@code not equal to}（不带 {@code is}）是合法比较运算符，但
          * IDENTIFIER_FOLLOW_WORDS 曾漏掉 {@code not}，导致左操作数被当冠词删掉：
          * {@code Return a not equal to b.} → {@code Return not equal to b.}
