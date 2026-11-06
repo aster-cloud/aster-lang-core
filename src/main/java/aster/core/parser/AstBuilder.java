@@ -2,6 +2,7 @@ package aster.core.parser;
 
 import aster.core.ast.*;
 import aster.core.inference.TypeInference;
+import aster.core.typecheck.ErrorCode;
 import aster.core.util.StringEscapes;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
@@ -130,11 +131,15 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     // ADR 0046：Profile 声明——关键词文本须为 Profile（经 Canonicalizer 规范化后），id 须合形态
     private String profileId(AsterParser.ProfileDeclContext ctx) {
         if (!"Profile".equals(ctx.TYPE_IDENT().getText())) {
-            throw new IllegalStateException("Expected 'Profile' declaration after Module header");
+            throw new ParseDiagnosticException(ErrorCode.PARSE_MISPLACED,
+                Map.of("construct", "token.profile", "position", "token.onceAfterModuleHeader"),
+                "Expected 'Profile' declaration after Module header", ctx);
         }
         String id = parseStringLiteral(ctx.STRING_LITERAL());
         if (!PROFILE_ID.matcher(id).matches()) {
-            throw new IllegalStateException("Profile id must match " + PROFILE_ID_REGEX + ": " + id);
+            throw new ParseDiagnosticException(ErrorCode.PARSE_INVALID_VALUE,
+                Map.of("construct", "token.profileId", "value", "'" + id + "'", "allowed", PROFILE_ID_REGEX),
+                "Profile id must match " + PROFILE_ID_REGEX + ": " + id, ctx.STRING_LITERAL().getSymbol());
         }
         return id;
     }
@@ -162,7 +167,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         } else if (ctx.importDecl() != null) {
             return visitImportDecl(ctx.importDecl());
         }
-        throw new IllegalStateException("Unknown top level declaration");
+        throw new ParseDiagnosticException(ErrorCode.PARSE_UNEXPECTED_CONSTRUCT,
+            Map.of("construct", "token.topLevelToken"), "Unknown top level declaration", ctx);
     }
 
     // ============================================================
@@ -607,15 +613,15 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             return StringEscapes.unescape(inner);
         }
         if (ctx.INT_LITERAL() != null) {
-            return LiteralParsing.parseInt(ctx.INT_LITERAL().getText());
+            return LiteralParsing.parseInt(ctx.INT_LITERAL().getText(), ctx.INT_LITERAL().getSymbol());
         }
         if (ctx.FLOAT_LITERAL() != null) {
-            return LiteralParsing.parseDouble(ctx.FLOAT_LITERAL().getText());
+            return LiteralParsing.parseDouble(ctx.FLOAT_LITERAL().getText(), ctx.FLOAT_LITERAL().getSymbol());
         }
         if (ctx.LONG_LITERAL() != null) {
             String text = ctx.LONG_LITERAL().getText();
             String digits = text.substring(0, text.length() - 1);
-            return LiteralParsing.parseLong(digits);
+            return LiteralParsing.parseLong(digits, ctx.LONG_LITERAL().getSymbol());
         }
         if (ctx.BOOL_LITERAL() != null) {
             return Boolean.parseBoolean(ctx.BOOL_LITERAL().getText());
@@ -642,7 +648,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         String path = visitQualifiedName(ctx.qualifiedName());
         Integer version = ctx.INT_LITERAL() == null
             ? null
-            : LiteralParsing.parseInt(ctx.INT_LITERAL().getText());
+            : LiteralParsing.parseInt(ctx.INT_LITERAL().getText(), ctx.INT_LITERAL().getSymbol());
         String alias = null;
         if (ctx.importAlias() != null) {
             AsterParser.ImportAliasContext aliasCtx = ctx.importAlias();
@@ -836,7 +842,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     private static void requireOtherwiseLast(List<AsterParser.StmtContext> stmts) {
         for (int i = 0; i < stmts.size() - 1; i++) {
             if (stmts.get(i).otherwiseStmt() != null) {
-                throw new IllegalStateException("Otherwise must be the last statement of its block");
+                throw new ParseDiagnosticException(ErrorCode.PARSE_MISPLACED,
+                    Map.of("construct", "kw.otherwise", "position", "token.lastInBlock"),
+                    "Otherwise must be the last statement of its block", stmts.get(i));
             }
         }
     }
@@ -872,8 +880,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         }
         String target = SUGAR_OUTCOMES.get(String.join(" ", shape));
         if (target == null) {
-            throw new IllegalStateException(
-                "Expected allow, deny, escalate or require approval by … because … after When/Otherwise");
+            throw new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED_AFTER,
+                Map.of("token", "token.verdictOutcome", "after", "token.whenOrOtherwise"),
+                "Expected allow, deny, escalate or require approval by … because … after When/Otherwise", ctx);
         }
         Span span = spanFrom(ctx);
         Expr call = createCallExpression(new Expr.Name(target, span), List.copyOf(args), span);
@@ -963,7 +972,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             .map(this::visitWorkflowStep)
             .collect(Collectors.toList());
         if (steps.isEmpty()) {
-            throw new IllegalStateException("workflow 至少需要声明一个 step");
+            throw new ParseDiagnosticException(ErrorCode.PARSE_EMPTY_BLOCK,
+                Map.of("block", "kw.workflow", "item", "kw.step"), "workflow 至少需要声明一个 step", ctx);
         }
         Stmt.RetryPolicy retry = bodyCtx.retrySection() != null ? visitRetrySection(bodyCtx.retrySection()) : null;
         Stmt.Timeout timeout = bodyCtx.timeoutSection() != null ? visitTimeoutSection(bodyCtx.timeoutSection()) : null;
@@ -999,9 +1009,12 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         String backoff = null;
         for (var directive : ctx.retryDirective()) {
             if (directive.MAX() != null) {
-                int attempts = LiteralParsing.parseInt(directive.INT_LITERAL().getText());
+                int attempts = LiteralParsing.parseInt(directive.INT_LITERAL().getText(), directive.INT_LITERAL().getSymbol());
                 if (attempts <= 0) {
-                    throw new IllegalStateException("Retry `max attempts` 必须大于 0");
+                    throw new ParseDiagnosticException(ErrorCode.PARSE_INVALID_VALUE,
+                        Map.of("construct", "kw.max attempts", "value", String.valueOf(attempts),
+                            "allowed", "token.positiveInteger"),
+                        "Retry `max attempts` 必须大于 0", directive);
                 }
                 maxAttempts = attempts;
             } else if (directive.BACKOFF() != null) {
@@ -1010,25 +1023,31 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                     : directive.TYPE_IDENT().getText();
                 String normalized = raw == null ? "" : raw.toLowerCase(Locale.ROOT);
                 if (!normalized.equals("exponential") && !normalized.equals("linear")) {
-                    throw new IllegalStateException("Retry `backoff` 仅支持 exponential 或 linear");
+                    throw new ParseDiagnosticException(ErrorCode.PARSE_INVALID_VALUE,
+                        Map.of("construct", "kw.backoff", "value", "'" + raw + "'", "allowed", "token.exponentialOrLinear"),
+                        "Retry `backoff` 仅支持 exponential 或 linear", directive);
                 }
                 backoff = normalized;
             }
         }
         if (maxAttempts == null) {
-            throw new IllegalStateException("Retry 区块必须声明 max attempts");
+            throw new ParseDiagnosticException(ErrorCode.PARSE_EMPTY_BLOCK,
+                Map.of("block", "kw.retry", "item", "kw.max attempts"), "Retry 区块必须声明 max attempts", ctx);
         }
         if (backoff == null) {
-            throw new IllegalStateException("Retry 区块必须声明 backoff");
+            throw new ParseDiagnosticException(ErrorCode.PARSE_EMPTY_BLOCK,
+                Map.of("block", "kw.retry", "item", "kw.backoff"), "Retry 区块必须声明 backoff", ctx);
         }
         return new Stmt.RetryPolicy(maxAttempts, backoff);
     }
 
     @Override
     public Stmt.Timeout visitTimeoutSection(AsterParser.TimeoutSectionContext ctx) {
-        long seconds = LiteralParsing.parseLong(ctx.INT_LITERAL().getText());
+        long seconds = LiteralParsing.parseLong(ctx.INT_LITERAL().getText(), ctx.INT_LITERAL().getSymbol());
         if (seconds < 0) {
-            throw new IllegalStateException("timeout 数值必须为非负整数");
+            throw new ParseDiagnosticException(ErrorCode.PARSE_INVALID_VALUE,
+                Map.of("construct", "kw.timeout", "value", String.valueOf(seconds), "allowed", "token.nonNegativeInteger"),
+                "timeout 数值必须为非负整数", ctx);
         }
         // ★秒→毫秒的溢出守卫（issue #131 body）——**纵深防御，非当前可达路径**。
         //
@@ -1043,8 +1062,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         //   缺口会立刻变成可达——但**不为它写测试**：写不出能失败的用例，
         //   那种测试只会是假绿。
         if (seconds > Long.MAX_VALUE / 1000L) {
-            throw new IllegalStateException(
-                "timeout 数值过大（" + seconds + " 秒换算为毫秒会溢出 Long）");
+            throw new ParseDiagnosticException(ErrorCode.PARSE_INVALID_VALUE,
+                Map.of("construct", "kw.timeout", "value", String.valueOf(seconds), "allowed", "token.timeoutRange"),
+                "timeout 数值过大（" + seconds + " 秒换算为毫秒会溢出 Long）", ctx);
         }
         return new Stmt.Timeout(seconds * 1000L);
     }
@@ -1163,7 +1183,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Pattern visitPatternInt(AsterParser.PatternIntContext ctx) {
-        int value = LiteralParsing.parseInt(ctx.INT_LITERAL().getText());
+        int value = LiteralParsing.parseInt(ctx.INT_LITERAL().getText(), ctx.INT_LITERAL().getSymbol());
         return new Pattern.PatternInt(value, spanFrom(ctx));
     }
 
@@ -1218,14 +1238,18 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         // 都递归回 visitExpr），故在此计数即覆盖全部嵌套形态。超限抛可恢复解析错误。
         if (++exprDepth > MAX_EXPR_DEPTH) {
             exprDepth--; // 抛前回退，保持计数对称（错误恢复后可能继续访问同级）
-            throw new IllegalStateException(
-                "表达式嵌套过深（> " + MAX_EXPR_DEPTH + "），拒绝以防栈溢出");
+            throw new ParseDiagnosticException(ErrorCode.PARSE_NESTING_TOO_DEEP,
+                Map.of("limit", String.valueOf(MAX_EXPR_DEPTH)),
+                "表达式嵌套过深（> " + MAX_EXPR_DEPTH + "），拒绝以防栈溢出", ctx);
         }
         try {
             if (ctx.ifExpr() != null) {
                 return (Expr) visit(ctx.ifExpr());
             }
             return (Expr) visit(ctx.orExpr());
+        } catch (ParseDiagnosticException e) {
+            // 子节点抛出时位置未知（如字面量越界、非名称成员访问），以最内层表达式起点补齐
+            throw e.at(ctx.getStart());
         } finally {
             exprDepth--;
         }
@@ -1523,7 +1547,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             ? List.of()
             : ctx.argumentList().expr();
         if (argsCtx.size() != 2) {
-            throw new IllegalStateException("前缀操作符调用需要 2 个参数，但实际为 " + argsCtx.size());
+            throw new ParseDiagnosticException(ErrorCode.PARSE_CALL_ARITY,
+                Map.of("callee", "token.prefixOperatorCall", "expected", "2", "actual", String.valueOf(argsCtx.size())),
+                "前缀操作符调用需要 2 个参数，但实际为 " + argsCtx.size(), ctx);
         }
         Expr left = (Expr) visit(argsCtx.get(0));
         Expr right = (Expr) visit(argsCtx.get(1));
@@ -1673,20 +1699,23 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         try {
             value = StringEscapes.unescape(raw);
         } catch (IllegalArgumentException ex) {
-            throw new IllegalStateException("字符串转义解析失败: " + ex.getMessage(), ex);
+            // 与 aster-lang-ts 词法器一致：非法转义归为非法字符 E050
+            throw new ParseDiagnosticException(ErrorCode.PARSE_UNEXPECTED_CHARACTER,
+                Map.of("char", "token.invalidEscape"), "字符串转义解析失败: " + ex.getMessage(),
+                ctx.STRING_LITERAL().getSymbol(), ex);
         }
         return new Expr.String(value, spanFrom(ctx));
     }
 
     @Override
     public Expr visitIntExpr(AsterParser.IntExprContext ctx) {
-        int value = LiteralParsing.parseInt(ctx.INT_LITERAL().getText());
+        int value = LiteralParsing.parseInt(ctx.INT_LITERAL().getText(), ctx.INT_LITERAL().getSymbol());
         return new Expr.Int(value, spanFrom(ctx));
     }
 
     @Override
     public Expr visitFloatExpr(AsterParser.FloatExprContext ctx) {
-        double value = LiteralParsing.parseDouble(ctx.FLOAT_LITERAL().getText());
+        double value = LiteralParsing.parseDouble(ctx.FLOAT_LITERAL().getText(), ctx.FLOAT_LITERAL().getSymbol());
         return new Expr.Double(value, spanFrom(ctx));
     }
 
@@ -1702,8 +1731,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         // BigDecimal 精确 → 双引擎分歧（Codex 审查 P1）。硬拒以保 parity 与确定性。
         int sigDigits = canonical.replaceAll("[.-]", "").replaceFirst("^0+(?=\\d)", "").length();
         if (sigDigits > 38) {
-            throw new IllegalStateException(
-                "Decimal literal has " + sigDigits + " significant digits; the v1 maximum is 38 (ADR 0025).");
+            throw new ParseDiagnosticException(ErrorCode.PARSE_LITERAL_OUT_OF_RANGE,
+                Map.of("kind", "Decimal", "literal", raw),
+                "Decimal literal has " + sigDigits + " significant digits; the v1 maximum is 38 (ADR 0025).", ctx);
         }
         return new Expr.Decimal(canonical, spanFrom(ctx));
     }
@@ -1724,7 +1754,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     public Expr visitLongExpr(AsterParser.LongExprContext ctx) {
         String text = ctx.LONG_LITERAL().getText();
         // 移除 'L' 或 'l' 后缀
-        long value = LiteralParsing.parseLong(text.substring(0, text.length() - 1));
+        long value = LiteralParsing.parseLong(text.substring(0, text.length() - 1), ctx.LONG_LITERAL().getSymbol());
         return new Expr.Long(value, spanFrom(ctx));
     }
 
@@ -1906,7 +1936,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         //   fail-fast。抛 IllegalStateException 与本文件既有的可恢复解析错误同一机制
         //   （见 visitExpr 的表达式深度守卫）。
         String dropped = combineName(null, members);
-        throw new IllegalStateException(
+        throw new ParseDiagnosticException(ErrorCode.PARSE_UNEXPECTED_CONSTRUCT,
+            Map.of("construct", "token.memberAccessOnExpression"),
             "暂不支持在调用/字面量等非名称表达式上做成员访问（`." + dropped + "`）。"
                 + "请先用 Let 绑定中间结果，再对其取成员。");
     }
@@ -1921,10 +1952,12 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             // 以用户声明优先报错，与 TS 引擎行为一致（declaredRecordTypes 优先），保证 parity。
             // 仅对【记录类型】报错，不含 type alias（别名标量本就不可构造）。
             if (declaredRecordTypeNames.contains(funcName)) {
-                throw new IllegalStateException(
+                throw new ParseDiagnosticException(ErrorCode.PARSE_UNEXPECTED_CONSTRUCT,
+                    Map.of("construct", "token.positionalConstruction"),
                     "Cannot construct '" + funcName + "' with positional arguments. "
                     + "Use named fields instead: '" + funcName
-                    + " with <field> set to <value> and ...'");
+                    + " with <field> set to <value> and ...'",
+                    span == null ? 0 : span.start().line(), span == null ? 0 : span.start().col());
             }
             switch (funcName) {
                 case "Ok" -> {

@@ -45,7 +45,6 @@ public final class TypeChecker {
   private final CapabilityChecker capabilityChecker;
   private final GovernanceChecker governanceChecker = new GovernanceChecker();
   private final java.util.Set<String> importAliases = new HashSet<>();
-  private final java.util.Set<String> moduleTopLevelNames = new HashSet<>();
   /** 当前模块的字段名 → 类型表（TypeSystem.buildFieldTypeMap），供推断返回类型用，每次 typecheckModule 重建。 */
   private java.util.Map<String, Type> moduleFieldTypes = java.util.Map.of();
 
@@ -81,7 +80,6 @@ public final class TypeChecker {
     diagnostics.clear();
     baseChecker.clearUncheckedForCalls();
     importAliases.clear();
-    moduleTopLevelNames.clear();
     symbolTable.enterScope(SymbolTable.ScopeType.MODULE);
 
     try {
@@ -90,7 +88,6 @@ public final class TypeChecker {
 
       // 第一遍：收集类型定义
       collectTypeDefinitions(module);
-      collectTopLevelNames(module);
       validateEntryAnnotations(module);
 
       // 【修复】注入类型别名映射，使下游检查器可以展开别名
@@ -392,29 +389,6 @@ public final class TypeChecker {
         Map.of("symbol", visibleName, "reason", "duplicate import alias")
       );
     }
-    if (moduleTopLevelNames.contains(visibleName)) {
-      diagnostics.warning(
-        ErrorCode.IMPORT_SYMBOL_CONFLICT,
-        Optional.ofNullable(imp.origin),
-        Map.of("symbol", visibleName, "reason", "conflicts with local top-level declaration")
-      );
-    }
-  }
-
-  private void collectTopLevelNames(CoreModel.Module module) {
-    if (module == null || module.decls == null) {
-      return;
-    }
-    for (var decl : module.decls) {
-      switch (decl) {
-        case CoreModel.Func func -> moduleTopLevelNames.add(func.name);
-        case CoreModel.Data data -> moduleTopLevelNames.add(data.name);
-        case CoreModel.Enum enumDecl -> moduleTopLevelNames.add(enumDecl.name);
-        case CoreModel.Import ignored -> {
-        }
-      }
-    }
-    moduleTopLevelNames.remove(null);
   }
 
   private String importVisibleName(CoreModel.Import imp) {

@@ -156,8 +156,12 @@ class TypeCheckerIntegrationTest {
     assertTrue(diagnostics.get(0).message().contains("second"));
   }
 
+  /**
+   * ADR 0051 §16.2 R57：E103 只保留给重复导入别名。导入别名与本地顶层类型的冲突改由
+   * DeclarationResolver 报 E807；与函数同名不冲突（函数在另一命名空间）。
+   */
   @Test
-  void testImportAliasConflictProducesDiagnostic() {
+  void testImportAliasMatchingLocalFunctionIsNotE103() {
     var imp = new CoreModel.Import();
     imp.path = "lib";
     imp.version = 1;
@@ -169,7 +173,7 @@ class TypeCheckerIntegrationTest {
 
     var diagnostics = checker.typecheckModule(module);
 
-    assertTrue(diagnostics.stream()
+    assertFalse(diagnostics.stream()
       .anyMatch(d -> d.code() == ErrorCode.IMPORT_SYMBOL_CONFLICT));
   }
 

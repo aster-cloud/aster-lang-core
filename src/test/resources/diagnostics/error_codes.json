@@ -223,6 +223,146 @@
     "message": "Function '{func}' expects {expected} argument(s), got {actual}.",
     "help": "Adjust the call to pass exactly the declared number of arguments."
   },
+  "PARSE_UNEXPECTED_CHARACTER": {
+    "code": "E050",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Unrecognized character {char}",
+    "help": "Remove the character or replace it with valid Aster syntax."
+  },
+  "PARSE_UNTERMINATED_STRING": {
+    "code": "E051",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Unterminated string literal",
+    "help": "Close the string with a matching quote on the same line."
+  },
+  "PARSE_INDENTATION": {
+    "code": "E052",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Incorrect indentation: one level too deep or inconsistent. Indent with 2 spaces",
+    "help": "Indent each nested block by exactly 2 spaces and dedent back to an enclosing level."
+  },
+  "PARSE_LITERAL_OUT_OF_RANGE": {
+    "code": "E053",
+    "category": "syntax",
+    "severity": "error",
+    "message": "{kind} literal {literal} is out of range",
+    "help": "Use a smaller value, add the 'L' suffix for Long, or write a Decimal literal."
+  },
+  "PARSE_NESTING_TOO_DEEP": {
+    "code": "E054",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Nesting is too deep (limit {limit})",
+    "help": "Split the expression or statement into smaller named parts."
+  },
+  "PARSE_EXPECTED": {
+    "code": "E055",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Expected {token}",
+    "help": "Insert the expected token at this position."
+  },
+  "PARSE_EXPECTED_AFTER": {
+    "code": "E056",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Expected {token} after {after}",
+    "help": "Insert the expected token after the preceding construct."
+  },
+  "PARSE_EXPECTED_IN": {
+    "code": "E057",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Expected {token} in {context}",
+    "help": "Complete the construct with the expected token."
+  },
+  "PARSE_EXPECTED_AFTER_IN": {
+    "code": "E058",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Expected {token} after {after} in {context}",
+    "help": "Insert the expected token after the preceding part of the construct."
+  },
+  "PARSE_EXPECTED_STATEMENT_END": {
+    "code": "E059",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Expected {token} at end of statement",
+    "help": "End the statement with the statement terminator."
+  },
+  "PARSE_EXPECTED_BEFORE": {
+    "code": "E060",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Expected {token} before {before}",
+    "help": "Insert the expected token before the highlighted token."
+  },
+  "PARSE_UNEXPECTED_TOKEN": {
+    "code": "E061",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Unexpected {token}",
+    "help": "Remove the token or check the surrounding syntax."
+  },
+  "PARSE_UNEXPECTED_EXPECTING": {
+    "code": "E062",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Unexpected {token}; expected {expected}",
+    "help": "Replace the token with one of the expected tokens."
+  },
+  "PARSE_NO_VIABLE": {
+    "code": "E063",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Cannot parse the syntax near {token}",
+    "help": "Check the spelling of keywords and operators near this position."
+  },
+  "PARSE_UNEXPECTED_CONSTRUCT": {
+    "code": "E064",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Unexpected {construct}",
+    "help": "Check that the line starts with a valid declaration, statement or expression."
+  },
+  "PARSE_MISPLACED": {
+    "code": "E065",
+    "category": "syntax",
+    "severity": "error",
+    "message": "{construct} must appear {position}",
+    "help": "Move the construct to the required position."
+  },
+  "PARSE_EMPTY_BLOCK": {
+    "code": "E066",
+    "category": "syntax",
+    "severity": "error",
+    "message": "{block} must contain at least one {item}",
+    "help": "Add the missing item to the block."
+  },
+  "PARSE_INVALID_VALUE": {
+    "code": "E067",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Invalid {construct} {value}; expected {allowed}",
+    "help": "Use one of the allowed values."
+  },
+  "PARSE_CALL_ARITY": {
+    "code": "E068",
+    "category": "syntax",
+    "severity": "error",
+    "message": "{callee} takes exactly {expected} argument(s), got {actual}",
+    "help": "Pass exactly the required number of arguments."
+  },
+  "PARSE_UNKNOWN_NAME": {
+    "code": "E069",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Unknown {kind} {name}",
+    "help": "Check the spelling against the supported names."
+  },
   "PII_ASSIGN_DOWNGRADE": {
     "code": "E070",
     "category": "pii",

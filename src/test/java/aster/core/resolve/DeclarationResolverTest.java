@@ -598,6 +598,77 @@ class DeclarationResolverTest {
         }
     }
 
+    /** ADR 0051 §16.2 R57：顶层类型、枚举、类型别名与导入别名共用一个命名空间，冲突报 E807，无优先级。 */
+    @Nested
+    class ImportAliasNamespace {
+
+        private ResolutionResult<Module> resolveEn(String source) {
+            return DeclarationResolver.resolve(parse(source), ResolutionContext.none());
+        }
+
+        @Test
+        void importAliasThenEnumReportsE807OnEnum() {
+            ResolutionResult<Module> r = resolveEn("Module m.\n\nUse lib.status as Status.\n\nDefine Status as one of Active, Closed.\n");
+            assertEquals(List.of(ErrorCode.DUPLICATE_DECLARATION), codes(r));
+            assertEquals(5, r.diagnostics().get(0).span().orElseThrow().start.line);
+        }
+
+        @Test
+        void dataThenImportAliasReportsE807OnUse() {
+            ResolutionResult<Module> r = resolveEn("Module m.\n\nDefine Status has v as Int.\n\nUse lib.status as Status.\n");
+            assertEquals(List.of(ErrorCode.DUPLICATE_DECLARATION), codes(r));
+            assertEquals(5, r.diagnostics().get(0).span().orElseThrow().start.line);
+        }
+
+        @Test
+        void importWithoutAliasUsesLastSegment() {
+            ResolutionResult<Module> r = resolveEn("Module m.\n\nUse lib.Status.\n\ntype Status as Int.\n");
+            assertEquals(List.of(ErrorCode.DUPLICATE_DECLARATION), codes(r));
+            assertEquals(5, r.diagnostics().get(0).span().orElseThrow().start.line);
+        }
+
+        @Test
+        void aliasMatchingFunctionDoesNotConflict() {
+            assertEquals(List.of(), codes(resolveEn(
+                "Module m.\n\nUse lib.calc as calc.\n\nRule calc given x as Int, produce Int:\n  Return x.\n")));
+        }
+
+        @Test
+        void distinctAliasAndTypeUnchanged() {
+            assertEquals(List.of(), codes(resolveEn(
+                "Module m.\n\nUse lib.status as Lib.\n\nDefine Status as one of Active, Closed.\n")));
+        }
+
+        @Test
+        void localizedAliasConflictsWithCanonicalType() {
+            ResolutionResult<Module> r = DeclarationResolver.resolve(
+                parse("Module m.\n\nUse lib.status as Zustand.\n\nDefine Status as one of Active, Closed.\n"),
+                ctxOf(List.of(struct("Status", "Zustand"))));
+            assertEquals(List.of(ErrorCode.DUPLICATE_DECLARATION), codes(r));
+            assertEquals(5, r.diagnostics().get(0).span().orElseThrow().start.line);
+        }
+
+        @Test
+        void canonicalAliasConflictsWithLocalizedType() {
+            ResolutionResult<Module> r = DeclarationResolver.resolve(
+                parse("Module m.\n\nDefine Zustand as one of Active, Closed.\n\nUse lib.status as Status.\n"),
+                ctxOf(List.of(struct("Status", "Zustand"))));
+            assertEquals(List.of(ErrorCode.DUPLICATE_DECLARATION), codes(r));
+            assertEquals(5, r.diagnostics().get(0).span().orElseThrow().start.line);
+        }
+
+        @Test
+        void caseDifferenceWithoutVocabularyDoesNotConflict() {
+            assertEquals(List.of(), codes(resolveEn(
+                "Module m.\n\nUse lib.status as status.\n\nDefine Status as one of Active, Closed.\n")));
+        }
+
+        @Test
+        void duplicateImportAliasesAreNotE807() {
+            assertEquals(List.of(), codes(resolveEn("Module m.\n\nUse lib.a as Lib.\n\nUse lib.b as Lib.\n")));
+        }
+    }
+
     /** resolved 字段可经 JSON 往返；未解析节点不输出 resolved，保持既有 AST JSON 不变。 */
     @Test
     void resolvedSurvivesJsonRoundTripAndIsOmittedWhenAbsent() throws Exception {
