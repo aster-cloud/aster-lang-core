@@ -1,0 +1,323 @@
+{
+  "description": "lowering 诊断码 E600–E606 双引擎 parity 夹具（aster-lang-ts#302）。aster-lang-ts shared/lowering_diagnostics_parity.json 与 aster-lang-core src/test/resources/diagnostics/lowering_diagnostics_parity.json 必须 byte-identical。lowering 错误是 AST 不变量守卫，无法由任何源码直接触发：每例先按 lexicon 解析 source 得到合法 AST，再按 trigger 把一个节点改成未知种类（value），交给 lowering，断言抛出的诊断恰为 codes 的 [码, 行]、params 与 message。trigger 取值：unknown-decl-kind（第一个声明的 kind）、unknown-effect（第一个 Rule 的 effects 追加 value）、unknown-stmt-kind（第一条语句的 kind）、unknown-expr-kind（第二条 Return 语句的表达式 kind）、unknown-pattern-kind（Match 第一个分支的模式 kind）、unknown-type-kind（第一个参数类型的 kind）、internal-error（非诊断异常，只断言码与 params 键）。only=ts 表示该码只有该引擎有发出点；core 侧对每例校验码表存在、category=lowering 且用 params 渲染模板得到 message（渲染 parity）。params 值为 \"*\" 表示只断言键存在。lexicon 缺省为 en-US。",
+  "cases": [
+    {
+      "name": "E600 未知声明种类",
+      "trigger": "unknown-decl-kind",
+      "value": "Teleport",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Match x:\n    When 1, Return 1.\n  Return x.\n",
+      "codes": [
+        [
+          "E600",
+          3
+        ]
+      ],
+      "params": {
+        "kind": "Teleport"
+      },
+      "message": "Unknown declaration kind: Teleport"
+    },
+    {
+      "name": "E600 未知声明种类（zh-CN）",
+      "lexicon": "zh-CN",
+      "trigger": "unknown-decl-kind",
+      "value": "Teleport",
+      "source": "模块 m。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  匹配于 x：\n    当 1，返回 1。\n  返回 x。\n",
+      "codes": [
+        [
+          "E600",
+          3
+        ]
+      ],
+      "params": {
+        "kind": "Teleport"
+      },
+      "message": "Unknown declaration kind: Teleport"
+    },
+    {
+      "name": "E600 未知声明种类（de-DE）",
+      "lexicon": "de-DE",
+      "trigger": "unknown-decl-kind",
+      "value": "Teleport",
+      "source": "Modul m.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  pruefe x:\n    bei 1, gib zurueck 1.\n  gib zurueck x.\n",
+      "codes": [
+        [
+          "E600",
+          3
+        ]
+      ],
+      "params": {
+        "kind": "Teleport"
+      },
+      "message": "Unknown declaration kind: Teleport"
+    },
+    {
+      "name": "E601 未知效果",
+      "trigger": "unknown-effect",
+      "value": "teleport",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Match x:\n    When 1, Return 1.\n  Return x.\n",
+      "codes": [
+        [
+          "E601",
+          3
+        ]
+      ],
+      "params": {
+        "effect": "teleport",
+        "valid": "io, cpu, pure"
+      },
+      "message": "Unknown effect 'teleport', valid values: io, cpu, pure"
+    },
+    {
+      "name": "E601 未知效果（zh-CN）",
+      "lexicon": "zh-CN",
+      "trigger": "unknown-effect",
+      "value": "teleport",
+      "source": "模块 m。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  匹配于 x：\n    当 1，返回 1。\n  返回 x。\n",
+      "codes": [
+        [
+          "E601",
+          3
+        ]
+      ],
+      "params": {
+        "effect": "teleport",
+        "valid": "io, cpu, pure"
+      },
+      "message": "Unknown effect 'teleport', valid values: io, cpu, pure"
+    },
+    {
+      "name": "E601 未知效果（de-DE）",
+      "lexicon": "de-DE",
+      "trigger": "unknown-effect",
+      "value": "teleport",
+      "source": "Modul m.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  pruefe x:\n    bei 1, gib zurueck 1.\n  gib zurueck x.\n",
+      "codes": [
+        [
+          "E601",
+          3
+        ]
+      ],
+      "params": {
+        "effect": "teleport",
+        "valid": "io, cpu, pure"
+      },
+      "message": "Unknown effect 'teleport', valid values: io, cpu, pure"
+    },
+    {
+      "name": "E602 未知语句种类",
+      "trigger": "unknown-stmt-kind",
+      "value": "Teleport",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Match x:\n    When 1, Return 1.\n  Return x.\n",
+      "codes": [
+        [
+          "E602",
+          4
+        ]
+      ],
+      "params": {
+        "kind": "Teleport"
+      },
+      "message": "lowerStmt: unhandled statement kind 'Teleport'"
+    },
+    {
+      "name": "E602 未知语句种类（zh-CN）",
+      "lexicon": "zh-CN",
+      "trigger": "unknown-stmt-kind",
+      "value": "Teleport",
+      "source": "模块 m。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  匹配于 x：\n    当 1，返回 1。\n  返回 x。\n",
+      "codes": [
+        [
+          "E602",
+          4
+        ]
+      ],
+      "params": {
+        "kind": "Teleport"
+      },
+      "message": "lowerStmt: unhandled statement kind 'Teleport'"
+    },
+    {
+      "name": "E602 未知语句种类（de-DE）",
+      "lexicon": "de-DE",
+      "trigger": "unknown-stmt-kind",
+      "value": "Teleport",
+      "source": "Modul m.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  pruefe x:\n    bei 1, gib zurueck 1.\n  gib zurueck x.\n",
+      "codes": [
+        [
+          "E602",
+          4
+        ]
+      ],
+      "params": {
+        "kind": "Teleport"
+      },
+      "message": "lowerStmt: unhandled statement kind 'Teleport'"
+    },
+    {
+      "name": "E603 未知表达式种类",
+      "trigger": "unknown-expr-kind",
+      "value": "Teleport",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Match x:\n    When 1, Return 1.\n  Return x.\n",
+      "codes": [
+        [
+          "E603",
+          6
+        ]
+      ],
+      "params": {
+        "kind": "Teleport"
+      },
+      "message": "Unknown expression kind: Teleport"
+    },
+    {
+      "name": "E603 未知表达式种类（zh-CN）",
+      "lexicon": "zh-CN",
+      "trigger": "unknown-expr-kind",
+      "value": "Teleport",
+      "source": "模块 m。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  匹配于 x：\n    当 1，返回 1。\n  返回 x。\n",
+      "codes": [
+        [
+          "E603",
+          6
+        ]
+      ],
+      "params": {
+        "kind": "Teleport"
+      },
+      "message": "Unknown expression kind: Teleport"
+    },
+    {
+      "name": "E603 未知表达式种类（de-DE）",
+      "lexicon": "de-DE",
+      "trigger": "unknown-expr-kind",
+      "value": "Teleport",
+      "source": "Modul m.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  pruefe x:\n    bei 1, gib zurueck 1.\n  gib zurueck x.\n",
+      "codes": [
+        [
+          "E603",
+          6
+        ]
+      ],
+      "params": {
+        "kind": "Teleport"
+      },
+      "message": "Unknown expression kind: Teleport"
+    },
+    {
+      "name": "E604 未知模式种类",
+      "trigger": "unknown-pattern-kind",
+      "value": "Teleport",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Match x:\n    When 1, Return 1.\n  Return x.\n",
+      "codes": [
+        [
+          "E604",
+          5
+        ]
+      ],
+      "params": {
+        "kind": "Teleport"
+      },
+      "message": "Unknown pattern kind: Teleport"
+    },
+    {
+      "name": "E604 未知模式种类（zh-CN）",
+      "lexicon": "zh-CN",
+      "trigger": "unknown-pattern-kind",
+      "value": "Teleport",
+      "source": "模块 m。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  匹配于 x：\n    当 1，返回 1。\n  返回 x。\n",
+      "codes": [
+        [
+          "E604",
+          5
+        ]
+      ],
+      "params": {
+        "kind": "Teleport"
+      },
+      "message": "Unknown pattern kind: Teleport"
+    },
+    {
+      "name": "E604 未知模式种类（de-DE）",
+      "lexicon": "de-DE",
+      "trigger": "unknown-pattern-kind",
+      "value": "Teleport",
+      "source": "Modul m.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  pruefe x:\n    bei 1, gib zurueck 1.\n  gib zurueck x.\n",
+      "codes": [
+        [
+          "E604",
+          5
+        ]
+      ],
+      "params": {
+        "kind": "Teleport"
+      },
+      "message": "Unknown pattern kind: Teleport"
+    },
+    {
+      "name": "E605 未知类型种类",
+      "trigger": "unknown-type-kind",
+      "value": "Teleport",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Match x:\n    When 1, Return 1.\n  Return x.\n",
+      "codes": [
+        [
+          "E605",
+          3
+        ]
+      ],
+      "params": {
+        "kind": "Teleport"
+      },
+      "message": "Unknown type kind: Teleport"
+    },
+    {
+      "name": "E605 未知类型种类（zh-CN）",
+      "lexicon": "zh-CN",
+      "trigger": "unknown-type-kind",
+      "value": "Teleport",
+      "source": "模块 m。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  匹配于 x：\n    当 1，返回 1。\n  返回 x。\n",
+      "codes": [
+        [
+          "E605",
+          3
+        ]
+      ],
+      "params": {
+        "kind": "Teleport"
+      },
+      "message": "Unknown type kind: Teleport"
+    },
+    {
+      "name": "E605 未知类型种类（de-DE）",
+      "lexicon": "de-DE",
+      "trigger": "unknown-type-kind",
+      "value": "Teleport",
+      "source": "Modul m.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  pruefe x:\n    bei 1, gib zurueck 1.\n  gib zurueck x.\n",
+      "codes": [
+        [
+          "E605",
+          3
+        ]
+      ],
+      "params": {
+        "kind": "Teleport"
+      },
+      "message": "Unknown type kind: Teleport"
+    },
+    {
+      "name": "E606 lowering 阶段内部异常",
+      "only": "ts",
+      "trigger": "internal-error",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Match x:\n    When 1, Return 1.\n  Return x.\n",
+      "codes": [
+        [
+          "E606",
+          0
+        ]
+      ],
+      "params": {
+        "detail": "*"
+      }
+    }
+  ]
+}
