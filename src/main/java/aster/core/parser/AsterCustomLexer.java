@@ -238,11 +238,26 @@ public class AsterCustomLexer extends AsterLexer {
      * （本仓无统一 parser facade，各调用方自行组装 lexer+parser），
      * 放这里才能覆盖全部路径，而不是只覆盖某一个入口。
      *
-     * <p>上限取与 {@code MAX_EXPR_DEPTH} 同量级：括号深度是表达式深度的下界，
-     * 深度 300 的括号必然对应至少 300 层表达式嵌套，故越过它的输入本就会被
-     * AstBuilder 拒绝——本守卫只是让拒绝**发生得更早**（在栈溢出之前）。
+     * <p>上限与 {@code MAX_EXPR_DEPTH} 同值：括号深度是表达式深度的下界，越过它的输入
+     * 本就会被 AstBuilder 拒绝——本守卫只是让拒绝**发生得更早**（在栈溢出之前）。
+     *
+     * <p>★阈值必须低于**真实栈容量**（aster-api#472）：此前取 300，但每层括号在
+     * {@code AstBuilder} 里是 expr → orExpr → … → postfixExpr → parenExpr → expr 十几帧递归，
+     * 299 层括号在 1MB 栈（Linux x64 JVM 默认 -Xss，即 CI hosted runner 与生产 Quarkus worker
+     * 线程）上就已经 {@code StackOverflowError}，守卫形同虚设。实测全链路首次溢出深度
+     * （GraalVM 25，JIT / -Xint 解释器冷启动）：
+     * <pre>
+     *   线程栈   括号        方括号      not 链        内联 if
+     *   512K     98 / 84     69 / 68     1176 / 850    1077 / 418
+     *   1024K    313 / 196   157 / 157   2500 / 1980   2500 / 973
+     *   2048K    625 / 419   515 / 335   5857 / 4240   5000 / 2084
+     * </pre>
+     * 最窄的是 1MB 栈上的方括号（157），上限取其一半以下的 64（512K 栈仍有余量），
+     * 并与 aster-lang-ts {@code MAX_RECURSION_DEPTH} 同值；双引擎共享夹具
+     * {@code parse_diagnostics_parity.json} 锁定「63 层括号放行、64 层 E054」。
+     * 守卫是否先于溢出触发由 {@code NestingGuardStackSafetyTest} 在显式 1MB / 512K 栈的线程上回归。
      */
-    static final int MAX_NESTING_DEPTH = 300;
+    public static final int MAX_NESTING_DEPTH = 64;
 
     private int nestingDepth = 0;
 
@@ -263,8 +278,8 @@ public class AsterCustomLexer extends AsterLexer {
      * 生产环境栈更小则更容易触发，所以不能拿「实测要 1.2 万」当作不修的理由。
      *
      * <p>为什么与括号共用 {@code MAX_NESTING_DEPTH}：N 个连续 {@code not}
-     * 强制 N 层解析期递归，与 N 层括号同量级；且深度 300 的 not 链必然对应
-     * 至少 300 层表达式嵌套，本就会被 AstBuilder 拒绝——本守卫只是让拒绝
+     * 强制 N 层解析期递归，与 N 层括号同量级；且越过上限的 not 链必然对应
+     * 同样层数的表达式嵌套，本就会被 AstBuilder 拒绝——本守卫只是让拒绝
      * **发生得更早**（在栈溢出之前）。
      *
      * <p>★这是**单侧守卫**，不是双引擎分叉的新增项。实测：TS 引擎的 parser
@@ -273,8 +288,8 @@ public class AsterCustomLexer extends AsterLexer {
      * 也就是说「Java 有解析期深度上限、TS 没有」是**既定先例**，
      * 本守卫与之一致，而非引入新的不对称。
      *
-     * <p>代价是：深度介于 300 与 TS 实际上限之间的输入，在两个引擎上
-     * 一个被拒一个通过。考虑到这类输入没有任何真实用途（300 层 not 不是
+     * <p>代价是：深度介于上限与 TS 原生栈容量之间的输入，在两个引擎上
+     * 一个被拒一个通过。考虑到这类输入没有任何真实用途（64 层 not 不是
      * 人写得出来的），且放任 Java 侧栈溢出的后果更坏（{@code StackOverflowError}
      * 是 Error 级，穿透一切 {@code catch (Exception)}），取「宁可拒绝」。
      */

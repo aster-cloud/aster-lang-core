@@ -56,9 +56,13 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     /**
      * 红队 P2-H：表达式嵌套深度上限（防深嵌套 CNL 递归 StackOverflow DoS）。
-     * 与 aster-lang-ts 的 MAX_RECURSION_DEPTH=300 对齐，维持双引擎行为一致。
+     * 与 aster-lang-ts 的 MAX_RECURSION_DEPTH=64 对齐，维持双引擎行为一致。
      * 每进入一层 {@link #visitExpr} 计数，超限即抛（可恢复的解析错误，由错误恢复层
      * 转成 Diagnostic）。此处守的是 **AstBuilder 访问期**递归。
+     *
+     * <p>★阈值必须低于真实栈容量（aster-api#472）：此前取 300，而 299 层括号在 1MB 栈
+     * （Linux x64 JVM 默认 -Xss）上就在本类的递归里 {@code StackOverflowError}。实测数据与
+     * 选值理由见 {@link AsterCustomLexer#MAX_NESTING_DEPTH}，两道守卫同一阈值。
      *
      * <p>★ANTLR **解析期**递归由 {@code AsterCustomLexer.MAX_NESTING_DEPTH} 在词法期
      * 拦下（issue #140）。此前这里注释声称由「64KB 源长度上限（SourcePolicyRequest
@@ -67,7 +71,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
      * 实测 depth=2000（仅约 4KB 源码）会在 {@code parser.module()} 阶段就抛
      * {@code StackOverflowError}（Error 级，不可恢复），绕过本守卫。
      */
-    static final int MAX_EXPR_DEPTH = 300;
+    public static final int MAX_EXPR_DEPTH = 64;
     private int exprDepth = 0;
 
     // ============================================================
