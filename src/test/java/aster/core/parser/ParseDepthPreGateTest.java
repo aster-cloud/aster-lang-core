@@ -81,8 +81,9 @@ class ParseDepthPreGateTest {
   @Test
   void shallowNestingStillParses() {
     // ★反向护栏：没有这条，把守卫写成「一律拒绝」也能让上面三条变绿。
-    assertDoesNotThrow(() -> build(nestedParens(100)),
-        "100 层嵌套远低于上限，必须正常解析");
+    int depth = AsterCustomLexer.MAX_NESTING_DEPTH / 2;
+    assertDoesNotThrow(() -> build(nestedParens(depth)),
+        depth + " 层嵌套远低于上限，必须正常解析");
   }
 
   @Test

@@ -11,8 +11,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * 红队 P2-H：表达式嵌套深度上限（防深嵌套 CNL 递归 StackOverflow DoS）。
- * AstBuilder.visitExpr 计数，超 MAX_EXPR_DEPTH(300) 即抛可恢复解析错误。
- * 与 aster-lang-ts MAX_RECURSION_DEPTH=300 对齐。
+ * AstBuilder.visitExpr 计数，超 MAX_EXPR_DEPTH 即抛可恢复解析错误。
+ * 与 aster-lang-ts MAX_RECURSION_DEPTH 同值（64，aster-api#472 后下调；实测数据见
+ * AsterCustomLexer.MAX_NESTING_DEPTH 与 NestingGuardStackSafetyTest）。
  */
 class ExprDepthLimitTest {
 
@@ -76,20 +77,20 @@ class ExprDepthLimitTest {
 
   @Test
   void moderateNestingParsesFine() throws Throwable {
-    // 远低于上限（100 层）应正常构建，不抛——括号与 if 两种嵌套形态都验。
-    build(nestedParenSource(100));
-    build(nestedIfSource(100));
+    // 远低于上限（上限的一半）应正常构建，不抛——括号与 if 两种嵌套形态都验。
+    build(nestedParenSource(AstBuilder.MAX_EXPR_DEPTH / 2));
+    build(nestedIfSource(AstBuilder.MAX_EXPR_DEPTH / 2));
   }
 
   @Test
   void deepNestingRejectedByDepthGuard() {
-    // 超上限（400 层 > MAX_EXPR_DEPTH=300）必须被 AstBuilder 深度守卫拦下（抛可恢复
+    // 超上限（MAX_EXPR_DEPTH + 100 层）必须被 AstBuilder 深度守卫拦下（抛可恢复
     // IllegalStateException），而非 StackOverflowError。build() 在 16MB 大栈线程上跑，
     // 保证 ANTLR 解析期不先 StackOverflow → 稳定隔离测访问期守卫（见 build() 注释）。
     // 此前这里声称「由 64KB 源长度上限（SourcePolicyRequest @Size）兜底」——那个类型
     // 不在本仓（issue #151）；生产解析期递归的真正守卫是 AsterCustomLexer.MAX_NESTING_DEPTH。
     IllegalStateException ex = assertThrows(IllegalStateException.class,
-        () -> build(nestedIfSource(400)));
+        () -> build(nestedIfSource(AstBuilder.MAX_EXPR_DEPTH + 100)));
     // 断言 AstBuilder 专属文案「表达式嵌套过深」，把词法器的「括号嵌套过深」排除在外
     assertTrue(ex.getMessage() != null && ex.getMessage().contains("表达式嵌套过深"),
         "应由 AstBuilder 报表达式嵌套过深，实际: " + ex.getMessage());
@@ -97,8 +98,8 @@ class ExprDepthLimitTest {
 
   @Test
   void limitConstantMatchesTsEngine() {
-    // 与 aster-lang-ts MAX_RECURSION_DEPTH=300 对齐（双引擎行为一致）。
-    org.junit.jupiter.api.Assertions.assertEquals(300, AstBuilder.MAX_EXPR_DEPTH,
-        "Java 表达式深度上限应与 TS MAX_RECURSION_DEPTH=300 对齐");
+    // 与 aster-lang-ts MAX_RECURSION_DEPTH=64 对齐（双引擎行为一致；共享 parity 夹具锁定 63 放行 / 64 E054）。
+    org.junit.jupiter.api.Assertions.assertEquals(64, AstBuilder.MAX_EXPR_DEPTH,
+        "Java 表达式深度上限应与 TS MAX_RECURSION_DEPTH=64 对齐");
   }
 }
