@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class ControlRegistryTest {
   @Test void 默认注册表含五个初始控制点() {
     var r = ControlRegistry.loadDefault();
-    assertEquals("1.1.0", r.version());
+    assertEquals("1.2.0", r.version());
     assertTrue(r.has("EU_AI_ACT:ART14"));
     assertTrue(r.has("SOX:404"));
     assertEquals(5, r.keys().size());
@@ -73,11 +73,11 @@ class ControlRegistryTest {
     assertEquals(java.util.List.of("EU_AI_ACT"), hr.frameworks());
   }
 
-  // ADR 0046 §11 D1（R62 X1）：旧解析器必须忽略 requires 中的未知键（如 1.2.0 的 verifiedInputs），
-  // 档案照常登记，已知四个字段不受影响。
+  // ADR 0046 §11 D1（R62 X1）：解析器必须忽略 requires 中的未知键，档案照常登记，已知字段不受影响。
+  // 1.2.0 起 verifiedInputs 是已知键（见下方用例），这里只用真正的未知键。
   @Test void requires含未知键时加载成功且忽略() {
     String withUnknown = "{\"id\":\"hr\",\"requires\":{\"ruleId\":true,\"registeredControls\":false,"
-        + "\"frameworks\":[\"EU_AI_ACT\"],\"verifiedInputs\":true,\"futureKey\":{}}}";
+        + "\"frameworks\":[\"EU_AI_ACT\"],\"futureKey\":{},\"anotherKey\":[1]}}";
     var r = registryWithProfiles("[" + withUnknown + "]");
     var baseline = registryWithProfiles("[" + profileJson("\"hr\"", "true", "false", "[\"EU_AI_ACT\"]") + "]");
     var hr = r.profile("hr").orElseThrow();
@@ -85,7 +85,44 @@ class ControlRegistryTest {
     assertTrue(hr.ruleId());
     assertFalse(hr.registeredControls());
     assertEquals(java.util.List.of("EU_AI_ACT"), hr.frameworks());
+    assertFalse(hr.verifiedInputs());
     assertEquals(baseline.profiles(), r.profiles());
+  }
+
+  private static ControlRegistry.Profile hrWithVerifiedInputs(String value) {
+    String p = "{\"id\":\"hr\",\"requires\":{\"ruleId\":true,\"registeredControls\":false,"
+        + "\"frameworks\":[\"EU_AI_ACT\"],\"verifiedInputs\":" + value + ",\"futureKey\":{}}}";
+    return registryWithProfiles("[" + p + "]").profile("hr").orElse(null);
+  }
+
+  // ADR 0046 §11 D1（registry 1.2.0）：verifiedInputs 缺省为 false，为布尔时照读，非布尔则该档案不登记
+  @Test void verifiedInputs缺省为false() {
+    var r = registryWithProfiles("[" + profileJson("\"hr\"", "true", "false", "[\"EU_AI_ACT\"]") + "]");
+    assertFalse(r.profile("hr").orElseThrow().verifiedInputs());
+  }
+
+  @Test void verifiedInputs为true时照读且未知键仍忽略() {
+    var hr = hrWithVerifiedInputs("true");
+    assertTrue(hr.verifiedInputs());
+    assertEquals(new ControlRegistry.Profile("hr", true, false, java.util.List.of("EU_AI_ACT"), true), hr);
+    assertFalse(hrWithVerifiedInputs("false").verifiedInputs());
+  }
+
+  @Test void verifiedInputs非布尔则档案不登记() {
+    for (String v : java.util.List.of("\"yes\"", "1", "null", "{}", "[]")) {
+      assertNull(hrWithVerifiedInputs(v), v);
+    }
+  }
+
+  @Test void 默认注册表两个档案都不要求verifiedInputs() {
+    var r = ControlRegistry.loadDefault();
+    assertFalse(r.profile("governed").orElseThrow().verifiedInputs());
+    assertFalse(r.profile("eu-ai-act-high-risk").orElseThrow().verifiedInputs());
+  }
+
+  @Test void 四参构造器等价于不要求verifiedInputs() {
+    assertEquals(new ControlRegistry.Profile("p", true, true, java.util.List.of(), false),
+        new ControlRegistry.Profile("p", true, true, java.util.List.of()));
   }
 
   @Test void 畸形档案不登记且不影响其它档案() {

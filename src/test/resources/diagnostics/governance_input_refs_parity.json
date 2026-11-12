@@ -1,0 +1,559 @@
+{
+  "$comment": "ADR 0046 §11 D2 / §11.6：规则输入引用（inputRefs）与 E708 construct 的两引擎共享夹具。aster-lang-core src/test/resources/diagnostics/governance_input_refs_parity.json 与 aster-lang-ts shared/governance_input_refs_parity.json 逐字节相同。expect 列出模块中每个函数：inputRefs 为 null 表示该函数不写 inputRefs；为 [\"*\"] 时 construct 是档案要求 verifiedInputs 时 E708 报告的构造。",
+  "cases": [
+    {
+      "name": "adr-01-literal-field",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  If req.context.amount at least 50000:\n    Return Verdict.escalate(\"large\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "context.amount"
+          ]
+        }
+      }
+    },
+    {
+      "name": "adr-02-let-alias-chain",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let c be req.context.\n  Let a be c.amount.\n  If a greater than 0:\n    Return Verdict.escalate(\"positive\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "context.amount"
+          ]
+        }
+      }
+    },
+    {
+      "name": "adr-03-set-union",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let x be req.context.tier.\n  Set x to req.context.band.\n  If x equals to \"gold\":\n    Return Verdict.allow().\n  Return Verdict.deny(\"tier\").\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "context.band",
+            "context.tier"
+          ]
+        }
+      }
+    },
+    {
+      "name": "adr-04-same-module-call",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule isBig given c as GuardContext, produce Bool:\n  Return c.amount at least 50000.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let big be isBig(req.context).\n  If big:\n    Return Verdict.escalate(\"large\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "isBig": {
+          "inputRefs": null
+        },
+        "decide": {
+          "inputRefs": [
+            "context.amount"
+          ]
+        }
+      }
+    },
+    {
+      "name": "adr-05-map-literal-key",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  If Maybe.withDefault(Map.get(req.context.meta, \"region\"), \"\") equals to \"EU\":\n    Return Verdict.escalate(\"eu\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "context.meta.region"
+          ]
+        }
+      }
+    },
+    {
+      "name": "adr-06-dynamic-map-key",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let k be req.action.\n  If Maybe.withDefault(Map.get(req.context.meta, k), \"\") equals to \"EU\":\n    Return Verdict.escalate(\"eu\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "*"
+          ],
+          "construct": "dynamic-map-key"
+        }
+      }
+    },
+    {
+      "name": "adr-07-whole-input-serialized",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let s be Crypto.hash(req.context).\n  If s equals to \"x\":\n    Return Verdict.deny(\"hash\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "*"
+          ],
+          "construct": "whole-input-serialized"
+        }
+      }
+    },
+    {
+      "name": "adr-08-cross-module-call",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nUse ext.scoring as Ext.\n\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let r be Ext.score(req.context.amount).\n  If r greater than 10:\n    Return Verdict.deny(\"score\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "*"
+          ],
+          "construct": "cross-module-call"
+        }
+      }
+    },
+    {
+      "name": "adr-09-function-value-from-variable",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule isBig given c as GuardContext, produce Bool:\n  Return c.amount at least 50000.\n\nRule pick given a as Text, produce (GuardContext) -> Bool:\n  Return isBig.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let f be pick(req.action).\n  Let v be apply f to req.context.\n  If v:\n    Return Verdict.deny(\"picked\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "isBig": {
+          "inputRefs": null
+        },
+        "pick": {
+          "inputRefs": null
+        },
+        "decide": {
+          "inputRefs": [
+            "*"
+          ],
+          "construct": "function-value"
+        }
+      }
+    },
+    {
+      "name": "adr-10-principal-roles",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  If List.contains(req.principal_roles, \"ops\"):\n    Return Verdict.allow().\n  Return Verdict.deny(\"role\").\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "principal_roles"
+          ]
+        }
+      }
+    },
+    {
+      "name": "adr-11-action-only",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  If req.action equals to \"refund\":\n    Return Verdict.escalate(\"refund\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "action"
+          ]
+        }
+      }
+    },
+    {
+      "name": "adr-12-limit-for",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule limitFor given t as Text, produce Decimal:\n  If t equals to \"gold\":\n    Return 100000.\n  Return 10000.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let c be req.context.\n  Let lim be limitFor(c.tier).\n  If c.amount greater than lim:\n    Return Verdict.escalate(\"over\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "limitFor": {
+          "inputRefs": null
+        },
+        "decide": {
+          "inputRefs": [
+            "context.amount",
+            "context.tier"
+          ]
+        }
+      }
+    },
+    {
+      "name": "adr-13-inline-depth-8",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule h1 given c as GuardContext, produce Bool:\n  Return h2(c).\n\nRule h2 given c as GuardContext, produce Bool:\n  Return h3(c).\n\nRule h3 given c as GuardContext, produce Bool:\n  Return h4(c).\n\nRule h4 given c as GuardContext, produce Bool:\n  Return h5(c).\n\nRule h5 given c as GuardContext, produce Bool:\n  Return h6(c).\n\nRule h6 given c as GuardContext, produce Bool:\n  Return h7(c).\n\nRule h7 given c as GuardContext, produce Bool:\n  Return h8(c).\n\nRule h8 given c as GuardContext, produce Bool:\n  Return c.amount at least 1.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  If h1(req.context):\n    Return Verdict.escalate(\"deep\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "h1": {
+          "inputRefs": null
+        },
+        "h2": {
+          "inputRefs": null
+        },
+        "h3": {
+          "inputRefs": null
+        },
+        "h4": {
+          "inputRefs": null
+        },
+        "h5": {
+          "inputRefs": null
+        },
+        "h6": {
+          "inputRefs": null
+        },
+        "h7": {
+          "inputRefs": null
+        },
+        "h8": {
+          "inputRefs": null
+        },
+        "decide": {
+          "inputRefs": [
+            "context.amount"
+          ]
+        }
+      }
+    },
+    {
+      "name": "adr-14-inline-depth-9",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule h1 given c as GuardContext, produce Bool:\n  Return h2(c).\n\nRule h2 given c as GuardContext, produce Bool:\n  Return h3(c).\n\nRule h3 given c as GuardContext, produce Bool:\n  Return h4(c).\n\nRule h4 given c as GuardContext, produce Bool:\n  Return h5(c).\n\nRule h5 given c as GuardContext, produce Bool:\n  Return h6(c).\n\nRule h6 given c as GuardContext, produce Bool:\n  Return h7(c).\n\nRule h7 given c as GuardContext, produce Bool:\n  Return h8(c).\n\nRule h8 given c as GuardContext, produce Bool:\n  Return h9(c).\n\nRule h9 given c as GuardContext, produce Bool:\n  Return c.amount at least 1.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  If h1(req.context):\n    Return Verdict.escalate(\"deep\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "h1": {
+          "inputRefs": null
+        },
+        "h2": {
+          "inputRefs": null
+        },
+        "h3": {
+          "inputRefs": null
+        },
+        "h4": {
+          "inputRefs": null
+        },
+        "h5": {
+          "inputRefs": null
+        },
+        "h6": {
+          "inputRefs": null
+        },
+        "h7": {
+          "inputRefs": null
+        },
+        "h8": {
+          "inputRefs": null
+        },
+        "h9": {
+          "inputRefs": null
+        },
+        "decide": {
+          "inputRefs": [
+            "*"
+          ],
+          "construct": "inline-depth"
+        }
+      }
+    },
+    {
+      "name": "adr-15-mutual-recursion",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule isOk given c as GuardContext, produce Bool:\n  If c.amount at least 1:\n    Return isBad(c).\n  Return true.\n\nRule isBad given c as GuardContext, produce Bool:\n  Return isOk(c).\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  If isOk(req.context):\n    Return Verdict.allow().\n  Return Verdict.deny(\"bad\").\n",
+      "expect": {
+        "isOk": {
+          "inputRefs": null
+        },
+        "isBad": {
+          "inputRefs": null
+        },
+        "decide": {
+          "inputRefs": [
+            "*"
+          ],
+          "construct": "recursion"
+        }
+      }
+    },
+    {
+      "name": "supp-a-scalar-root",
+      "source": "Module guard.scalar.\nProfile \"eu-ai-act-high-risk\".\n\n@id(\"S-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given amount, produce Verdict:\n  If amount at least 100:\n    Return Verdict.escalate(\"large\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "name": "supp-a-scalar-serialized",
+      "source": "Module guard.scalar.\nProfile \"eu-ai-act-high-risk\".\n\n@id(\"S-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given amount, produce Verdict:\n  Let s be Int.toString(amount).\n  If s equals to \"1\":\n    Return Verdict.deny(\"one\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "*"
+          ],
+          "construct": "whole-input-serialized"
+        }
+      }
+    },
+    {
+      "name": "supp-a-whole-record-compared",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  If req equals to req:\n    Return Verdict.allow().\n  Return Verdict.deny(\"never\").\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "name": "supp-b-dotted-literal-key",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  If Maybe.withDefault(Map.get(req.context.meta, \"eu.region\"), \"\") equals to \"x\":\n    Return Verdict.deny(\"dotted\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "*"
+          ],
+          "construct": "unrepresentable-key"
+        }
+      }
+    },
+    {
+      "name": "supp-b-empty-literal-key",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  If Maybe.withDefault(Map.get(req.context.meta, \"\"), \"\") equals to \"x\":\n    Return Verdict.deny(\"empty\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "*"
+          ],
+          "construct": "unrepresentable-key"
+        }
+      }
+    },
+    {
+      "name": "supp-c-second-param-not-tracked",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, limit as Decimal, produce Verdict:\n  If req.context.amount greater than limit:\n    Return Verdict.escalate(\"over\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "context.amount"
+          ]
+        }
+      }
+    },
+    {
+      "name": "map-iteration",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let ks be Map.keys(req.context.meta).\n  If List.contains(ks, \"x\"):\n    Return Verdict.deny(\"key\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "*"
+          ],
+          "construct": "map-iteration"
+        }
+      }
+    },
+    {
+      "name": "path-8-segments-ok",
+      "source": "Module guard.deep.\nProfile \"eu-ai-act-high-risk\".\n\nDefine Deep has s1.\n\n@id(\"D-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as Deep, produce Verdict:\n  If req.s1.s2.s3.s4.s5.s6.s7.s8 equals to \"x\":\n    Return Verdict.deny(\"deep\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "s1.s2.s3.s4.s5.s6.s7.s8"
+          ]
+        }
+      }
+    },
+    {
+      "name": "path-9-segments-too-long",
+      "source": "Module guard.deep.\nProfile \"eu-ai-act-high-risk\".\n\nDefine Deep has s1.\n\n@id(\"D-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as Deep, produce Verdict:\n  If req.s1.s2.s3.s4.s5.s6.s7.s8.s9 equals to \"x\":\n    Return Verdict.deny(\"deep\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "*"
+          ],
+          "construct": "path-too-long"
+        }
+      }
+    },
+    {
+      "name": "record-construct-per-field",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\nDefine Pair has amt as Decimal, lbl as Text.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let p be Pair with amt set to req.context.amount, lbl set to req.action.\n  If p.amt greater than 0:\n    Return Verdict.escalate(\"positive\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "context.amount"
+          ]
+        }
+      }
+    },
+    {
+      "name": "match-subject-and-binding",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Match req.context.tier:\n    When t, Return Verdict.deny(t).\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "context.tier"
+          ]
+        }
+      }
+    },
+    {
+      "name": "unused-binding-not-consumed",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let unused be req.context.band.\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": []
+        }
+      }
+    },
+    {
+      "name": "no-input-read",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": []
+        }
+      }
+    },
+    {
+      "name": "alias-same-name-as-local-function",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nUse other.lib as isBig.\n\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule isBig given c as GuardContext, produce Bool:\n  Return c.amount at least 50000.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let local be isBig(req.context).\n  Let remote be isBig.check(req.context.tier).\n  If local and remote:\n    Return Verdict.deny(\"both\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "isBig": {
+          "inputRefs": null
+        },
+        "decide": {
+          "inputRefs": [
+            "*"
+          ],
+          "construct": "cross-module-call"
+        }
+      }
+    },
+    {
+      "name": "two-stars-callee-body-first",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nUse ext.scoring as Ext.\n\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule dyn given c as GuardContext, produce Text:\n  Return Map.get(c.meta, c.tier).\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let d be dyn(req.context).\n  Let r be Ext.score(req.context.amount).\n  If d equals to r:\n    Return Verdict.deny(\"same\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "dyn": {
+          "inputRefs": null
+        },
+        "decide": {
+          "inputRefs": [
+            "*"
+          ],
+          "construct": "dynamic-map-key"
+        }
+      }
+    },
+    {
+      "name": "non-verdict-functions-get-no-input-refs",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule helper given c as GuardContext, produce Bool:\n  Return c.amount at least 1.\n\nRule other given a as Text, produce Bool:\n  Return Text.length(a) greater than 0.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  If helper(req.context) and other(req.action):\n    Return Verdict.allow().\n  Return Verdict.deny(\"no\").\n",
+      "expect": {
+        "helper": {
+          "inputRefs": null
+        },
+        "other": {
+          "inputRefs": null
+        },
+        "decide": {
+          "inputRefs": [
+            "action",
+            "context.amount"
+          ]
+        }
+      }
+    },
+    {
+      "name": "localized-zh-canonical-paths",
+      "lexicon": "zh-CN",
+      "vocabulary": {
+        "id": "probe.localized",
+        "name": "probe",
+        "version": "1.0.0",
+        "functions": [],
+        "enumValues": [],
+        "literals": [],
+        "locale": "zh-CN",
+        "structs": [
+          {
+            "canonical": "GuardContext",
+            "localized": "上下文",
+            "kind": "struct"
+          },
+          {
+            "canonical": "GuardRequest",
+            "localized": "请求",
+            "kind": "struct"
+          }
+        ],
+        "fields": [
+          {
+            "canonical": "amount",
+            "localized": "金额",
+            "kind": "field",
+            "parent": "GuardContext"
+          },
+          {
+            "canonical": "tier",
+            "localized": "等级",
+            "kind": "field",
+            "parent": "GuardContext"
+          },
+          {
+            "canonical": "action",
+            "localized": "动作",
+            "kind": "field",
+            "parent": "GuardRequest"
+          },
+          {
+            "canonical": "context",
+            "localized": "上下文",
+            "kind": "field",
+            "parent": "GuardRequest"
+          }
+        ]
+      },
+      "source": "模块 guard.zh。\n档案 \"eu-ai-act-high-risk\"。\n\n定义 上下文 包含 金额 作为 小数，等级 作为 文本。\n定义 请求 包含 动作 作为 文本，上下文 作为 上下文。\n\n@id(\"ZH-1\")\n@control(\"EU_AI_ACT:ART14\")\n规则 决定 给定 请求 作为 请求，产出 Verdict：\n  令 甲 定义为 请求.上下文.金额。\n  如果 甲 至少 50000：\n    返回 Verdict.deny(\"大额\")。\n  如果 请求.动作 等于 \"退款\"：\n    返回 Verdict.escalate(\"退款\")。\n  返回 Verdict.allow()。\n",
+      "expect": {
+        "决定": {
+          "inputRefs": [
+            "action",
+            "context.amount"
+          ]
+        }
+      }
+    },
+    {
+      "name": "localized-de-canonical-paths",
+      "lexicon": "de-DE",
+      "vocabulary": {
+        "id": "probe.localized",
+        "name": "probe",
+        "version": "1.0.0",
+        "functions": [],
+        "enumValues": [],
+        "literals": [],
+        "locale": "de-DE",
+        "structs": [
+          {
+            "canonical": "GuardContext",
+            "localized": "Kontext",
+            "kind": "struct"
+          },
+          {
+            "canonical": "GuardRequest",
+            "localized": "Anfrage",
+            "kind": "struct"
+          }
+        ],
+        "fields": [
+          {
+            "canonical": "amount",
+            "localized": "betrag",
+            "kind": "field",
+            "parent": "GuardContext"
+          },
+          {
+            "canonical": "tier",
+            "localized": "stufe",
+            "kind": "field",
+            "parent": "GuardContext"
+          },
+          {
+            "canonical": "action",
+            "localized": "aktion",
+            "kind": "field",
+            "parent": "GuardRequest"
+          },
+          {
+            "canonical": "context",
+            "localized": "kontext",
+            "kind": "field",
+            "parent": "GuardRequest"
+          }
+        ]
+      },
+      "source": "Modul guard.de.\nProfil \"eu-ai-act-high-risk\".\n\nDefiniere Kontext hat betrag als Dezimal, stufe als Text.\nDefiniere Anfrage hat aktion als Text, kontext als Kontext.\n\n@id(\"DE-1\")\n@control(\"EU_AI_ACT:ART14\")\nRegel entscheide gegeben anfrage als Anfrage, liefert Verdict:\n  sei b gleich anfrage.kontext.betrag.\n  wenn b mindestens 50000:\n    gib zurueck Verdict.deny(\"gross\").\n  wenn anfrage.aktion entspricht \"erstattung\":\n    gib zurueck Verdict.escalate(\"erstattung\").\n  gib zurueck Verdict.allow().\n",
+      "expect": {
+        "entscheide": {
+          "inputRefs": [
+            "action",
+            "context.amount"
+          ]
+        }
+      }
+    }
+  ]
+}

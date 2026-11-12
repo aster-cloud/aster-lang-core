@@ -40,10 +40,20 @@ public record ControlRegistry(String version, Set<String> keys, Map<String, Stri
     this(version, keys, Map.of(), Map.of());
   }
 
-  /** 档案定义（ADR 0046 §3）：规则须有 @id、控制点须已登记、须至少引用所列框架之一的已登记控制点。 */
-  public record Profile(String id, boolean ruleId, boolean registeredControls, List<String> frameworks) {
+  /**
+   * 档案定义（ADR 0046 §3）：规则须有 @id、控制点须已登记、须至少引用所列框架之一的已登记控制点。
+   * verifiedInputs（ADR 0046 §11 D1，registry 1.2.0 起）：要求 Verdict 规则的输入引用静态可知（E708），
+   * 运行期由 guard 按请求的签名事实执行。
+   */
+  public record Profile(String id, boolean ruleId, boolean registeredControls, List<String> frameworks,
+                        boolean verifiedInputs) {
     public Profile {
       frameworks = List.copyOf(frameworks);
+    }
+
+    /** 不要求 verifiedInputs 的档案；保留 1.2.0 之前的四参形态，既有调用方无需改动。 */
+    public Profile(String id, boolean ruleId, boolean registeredControls, List<String> frameworks) {
+      this(id, ruleId, registeredControls, frameworks, false);
     }
   }
 
@@ -122,22 +132,29 @@ public record ControlRegistry(String version, Set<String> keys, Map<String, Stri
     return out;
   }
 
-  /** id 合乎形态、两个开关为布尔、frameworks 为只含已登记框架 id 的数组，否则为空。 */
+  /**
+   * id 合乎形态、两个开关为布尔、frameworks 为只含已登记框架 id 的数组，否则为空。
+   * verifiedInputs 可缺省（缺省为 false，兼容 1.2.0 之前的注册表）；出现但不是布尔时与 ruleId 非布尔同样不登记。
+   * requires 中的其他键忽略（ADR 0046 §11 D1：旧解析器须忽略未知键）。
+   */
   private static Optional<Profile> readProfile(JsonNode p, Set<String> frameworkIds) {
     JsonNode id = p.path("id");
     JsonNode req = p.path("requires");
     JsonNode ruleId = req.path("ruleId");
     JsonNode registered = req.path("registeredControls");
     JsonNode fws = req.path("frameworks");
+    JsonNode verified = req.path("verifiedInputs");
     boolean shapeOk = id.isTextual() && PROFILE_ID.matcher(id.asText()).matches()
-        && ruleId.isBoolean() && registered.isBoolean() && fws.isArray();
+        && ruleId.isBoolean() && registered.isBoolean() && fws.isArray()
+        && (verified.isMissingNode() || verified.isBoolean());
     if (!shapeOk) return Optional.empty();
     List<String> frameworks = new ArrayList<>();
     for (JsonNode f : fws) {
       if (!f.isTextual() || !frameworkIds.contains(f.asText())) return Optional.empty();
       frameworks.add(f.asText());
     }
-    return Optional.of(new Profile(id.asText(), ruleId.asBoolean(), registered.asBoolean(), frameworks));
+    return Optional.of(new Profile(id.asText(), ruleId.asBoolean(), registered.asBoolean(), frameworks,
+        verified.asBoolean(false)));
   }
 
   private static final class Holder {
