@@ -295,7 +295,33 @@ public class AsterCustomLexer extends AsterLexer {
      */
     private int consecutiveNotDepth = 0;
 
+    /**
+     * 词法期类型嵌套深度上限（aster-lang-core#250）。
+     *
+     * <p>类型嵌套（{@code list of list of …}、{@code Map K to Map …}、{@code result of A and result of …}）
+     * 此前没有任何守卫：{@code type} 规则在 ANTLR 解析期逐层递归，嵌套够深时 {@code parser.module()} 先抛
+     * {@code StackOverflowError}，与 issue #140 的括号同一类问题。本守卫与括号 / not 链守卫同处
+     * {@link #nextToken()} 的公共路径，覆盖全部解析入口。
+     *
+     * <p>计数单位与 aster-lang-ts {@code MAX_TYPE_RECURSION_DEPTH} 相同：每进入一次类型解析计 1（含叶子类型名），
+     * 详见 {@link TypeNestingTracker}。两端同值，双引擎共享夹具 {@code parse_diagnostics_parity.json} 锁定
+     * list 链、Map 键 / 值交替、result 嵌套三种形态的「上限放行、上限 + 1 E054」。
+     *
+     * <p>阈值：实测（GraalVM 25，守卫之前）1MB 栈 {@code -Xint} 下最窄的是 {@code result of Int and result of …}
+     * （约 206 层即溢出，ANTLR 预测的 closure 递归比 {@code type} 规则本身更深），{@code list of} 链 526 层；
+     * 512K 栈 {@code -Xint} 下分别为 91 / 228。上限取 1MB {@code -Xint} 最窄值的一半以下、512K 仍有余量的 64，
+     * 与表达式守卫同值。完整实测表见 {@code TypeNestingGuardStackSafetyTest}。
+     */
+    public static final int MAX_TYPE_NESTING_DEPTH = 64;
+
+    private final TypeNestingTracker typeNesting = new TypeNestingTracker(MAX_TYPE_NESTING_DEPTH);
+
     private void trackNestingDepth(int type) {
+        if (typeNesting.onToken(type)) {
+            throw new ParseDiagnosticException(ErrorCode.PARSE_NESTING_TOO_DEEP,
+                Map.of("limit", String.valueOf(MAX_TYPE_NESTING_DEPTH)),
+                "类型嵌套过深（> " + MAX_TYPE_NESTING_DEPTH + "），拒绝以防栈溢出", getLine(), getCharPositionInLine() + 1);
+        }
         if (type == AsterParser.LPAREN || type == AsterParser.LBRACKET) {
             if (++nestingDepth > MAX_NESTING_DEPTH) {
                 // 与 AstBuilder 深度守卫同一机制：抛可恢复的解析错误，而非放任 Error 穿透。
