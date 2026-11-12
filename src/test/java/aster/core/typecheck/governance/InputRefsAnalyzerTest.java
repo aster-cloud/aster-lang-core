@@ -108,4 +108,51 @@ class InputRefsAnalyzerTest {
     var f = func(m, "decide");
     assertThat(InputRefsAnalyzer.analyze(m, f)).isEqualTo(InputRefsAnalyzer.analyze(m, f));
   }
+  /** 评审复现（I1）：64×64 扇出、h3 约 1500 行 Let、150 条 Verdict 规则。修复前 Java 约 70 秒。 */
+  static String fanOutRepro(int lets, int rules, int fan) {
+    StringBuilder b = new StringBuilder("Module dos.repro.\nProfile \"governed\".\n\n"
+        + "Define Ctx has amount as Decimal.\nDefine Req has context as Ctx.\n\n"
+        + "Rule h3 given c as Ctx, produce Bool:\n");
+    for (int i = 0; i < lets; i++) b.append("  Let x").append(i).append(" be c.amount plus ").append(i).append(".\n");
+    b.append("  Return c.amount greater than 0.\n\n");
+    for (String[] hc : new String[][] {{"h2", "h3"}, {"h1", "h2"}}) {
+      b.append("Rule ").append(hc[0]).append(" given c as Ctx, produce Bool:\n");
+      for (int i = 0; i < fan; i++) b.append("  Let y").append(i).append(" be ").append(hc[1]).append("(c).\n");
+      b.append("  Return true.\n\n");
+    }
+    for (int r = 0; r < rules; r++) {
+      b.append("@id(\"R-").append(r).append("\")\nRule r").append(r).append(" given req as Req, produce Verdict:\n")
+          .append("  If h1(req.context):\n    Return Verdict.deny(\"x\").\n  Return Verdict.allow().\n\n");
+    }
+    return b.toString();
+  }
+
+  @Test void 评审复现的扇出调用链分析在一秒内完成() {
+    CoreModel.Module m = resolve(fanOutRepro(1500, 150, 64));
+    long start = System.nanoTime();
+    int rules = 0;
+    for (CoreModel.Decl d : m.decls) {
+      if (d instanceof CoreModel.Func f && InputRefsAnalyzer.applies(m, f)) {
+        assertThat(InputRefsAnalyzer.analyze(m, f).inputRefs()).containsExactly("context.amount");
+        rules++;
+      }
+    }
+    long ms = (System.nanoTime() - start) / 1_000_000;
+    assertThat(rules).isEqualTo(150);
+    assertThat(ms).as("150 条规则的分析耗时（毫秒）").isLessThan(1000);
+  }
+
+  @Test void 节点预算耗尽为inline_depth且在一秒内完成() throws Exception {
+    var fixture = new com.fasterxml.jackson.databind.ObjectMapper().readTree(
+        InputRefsAnalyzerTest.class.getResourceAsStream("/diagnostics/governance_input_refs_parity.json"));
+    String src = null;
+    for (var c : fixture.path("cases")) if ("node-visit-budget".equals(c.path("name").asText())) src = c.path("source").asText();
+    assertThat(src).isNotNull();
+    CoreModel.Module m = resolve(src);
+    long start = System.nanoTime();
+    var r = InputRefsAnalyzer.analyze(m, func(m, "decide"));
+    long ms = (System.nanoTime() - start) / 1_000_000;
+    assertThat(r.construct()).isEqualTo("inline-depth");
+    assertThat(ms).as("节点预算用例的分析耗时（毫秒）").isLessThan(1000);
+  }
 }

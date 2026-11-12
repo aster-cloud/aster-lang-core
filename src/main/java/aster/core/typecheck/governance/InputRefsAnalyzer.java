@@ -36,8 +36,12 @@ public final class InputRefsAnalyzer {
   public static final int MAX_SEGMENTS = 8;
   /** 同模块调用内联的最大嵌套层数（§11.2：恰好 8 层可定位，第 9 层为 {@code *}）。 */
   public static final int MAX_INLINE_DEPTH = 8;
-  /** 单条规则分析中内联调用的总次数上限：防止分支调用链指数展开拖垮编译，超出按 inline-depth 处理。 */
-  public static final int MAX_INLINE_CALLS = 4096;
+  /**
+   * 单条规则分析的节点访问预算（共用先序编号计数）：超出即按 inline-depth 产生 {@code *}，不再展开。
+   * 同模块调用按（调用栈，实参来源）记忆化，正常规则的访问数与源码节点数同阶（语料中最大的规则不足 2 千次）；
+   * 20 万次留出两个数量级余量，同时把恶意扇出（如 64×64 调用链每层重遍历大函数体）的分析耗时限制在毫秒级。
+   */
+  public static final int MAX_NODE_VISITS = 200_000;
   public static final String STAR = "*";
 
   /** 运算符与 await：消费全部实参（与 TS BUILTIN_OPS / BUILTIN_AWAIT 同表）。 */
@@ -49,6 +53,12 @@ public final class InputRefsAnalyzer {
   private static final Set<String> MAP_ITERATION = Set.of("Map.keys", "Map.values");
   /** 把值整体转为文本或摘要。 */
   private static final Set<String> SERIALIZERS = Set.of("Bool.toString", "Crypto.hash", "Int.toString");
+  /**
+   * 内置函数命名空间（与 truffle Builtins、TS 类型系统登记的内置一致）：只有这些限定名按「内置函数，实参被消费」处理，
+   * 其余未知限定名一律按跨模块调用（{@code *}）。
+   */
+  private static final Set<String> BUILTIN_NAMESPACES = Set.of(
+      "Bool", "Crypto", "Date", "Decimal", "IO", "Int", "List", "Map", "Maybe", "Option", "PII", "Result", "Text", "Verdict");
 
   /**
    * 分析结果。
@@ -93,6 +103,18 @@ public final class InputRefsAnalyzer {
       return new Src(false, Set.of(p), Map.of());
     }
 
+    /** 记忆化键：结构相等的来源得到相同的键（路径与字段按 UTF-16 序，不含输入来源的字段不计）。 */
+    String key() {
+      if (star) return "*";
+      StringBuilder b = new StringBuilder("P");
+      new TreeSet<>(paths).forEach(p -> b.append('\u0001').append(p));
+      b.append("F");
+      new java.util.TreeMap<>(fields).forEach((k, v) -> {
+        if (!v.isEmpty()) b.append('\u0002').append(k).append('\u0003').append(v.key()).append('\u0004');
+      });
+      return b.toString();
+    }
+
     boolean isEmpty() {
       return !star && paths.isEmpty() && fields.values().stream().allMatch(Src::isEmpty);
     }
@@ -135,9 +157,12 @@ public final class InputRefsAnalyzer {
   private final Map<String, CoreModel.Func> funcs = new HashMap<>();
   private final List<String> importAliases = new ArrayList<>();
   private final List<String> importPaths = new ArrayList<>();
-  private final Set<String> refs = new TreeSet<>();
+  private final Map<CoreModel.Func, Integer> funcIds = new java.util.IdentityHashMap<>();
+  /** 当前被消费的路径；内联被调函数体时临时换成该次调用自己的集合，结束后并回调用方。 */
+  private Set<String> refs = new TreeSet<>();
   private final Deque<CoreModel.Func> stack = new ArrayDeque<>();
-  private int inlineCalls;
+  /** 同模块调用的记忆化：（调用栈，被调函数，实参来源）→ 该次内联的摘要。 */
+  private final Map<String, Summary> memo = new HashMap<>();
   /** 节点先序编号：进入节点时递增；记录编号最小的产生 * 的节点。 */
   private int nodeCounter;
   private int firstIndex = Integer.MAX_VALUE;
@@ -146,7 +171,10 @@ public final class InputRefsAnalyzer {
   private InputRefsAnalyzer(CoreModel.Module module) {
     this.module = module;
     for (CoreModel.Decl d : module.decls == null ? List.<CoreModel.Decl>of() : module.decls) {
-      if (d instanceof CoreModel.Func f && f.name != null) funcs.putIfAbsent(f.name, f);
+      if (d instanceof CoreModel.Func f) {
+        funcIds.put(f, funcIds.size());
+        if (f.name != null) funcs.putIfAbsent(f.name, f);
+      }
       if (d instanceof CoreModel.Import imp) {
         if (imp.alias != null) importAliases.add(imp.alias);
         if (imp.path != null) importPaths.add(imp.path);
@@ -239,6 +267,7 @@ public final class InputRefsAnalyzer {
   private Src eval(CoreModel.Expr expr, Frame f) {
     if (expr == null) return Src.EMPTY;
     int index = ++nodeCounter;
+    if (index > MAX_NODE_VISITS) return produce(index, "inline-depth");
     return switch (expr) {
       case CoreModel.Name n -> name(n.name, index, f);
       case CoreModel.Call c -> call(c, index, f);
@@ -328,8 +357,10 @@ public final class InputRefsAnalyzer {
     if (MAP_KEY_ACCESS.contains(t) && c.args != null && c.args.size() == 2) return mapKey(c, index, f);
     if (MAP_ITERATION.contains(t)) return producesIfAny(evalAll(c.args, f), index, "map-iteration");
     if (SERIALIZERS.contains(t)) return producesIfAny(evalAll(c.args, f), index, "whole-input-serialized");
-    if (t.indexOf('.') < 0 || isImported(t)) return producesIfAny(evalAll(c.args, f), index, "cross-module-call");
-    // 其余限定名是内置函数（Text.* / List.* / Verdict.* …）：实参被消费
+    if (t.indexOf('.') < 0 || isImported(t) || !BUILTIN_NAMESPACES.contains(t.substring(0, t.indexOf('.')))) {
+      return producesIfAny(evalAll(c.args, f), index, "cross-module-call");
+    }
+    // 内置命名空间的限定名（Text.* / List.* / Verdict.* …）：实参被消费
     return consumeAll(evalAll(c.args, f));
   }
 
@@ -365,20 +396,57 @@ public final class InputRefsAnalyzer {
     return map.isEmpty() ? Src.EMPTY : produce(index, "dynamic-map-key");
   }
 
+  /** 一次内联的摘要：Return 的来源、被消费的路径、体内第一个产生 * 的构造（无则 null）。 */
+  private record Summary(Src returns, Set<String> consumed, String construct) {}
+
+  /**
+   * 同模块调用：形参绑定到实参来源后内联被调函数体。结果按（调用栈，被调函数，实参来源）记忆化——同一调用点的
+   * 重复展开不再重遍历函数体；体内产生的 * 在实参之后、调用点之后的节点之前按先序登记（取新编号）。
+   */
   private Src inline(CoreModel.Func callee, List<Src> args, int index, Frame f) {
     if (allEmpty(args)) return Src.EMPTY;
     if (stack.contains(callee)) return produce(index, "recursion");
-    if (f.depth + 1 > MAX_INLINE_DEPTH || ++inlineCalls > MAX_INLINE_CALLS) return produce(index, "inline-depth");
+    if (f.depth + 1 > MAX_INLINE_DEPTH) return produce(index, "inline-depth");
+    String key = memoKey(callee, args);
+    Summary s = memo.get(key);
+    if (s == null) {
+      s = summarize(callee, args, f.depth + 1);
+      memo.put(key, s);
+    }
+    refs.addAll(s.consumed());
+    if (s.construct() != null) produce(++nodeCounter, s.construct());
+    return s.returns();
+  }
+
+  private String memoKey(CoreModel.Func callee, List<Src> args) {
+    StringBuilder b = new StringBuilder();
+    stack.forEach(fn -> b.append(funcIds.get(fn)).append(','));
+    b.append('>').append(funcIds.get(callee));
+    args.forEach(a -> b.append('\u0005').append(a.key()));
+    return b.toString();
+  }
+
+  private Summary summarize(CoreModel.Func callee, List<Src> args, int depth) {
+    Set<String> outerRefs = refs;
+    int outerIndex = firstIndex;
+    String outerConstruct = firstConstruct;
+    refs = new TreeSet<>();
+    firstIndex = Integer.MAX_VALUE;
+    firstConstruct = null;
     Map<String, Src> env = new HashMap<>();
     List<CoreModel.Param> params = callee.params == null ? List.of() : callee.params;
     for (int i = 0; i < params.size(); i++) {
       env.merge(params.get(i).name, i < args.size() ? args.get(i) : Src.EMPTY, Src::union);
     }
-    Frame frame = new Frame(env, Mode.CALLEE, f.depth + 1);
+    Frame frame = new Frame(env, Mode.CALLEE, depth);
     stack.push(callee);
     walk(callee.body, frame);
     stack.pop();
-    return frame.returns;
+    Summary s = new Summary(frame.returns, refs, firstConstruct);
+    refs = outerRefs;
+    firstIndex = outerIndex;
+    firstConstruct = outerConstruct;
+    return s;
   }
 
   private Src producesIfAny(List<Src> args, int index, String construct) {

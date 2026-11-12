@@ -112,10 +112,11 @@ public final class GovernanceChecker {
 
   /**
    * ADR 0046 §11 D2 第 2 条：档案要求 verifiedInputs 时，规则的输入引用必须静态可知，否则 E708（每条规则至多一条）。
-   * 每次都由分析器重算（纯函数，结果与 IR 中的 inputRefs 相同），以便取得产生 * 的 construct，也兼容不带 inputRefs 的旧 IR。
+   * IR 已带 inputRefs 且不是 ["*"] 时直接判定不报；否则（["*"] 需要 construct，或旧 IR 不带该字段）由分析器重算。
    */
   private static void checkInputRefs(CoreModel.Module module, CoreModel.Func func, ControlRegistry.Profile p,
                                      List<Diagnostic> out) {
+    if (func.inputRefs != null && !func.inputRefs.equals(List.of(InputRefsAnalyzer.STAR))) return;
     InputRefsAnalyzer.Result r = InputRefsAnalyzer.analyze(module, func);
     if (!r.unresolvable()) return;
     out.add(diag(ErrorCode.GOV_PROFILE_INPUT_UNRESOLVABLE, func.origin,
