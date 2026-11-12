@@ -73,6 +73,21 @@ class ControlRegistryTest {
     assertEquals(java.util.List.of("EU_AI_ACT"), hr.frameworks());
   }
 
+  // ADR 0046 §11 D1（R62 X1）：旧解析器必须忽略 requires 中的未知键（如 1.2.0 的 verifiedInputs），
+  // 档案照常登记，已知四个字段不受影响。
+  @Test void requires含未知键时加载成功且忽略() {
+    String withUnknown = "{\"id\":\"hr\",\"requires\":{\"ruleId\":true,\"registeredControls\":false,"
+        + "\"frameworks\":[\"EU_AI_ACT\"],\"verifiedInputs\":true,\"futureKey\":{}}}";
+    var r = registryWithProfiles("[" + withUnknown + "]");
+    var baseline = registryWithProfiles("[" + profileJson("\"hr\"", "true", "false", "[\"EU_AI_ACT\"]") + "]");
+    var hr = r.profile("hr").orElseThrow();
+    assertEquals("hr", hr.id());
+    assertTrue(hr.ruleId());
+    assertFalse(hr.registeredControls());
+    assertEquals(java.util.List.of("EU_AI_ACT"), hr.frameworks());
+    assertEquals(baseline.profiles(), r.profiles());
+  }
+
   @Test void 畸形档案不登记且不影响其它档案() {
     String good = profileJson("\"ok\"", "true", "true", "[]");
     java.util.List<String> bad = java.util.List.of(
