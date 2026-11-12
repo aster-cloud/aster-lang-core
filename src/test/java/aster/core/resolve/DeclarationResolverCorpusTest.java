@@ -72,11 +72,11 @@ class DeclarationResolverCorpusTest {
     /** 语料文件的引擎声明；lexicon 缺省为 en-US。 */
     private record Meta(boolean java, boolean reject, String lexicon) {}
 
-    /** 纳入且解析成功的语料文件及其 AST。 */
-    private record Parsed(Path file, Module module) {}
+    /** 纳入且解析成功的语料文件及其 AST（NoProfileIrUnchangedTest 共用）。 */
+    record Parsed(Path file, Module module) {}
 
     /** 按 meta 驱动纳入语料并解析；断言纳入的文件全部解析成功（已知缺口除外）。 */
-    private static List<Parsed> parseCorpus(String label) throws IOException {
+    static List<Parsed> parseCorpus(String label) throws IOException {
         assumeTrue(Files.isDirectory(CORPUS), "缺少 aster-lang-test/corpus");
         List<Path> files;
         try (Stream<Path> walk = Files.walk(CORPUS)) {
@@ -123,7 +123,8 @@ class DeclarationResolverCorpusTest {
         for (Parsed p : parsed) {
             NameResolution.ResolvedCore resolved = NameResolution.resolveAndLower(p.module(), ResolutionContext.none());
             resolved.diagnostics().forEach(d -> findings.add(describe(p.file(), d)));
-            String before = MAPPER.writeValueAsString(new CoreLowering().lowerModule(p.module()));
+            // 直接 lower 同样经过 inputRefs 标注（ADR 0046 §11 D2，只影响档案模块），本测试只比较名称解析本身的影响
+            String before = MAPPER.writeValueAsString(NameResolution.withInputRefs(new CoreLowering().lowerModule(p.module())));
             if (!before.equals(MAPPER.writeValueAsString(resolved.core()))) changed.add(key(p.file()));
         }
         System.out.println("R1+R2 corpus: diagnostics=" + findings.size() + " irChanged=" + changed.size() + " of " + parsed.size());

@@ -748,6 +748,13 @@
     "message": "Governance check could not run for module '{module}' (profile '{profile}'); saving is blocked until it succeeds",
     "help": "Retry later; this is a service fault, not a policy violation."
   },
+  "GOV_PROFILE_INPUT_UNRESOLVABLE": {
+    "code": "E708",
+    "category": "governance",
+    "severity": "error",
+    "message": "Rule '{rule}' reads inputs that cannot be resolved statically ({construct}); profile '{profile}' requires verified inputs",
+    "help": "Read input fields by literal path (for example req.context.amount), or move the dynamic access out of this rule, so its input references are known at compile time."
+  },
   "CEDAR_NOT_EXPORTABLE_SHAPE": {
     "code": "E720",
     "category": "governance",

@@ -37,7 +37,7 @@ public final class GovernanceChecker {
     this.registry = registry;
   }
 
-  /** 检查整个模块：E702 注解参数、W700 缺 @id、E701 模块内 @id 重复、E705/E706 档案（ADR 0046）。 */
+  /** 检查整个模块：E702 注解参数、W700 缺 @id、E701 模块内 @id 重复、E705/E706/E708 档案（ADR 0046）。 */
   public List<Diagnostic> checkModule(CoreModel.Module module) {
     List<Diagnostic> out = new ArrayList<>();
     if (module == null || module.decls == null) return out;
@@ -45,7 +45,7 @@ public final class GovernanceChecker {
     // @id → 拥有该 id 的规则（按声明顺序），用于发现重复
     Map<String, List<CoreModel.Func>> idOwners = new LinkedHashMap<>();
     for (CoreModel.Decl decl : module.decls) {
-      if (decl instanceof CoreModel.Func func) checkFunc(func, idOwners, profile, out);
+      if (decl instanceof CoreModel.Func func) checkFunc(module, func, idOwners, profile, out);
     }
     for (var e : idOwners.entrySet()) {
       if (e.getValue().size() < 2) continue;
@@ -67,7 +67,7 @@ public final class GovernanceChecker {
     return profile;
   }
 
-  private void checkFunc(CoreModel.Func func, Map<String, List<CoreModel.Func>> idOwners,
+  private void checkFunc(CoreModel.Module module, CoreModel.Func func, Map<String, List<CoreModel.Func>> idOwners,
                          Optional<ControlRegistry.Profile> profile, List<Diagnostic> out) {
     String rule = String.valueOf(func.name);
     for (CoreModel.Annotation a : annotationsOf(func)) {
@@ -91,11 +91,12 @@ public final class GovernanceChecker {
       out.add(diag(ErrorCode.GOV_CONTROL_UNREGISTERED, func.origin,
           Map.of("control", key, "rule", rule, "version", registry.version())));
     }
-    profile.ifPresent(p -> checkProfile(func, p, out));
+    profile.ifPresent(p -> checkProfile(module, func, p, out));
   }
 
   /** ADR 0046 §4：只对 Verdict 规则检查档案要求；同一规则同一要求只报一次。 */
-  private void checkProfile(CoreModel.Func func, ControlRegistry.Profile p, List<Diagnostic> out) {
+  private void checkProfile(CoreModel.Module module, CoreModel.Func func, ControlRegistry.Profile p,
+                            List<Diagnostic> out) {
     if (!returnsVerdict(func)) return;
     if (p.ruleId() && ruleId(func).isEmpty()) out.add(violation(func, p, "missing @id"));
     List<String> keys = List.copyOf(new LinkedHashSet<>(controls(func)));
@@ -106,6 +107,20 @@ public final class GovernanceChecker {
     if (!p.frameworks().isEmpty() && keys.stream().noneMatch(k -> coversFramework(k, p))) {
       out.add(violation(func, p, "no registered control from framework " + String.join(", ", p.frameworks())));
     }
+    if (p.verifiedInputs()) checkInputRefs(module, func, p, out);
+  }
+
+  /**
+   * ADR 0046 §11 D2 第 2 条：档案要求 verifiedInputs 时，规则的输入引用必须静态可知，否则 E708（每条规则至多一条）。
+   * 一律由分析器重算，不信任 IR 自带的 inputRefs：aster-api 接受用户提交的 Core IR（如 POST /evaluate-json），
+   * 其中的 inputRefs 可以伪造。分析带记忆化与节点预算，重算的代价可以接受；也兼容不带该字段的旧 IR。
+   */
+  private static void checkInputRefs(CoreModel.Module module, CoreModel.Func func, ControlRegistry.Profile p,
+                                     List<Diagnostic> out) {
+    InputRefsAnalyzer.Result r = InputRefsAnalyzer.analyze(module, func);
+    if (!r.unresolvable()) return;
+    out.add(diag(ErrorCode.GOV_PROFILE_INPUT_UNRESOLVABLE, func.origin,
+        Map.of("rule", String.valueOf(func.name), "profile", p.id(), "construct", r.construct())));
   }
 
   private boolean coversFramework(String key, ControlRegistry.Profile p) {

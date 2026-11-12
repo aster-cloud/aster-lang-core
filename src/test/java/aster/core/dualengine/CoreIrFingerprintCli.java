@@ -11,6 +11,7 @@ import aster.core.parser.AsterParser;
 import aster.core.resolve.NameResolution;
 import aster.core.resolve.NameResolutionException;
 import aster.core.resolve.ResolutionContext;
+import aster.core.typecheck.governance.InputRefsAnalyzer;
 import aster.core.typecheck.model.Diagnostic;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -180,6 +181,9 @@ class CoreIrFingerprintCli {
             // 保持现有 IR-mode 行为不变）。
             if (Boolean.getBoolean("parity.ir.full")) {
                 record.set("ir", coreJson);
+                // ADR 0046 §11 D2：inputRefs 为 ["*"] 的函数 → E708 construct（不进 IR），供 parity 核对
+                // .meta.json 的 expectedInputRefConstructs；未声明档案的模块不输出该字段。
+                if (resolved.core().profile != null) record.set("inputRefConstructs", constructsOf(resolved.core()));
             }
         } catch (NameResolutionException e) {
             record.put("ok", false);
@@ -195,6 +199,16 @@ class CoreIrFingerprintCli {
             record.put("error", truncate(t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName()));
         }
         return record;
+    }
+
+    private static ObjectNode constructsOf(CoreModel.Module core) {
+        ObjectNode out = MAPPER.createObjectNode();
+        for (CoreModel.Decl d : core.decls) {
+            if (d instanceof CoreModel.Func f && f.inputRefs != null && f.inputRefs.equals(List.of(InputRefsAnalyzer.STAR))) {
+                out.put(f.name, InputRefsAnalyzer.analyze(core, f).construct());
+            }
+        }
+        return out;
     }
 
     private static ArrayNode codesOf(List<Diagnostic> diagnostics) {

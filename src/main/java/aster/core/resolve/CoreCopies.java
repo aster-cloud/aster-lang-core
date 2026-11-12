@@ -239,6 +239,14 @@ final class CoreCopies {
         out.piiCategories = d.piiCategories;
         out.body = body;
         out.origin = d.origin;
+        out.inputRefs = d.inputRefs;
+        return out;
+    }
+
+    /** 同 {@link #func}，另写入输入引用（ADR 0046 §11 D2）。 */
+    static CoreModel.Func withInputRefs(CoreModel.Func d, List<String> inputRefs) {
+        CoreModel.Func out = func(d, d.body);
+        out.inputRefs = inputRefs;
         return out;
     }
 

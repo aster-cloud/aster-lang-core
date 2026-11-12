@@ -154,6 +154,13 @@ public final class CoreModel {
     public List<String> piiCategories = Collections.emptyList(); // 聚合后的 PII 类别
     public Block body;                     // 函数体
     public Origin origin;
+    /**
+     * ADR 0046 §11 D2：返回 Verdict 的规则对第一个参数读取的源码字段路径（点连接，字典序去重；
+     * {@code ""} 为参数本身，{@code ["*"]} 为无法静态确定）。只在声明了档案的模块中写入，由名称解析 R2
+     * 之后的 {@code InputRefsAnalyzer} 计算；其余函数为 null 且不输出，未声明档案的模块 IR 逐字节不变。
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public List<String> inputRefs;
   }
 
   /**
