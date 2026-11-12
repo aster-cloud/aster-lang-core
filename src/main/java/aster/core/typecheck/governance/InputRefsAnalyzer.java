@@ -109,9 +109,14 @@ public final class InputRefsAnalyzer {
       StringBuilder b = new StringBuilder("P");
       new TreeSet<>(paths).forEach(p -> b.append('\u0001').append(p));
       b.append("F");
-      new java.util.TreeMap<>(fields).forEach((k, v) -> {
-        if (!v.isEmpty()) b.append('\u0002').append(k).append('\u0003').append(v.key()).append('\u0004');
-      });
+      // 字段名可能为 null（畸形 IR 的构造字段），排序须容纳 null，不能用 TreeMap
+      fields.entrySet().stream()
+          .sorted(Map.Entry.comparingByKey(java.util.Comparator.nullsFirst(java.util.Comparator.<String>naturalOrder())))
+          .forEach(e -> {
+            if (!e.getValue().isEmpty()) {
+              b.append('\u0002').append(e.getKey()).append('\u0003').append(e.getValue().key()).append('\u0004');
+            }
+          });
       return b.toString();
     }
 
