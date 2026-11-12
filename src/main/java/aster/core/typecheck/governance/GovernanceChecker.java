@@ -112,11 +112,11 @@ public final class GovernanceChecker {
 
   /**
    * ADR 0046 §11 D2 第 2 条：档案要求 verifiedInputs 时，规则的输入引用必须静态可知，否则 E708（每条规则至多一条）。
-   * IR 已带 inputRefs 且不是 ["*"] 时直接判定不报；否则（["*"] 需要 construct，或旧 IR 不带该字段）由分析器重算。
+   * 一律由分析器重算，不信任 IR 自带的 inputRefs：aster-api 接受用户提交的 Core IR（如 POST /evaluate-json），
+   * 其中的 inputRefs 可以伪造。分析带记忆化与节点预算，重算的代价可以接受；也兼容不带该字段的旧 IR。
    */
   private static void checkInputRefs(CoreModel.Module module, CoreModel.Func func, ControlRegistry.Profile p,
                                      List<Diagnostic> out) {
-    if (func.inputRefs != null && !func.inputRefs.equals(List.of(InputRefsAnalyzer.STAR))) return;
     InputRefsAnalyzer.Result r = InputRefsAnalyzer.analyze(module, func);
     if (!r.unresolvable()) return;
     out.add(diag(ErrorCode.GOV_PROFILE_INPUT_UNRESOLVABLE, func.origin,

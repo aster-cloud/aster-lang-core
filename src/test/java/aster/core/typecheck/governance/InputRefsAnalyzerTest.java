@@ -155,4 +155,23 @@ class InputRefsAnalyzerTest {
     assertThat(r.construct()).isEqualTo("inline-depth");
     assertThat(ms).as("节点预算用例的分析耗时（毫秒）").isLessThan(1000);
   }
+  /**
+   * 第三轮审查 C1：记忆化键必须按结构比较。用户提交的 Core IR 可以在点路径段里带控制字符（源码里的字面量 Map 键已按
+   * unrepresentable-key 拒绝），旧的字符串拼接键会把 {"context.meta.a\u0001zone"} 与 {"context.meta.a", "zone"} 当成
+   * 同一实参，第二次调用命中缓存而漏记路径。
+   */
+  @Test void 记忆化键按结构比较_路径段含控制字符也不碰撞() throws Exception {
+    String src = "Module guard.memo.\nProfile \"governed\".\n\n"
+        + "Define Ctx has meta as Map Text to Text.\nDefine Req has context as Ctx, zone as Text.\n\n"
+        + "Rule g given m as Text, produce Bool:\n  Return m equals to \"x\".\n\n"
+        + "Rule decide given req as Req, produce Verdict:\n"
+        + "  Let b be [Maybe.withDefault(Map.get(req.context.meta, \"a\"), \"\"), req.zone].\n"
+        + "  Let r1 be g(b).\n  Let a be req.context.meta.aXzone.\n  Let r2 be g(a).\n"
+        + "  If r1 and r2:\n    Return Verdict.deny(\"x\").\n  Return Verdict.allow().\n";
+    var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    String json = mapper.writeValueAsString(resolve(src)).replace("aXzone", "a\\u0001zone");
+    CoreModel.Module m = mapper.readValue(json, CoreModel.Module.class);
+    assertThat(InputRefsAnalyzer.analyze(m, func(m, "decide")).inputRefs())
+        .containsExactly("context.meta.a", "context.meta.a\u0001zone", "zone");
+  }
 }

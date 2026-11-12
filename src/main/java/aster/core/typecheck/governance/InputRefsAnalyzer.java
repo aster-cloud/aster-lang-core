@@ -54,11 +54,13 @@ public final class InputRefsAnalyzer {
   /** 把值整体转为文本或摘要。 */
   private static final Set<String> SERIALIZERS = Set.of("Bool.toString", "Crypto.hash", "Int.toString");
   /**
-   * 内置函数命名空间（与 truffle Builtins、TS 类型系统登记的内置一致）：只有这些限定名按「内置函数，实参被消费」处理，
-   * 其余未知限定名一律按跨模块调用（{@code *}）。
+   * 内置函数命名空间：只有这些限定名按「内置函数，实参被消费」处理，其余未知限定名一律按跨模块调用（{@code *}）。
+   * 来源：truffle Builtins 与 TS 类型系统（Bool … Verdict）；两引擎的效果 / 能力 / PII 表（Console、Http、Log、UUID）；
+   * 只出现在 TS 效果 / PII / LSP 表中的 Consent、Db、GDPR、Set 也列入，两引擎同表（parity）。与 TS BUILTIN_NAMESPACES 同表。
    */
   private static final Set<String> BUILTIN_NAMESPACES = Set.of(
-      "Bool", "Crypto", "Date", "Decimal", "IO", "Int", "List", "Map", "Maybe", "Option", "PII", "Result", "Text", "Verdict");
+      "Bool", "Consent", "Console", "Crypto", "Date", "Db", "Decimal", "GDPR", "Http", "IO", "Int", "List", "Log", "Map",
+      "Maybe", "Option", "PII", "Result", "Set", "Text", "UUID", "Verdict");
 
   /**
    * 分析结果。
@@ -103,21 +105,18 @@ public final class InputRefsAnalyzer {
       return new Src(false, Set.of(p), Map.of());
     }
 
-    /** 记忆化键：结构相等的来源得到相同的键（路径与字段按 UTF-16 序，不含输入来源的字段不计）。 */
-    String key() {
-      if (star) return "*";
-      StringBuilder b = new StringBuilder("P");
-      new TreeSet<>(paths).forEach(p -> b.append('\u0001').append(p));
-      b.append("F");
-      // 字段名可能为 null（畸形 IR 的构造字段），排序须容纳 null，不能用 TreeMap
-      fields.entrySet().stream()
-          .sorted(Map.Entry.comparingByKey(java.util.Comparator.nullsFirst(java.util.Comparator.<String>naturalOrder())))
-          .forEach(e -> {
-            if (!e.getValue().isEmpty()) {
-              b.append('\u0002').append(e.getKey()).append('\u0003').append(e.getValue().key()).append('\u0004');
-            }
-          });
-      return b.toString();
+    /**
+     * 记忆化键用的规范形：去掉不含输入来源的字段（递归），其余原样。记录的 equals / hashCode 按结构比较
+     * （Set / Map 按内容），因此结构相同的来源键相同、不同的来源键不同——不经字符串拼接，路径或 Map 键里出现
+     * 任何字符都不会碰撞（与 TS 的 JSON 键同一语义）。
+     */
+    Src canonical() {
+      if (star) return TOP;
+      Map<String, Src> fs = new HashMap<>();
+      fields.forEach((k, v) -> {
+        if (!v.isEmpty()) fs.put(k, v.canonical());
+      });
+      return new Src(false, Set.copyOf(paths), fs);
     }
 
     boolean isEmpty() {
@@ -167,7 +166,10 @@ public final class InputRefsAnalyzer {
   private Set<String> refs = new TreeSet<>();
   private final Deque<CoreModel.Func> stack = new ArrayDeque<>();
   /** 同模块调用的记忆化：（调用栈，被调函数，实参来源）→ 该次内联的摘要。 */
-  private final Map<String, Summary> memo = new HashMap<>();
+  private final Map<MemoKey, Summary> memo = new HashMap<>();
+
+  /** 记忆化键：调用栈（栈顶在前的函数编号）、被调函数编号、各实参来源的规范形，按结构比较。 */
+  private record MemoKey(List<Integer> stack, int callee, List<Src> args) {}
   /** 节点先序编号：进入节点时递增；记录编号最小的产生 * 的节点。 */
   private int nodeCounter;
   private int firstIndex = Integer.MAX_VALUE;
@@ -394,7 +396,7 @@ public final class InputRefsAnalyzer {
     Src key = eval(keyExpr, f);
     if (keyExpr instanceof CoreModel.StringE s && s.value != null) {
       if (map.isEmpty()) return Src.EMPTY;
-      if (s.value.isEmpty() || s.value.indexOf('.') >= 0) return produce(index, "unrepresentable-key");
+      if (!representableKey(s.value)) return produce(index, "unrepresentable-key");
       return select(map, s.value, index);
     }
     consume(key);
@@ -408,11 +410,21 @@ public final class InputRefsAnalyzer {
    * 同模块调用：形参绑定到实参来源后内联被调函数体。结果按（调用栈，被调函数，实参来源）记忆化——同一调用点的
    * 重复展开不再重遍历函数体；体内产生的 * 在实参之后、调用点之后的节点之前按先序登记（取新编号）。
    */
+  /** 字面量 Map 键能否作为一段点路径：非空、不含点、不含控制字符 U+0000–U+001F。 */
+  private static boolean representableKey(String key) {
+    if (key.isEmpty()) return false;
+    for (int i = 0; i < key.length(); i++) {
+      char ch = key.charAt(i);
+      if (ch == '.' || ch < 0x20) return false;
+    }
+    return true;
+  }
+
   private Src inline(CoreModel.Func callee, List<Src> args, int index, Frame f) {
     if (allEmpty(args)) return Src.EMPTY;
     if (stack.contains(callee)) return produce(index, "recursion");
     if (f.depth + 1 > MAX_INLINE_DEPTH) return produce(index, "inline-depth");
-    String key = memoKey(callee, args);
+    MemoKey key = memoKey(callee, args);
     Summary s = memo.get(key);
     if (s == null) {
       s = summarize(callee, args, f.depth + 1);
@@ -423,12 +435,10 @@ public final class InputRefsAnalyzer {
     return s.returns();
   }
 
-  private String memoKey(CoreModel.Func callee, List<Src> args) {
-    StringBuilder b = new StringBuilder();
-    stack.forEach(fn -> b.append(funcIds.get(fn)).append(','));
-    b.append('>').append(funcIds.get(callee));
-    args.forEach(a -> b.append('\u0005').append(a.key()));
-    return b.toString();
+  private MemoKey memoKey(CoreModel.Func callee, List<Src> args) {
+    List<Integer> ids = new ArrayList<>();
+    stack.forEach(fn -> ids.add(funcIds.get(fn)));
+    return new MemoKey(List.copyOf(ids), funcIds.get(callee), args.stream().map(Src::canonical).toList());
   }
 
   private Summary summarize(CoreModel.Func callee, List<Src> args, int depth) {

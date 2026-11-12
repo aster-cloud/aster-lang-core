@@ -706,7 +706,7 @@
     },
     {
       "name": "unknown-namespace-call",
-      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let r be Http.get(req.action).\n  Return Verdict.allow().\n",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let r be Payments.charge(req.action).\n  Return Verdict.allow().\n",
       "expect": {
         "decide": {
           "inputRefs": [
@@ -734,6 +734,60 @@
             "*"
           ],
           "construct": "inline-depth"
+        }
+      }
+    },
+    {
+      "name": "memo-key-collision-repro",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule g given m as Text, produce Bool:\n  Return m equals to \"x\".\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let b be List.concat([Maybe.withDefault(Map.get(req.context.meta, \"a\"), \"\")], req.principal_roles).\n  Let r1 be g(b).\n  Let a be Map.get(req.context.meta, \"a\u0001principal_roles\").\n  Let r2 be g(a).\n  If r1 and r2:\n    Return Verdict.deny(\"x\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "g": {
+          "inputRefs": null
+        },
+        "decide": {
+          "inputRefs": [
+            "*"
+          ],
+          "construct": "unrepresentable-key"
+        }
+      }
+    },
+    {
+      "name": "map-literal-key-control-char",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  If Maybe.withDefault(Map.get(req.context.meta, \"bell\u0007key\"), \"\") equals to \"x\":\n    Return Verdict.deny(\"ctl\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "*"
+          ],
+          "construct": "unrepresentable-key"
+        }
+      }
+    },
+    {
+      "name": "memo-similar-args-kept-apart",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule g given m as Text, produce Bool:\n  Return m equals to \"x\".\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let b be List.concat([Maybe.withDefault(Map.get(req.context.meta, \"a\"), \"\")], req.principal_roles).\n  Let r1 be g(b).\n  Let a be Maybe.withDefault(Map.get(req.context.meta, \"a_principal_roles\"), \"\").\n  Let r2 be g(a).\n  Let r3 be g(b).\n  If r1 and r2 and r3:\n    Return Verdict.deny(\"x\").\n  Return Verdict.allow().\n",
+      "expect": {
+        "g": {
+          "inputRefs": null
+        },
+        "decide": {
+          "inputRefs": [
+            "context.meta.a",
+            "context.meta.a_principal_roles",
+            "principal_roles"
+          ]
+        }
+      }
+    },
+    {
+      "name": "log-namespace-consumes-args",
+      "source": "Module guard.refs.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let n be Log.info(req.action).\n  Return Verdict.allow().\n",
+      "expect": {
+        "decide": {
+          "inputRefs": [
+            "action"
+          ]
         }
       }
     }
