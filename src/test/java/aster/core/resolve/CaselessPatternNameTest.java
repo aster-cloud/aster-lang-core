@@ -59,8 +59,7 @@ class CaselessPatternNameTest {
     private static void assertVariant(String name, CoreModel.Pattern p) {
         CoreModel.PatCtor ctor = assertInstanceOf(CoreModel.PatCtor.class, p, "成员应为无参数 PatCtor：" + name);
         assertEquals(name, ctor.typeName);
-        assertEquals(List.of(), ctor.names == null ? List.of() : ctor.names);
-        assertEquals(List.of(), ctor.args == null ? List.of() : ctor.args);
+        assertEquals(List.of(), ctor.args);
     }
 
     private static void assertBinding(String name, CoreModel.Pattern p) {

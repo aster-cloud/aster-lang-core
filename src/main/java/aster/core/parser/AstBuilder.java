@@ -575,6 +575,12 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                         ? namedCtx.IDENT().getText()
                         : namedCtx.structKeywordName().getText();
                     Object value = parseAnnotationValue(namedCtx.annotationValue());
+                    // ADR 0055 #3：同一注解内参数名唯一，解析期报 E900（位置参数名 $n 不会与具名参数冲突）
+                    if (params.containsKey(key)) {
+                        throw new ParseDiagnosticException(ErrorCode.PARSE_DUPLICATE_ANNOTATION_ARG,
+                            Map.of("annotation", name, "name", key),
+                            "Annotation @" + name + " repeats the argument " + key, namedCtx.getStart());
+                    }
                     params.put(key, value);
                 } else if (argCtx instanceof AsterParser.PositionalAnnotationArgContext positionalCtx) {
                     String key = "$" + positionalIndex++;

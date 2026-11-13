@@ -372,11 +372,6 @@ public final class PiiTypeChecker {
     if (pattern instanceof CoreModel.PatName patName) {
       env.put(patName.name, cloneMeta(meta));
     } else if (pattern instanceof CoreModel.PatCtor patCtor) {
-      if (patCtor.names != null) {
-        for (var name : patCtor.names) {
-          env.put(name, cloneMeta(meta));
-        }
-      }
       if (patCtor.args != null) {
         for (var arg : patCtor.args) {
           bindPattern(arg, meta, env);

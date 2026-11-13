@@ -22,7 +22,8 @@ import java.util.Set;
  *   <li>Workflow：Stmt Start/Wait/Workflow + Expr Await</li>
  *   <li>version-import：Import.version != null</li>
  *   <li>effect-capabilities：Func.effectCapsExplicit == true</li>
- *   <li>PII：PiiType 节点（递归类型树）+ Func.piiLevel 非空兜底</li>
+ *   <li>PII：PiiType 节点（递归类型树）。v1 另有「piiLevel 非空」兜底，但 piiLevel 本就由签名里的 PiiType
+ *       聚合而来，该分支永远不会单独触发，随 ADR 0055 #8 删除 piiLevel 一并移除</li>
  *   <li>deprecated-annotation：annotation.name ∈ {example, deprecated}（大小写不敏感）</li>
  * </ul>
  */
@@ -176,10 +177,6 @@ public final class StabilityGate {
             }
         }
         scanType(st, func.ret);
-        // 兜底：签名类型树无 PiiType 但 piiLevel 非空 → 报一条（Java piiLevel 默认 ""）。
-        if (!signatureHasPii(func) && func.piiLevel != null && !func.piiLevel.isEmpty()) {
-            emit(st, FeatureId.PII, func.origin, "Func");
-        }
 
         // 1. Workflow：函数体递归。
         scanBlock(st, func.body);
@@ -204,33 +201,6 @@ public final class StabilityGate {
         for (CoreModel.Type child : childTypes(type)) {
             scanType(st, child);
         }
-    }
-
-    /** Func 签名（params + ret，不含 body）类型树是否含 PiiType（与 TS funcSignatureHasPii 对齐）。 */
-    private static boolean signatureHasPii(CoreModel.Func func) {
-        if (func.params != null) {
-            for (CoreModel.Param p : func.params) {
-                if (containsPii(p.type)) {
-                    return true;
-                }
-            }
-        }
-        return containsPii(func.ret);
-    }
-
-    private static boolean containsPii(CoreModel.Type type) {
-        if (type == null) {
-            return false;
-        }
-        if (type instanceof CoreModel.PiiType) {
-            return true;
-        }
-        for (CoreModel.Type child : childTypes(type)) {
-            if (containsPii(child)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /** 取类型节点的直接子类型（字段名与 TS childTypes 逐字对齐）。 */

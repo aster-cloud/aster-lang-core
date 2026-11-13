@@ -1094,21 +1094,7 @@ public final class BaseTypeChecker {
       //   unknown 是本检查器既有的「类型不可确定，不要级联报错」哨兵
       //   （typeOfExpr 对未知名称、Ok/Err 的 err 侧都用它）。
       //   精确推导需先给 Enum 加载荷类型，那是独立的语言层变更。
-      // 与 truffle PatCtorNode 一致：位置 i 有嵌套模式（args）时以 args 为准，names 只补 args 之后的位置。
-      // lowering 对 `Some(v)` 同时产出 names=[v] 与 args=[PatName v]，两处都登记会报假 E104（#233）。
-      int argCount = ctor.args == null ? 0 : ctor.args.size();
-      if (ctor.names != null) {
-        for (String bound : ctor.names.subList(Math.min(argCount, ctor.names.size()), ctor.names.size())) {
-          if (bound != null) {
-            defineOrReportDuplicate(
-              bound,
-              TypeSystem.unknown(),
-              SymbolInfo.SymbolKind.PATTERN,
-              SymbolTable.DefineOptions.immutable(origin)
-            );
-          }
-        }
-      }
+      // v2 的位置绑定全部在 args 中（ADR 0055 #15 删除了 names），逐个递归登记即可。
       if (ctor.args != null) {
         for (CoreModel.Pattern arg : ctor.args) {
           // 嵌套模式：载荷类型未知，故嵌套 PatName 也只能是 unknown

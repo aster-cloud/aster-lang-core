@@ -257,12 +257,11 @@ public final class InputRefsAnalyzer {
     if (stmts != null) stmts.forEach(s -> walk(s, f));
   }
 
-  /** 模式变量绑定到被匹配值的来源（PatCtor 的 names 与嵌套 args 都绑定，两引擎 IR 形状差异因此无影响）。 */
+  /** 模式变量绑定到被匹配值的来源（PatCtor 的位置绑定都在嵌套 args 中，ADR 0055 #15）。 */
   private void bindPattern(CoreModel.Pattern p, Src v, Frame f) {
     switch (p) {
       case CoreModel.PatName n -> f.bind(n.name, v);
       case CoreModel.PatCtor c -> {
-        if (c.names != null) c.names.forEach(n -> f.bind(n, v));
         if (c.args != null) c.args.forEach(a -> bindPattern(a, v, f));
       }
       case null, default -> { }

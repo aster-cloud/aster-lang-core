@@ -743,7 +743,7 @@ public final class TypedReferenceResolver {
 
     /** Java 解析器把无括号的裸 TYPE_IDENT（{@code When Hoch,}）产出为无参数的 PatCtor：等同 TS 的 PatName。 */
     private static boolean isBareCtor(CoreModel.PatCtor c) {
-        return (c.args == null || c.args.isEmpty()) && (c.names == null || c.names.isEmpty());
+        return c.args == null || c.args.isEmpty();
     }
 
     /** 裸名模式的三种结果：绑定名、已报错保持原样、成员（规范名）。 */
@@ -853,7 +853,6 @@ public final class TypedReferenceResolver {
     private CoreModel.PatCtor resolvePatCtor(Frame f, CoreModel.PatCtor p, Static subject) {
         List<CoreModel.Pattern> args = p.args == null ? null
             : new ArrayList<>(p.args.stream().map(a -> resolvePattern(f, a, UNKNOWN)).toList());
-        if (p.names != null) p.names.forEach(n -> f.declare(n, UNKNOWN));
         CoreModel.PatCtor base = CoreCopies.patCtor(p, p.typeName, args, p.origin);
         return p.mark == null ? base : ctorResolution(base, p.mark, subject);
     }

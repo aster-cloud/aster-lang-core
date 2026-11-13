@@ -348,7 +348,6 @@ class ModuleGraphLinkerTest {
   private CoreModel.PatCtor patCtor(String typeName, CoreModel.Pattern... args) {
     var pat = new CoreModel.PatCtor();
     pat.typeName = typeName;
-    pat.names = List.of();
     pat.args = List.of(args);
     return pat;
   }

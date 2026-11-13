@@ -1,0 +1,2631 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aster-lang.cloud/schema/core-ir/v2",
+  "title": "Aster Core IR v2",
+  "description": "Core IR v2 的唯一真相源（ADR 0055）。core 与 aster-lang-ts 各持一份逐字节副本，由 sibling parity 测试守护。schema 表达不了的约束见 README「不变式」。",
+  "$ref": "#/$defs/Module",
+  "$defs": {
+    "Int32": {
+      "description": "所有 JSON 整数的承载类型（ADR 0055 §3）：与 Java int / Integer 一致，落在 CanonicalJson 的 safe integer 范围内。",
+      "type": "integer",
+      "minimum": -2147483648,
+      "maximum": 2147483647
+    },
+    "SafeInt": {
+      "description": "只用于 Timeout.milliseconds（Java long）：safe integer 范围，仍以 JSON number 承载。",
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "CanonicalDecimal": {
+      "description": "规范十进制串（ADR 0055 §5）：无指数、无前导零、无尾随零，小数部分全零时省略小数点；不存在 \"-0\"。由 lowering 从源码字面量经任意精度十进制求出。",
+      "type": "string",
+      "pattern": "^(0|-?[1-9][0-9]*(\\.[0-9]*[1-9])?|-?0\\.[0-9]*[1-9])$"
+    },
+    "BuiltinEffect": {
+      "description": "授权型具体效应名（小写）。pure、async 与未知名都不授权任何效应，lowering 不把它们写入 effects。",
+      "enum": [
+        "io",
+        "cpu"
+      ]
+    },
+    "ReservedEffectName": {
+      "description": "保留的效应名：内建效应 io、cpu，以及不授权的 pure、async（core EffectChecker 中 async 是 pure 的废弃别名）。效应参数名按 ASCII 大小写不敏感比较不得落入此集合，由 validateCoreIrInvariants 检查（effect-param-shadows-builtin）；EffectVarName 的 pattern 与此集合同步。",
+      "enum": [
+        "io",
+        "cpu",
+        "pure",
+        "async"
+      ]
+    },
+    "EffectVarName": {
+      "description": "Func.effects 中的效应变量名：任意大小写下都不是保留效应名。它是否已在 effectParams 中声明由不变式检查（undeclared-effect-var）。",
+      "type": "string",
+      "pattern": "^(?!(?:[Ii][Oo]|[Cc][Pp][Uu]|[Pp][Uu][Rr][Ee]|[Aa][Ss][Yy][Nn][Cc])$).+$"
+    },
+    "Position": {
+      "description": "源码位置，行列号均从 1 开始（值域只按 Int32 约束）。",
+      "type": "object",
+      "properties": {
+        "line": {
+          "$ref": "#/$defs/Int32"
+        },
+        "col": {
+          "$ref": "#/$defs/Int32"
+        }
+      },
+      "required": [
+        "line",
+        "col"
+      ],
+      "additionalProperties": false
+    },
+    "Origin": {
+      "description": "源码范围（ADR 0055 #17）：每个带 kind 的节点都必带且非 null（含约束元素）。written / role 是 ADR 0051 的原写法与解析角色，未改写时为 null。",
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "start": {
+          "$ref": "#/$defs/Position"
+        },
+        "end": {
+          "$ref": "#/$defs/Position"
+        },
+        "written": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "role": {
+          "enum": [
+            "TYPE_DECL",
+            "FIELD_DECL",
+            "MEMBER_DECL",
+            "FUNC_DECL",
+            "TYPE",
+            "FIELD_REF",
+            "MEMBER_REF",
+            "FUNC_REF",
+            "VALUE_REF",
+            "LOCAL",
+            null
+          ]
+        }
+      },
+      "required": [
+        "file",
+        "start",
+        "end",
+        "written",
+        "role"
+      ],
+      "additionalProperties": false
+    },
+    "Module": {
+      "description": "编译单元（根节点）。schemaVersion 是整数 2（ADR 0055 #1、§5）；name 在源码没有模块头时为 null；profile 是 ADR 0046 治理档案 id，未声明为 null。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Module"
+        },
+        "schemaVersion": {
+          "const": 2
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "profile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decls": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Decl"
+          }
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "schemaVersion",
+        "name",
+        "profile",
+        "decls",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Decl": {
+      "description": "顶层声明。",
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "Import",
+            "Data",
+            "Enum",
+            "Func"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Import"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Import"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Data"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Data"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Enum"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Enum"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Func"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Func"
+          }
+        }
+      ]
+    },
+    "Import": {
+      "description": "导入（ADR 0055 #2）：path 为点分模块路径，alias 为绑定名（未写别名为 null），version 为钉住的模块版本（未钉住为 null）。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Import"
+        },
+        "path": {
+          "type": "string"
+        },
+        "alias": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Int32"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "path",
+        "alias",
+        "version",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Data": {
+      "description": "数据类型声明。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Data"
+        },
+        "name": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Field"
+          }
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "fields",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Field": {
+      "description": "Data 字段。constraints 是源码约束（ADR 0055 #4）；typeInferred 为 true 表示 type 只是推断出的占位（#9）。",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/Type"
+        },
+        "annotations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Annotation"
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Constraint"
+          }
+        },
+        "typeInferred": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "annotations",
+        "constraints",
+        "typeInferred"
+      ],
+      "additionalProperties": false
+    },
+    "Enum": {
+      "description": "枚举声明。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Enum"
+        },
+        "name": {
+          "type": "string"
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "variants",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Func": {
+      "description": "函数 / 规则。typeParams 只列源码声明的类型参数（#10）；effects 只含授权型具体效应 io / cpu（小写）与已声明的效应变量，按首次声明顺序、不重复；pure、async 与未知名不写入（#5、#6）；inputRefs 是 v2 唯一可空的列表，null 表示未计算、[] 表示已计算且不读任何输入，合法状态由不变式检查（#12）。没有 piiLevel / piiCategories（#8）。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Func"
+        },
+        "name": {
+          "type": "string"
+        },
+        "typeParams": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Param"
+          }
+        },
+        "ret": {
+          "$ref": "#/$defs/Type"
+        },
+        "retTypeInferred": {
+          "type": "boolean"
+        },
+        "annotations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Annotation"
+          }
+        },
+        "retAnnotations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Annotation"
+          }
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/BuiltinEffect"
+              },
+              {
+                "$ref": "#/$defs/EffectVarName"
+              }
+            ]
+          }
+        },
+        "effectParams": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "effectCaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "effectCapsExplicit": {
+          "type": "boolean"
+        },
+        "inputRefs": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "body": {
+          "$ref": "#/$defs/Block"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "typeParams",
+        "params",
+        "ret",
+        "retTypeInferred",
+        "annotations",
+        "retAnnotations",
+        "effects",
+        "effectParams",
+        "effectCaps",
+        "effectCapsExplicit",
+        "inputRefs",
+        "body",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Param": {
+      "description": "函数与 Lambda 的形参，字段与 Field 相同。",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/Type"
+        },
+        "annotations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Annotation"
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Constraint"
+          }
+        },
+        "typeInferred": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "annotations",
+        "constraints",
+        "typeInferred"
+      ],
+      "additionalProperties": false
+    },
+    "Annotation": {
+      "description": "注解（ADR 0055 #3）：args 是有序数组，保持源码顺序，无参为 []。同一注解内参数名唯一由不变式检查。",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AnnotationArg"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "args"
+      ],
+      "additionalProperties": false
+    },
+    "AnnotationArg": {
+      "description": "注解参数。位置参数按出现顺序命名为 $0、$1…（序号只在位置参数之间计数），具名参数用其名字；value 只能是 string / Int32 / boolean。",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^(\\$(0|[1-9][0-9]*)|[^$].*)$"
+        },
+        "value": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/Int32"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "Constraint": {
+      "description": "字段 / 形参约束（ADR 0055 #4）。与其它带 kind 的节点一样必带 origin（#17）。",
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "Required",
+            "Range",
+            "Pattern"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Required"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Required"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Range"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Range"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Pattern"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Pattern"
+          }
+        }
+      ]
+    },
+    "Required": {
+      "description": "必填约束。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Required"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Range": {
+      "description": "范围约束：min / max 是规范十进制串，至少一个非 null。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Range"
+        },
+        "min": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/CanonicalDecimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/CanonicalDecimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "min",
+        "max",
+        "origin"
+      ],
+      "additionalProperties": false,
+      "not": {
+        "properties": {
+          "min": {
+            "type": "null"
+          },
+          "max": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    "Pattern": {
+      "description": "正则约束（源码 matching \"…\"）。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Pattern"
+        },
+        "regexp": {
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "regexp",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Type": {
+      "description": "类型表达式。所有类型节点都带 origin（ADR 0055 #17）。",
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "TypeName",
+            "TypeVar",
+            "TypeApp",
+            "Result",
+            "Maybe",
+            "Option",
+            "List",
+            "Map",
+            "FuncType",
+            "PiiType"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "TypeName"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/TypeName"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "TypeVar"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/TypeVar"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "TypeApp"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/TypeApp"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Result"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Result"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Maybe"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Maybe"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Option"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Option"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "List"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/List"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Map"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Map"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "FuncType"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/FuncType"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "PiiType"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/PiiType"
+          }
+        }
+      ]
+    },
+    "TypeName": {
+      "description": "具名类型。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "TypeName"
+        },
+        "name": {
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "TypeVar": {
+      "description": "类型变量。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "TypeVar"
+        },
+        "name": {
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "TypeApp": {
+      "description": "类型应用。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "TypeApp"
+        },
+        "base": {
+          "type": "string"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Type"
+          }
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "base",
+        "args",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Result": {
+      "description": "结果类型。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Result"
+        },
+        "ok": {
+          "$ref": "#/$defs/Type"
+        },
+        "err": {
+          "$ref": "#/$defs/Type"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "ok",
+        "err",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Maybe": {
+      "description": "可空类型。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Maybe"
+        },
+        "type": {
+          "$ref": "#/$defs/Type"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "type",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Option": {
+      "description": "选项类型。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Option"
+        },
+        "type": {
+          "$ref": "#/$defs/Type"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "type",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "List": {
+      "description": "列表类型。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "List"
+        },
+        "type": {
+          "$ref": "#/$defs/Type"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "type",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Map": {
+      "description": "映射类型。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Map"
+        },
+        "key": {
+          "$ref": "#/$defs/Type"
+        },
+        "val": {
+          "$ref": "#/$defs/Type"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "key",
+        "val",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "FuncType": {
+      "description": "函数类型。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "FuncType"
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Type"
+          }
+        },
+        "ret": {
+          "$ref": "#/$defs/Type"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "params",
+        "ret",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "PiiType": {
+      "description": "PII 类型包装。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "PiiType"
+        },
+        "baseType": {
+          "$ref": "#/$defs/Type"
+        },
+        "sensitivity": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "baseType",
+        "sensitivity",
+        "category",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Stmt": {
+      "description": "语句。",
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "Let",
+            "Set",
+            "Return",
+            "If",
+            "Match",
+            "Scope",
+            "Block",
+            "Start",
+            "Wait",
+            "workflow"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Let"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Let"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Set"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Set"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Return"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Return"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "If"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/If"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Match"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Match"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Scope"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Scope"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Block"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Block"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Start"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Start"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Wait"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Wait"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "workflow"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Workflow"
+          }
+        }
+      ]
+    },
+    "Let": {
+      "description": "变量绑定。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Let"
+        },
+        "name": {
+          "type": "string"
+        },
+        "expr": {
+          "$ref": "#/$defs/Expr"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "expr",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Set": {
+      "description": "赋值。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Set"
+        },
+        "name": {
+          "type": "string"
+        },
+        "expr": {
+          "$ref": "#/$defs/Expr"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "expr",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Return": {
+      "description": "返回。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Return"
+        },
+        "expr": {
+          "$ref": "#/$defs/Expr"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "expr",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "If": {
+      "description": "条件语句：没有 else 分支时 elseBlock 为 null。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "If"
+        },
+        "cond": {
+          "$ref": "#/$defs/Expr"
+        },
+        "thenBlock": {
+          "$ref": "#/$defs/Block"
+        },
+        "elseBlock": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Block"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "cond",
+        "thenBlock",
+        "elseBlock",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Match": {
+      "description": "模式匹配。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Match"
+        },
+        "expr": {
+          "$ref": "#/$defs/Expr"
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Case"
+          }
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "expr",
+        "cases",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Case": {
+      "description": "匹配分支。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Case"
+        },
+        "pattern": {
+          "$ref": "#/$defs/Pat"
+        },
+        "body": {
+          "$ref": "#/$defs/CaseBody"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "pattern",
+        "body",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "CaseBody": {
+      "description": "匹配分支体：Return 或 Block。",
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "Return",
+            "Block"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Return"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Return"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Block"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Block"
+          }
+        }
+      ]
+    },
+    "Scope": {
+      "description": "作用域。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Scope"
+        },
+        "statements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Stmt"
+          }
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "statements",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Block": {
+      "description": "代码块。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Block"
+        },
+        "statements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Stmt"
+          }
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "statements",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Start": {
+      "description": "启动异步任务。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Start"
+        },
+        "name": {
+          "type": "string"
+        },
+        "expr": {
+          "$ref": "#/$defs/Expr"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "expr",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Wait": {
+      "description": "等待异步任务。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Wait"
+        },
+        "names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "names",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Workflow": {
+      "description": "工作流（kind 为小写 workflow）：未声明重试 / 超时时 retry / timeout 为 null。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "workflow"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Step"
+          }
+        },
+        "effectCaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "retry": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/RetryPolicy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timeout": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Timeout"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "steps",
+        "effectCaps",
+        "retry",
+        "timeout",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Step": {
+      "description": "工作流步骤（kind 为小写 step）：没有补偿块时 compensate 为 null。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "step"
+        },
+        "name": {
+          "type": "string"
+        },
+        "body": {
+          "$ref": "#/$defs/Block"
+        },
+        "compensate": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Block"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "effectCaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "body",
+        "compensate",
+        "dependencies",
+        "effectCaps",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "RetryPolicy": {
+      "description": "重试策略。",
+      "type": "object",
+      "properties": {
+        "maxAttempts": {
+          "$ref": "#/$defs/Int32"
+        },
+        "backoff": {
+          "enum": [
+            "exponential",
+            "linear"
+          ]
+        }
+      },
+      "required": [
+        "maxAttempts",
+        "backoff"
+      ],
+      "additionalProperties": false
+    },
+    "Timeout": {
+      "description": "超时（毫秒）。",
+      "type": "object",
+      "properties": {
+        "milliseconds": {
+          "$ref": "#/$defs/SafeInt"
+        }
+      },
+      "required": [
+        "milliseconds"
+      ],
+      "additionalProperties": false
+    },
+    "Pat": {
+      "description": "匹配模式。",
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "PatNull",
+            "PatCtor",
+            "PatName",
+            "PatInt"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "PatNull"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/PatNull"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "PatCtor"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/PatCtor"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "PatName"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/PatName"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "PatInt"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/PatInt"
+          }
+        }
+      ]
+    },
+    "PatNull": {
+      "description": "null 模式。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "PatNull"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "PatCtor": {
+      "description": "构造器 / 枚举变体模式（ADR 0055 #15、#16）：0 参变体为 args:[]；没有 names。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "PatCtor"
+        },
+        "typeName": {
+          "type": "string"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Pat"
+          }
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "typeName",
+        "args",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "PatName": {
+      "description": "绑定模式，只用于绑定（#16）。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "PatName"
+        },
+        "name": {
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "PatInt": {
+      "description": "整数模式。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "PatInt"
+        },
+        "value": {
+          "$ref": "#/$defs/Int32"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "value",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Expr": {
+      "description": "表达式。",
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "Name",
+            "Bool",
+            "Int",
+            "Long",
+            "Double",
+            "Decimal",
+            "String",
+            "Null",
+            "Ok",
+            "Err",
+            "Some",
+            "None",
+            "Construct",
+            "Call",
+            "Lambda",
+            "Await",
+            "IfExpr",
+            "ListLit"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Name"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Name"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Bool"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Bool"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Int"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Int"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Long"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Long"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Double"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Double"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Decimal"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Decimal"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "String"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/String"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Null"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Null"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Ok"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Ok"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Err"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Err"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Some"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Some"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "None"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/None"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Construct"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Construct"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Call"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Call"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Lambda"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Lambda"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "Await"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/Await"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "IfExpr"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/IfExpr"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "ListLit"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/ListLit"
+          }
+        }
+      ]
+    },
+    "Name": {
+      "description": "名称引用。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Name"
+        },
+        "name": {
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Bool": {
+      "description": "布尔字面量。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Bool"
+        },
+        "value": {
+          "type": "boolean"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "value",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Int": {
+      "description": "32 位整数字面量。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Int"
+        },
+        "value": {
+          "$ref": "#/$defs/Int32"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "value",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Long": {
+      "description": "64 位整数字面量，以十进制字符串承载。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Long"
+        },
+        "value": {
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "value",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Double": {
+      "description": "浮点字面量（ADR 0055 #18）：规范十进制串，不经二进制浮点。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Double"
+        },
+        "value": {
+          "$ref": "#/$defs/CanonicalDecimal"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "value",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Decimal": {
+      "description": "Decimal 字面量（ADR 0025）：canonical 十进制字符串。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Decimal"
+        },
+        "value": {
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "value",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "String": {
+      "description": "字符串字面量。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "String"
+        },
+        "value": {
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "value",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Null": {
+      "description": "null 字面量。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Null"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Ok": {
+      "description": "Result 成功分支。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Ok"
+        },
+        "expr": {
+          "$ref": "#/$defs/Expr"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "expr",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Err": {
+      "description": "Result 错误分支。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Err"
+        },
+        "expr": {
+          "$ref": "#/$defs/Expr"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "expr",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Some": {
+      "description": "Option 有值分支。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Some"
+        },
+        "expr": {
+          "$ref": "#/$defs/Expr"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "expr",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "None": {
+      "description": "Option 无值。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "None"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Construct": {
+      "description": "构造表达式。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Construct"
+        },
+        "typeName": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FieldInit"
+          }
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "typeName",
+        "fields",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "FieldInit": {
+      "description": "Construct 的字段初始化。",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "expr": {
+          "$ref": "#/$defs/Expr"
+        }
+      },
+      "required": [
+        "name",
+        "expr"
+      ],
+      "additionalProperties": false
+    },
+    "Call": {
+      "description": "调用。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Call"
+        },
+        "target": {
+          "$ref": "#/$defs/Expr"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Expr"
+          }
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "target",
+        "args",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Lambda": {
+      "description": "Lambda（ADR 0055 #13、#14）：返回类型字段名为 ret；captures 恒输出。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Lambda"
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Param"
+          }
+        },
+        "ret": {
+          "$ref": "#/$defs/Type"
+        },
+        "body": {
+          "$ref": "#/$defs/Block"
+        },
+        "captures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "params",
+        "ret",
+        "body",
+        "captures",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "Await": {
+      "description": "等待异步结果。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Await"
+        },
+        "expr": {
+          "$ref": "#/$defs/Expr"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "expr",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "IfExpr": {
+      "description": "表达式级条件（ADR 0019 G2b）。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "IfExpr"
+        },
+        "cond": {
+          "$ref": "#/$defs/Expr"
+        },
+        "thenE": {
+          "$ref": "#/$defs/Expr"
+        },
+        "elseE": {
+          "$ref": "#/$defs/Expr"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "cond",
+        "thenE",
+        "elseE",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "ListLit": {
+      "description": "列表字面量。",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "ListLit"
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Expr"
+          }
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "kind",
+        "elements",
+        "origin"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

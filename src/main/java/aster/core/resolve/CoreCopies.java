@@ -38,7 +38,6 @@ final class CoreCopies {
     static CoreModel.PatCtor variantCtor(String typeName, CoreModel.Origin origin) {
         CoreModel.PatCtor out = new CoreModel.PatCtor();
         out.typeName = typeName;
-        out.names = new java.util.ArrayList<>();
         out.args = new java.util.ArrayList<>();
         out.origin = origin;
         return out;
@@ -56,7 +55,6 @@ final class CoreCopies {
                                      CoreModel.Origin origin) {
         CoreModel.PatCtor out = new CoreModel.PatCtor();
         out.typeName = typeName;
-        out.names = p.names;
         out.args = args;
         out.origin = origin;
         return out;
@@ -235,8 +233,7 @@ final class CoreCopies {
         out.effects = d.effects;
         out.effectCaps = d.effectCaps;
         out.effectCapsExplicit = d.effectCapsExplicit;
-        out.piiLevel = d.piiLevel;
-        out.piiCategories = d.piiCategories;
+        out.effectParams = d.effectParams;
         out.body = body;
         out.origin = d.origin;
         out.inputRefs = d.inputRefs;

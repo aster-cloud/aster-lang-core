@@ -30,7 +30,7 @@ class InputRefsSurviveResolutionTest {
     }
     assertThat(decide).isNotNull();
     assertThat(decide.path("inputRefs").toString()).isEqualTo("[\"context.amount\"]");
-    assertThat(helper.has("inputRefs")).as("非 Verdict 函数不输出 inputRefs").isFalse();
+    assertThat(helper.path("inputRefs").isNull()).as("非 Verdict 函数的 inputRefs 为 null（未计算，ADR 0055 #12）").isTrue();
 
     CoreModel.Module back = MAPPER.readValue(MAPPER.writeValueAsString(core), CoreModel.Module.class);
     CoreModel.Func f = (CoreModel.Func) back.decls.stream()

@@ -193,8 +193,9 @@ class CoreModelTest {
         // 创建构造器模式
         CoreModel.PatCtor patCtor = new CoreModel.PatCtor();
         patCtor.typeName = "Some";
-        patCtor.names = List.of("x");
-        patCtor.args = List.of();
+        CoreModel.PatName x = new CoreModel.PatName();
+        x.name = "x";
+        patCtor.args = List.of(x);
 
         // 序列化
         String json = mapper.writeValueAsString(patCtor);
@@ -210,8 +211,8 @@ class CoreModelTest {
         assertTrue(deserialized instanceof CoreModel.PatCtor);
         CoreModel.PatCtor deserializedPat = (CoreModel.PatCtor) deserialized;
         assertEquals("Some", deserializedPat.typeName);
-        assertEquals(1, deserializedPat.names.size());
-        assertEquals("x", deserializedPat.names.get(0));
+        assertEquals(1, deserializedPat.args.size());
+        assertEquals("x", ((CoreModel.PatName) deserializedPat.args.get(0)).name);
     }
 
     @Test
@@ -244,21 +245,21 @@ class CoreModelTest {
         // 创建注解
         CoreModel.Annotation annotation = new CoreModel.Annotation();
         annotation.name = "sensitive";
-        annotation.params = java.util.Map.of("level", "high");
+        annotation.args = List.of(new CoreModel.AnnotationArg("level", "high"));
 
         // 序列化
         String json = mapper.writeValueAsString(annotation);
 
         // 验证 JSON 格式
         assertTrue(json.contains("\"name\":\"sensitive\""));
-        assertTrue(json.contains("\"level\":\"high\""));
+        assertTrue(json.contains("\"args\":[{\"name\":\"level\",\"value\":\"high\"}]"), json);
 
         // 反序列化
         CoreModel.Annotation deserialized = mapper.readValue(json, CoreModel.Annotation.class);
 
         // 验证
         assertEquals("sensitive", deserialized.name);
-        assertEquals("high", deserialized.params.get("level"));
+        assertEquals(java.util.Optional.of("high"), deserialized.arg("level"));
     }
 
     @Test

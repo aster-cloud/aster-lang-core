@@ -354,6 +354,16 @@
       ]
     },
     {
+      "name": "E900 注解参数重名",
+      "source": "Module m.\n\n@id(name: \"a\", name: \"b\")\nRule f given x as Int, produce Int:\n  Return x.\n",
+      "codes": [
+        [
+          "E900",
+          3
+        ]
+      ]
+    },
+    {
       "name": "R57 导入别名与枚举同名",
       "source": "Module m.\n\nUse lib.status as Status.\n\nDefine Status as one of Active, Closed.\n",
       "codes": [

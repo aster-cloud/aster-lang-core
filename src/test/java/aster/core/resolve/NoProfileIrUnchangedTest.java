@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * ADR 0046 §11 D2：inputRefs 只写入声明了档案的模块。对 aster-lang-test 语料（与 DeclarationResolverCorpusTest
- * 同一纳入口径）逐个编译：未声明档案的模块 IR 不含 inputRefs 键、标注步骤原样返回同一对象（IR 逐字节不变）；
+ * 同一纳入口径）逐个编译：未声明档案的模块中所有 inputRefs 都是 null（未计算，ADR 0055 #12）、标注步骤原样返回同一对象；
  * 声明档案的模块只有返回 Verdict 的规则带 inputRefs。语料来自同级仓库 aster-lang-test，缺失时跳过。
  */
 class NoProfileIrUnchangedTest {
@@ -32,7 +32,7 @@ class NoProfileIrUnchangedTest {
             if (core.profile == null) {
                 noProfile++;
                 assertSame(core, NameResolution.withInputRefs(core), p.file().toString());
-                if (MAPPER.writeValueAsString(core).contains("\"inputRefs\"")) leaked.add(p.file().toString());
+                if (MAPPER.writeValueAsString(core).contains("\"inputRefs\":[")) leaked.add(p.file().toString());
                 continue;
             }
             profiled++;
@@ -44,6 +44,6 @@ class NoProfileIrUnchangedTest {
         }
         System.out.println("inputRefs corpus: noProfile=" + noProfile + " profiled=" + profiled);
         assertTrue(noProfile > 100, "纳入的无档案语料过少：" + noProfile);
-        assertEquals(List.of(), leaked, "未声明档案的模块不得出现 inputRefs");
+        assertEquals(List.of(), leaked, "未声明档案的模块 inputRefs 必须为 null");
     }
 }

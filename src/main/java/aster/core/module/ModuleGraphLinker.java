@@ -306,9 +306,6 @@ public final class ModuleGraphLinker {
               rewritePattern(arg, binders);
             }
           }
-          if (ctor.names != null) {
-            binders.addAll(ctor.names);
-          }
         }
         case CoreModel.PatName name -> {
           if (name.name != null) {

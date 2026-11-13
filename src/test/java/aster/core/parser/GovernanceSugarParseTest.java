@@ -49,11 +49,11 @@ class GovernanceSugarParseTest {
     assertEquals("eu-ai-act-high-risk", core.profile);
   }
 
-  @Test void 未声明档案时不输出profile字段() {
+  @Test void 未声明档案时profile为null() {
     var core = lower("Module m.\n\nRule r produce Int:\n  Return 1.\n");
     assertNull(core.profile);
-    assertFalse(json(core).has("profile"));
-    assertFalse(MAPPER.valueToTree(core).has("profile"));
+    // ADR 0055 #12 / #19：恒输出，未声明档案为 null
+    assertTrue(MAPPER.valueToTree(core).get("profile").isNull());
   }
 
   @Test void 小写profile参数名不受影响() {

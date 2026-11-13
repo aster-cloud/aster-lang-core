@@ -96,14 +96,15 @@ class UntypedFieldDynamicParityTest {
   }
 
   @Test
-  void markerStaysOutOfIrJsonAndRoundTripFallsBackToDeclaredType() throws Exception {
+  void markerIsInIrJsonAndSurvivesRoundTrip() throws Exception {
     var module = lower(GUARD_SAMPLE);
     var mapper = new ObjectMapper();
     String json = mapper.writeValueAsString(module);
-    assertFalse(json.contains("typeInferred"), "标记不得进入 IR JSON");
+    // ADR 0055 #9：typeInferred 恒输出，读方据此知道类型只是占位
+    assertTrue(json.contains("\"typeInferred\":true"), "标记须进入 IR JSON");
     var back = mapper.readValue(json, CoreModel.Module.class);
     var diags = new TypeChecker().typecheckModule(back);
-    // 读回后标记丢失，context 按推断类型 Text 检查 → E011（与 TS 相同的已知局限）
-    assertEquals(1L, diags.stream().filter(d -> d.code() == ErrorCode.UNKNOWN_FIELD).count(), "实际: " + diags);
+    // 读回后标记仍在，context 仍按动态值检查 → 不报 E011（v1 曾因标记丢失而误报）
+    assertEquals(0L, diags.stream().filter(d -> d.code() == ErrorCode.UNKNOWN_FIELD).count(), "实际: " + diags);
   }
 }
