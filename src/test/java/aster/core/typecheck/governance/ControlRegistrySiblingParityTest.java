@@ -6,12 +6,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
- * classpath 副本与 aster-lang-locales 真相源深度相等。
+ * classpath 副本与 aster-lang-locales 真相源逐字节相同（同步方式是整文件复制，深度相等之外再锁住字节，
+ * 避免格式漂移让各副本的 diff 失去可比性）。
  * 本地开发为兄弟目录 ../aster-lang-locales；CI（ci.yml）把 locales checkout 到工作区子目录
  * ./aster-lang-locales。CI 中两者都不存在即失败——静默跳过的门禁不是门禁；仅本地允许跳过。
  */
@@ -25,9 +27,12 @@ class ControlRegistrySiblingParityTest {
     assumeTrue(source.isPresent(), "本地未并列 checkout aster-lang-locales，跳过");
     var mapper = new ObjectMapper();
     var expected = mapper.readTree(source.get().toFile());
+    byte[] copy;
     try (var in = ControlRegistry.class.getResourceAsStream("/governance/controls-registry.json")) {
-      assertEquals(expected, mapper.readTree(in));
+      copy = in.readAllBytes();
     }
+    assertEquals(expected, mapper.readTree(copy));
+    assertArrayEquals(Files.readAllBytes(source.get()), copy, "classpath 副本须与 locales controls/registry.json 逐字节相同");
   }
 
   @Test void CI中真相源缺失即失败而非跳过() {
