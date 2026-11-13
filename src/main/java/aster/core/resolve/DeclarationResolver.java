@@ -698,14 +698,14 @@ public final class DeclarationResolver {
     }
 
     private Decl.Func rewriteFunc(Decl.Func d, Resolved resolved) {
-        List<String> typeParams = keptTypeParams(d);
+        List<String> typeParams = d.typeParams();
         Scope scope = rootScope(typeParams);
         List<Decl.Parameter> params = d.params().stream().map(p -> resolveParam(scope, p)).toList();
         Type retType = d.retTypeInferred() ? inferredRetType(d.retType()) : resolveType(scope, d.retType());
         Block body = resolveOptionalBlock(scope, d.body());
         return new Decl.Func(d.name(), d.nameSpan(), typeParams, params, retType, d.annotations(), d.retAnnotations(),
             body, d.effects(), d.effectCaps(), d.effectCapsExplicit(), d.span(), d.retTypeInferred(),
-            d.typeParamsInferred(), resolved, d.effectParams());
+            resolved, d.effectParams());
     }
 
     /**
@@ -718,20 +718,4 @@ public final class DeclarationResolver {
         return new Type.TypeName(tn.name(), tn.annotations(), tn.span(), stamped);
     }
 
-    /**
-     * 裁决 R13：解析器把签名中未声明的大写类型名推断为隐式类型参数（typeParamsInferred）；
-     * 显式 {@code of T} 一律保留。隐式参数若能作为 TYPE 命中源码声明 / 导入 / 词汇，说明它其实是类型名，
-     * 从 typeParams 中移除；全部未命中的保留为类型参数。
-     */
-    private List<String> keptTypeParams(Decl.Func d) {
-        if (!d.typeParamsInferred()) return d.typeParams();
-        return d.typeParams().stream().filter(name -> !isImplicitTypeName(name, d.span())).toList();
-    }
-
-    /** 隐式参数命中类型 → true（应移除）；折叠歧义时报 E804 并保留为类型参数，使编译失败而非静默当作泛型。 */
-    private boolean isImplicitTypeName(String name, Span span) {
-        Choice picked = probeTypeChoice(name);
-        if (picked instanceof Ambiguous a) reportAmbiguous(name, ResolvedRole.TYPE, a.candidates(), span);
-        return picked instanceof Hit;
-    }
 }

@@ -397,15 +397,14 @@ class DeclarationResolverTest {
         assertEquals(List.of(), codes(r));
     }
 
+    /** ADR 0055 #10（控制裁决）：typeParams 只含源码 `of T` 声明的类型参数，解析器不再推断隐式类型参数（取代裁决 R13）。 */
     @Nested
-    class ImplicitTypeParams {
+    class TypeParamsAreDeclaredOnly {
 
         @Test
-        void implicitTypeParamHittingVocabularyIsRemoved() {
+        void undeclaredTypeNameHittingVocabularyResolvesAsType() {
             Module m = parse("Module m.\n\nRule f given x as Fahrer, produce Fahrer:\n  Return x.\n");
-            Decl.Func parsed = decl(m, 0, Decl.Func.class);
-            assertEquals(List.of("Fahrer"), parsed.typeParams(), "前提：解析器把 Fahrer 推断为类型参数");
-            assertTrue(parsed.typeParamsInferred(), "前提：类型参数为隐式推断");
+            assertEquals(List.of(), decl(m, 0, Decl.Func.class).typeParams());
             ResolutionResult<Module> r = DeclarationResolver.resolve(m, ctxOf(DRIVER));
             Decl.Func f = decl(r.value(), 0, Decl.Func.class);
             assertEquals(List.of(), f.typeParams());
@@ -414,36 +413,39 @@ class DeclarationResolverTest {
         }
 
         @Test
-        void implicitTypeParamMissingEverywhereIsKept() {
+        void undeclaredTypeNameMissingEverywhereReportsE800() {
             Module m = parse("Module m.\n\nRule f given x as Element, produce Element:\n  Return x.\n");
             ResolutionResult<Module> r = DeclarationResolver.resolve(m, ctxOf(DRIVER));
-            Decl.Func f = decl(r.value(), 0, Decl.Func.class);
-            assertEquals(List.of("Element"), f.typeParams());
-            assertNull(typeResolved(f.params().get(0).type()));
-            assertNull(typeResolved(f.retType()));
-            assertEquals(List.of(), codes(r));
+            assertEquals(List.of(), decl(r.value(), 0, Decl.Func.class).typeParams());
+            assertEquals(List.of(ErrorCode.UNRESOLVED_TYPE, ErrorCode.UNRESOLVED_TYPE), codes(r));
         }
 
         @Test
-        void implicitTypeParamFoldAmbiguousReportsE804AndIsKept() {
+        void undeclaredTypeNameFoldAmbiguousReportsE804() {
             Module m = parse("Module m.\n\nRule f given x as FaHrer, produce Int:\n  Return 1.\n");
-            assertEquals(List.of("FaHrer"), decl(m, 0, Decl.Func.class).typeParams(), "前提：解析器推断为类型参数");
             ResolutionResult<Module> r = DeclarationResolver.resolve(m, ctxOf(List.of(struct("Driver", "Fahrer"), struct("Pilot", "FAHRER"))));
             assertEquals(List.of(ErrorCode.AMBIGUOUS_NAME), codes(r));
-            assertEquals(List.of("FaHrer"), decl(r.value(), 0, Decl.Func.class).typeParams());
+            assertEquals(List.of(), decl(r.value(), 0, Decl.Func.class).typeParams());
         }
 
-        /** Java 解析器对显式 `of T` 的使用仍产出 TypeName（不产出 TypeVar），以 typeParamsInferred=false 区分。 */
+        /** Java 解析器对显式 `of T` 的使用仍产出 TypeName（不产出 TypeVar）；显式类型参数保留，不查词汇。 */
         @Test
         void explicitTypeParamKeptAndNotLookedUp() {
             Module m = parse("Module m.\n\nRule f of Fahrer given x as Fahrer, produce Fahrer:\n  Return x.\n");
-            assertFalse(decl(m, 0, Decl.Func.class).typeParamsInferred(), "前提：显式类型参数");
             ResolutionResult<Module> r = DeclarationResolver.resolve(m, ctxOf(DRIVER));
             Decl.Func f = decl(r.value(), 0, Decl.Func.class);
             assertEquals(List.of("Fahrer"), f.typeParams());
             assertEquals(decl(m, 0, Decl.Func.class).params().get(0).type(), f.params().get(0).type());
             assertNull(typeResolved(f.params().get(0).type()));
             assertEquals(List.of(), codes(r));
+        }
+
+        @Test
+        void inferredReturnTypeAndUnknownAreNotTypeParams() {
+            assertEquals(List.of(), decl(parse("Module m.\n\nRule generateAutoQuote given x as Int, produce:\n  Return x.\n"),
+                0, Decl.Func.class).typeParams());
+            assertEquals(List.of(), decl(parse("Module m.\n\nRule f given x as Int, produce Unknown:\n  Return x.\n"),
+                0, Decl.Func.class).typeParams());
         }
     }
 
@@ -704,7 +706,7 @@ class DeclarationResolverTest {
         Module m = parse("Module m.\n\nRule getKunde given x as Int, produce:\n  Return x.\n");
         Decl.Func parsed = decl(m, 0, Decl.Func.class);
         assertTrue(parsed.retTypeInferred(), "前提：返回类型为推断占位");
-        assertEquals(List.of("Kunde"), parsed.typeParams(), "前提：占位名被推断为隐式类型参数");
+        assertEquals(List.of(), parsed.typeParams(), "占位返回类型名不是类型参数（ADR 0055 #10）");
         ResolutionResult<Module> r = DeclarationResolver.resolve(m, ctxOf(List.of(struct("Customer", "Kunde"))));
         Decl.Func f = decl(r.value(), 0, Decl.Func.class);
         assertEquals(List.of(), f.typeParams());

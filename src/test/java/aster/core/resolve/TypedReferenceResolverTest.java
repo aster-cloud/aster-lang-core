@@ -192,7 +192,7 @@ class TypedReferenceResolverTest {
     private static Decl.Func withBody(Decl.Func f, Block body) {
         return new Decl.Func(f.name(), f.nameSpan(), f.typeParams(), f.params(), f.retType(), f.annotations(),
             f.retAnnotations(), body, f.effects(), f.effectCaps(), f.effectCapsExplicit(), f.span(),
-            f.retTypeInferred(), f.typeParamsInferred(), f.resolved());
+            f.retTypeInferred(), f.resolved(), f.effectParams());
     }
 
     // ---- Let 无注解右侧：只用显式声明类型 ----

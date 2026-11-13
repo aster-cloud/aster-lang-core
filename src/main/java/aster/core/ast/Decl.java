@@ -215,8 +215,6 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
      * @param span                 源码位置信息
      * @param retTypeInferred      返回类型是否由推断得到（`produce` 省略类型或整体省略）；
      *                             为 true 时 retType 只是占位，类型检查不得据此报返回类型不匹配，与 TS 对齐
-     * @param typeParamsInferred   类型参数是否由解析器从签名中未声明的大写类型名推断（无显式 `of T`）；
-     *                             名称解析据此区分隐式与显式类型参数（ADR 0051 裁决 R13）
      * @param resolved             函数名的解析结果（ADR 0051，FUNC_DECL；解析前为 null）
      */
     @JsonTypeName("Func")
@@ -234,7 +232,6 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
         @JsonProperty("effectCapsExplicit") boolean effectCapsExplicit,
         @JsonProperty("span") Span span,
         @JsonProperty("retTypeInferred") boolean retTypeInferred,
-        @JsonInclude(JsonInclude.Include.NON_DEFAULT) @JsonProperty("typeParamsInferred") boolean typeParamsInferred,
         @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved,
         /** 效应参数（ADR 0055 #6，源码 {@code Rule f <E>}），按源码顺序；没有为空列表。 */
         @JsonProperty("effectParams") List<String> effectParams
@@ -243,9 +240,9 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
         public Func(String name, Span nameSpan, List<String> typeParams, List<Parameter> params, Type retType,
                     List<Annotation> annotations, List<Annotation> retAnnotations, Block body, List<String> effects,
                     List<String> effectCaps, boolean effectCapsExplicit, Span span, boolean retTypeInferred,
-                    boolean typeParamsInferred, Resolved resolved) {
+                    Resolved resolved) {
             this(name, nameSpan, typeParams, params, retType, annotations, retAnnotations, body, effects,
-                effectCaps, effectCapsExplicit, span, retTypeInferred, typeParamsInferred, resolved, List.of());
+                effectCaps, effectCapsExplicit, span, retTypeInferred, resolved, List.of());
         }
 
         /** 旧签名构造器（无 retTypeInferred，默认 false）：保持仓外 Java 调用方源码兼容。 */
@@ -261,7 +258,7 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
                     List<Annotation> annotations, List<Annotation> retAnnotations, Block body, List<String> effects,
                     List<String> effectCaps, boolean effectCapsExplicit, Span span, boolean retTypeInferred) {
             this(name, nameSpan, typeParams, params, retType, annotations, retAnnotations, body, effects,
-                effectCaps, effectCapsExplicit, span, retTypeInferred, false, null);
+                effectCaps, effectCapsExplicit, span, retTypeInferred, (Resolved) null);
         }
 
         public Func {

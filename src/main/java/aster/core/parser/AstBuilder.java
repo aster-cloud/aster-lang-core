@@ -28,10 +28,6 @@ import java.util.stream.Collectors;
  */
 public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
-    private static final Set<String> BUILTIN_TYPE_NAMES = Set.of(
-        "Int", "Bool", "Text", "Long", "Double", "Decimal", "Number", "Float", "Option", "Result", "List", "Map", "Verdict"
-    );
-
     // ADR 0046：档案 id 形态（与注册表 profiles[].id 校验一致）
     private static final String PROFILE_ID_REGEX = "^[a-z][a-z0-9-]{0,63}$";
     private static final java.util.regex.Pattern PROFILE_ID = java.util.regex.Pattern.compile(PROFILE_ID_REGEX);
@@ -44,7 +40,6 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         "require approval by _ because _", "Verdict.require_approval"
     );
 
-    private final Set<String> declaredTypeNames = new HashSet<>();
     /**
      * 可【构造】的类型名（Data/Enum 记录类型），不含 type alias。
      * 仅用于「位置式构造禁止」检查——type alias 别名标量（如 Int），本就不该用
@@ -87,7 +82,6 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         }
         String profile = ctx.profileDecl() == null ? null : profileId(ctx.profileDecl());
 
-        declaredTypeNames.clear();
         declaredRecordTypeNames.clear();
         List<AsterParser.TopLevelDeclContext> declContexts = ctx.topLevelDecl();
         if (declContexts == null) {
@@ -100,26 +94,12 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                 // 误路由（历史上 funcDecl 歧义导致过），这里宁可跳过也不 NPE。
                 String typeName = dataDeclName(declCtx.dataDecl());
                 if (typeName != null) {
-                    declaredTypeNames.add(typeName);
                     declaredRecordTypeNames.add(typeName);  // 可构造
                 }
             } else if (declCtx.enumDecl() != null) {
                 AsterParser.TypeIdentContext typeName = declCtx.enumDecl().typeIdent();
                 if (typeName != null) {
-                    declaredTypeNames.add(typeName.getText());
                     declaredRecordTypeNames.add(typeName.getText());  // 可构造
-                }
-            } else if (declCtx.typeDecl() != null) {
-                // type alias 别名标量，不可构造 → 只进 declaredTypeNames，不进 record 集
-                AsterParser.TypeDeclContext typeDeclCtx = declCtx.typeDecl();
-                // ADR 0019 G1：类型别名名也可为软关键字（小写结构词）。与 visitTypeDecl
-                // 的取名分支保持一致，避免 declaredTypeNames 预扫描漏登记。
-                String aliasName = typeDeclCtx.TYPE_IDENT() != null
-                    ? typeDeclCtx.TYPE_IDENT().getText()
-                    : typeDeclCtx.IDENT() != null ? typeDeclCtx.IDENT().getText()
-                    : typeDeclCtx.structKeywordName() != null ? typeDeclCtx.structKeywordName().getText() : null;
-                if (aliasName != null && !aliasName.isEmpty()) {
-                    declaredTypeNames.add(aliasName);
                 }
             }
         });
@@ -235,17 +215,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             retTypeInferred = true;
         }
 
-        boolean typeParamsInferred = false;
-        if (typeParams.isEmpty()) {
-            LinkedHashSet<String> inferred = new LinkedHashSet<>();
-            for (Decl.Parameter param : params) {
-                collectTypeParamCandidates(param.type(), inferred);
-            }
-            collectTypeParamCandidates(retType, inferred);
-            typeParams = new ArrayList<>(inferred);
-            typeParamsInferred = !typeParams.isEmpty();
-        }
-
+        // ADR 0055 #10（控制裁决）：typeParams 只列源码 `of T` 声明的类型参数，解析器不从签名里未声明的
+        // 大写类型名推断隐式类型参数（按规则名推出的返回类型名、`produce Unknown` 都不是类型参数）。
         List<String> finalTypeParams = typeParams.isEmpty() ? List.of() : List.copyOf(typeParams);
 
         // 效应参数（ADR 0055 #6）：Rule f <E, F>
@@ -295,7 +266,6 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             effectCapsExplicit,
             spanFrom(ctx),
             retTypeInferred,
-            typeParamsInferred,
             null,
             effectParams
         );
@@ -371,74 +341,6 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         List<Annotation> finalAnnotations = allAnnotations.isEmpty() ? List.of() : List.copyOf(allAnnotations);
         return new Decl.Parameter(name, type, finalAnnotations, span, null, ctx.annotatedType() == null,
             constraintsOf(ctx.fieldConstraint()));
-    }
-
-    private void collectTypeParamCandidates(Type type, Set<String> acc) {
-        if (type == null) {
-            return;
-        }
-        if (type instanceof Type.TypeVar typeVar) {
-            String name = typeVar.name();
-            if (name != null && !name.isEmpty()) {
-                acc.add(name);
-            }
-            return;
-        }
-        if (type instanceof Type.TypeName typeName) {
-            String name = typeName.name();
-            if (looksLikeTypeParam(name)
-                && !BUILTIN_TYPE_NAMES.contains(name)
-                && !declaredTypeNames.contains(name)) {
-                acc.add(name);
-            }
-            return;
-        }
-        if (type instanceof Type.TypeApp typeApp) {
-            typeApp.args().forEach(arg -> collectTypeParamCandidates(arg, acc));
-            return;
-        }
-        if (type instanceof Type.Result resultType) {
-            collectTypeParamCandidates(resultType.ok(), acc);
-            collectTypeParamCandidates(resultType.err(), acc);
-            return;
-        }
-        if (type instanceof Type.Maybe maybeType) {
-            collectTypeParamCandidates(maybeType.type(), acc);
-            return;
-        }
-        if (type instanceof Type.Option optionType) {
-            collectTypeParamCandidates(optionType.type(), acc);
-            return;
-        }
-        if (type instanceof Type.List listType) {
-            collectTypeParamCandidates(listType.type(), acc);
-            return;
-        }
-        if (type instanceof Type.Map mapType) {
-            collectTypeParamCandidates(mapType.key(), acc);
-            collectTypeParamCandidates(mapType.val(), acc);
-            return;
-        }
-        if (type instanceof Type.FuncType funcType) {
-            funcType.params().forEach(paramType -> collectTypeParamCandidates(paramType, acc));
-            collectTypeParamCandidates(funcType.ret(), acc);
-        }
-    }
-
-    private boolean looksLikeTypeParam(String name) {
-        if (name == null || name.isEmpty()) {
-            return false;
-        }
-        if (!Character.isUpperCase(name.charAt(0))) {
-            return false;
-        }
-        for (int i = 1; i < name.length(); i++) {
-            char ch = name.charAt(i);
-            if (!Character.isLetterOrDigit(ch) && ch != '_') {
-                return false;
-            }
-        }
-        return true;
     }
 
     /**
