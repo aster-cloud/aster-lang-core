@@ -28,10 +28,6 @@ import java.util.stream.Collectors;
  */
 public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
-    private static final Set<String> BUILTIN_TYPE_NAMES = Set.of(
-        "Int", "Bool", "Text", "Long", "Double", "Decimal", "Number", "Float", "Option", "Result", "List", "Map", "Verdict"
-    );
-
     // ADR 0046：档案 id 形态（与注册表 profiles[].id 校验一致）
     private static final String PROFILE_ID_REGEX = "^[a-z][a-z0-9-]{0,63}$";
     private static final java.util.regex.Pattern PROFILE_ID = java.util.regex.Pattern.compile(PROFILE_ID_REGEX);
@@ -44,7 +40,6 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         "require approval by _ because _", "Verdict.require_approval"
     );
 
-    private final Set<String> declaredTypeNames = new HashSet<>();
     /**
      * 可【构造】的类型名（Data/Enum 记录类型），不含 type alias。
      * 仅用于「位置式构造禁止」检查——type alias 别名标量（如 Int），本就不该用
@@ -87,7 +82,6 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         }
         String profile = ctx.profileDecl() == null ? null : profileId(ctx.profileDecl());
 
-        declaredTypeNames.clear();
         declaredRecordTypeNames.clear();
         List<AsterParser.TopLevelDeclContext> declContexts = ctx.topLevelDecl();
         if (declContexts == null) {
@@ -100,26 +94,12 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                 // 误路由（历史上 funcDecl 歧义导致过），这里宁可跳过也不 NPE。
                 String typeName = dataDeclName(declCtx.dataDecl());
                 if (typeName != null) {
-                    declaredTypeNames.add(typeName);
                     declaredRecordTypeNames.add(typeName);  // 可构造
                 }
             } else if (declCtx.enumDecl() != null) {
                 AsterParser.TypeIdentContext typeName = declCtx.enumDecl().typeIdent();
                 if (typeName != null) {
-                    declaredTypeNames.add(typeName.getText());
                     declaredRecordTypeNames.add(typeName.getText());  // 可构造
-                }
-            } else if (declCtx.typeDecl() != null) {
-                // type alias 别名标量，不可构造 → 只进 declaredTypeNames，不进 record 集
-                AsterParser.TypeDeclContext typeDeclCtx = declCtx.typeDecl();
-                // ADR 0019 G1：类型别名名也可为软关键字（小写结构词）。与 visitTypeDecl
-                // 的取名分支保持一致，避免 declaredTypeNames 预扫描漏登记。
-                String aliasName = typeDeclCtx.TYPE_IDENT() != null
-                    ? typeDeclCtx.TYPE_IDENT().getText()
-                    : typeDeclCtx.IDENT() != null ? typeDeclCtx.IDENT().getText()
-                    : typeDeclCtx.structKeywordName() != null ? typeDeclCtx.structKeywordName().getText() : null;
-                if (aliasName != null && !aliasName.isEmpty()) {
-                    declaredTypeNames.add(aliasName);
                 }
             }
         });
@@ -235,37 +215,24 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             retTypeInferred = true;
         }
 
-        boolean typeParamsInferred = false;
-        if (typeParams.isEmpty()) {
-            LinkedHashSet<String> inferred = new LinkedHashSet<>();
-            for (Decl.Parameter param : params) {
-                collectTypeParamCandidates(param.type(), inferred);
-            }
-            collectTypeParamCandidates(retType, inferred);
-            typeParams = new ArrayList<>(inferred);
-            typeParamsInferred = !typeParams.isEmpty();
-        }
-
+        // ADR 0055 #10（控制裁决）：typeParams 只列源码 `of T` 声明的类型参数，解析器不从签名里未声明的
+        // 大写类型名推断隐式类型参数（按规则名推出的返回类型名、`produce Unknown` 都不是类型参数）。
         List<String> finalTypeParams = typeParams.isEmpty() ? List.of() : List.copyOf(typeParams);
+
+        // 效应参数（ADR 0055 #6）：Rule f <E, F>
+        List<String> effectParams = ctx.effectParamList() == null ? List.of()
+            : ctx.effectParamList().TYPE_IDENT().stream().map(TerminalNode::getText).toList();
 
         // 能力标注（默认无副作用）
         List<String> effects = List.of();
         List<String> effectCaps = List.of();
         boolean effectCapsExplicit = false;
         if (ctx.capabilityAnnotation() != null) {
-            AsterParser.CapabilityAnnotationContext capCtx = ctx.capabilityAnnotation();
-            // 提取效应名称（如 "io"）
-            String effectName = capCtx.IDENT().getText();
-            effects = List.of(effectName);
-
-            // 提取能力列表（如 ["Http", "Sql"]）
-            List<String> caps = capCtx.TYPE_IDENT().stream()
-                .map(TerminalNode::getText)
-                .collect(Collectors.toList());
-            effectCaps = caps.isEmpty() ? List.of() : List.copyOf(caps);
-
+            EffectClause clause = classifyEffectClause(ctx.capabilityAnnotation(), effectParams, name);
+            effects = clause.effects();
+            effectCaps = clause.caps();
             // 只有显式列出能力时才标记为 explicit
-            effectCapsExplicit = !caps.isEmpty();
+            effectCapsExplicit = !effectCaps.isEmpty();
         }
 
         // 函数体（可能为 null）
@@ -299,9 +266,51 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             effectCapsExplicit,
             spanFrom(ctx),
             retTypeInferred,
-            typeParamsInferred,
-            null
+            null,
+            effectParams
         );
+    }
+
+    /** {@code It performs} 子句的分类结果：effects 按首次出现顺序、不重复；caps 为能力名。 */
+    private record EffectClause(List<String> effects, List<String> caps) {}
+
+    /**
+     * 对 {@code It performs} 子句中的名字（效应位置在前，列表在后，保持源码顺序）逐个分类（ADR 0055 #5）：
+     * <ul>
+     *   <li>按 ASCII 小写化为 io / cpu：授权型具体效应，写入小写名——内建名优先于同名效应参数（后者由类型检查报 E213）；</li>
+     *   <li>pure：不授权任何效应，不写入；</li>
+     *   <li>已声明的效应参数（大小写敏感）：效应变量，原样写入；</li>
+     *   <li>效应位置上其余的大写名字：未声明的效应变量，报 E210；效应位置上其余的小写名字：未知效应名，按 pure 处理、不写入；</li>
+     *   <li>列表中其余的大写名字是能力（Http、Sql…），小写名字按未知效应名处理、不写入。</li>
+     * </ul>
+     */
+    private static EffectClause classifyEffectClause(AsterParser.CapabilityAnnotationContext capCtx,
+                                                    List<String> effectParams, String funcName) {
+        LinkedHashSet<String> effects = new LinkedHashSet<>();
+        List<String> caps = new ArrayList<>();
+        List<Token> names = new ArrayList<>();
+        names.add(capCtx.effect);
+        names.addAll(capCtx.caps);
+        for (int i = 0; i < names.size(); i++) {
+            Token token = names.get(i);
+            String written = token.getText();
+            String lower = aster.core.util.AsciiCase.lower(written);
+            boolean capitalized = token.getType() == AsterParser.TYPE_IDENT;
+            if (lower.equals("io") || lower.equals("cpu")) {
+                effects.add(lower);
+            } else if (lower.equals("pure")) {
+                continue;
+            } else if (effectParams.contains(written)) {
+                effects.add(written);
+            } else if (i == 0 && capitalized) {
+                throw new ParseDiagnosticException(ErrorCode.EFFECT_VAR_UNDECLARED,
+                    Map.of("var", written, "func", funcName),
+                    "Effect variable " + written + " undeclared in '" + funcName + "'", token);
+            } else if (i > 0 && capitalized) {
+                caps.add(written);
+            }
+        }
+        return new EffectClause(List.copyOf(effects), List.copyOf(caps));
     }
 
     @Override
@@ -330,75 +339,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         List<Annotation> allAnnotations = new ArrayList<>(prefixAnnotations);
         allAnnotations.addAll(typeAnnotations);
         List<Annotation> finalAnnotations = allAnnotations.isEmpty() ? List.of() : List.copyOf(allAnnotations);
-        return new Decl.Parameter(name, type, finalAnnotations, span, null, ctx.annotatedType() == null);
-    }
-
-    private void collectTypeParamCandidates(Type type, Set<String> acc) {
-        if (type == null) {
-            return;
-        }
-        if (type instanceof Type.TypeVar typeVar) {
-            String name = typeVar.name();
-            if (name != null && !name.isEmpty()) {
-                acc.add(name);
-            }
-            return;
-        }
-        if (type instanceof Type.TypeName typeName) {
-            String name = typeName.name();
-            if (looksLikeTypeParam(name)
-                && !BUILTIN_TYPE_NAMES.contains(name)
-                && !declaredTypeNames.contains(name)) {
-                acc.add(name);
-            }
-            return;
-        }
-        if (type instanceof Type.TypeApp typeApp) {
-            typeApp.args().forEach(arg -> collectTypeParamCandidates(arg, acc));
-            return;
-        }
-        if (type instanceof Type.Result resultType) {
-            collectTypeParamCandidates(resultType.ok(), acc);
-            collectTypeParamCandidates(resultType.err(), acc);
-            return;
-        }
-        if (type instanceof Type.Maybe maybeType) {
-            collectTypeParamCandidates(maybeType.type(), acc);
-            return;
-        }
-        if (type instanceof Type.Option optionType) {
-            collectTypeParamCandidates(optionType.type(), acc);
-            return;
-        }
-        if (type instanceof Type.List listType) {
-            collectTypeParamCandidates(listType.type(), acc);
-            return;
-        }
-        if (type instanceof Type.Map mapType) {
-            collectTypeParamCandidates(mapType.key(), acc);
-            collectTypeParamCandidates(mapType.val(), acc);
-            return;
-        }
-        if (type instanceof Type.FuncType funcType) {
-            funcType.params().forEach(paramType -> collectTypeParamCandidates(paramType, acc));
-            collectTypeParamCandidates(funcType.ret(), acc);
-        }
-    }
-
-    private boolean looksLikeTypeParam(String name) {
-        if (name == null || name.isEmpty()) {
-            return false;
-        }
-        if (!Character.isUpperCase(name.charAt(0))) {
-            return false;
-        }
-        for (int i = 1; i < name.length(); i++) {
-            char ch = name.charAt(i);
-            if (!Character.isLetterOrDigit(ch) && ch != '_') {
-                return false;
-            }
-        }
-        return true;
+        return new Decl.Parameter(name, type, finalAnnotations, span, null, ctx.annotatedType() == null,
+            constraintsOf(ctx.fieldConstraint()));
     }
 
     /**
@@ -506,7 +448,56 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         List<Annotation> finalAnnotations = allAnnotations.isEmpty() ? List.of() : List.copyOf(allAnnotations);
         // 条目位置从字段名起（前置注解不计入，与 TS 一致）至类型/约束止
         Span span = mergeSpans(spanFrom(ctx.nameIdent()), spanFrom(ctx));
-        return new Decl.Field(name, type, finalAnnotations, typeInferred, span);
+        return new Decl.Field(name, type, finalAnnotations, typeInferred, null, span, constraintsOf(ctx.fieldConstraint()));
+    }
+
+    /** 字段 / 形参约束（ADR 0055 #4），按源码顺序；Range 两端保留字面量原文，由 lowering 规范化。 */
+    private List<Constraint> constraintsOf(List<AsterParser.FieldConstraintContext> ctxs) {
+        if (ctxs == null || ctxs.isEmpty()) {
+            return List.of();
+        }
+        List<Constraint> out = new ArrayList<>(ctxs.size());
+        for (AsterParser.FieldConstraintContext c : ctxs) {
+            Span span = spanFrom(c);
+            if (c.REQUIRED() != null) {
+                out.add(new Constraint.Required(span));
+            } else if (c.BETWEEN() != null) {
+                out.add(new Constraint.Range(rangeBoundText(c.rangeBound(0)), rangeBoundText(c.rangeBound(1)), span));
+            } else if (c.GREATER_THAN_OR_EQUAL_WORD() != null) {
+                requireSingleSidedSpelling(c.GREATER_THAN_OR_EQUAL_WORD(), "at least");
+                out.add(new Constraint.Range(rangeBoundText(c.rangeBound(0)), null, span));
+            } else if (c.LESS_THAN_OR_EQUAL_WORD() != null) {
+                requireSingleSidedSpelling(c.LESS_THAN_OR_EQUAL_WORD(), "at most");
+                out.add(new Constraint.Range(null, rangeBoundText(c.rangeBound(0)), span));
+            } else {
+                // matching pattern "…" 与 matching "…" 同义（ts parseMatchingConstraint）；其余词报「matching 后需要正则字符串」
+                if (c.IDENT() != null && !"pattern".equals(c.IDENT().getText())) {
+                    throw new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED_AFTER,
+                        Map.of("token", "token.regexString", "after", "kw.matching"),
+                        "Expected a regular expression string after 'matching'", c.IDENT().getSymbol());
+                }
+                out.add(new Constraint.Pattern(parseStringLiteral(c.STRING_LITERAL()), span));
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    /**
+     * 单边范围约束只接受 at least / at most（与 ts parseAtConstraint 一致）；比较运算的其它同义写法
+     * （is at least、greater than or equal to …）在约束位置报「需要 at least 或 at most」。
+     */
+    private static void requireSingleSidedSpelling(TerminalNode token, String expected) {
+        String spelled = token.getText().trim().replaceAll("[ \\t]+", " ");
+        if (!spelled.equals(expected)) {
+            throw new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED, Map.of("token", "token.atLeastOrAtMost"),
+                "Expected 'at least' or 'at most' in a field constraint, got '" + token.getText() + "'", token.getSymbol());
+        }
+    }
+
+    /** 范围端点的字面量原文：可选负号加整数或小数字面量。 */
+    private static String rangeBoundText(AsterParser.RangeBoundContext ctx) {
+        String digits = ctx.INT_LITERAL() != null ? ctx.INT_LITERAL().getText() : ctx.FLOAT_LITERAL().getText();
+        return ctx.MINUS() == null ? digits : "-" + digits;
     }
 
     private String nameIdentText(AsterParser.NameIdentContext ctx) {
@@ -575,6 +566,12 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                         ? namedCtx.IDENT().getText()
                         : namedCtx.structKeywordName().getText();
                     Object value = parseAnnotationValue(namedCtx.annotationValue());
+                    // ADR 0055 #3：同一注解内参数名唯一，解析期报 E900（位置参数名 $n 不会与具名参数冲突）
+                    if (params.containsKey(key)) {
+                        throw new ParseDiagnosticException(ErrorCode.PARSE_DUPLICATE_ANNOTATION_ARG,
+                            Map.of("annotation", name, "name", key),
+                            "Annotation @" + name + " repeats the argument " + key, namedCtx.getStart());
+                    }
                     params.put(key, value);
                 } else if (argCtx instanceof AsterParser.PositionalAnnotationArgContext positionalCtx) {
                     String key = "$" + positionalIndex++;
@@ -619,13 +616,15 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         if (ctx.INT_LITERAL() != null) {
             return LiteralParsing.parseInt(ctx.INT_LITERAL().getText(), ctx.INT_LITERAL().getSymbol());
         }
-        if (ctx.FLOAT_LITERAL() != null) {
-            return LiteralParsing.parseDouble(ctx.FLOAT_LITERAL().getText(), ctx.FLOAT_LITERAL().getSymbol());
-        }
-        if (ctx.LONG_LITERAL() != null) {
-            String text = ctx.LONG_LITERAL().getText();
-            String digits = text.substring(0, text.length() - 1);
-            return LiteralParsing.parseLong(digits, ctx.LONG_LITERAL().getSymbol());
+        // ADR 0055 #3：注解参数值只能是 string / Int32 / boolean；浮点、Long 与 null 字面量在解析期拒收（E067，
+        // 参数与位置同 ts parseAnnotationValue：value 为字面量原文，位置为该字面量）
+        TerminalNode invalid = ctx.FLOAT_LITERAL() != null ? ctx.FLOAT_LITERAL()
+            : ctx.LONG_LITERAL() != null ? ctx.LONG_LITERAL() : ctx.NULL_LITERAL();
+        if (invalid != null) {
+            throw new ParseDiagnosticException(ErrorCode.PARSE_INVALID_VALUE,
+                Map.of("construct", "token.annotationArgumentValue", "value", invalid.getText(),
+                    "allowed", "string, Int or Bool"),
+                "Annotation argument value must be a string, Int or Bool: " + invalid.getText(), invalid.getSymbol());
         }
         if (ctx.BOOL_LITERAL() != null) {
             return Boolean.parseBoolean(ctx.BOOL_LITERAL().getText());
@@ -1719,8 +1718,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Expr visitFloatExpr(AsterParser.FloatExprContext ctx) {
-        double value = LiteralParsing.parseDouble(ctx.FLOAT_LITERAL().getText(), ctx.FLOAT_LITERAL().getSymbol());
-        return new Expr.Double(value, spanFrom(ctx));
+        String lexeme = ctx.FLOAT_LITERAL().getText();
+        double value = LiteralParsing.parseDouble(lexeme, ctx.FLOAT_LITERAL().getSymbol());
+        return new Expr.Double(value, spanFrom(ctx), lexeme);
     }
 
     @Override

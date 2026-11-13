@@ -3,6 +3,7 @@ package aster.core.dualengine;
 import aster.core.canonicalizer.Canonicalizer;
 import aster.core.identifier.VocabularyLoader;
 import aster.core.identifier.VocabularyScopes;
+import aster.core.ir.CoreIrJson;
 import aster.core.ir.CoreModel;
 import aster.core.lexicon.LexiconRegistry;
 import aster.core.parser.AstBuilder;
@@ -54,13 +55,9 @@ import java.util.TreeMap;
  *   <li>{@code moduleName} — the module's declared name</li>
  * </ul>
  *
- * <p>Why a fingerprint and not raw JSON parity? The Java and TS Core IRs
- * use different field names in places (e.g. {@code Import.path/alias} vs
- * {@code Import.name/asName}) even though their {@code kind} discriminators
- * align. Aligning every field requires an ADR-level cross-team coordination;
- * the fingerprint catches the gross structural drifts (decl count mismatches,
- * kinds present on one side but not the other, missing names) the Phase B
- * gate cares about today. Field-level parity is Phase B v2.
+ * <p>The fingerprint drives the cheap structural mode. With {@code -Dparity.ir.full=true} the record also
+ * carries {@code irCanonical}: the Core IR v2 canonical bytes from {@code CoreIrJson.serialize}, which
+ * parity-tier1 schema-validates and compares byte-for-byte against the TS engine (ADR 0055 §6).
  *
  * <p>Invocation:
  * <pre>
@@ -109,7 +106,7 @@ class CoreIrFingerprintCli {
             while ((line = reader.readLine()) != null) {
                 String trimmed = line.trim();
                 if (trimmed.isEmpty()) continue;
-                writer.write(MAPPER.writeValueAsString(emitOne(Request.parse(trimmed))));
+                writer.write(MAPPER.writeValueAsString(emitOne(Request.parse(trimmed), Boolean.getBoolean("parity.ir.full"))));
                 writer.newLine();
             }
         }
@@ -128,7 +125,12 @@ class CoreIrFingerprintCli {
         }
     }
 
-    static ObjectNode emitOne(Request req) {
+    /**
+     * 单个样本走完整 Java 管线。
+     *
+     * @param full 为 true 时附带规范字节 irCanonical（CLI 由 -Dparity.ir.full 决定，合规测试恒为 true）
+     */
+    static ObjectNode emitOne(Request req, boolean full) {
         ObjectNode record = MAPPER.createObjectNode();
         record.put("path", req.path());
         try {
@@ -176,11 +178,10 @@ class CoreIrFingerprintCli {
             record.set("diagnostics", codesOf(resolved.diagnostics()));
             record.set("locs", locsOf(resolved.diagnostics()));
             record.set("fingerprint", fingerprint(coreJson));
-            // ADR 0016 阶段1：-Dparity.ir.full=true 时附带完整 Core IR JSON，
-            // 供 parity-tier1.mjs 的归一化字段级比较器消费（默认仍只发指纹，
-            // 保持现有 IR-mode 行为不变）。
-            if (Boolean.getBoolean("parity.ir.full")) {
-                record.set("ir", coreJson);
+            // ADR 0055 §6：-Dparity.ir.full=true 时附带 CoreIrJson.serialize 产出的规范字节（字段名 irCanonical，
+            // 两引擎 CLI 同名），供 parity-tier1.mjs 做 schema 校验与逐字节比较（默认仍只发指纹）。
+            if (full) {
+                record.put("irCanonical", CoreIrJson.serialize(resolved.core()));
                 // ADR 0046 §11 D2：inputRefs 为 ["*"] 的函数 → E708 construct（不进 IR），供 parity 核对
                 // .meta.json 的 expectedInputRefConstructs；未声明档案的模块不输出该字段。
                 if (resolved.core().profile != null) record.set("inputRefConstructs", constructsOf(resolved.core()));
@@ -262,18 +263,9 @@ class CoreIrFingerprintCli {
             for (JsonNode decl : decls) {
                 String kind = decl.path("kind").asText("Unknown");
                 kindCounts.merge(kind, 1, Integer::sum);
-                // ★Import 在两引擎里字段名不同：TS 用 `name`/`asName`，
-                //   Java 用 `path`/`alias`（见类注释）。此处**只取名字**做指纹，
-                //   故必须把两种写法都认出来，否则 Java 侧 Import 恒不入
-                //   declNames，浅层指纹会**凭空报出 tsOnly 分歧**。
-                //
-                //   ★这正是 2026-09-13 审计里 eff_alias_import /
-                //   eff_alias_unmapped 两个样本"分歧"的**全部成因**——
-                //   底层 IR 其实一致（字段级 `--full` 口径 223/223 identical，
-                //   因为 ir-normalize.ts 已有 `Import.name→path` 别名表）。
-                //   是**量具**没跟上，不是引擎分叉。
+                // Import 没有 name（它不声明名字，ADR 0055 #2），指纹取其点分路径 path 作为名字。
                 JsonNode name = decl.path("name");
-                if (!name.isTextual()) name = decl.path("path");   // Java 侧 Import
+                if (!name.isTextual()) name = decl.path("path");   // Import
                 if (name.isTextual()) names.add(name.asText());
             }
         }

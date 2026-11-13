@@ -103,9 +103,9 @@ class GovernanceCheckerTest {
   @Test void 静态工具读取元数据() {
     // 直接构造 Func：annotations = [id("R-9"), control("A"), control("B")]
     var f = new CoreModel.Func();
-    var id = new CoreModel.Annotation(); id.name = "id"; id.params = Map.of("$0", "R-9");
-    var c1 = new CoreModel.Annotation(); c1.name = "control"; c1.params = Map.of("$0", "A");
-    var c2 = new CoreModel.Annotation(); c2.name = "control"; c2.params = Map.of("$0", "B");
+    var id = new CoreModel.Annotation(); id.name = "id"; id.args = List.of(new CoreModel.AnnotationArg("$0", "R-9"));
+    var c1 = new CoreModel.Annotation(); c1.name = "control"; c1.args = List.of(new CoreModel.AnnotationArg("$0", "A"));
+    var c2 = new CoreModel.Annotation(); c2.name = "control"; c2.args = List.of(new CoreModel.AnnotationArg("$0", "B"));
     f.annotations = List.of(id, c1, c2);
     assertEquals(Optional.of("R-9"), GovernanceChecker.ruleId(f));
     assertEquals(List.of("A", "B"), GovernanceChecker.controls(f));

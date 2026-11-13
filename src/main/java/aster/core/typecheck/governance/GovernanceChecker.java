@@ -19,7 +19,8 @@ import java.util.Set;
  * <p>判定「规则返回 Verdict」的口径，两引擎一致：
  * 声明返回类型为 TypeName Verdict，或函数体任一 Return 的表达式是 Verdict.* 的直接调用。
  *
- * <p>注解参数约定：位置参数在 {@code Annotation.params} 中以 "$0"、"$1"… 为键；
+ * <p>注解参数约定：位置参数在有序的 {@code Annotation.args} 中命名为 "$0"、"$1"…（ADR 0055 #3），经
+ * {@link CoreModel.Annotation#arg} 取值；
  * 治理注解只接受恰好一个非空白位置字符串参数，命名参数、非字符串或空白字符串一律视为非法（E702）。
  * 同一规则出现多个 @id 也报 E702。
  */
@@ -140,7 +141,7 @@ public final class GovernanceChecker {
     if (countIdAnnotations(func) != 1) return Optional.empty();
     return annotationsOf(func).stream()
         .filter(a -> "id".equals(a.name) && isSingleStringArg(a))
-        .map(a -> (String) a.params.get("$0"))
+        .map(a -> (String) a.arg("$0").orElseThrow())
         .findFirst();
   }
 
@@ -152,7 +153,7 @@ public final class GovernanceChecker {
   public static List<String> controls(CoreModel.Func func) {
     List<String> out = new ArrayList<>();
     for (CoreModel.Annotation a : annotationsOf(func)) {
-      if ("control".equals(a.name) && isSingleStringArg(a)) out.add((String) a.params.get("$0"));
+      if ("control".equals(a.name) && isSingleStringArg(a)) out.add((String) a.arg("$0").orElseThrow());
     }
     return out;
   }
@@ -187,8 +188,8 @@ public final class GovernanceChecker {
 
   /** 恰好一个位置参数 $0，且为非空白字符串。 */
   private static boolean isSingleStringArg(CoreModel.Annotation a) {
-    return a.params != null && a.params.size() == 1
-        && a.params.get("$0") instanceof String s && !s.isBlank();
+    return a.args != null && a.args.size() == 1
+        && a.arg("$0").orElse(null) instanceof String s && !s.isBlank();
   }
 
   private static List<CoreModel.Annotation> annotationsOf(CoreModel.Func f) {

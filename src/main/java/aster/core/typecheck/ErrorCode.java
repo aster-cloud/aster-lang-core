@@ -98,6 +98,7 @@ public enum ErrorCode {
   // 目前只有 TS 侧发出该码；此处登记以保持 shared/error_codes.json 单源码表两端一致
   // （generate_error_codes.ts 会校验 drift）。
   EFF_INFER_UNKNOWN_BUILTIN("E212", Category.EFFECT, Severity.WARNING, "Effect of builtin '{builtin}' called by '{func}' is unknown; it is NOT assumed pure", "Declare it via ASTER_EFFECT_CONFIG prefixes, supply an imported effect signature, or use a known stdlib namespace."),
+  EFFECT_PARAM_SHADOWS_BUILTIN("E213", Category.TYPE, Severity.ERROR, "Effect parameter {name} of '{func}' has the same name as a built-in effect", "Rename the effect parameter; the effect names io, cpu, pure and async are reserved in any letter case."),
   CAPABILITY_NOT_ALLOWED("E300", Category.CAPABILITY, Severity.ERROR, "Function '{func}' requires {cap} capability but manifest for module '{module}' denies it.", "Update the capability manifest or modify the function to comply."),
   EFF_CAP_MISSING("E301", Category.CAPABILITY, Severity.ERROR, "Function '{func}' uses {cap} capability but header declares [{declared}].", "Declare the actually used capabilities in the function header."),
   EFF_CAP_SUPERFLUOUS("E302", Category.CAPABILITY, Severity.INFO, "Function '{func}' declares {cap} capability but it is not used.", "Remove unused capability declarations for clarity."),
@@ -158,6 +159,7 @@ public enum ErrorCode {
   DUPLICATE_DECLARATION("E807", Category.SCOPE, Severity.ERROR, "Duplicate declaration of '{written}' in {role} position", "Rename one of the declarations or remove the duplicate."),
   SHADOWED_VOCABULARY("W800", Category.SCOPE, Severity.WARNING, "Declaration '{written}' in {role} position shadows a vocabulary entry", "Rename the declaration if the shadowing is unintended; the declaration wins over the vocabulary entry."),
   RESOLVED_WITHOUT_TYPE("W801", Category.SCOPE, Severity.WARNING, "Resolved '{written}' in {role} position without a known receiver type", "Add a type annotation to the receiver so the name can be checked against its type."),
+  PARSE_DUPLICATE_ANNOTATION_ARG("E900", Category.SYNTAX, Severity.ERROR, "Annotation @{annotation} repeats the argument {name}", "Give each named argument of an annotation at most once."),
   ;
 
   private final String code;

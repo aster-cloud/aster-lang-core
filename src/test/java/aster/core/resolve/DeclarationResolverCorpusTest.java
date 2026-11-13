@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * 无词汇时 R2 仍按设计改写 IR 的样本登记在 {@link #IR_REWRITTEN_WITHOUT_VOCABULARY}。
  * 语料来自同级仓库 aster-lang-test，缺失时跳过。
  */
-class DeclarationResolverCorpusTest {
+public class DeclarationResolverCorpusTest {
 
     private static final Path CORPUS = Path.of("..", "aster-lang-test", "corpus");
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -49,7 +49,7 @@ class DeclarationResolverCorpusTest {
      * 已知的 Java 解析缺口（相对语料根路径 → 原因）。显式列出而非静默跳过：断言这些文件仍解析失败，
      * 缺口修复后本表须同步删除对应条目。
      */
-    private static final Map<String, String> KNOWN_PARSE_GAPS = Map.of(
+    public static final Map<String, String> KNOWN_PARSE_GAPS = Map.of(
         "conformance/cjk-v2/03-v2-keywords-all.aster",
         "Java 语法不支持 for-each（对每个 … 属于 …）；该用例对 java 的契约仅为规范化一致性（normalize-cjk-conformance）");
 
@@ -67,16 +67,18 @@ class DeclarationResolverCorpusTest {
      */
     private static final Map<String, String> IR_REWRITTEN_WITHOUT_VOCABULARY = Map.of(
         "tier1-parity/vocab-de/case-only-fields.aster",
-        "引用 p.Alter 与声明字段 alter 仅大小写不同，R2 按 ADR 0051 §6.3 大小写折叠解析为 p.alter（written=p.Alter）");
+        "引用 p.Alter 与声明字段 alter 仅大小写不同，R2 按 ADR 0051 §6.3 大小写折叠解析为 p.alter（written=p.Alter）",
+        "tier1-equivalence/policies/pattern-nested-name-matches-enum-member.aster",
+        "Java 把中文裸名词法化为 TYPE_IDENT、解析为无参 PatCtor；嵌套位置的 其余 不是成员，R2 按 ADR 0055 #16 改写为绑定 PatName");
 
     /** 语料文件的引擎声明；lexicon 缺省为 en-US。 */
     private record Meta(boolean java, boolean reject, String lexicon) {}
 
     /** 纳入且解析成功的语料文件及其 AST（NoProfileIrUnchangedTest 共用）。 */
-    record Parsed(Path file, Module module) {}
+    public record Parsed(Path file, Module module) {}
 
     /** 按 meta 驱动纳入语料并解析；断言纳入的文件全部解析成功（已知缺口除外）。 */
-    static List<Parsed> parseCorpus(String label) throws IOException {
+    public static List<Parsed> parseCorpus(String label) throws IOException {
         assumeTrue(Files.isDirectory(CORPUS), "缺少 aster-lang-test/corpus");
         List<Path> files;
         try (Stream<Path> walk = Files.walk(CORPUS)) {

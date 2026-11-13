@@ -7,9 +7,7 @@ import aster.core.ir.CoreModel;
 import aster.core.resolve.ResolutionChoice;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -96,6 +94,7 @@ public final class CoreLowering {
     out.name = canonicalOf(field.name(), field.resolved());
     out.type = lowerType(field.type());
     out.annotations = lowerAnnotations(field.annotations());
+    out.constraints = lowerConstraints(field.constraints());
     out.typeInferred = field.typeInferred();
     return out;
   }
@@ -123,19 +122,18 @@ public final class CoreLowering {
         out.params.add(lowerParam(param));
       }
     }
-    // 返回类型注解必须先 apply 到 lowered ret 上，否则 @pii 标记会丢失，
-    // 后续 annotateFuncPii(extractPiiFromType) 也无法识别返回值的 PII 等级。
+    // 返回类型注解必须先 apply 到 lowered ret 上，否则 @pii 标记会丢失（PiiType 包装是 PII 检查的唯一依据）。
     CoreModel.Type loweredRet = func.retType() == null ? null : lowerType(func.retType());
     out.ret = applyTypeAnnotations(loweredRet, func.retType(), func.retAnnotations());
     out.retTypeInferred = func.retTypeInferred();
     out.annotations = lowerAnnotations(func.annotations());
     out.retAnnotations = lowerAnnotations(func.retAnnotations());
     out.effects = func.effects() == null ? new ArrayList<>() : new ArrayList<>(func.effects());
+    out.effectParams = new ArrayList<>(func.effectParams());
     out.effectCaps = func.effectCaps() == null ? new ArrayList<>() : new ArrayList<>(func.effectCaps());
     out.effectCapsExplicit = func.effectCapsExplicit();
     out.body = func.body() == null ? emptyBlock(func.span()) : lowerBlock(func.body());
     out.origin = withResolution(spanToOrigin(func.span()), func.resolved());
-    annotateFuncPii(out);
     return out;
   }
 
@@ -144,7 +142,39 @@ public final class CoreLowering {
     out.name = param.name();
     out.type = param.type() == null ? null : lowerType(param.type());
     out.annotations = lowerAnnotations(param.annotations());
+    out.constraints = lowerConstraints(param.constraints());
     out.typeInferred = param.typeInferred();
+    return out;
+  }
+
+  /** ADR 0055 #4：约束原样透传；Range 两端由字面量原文求规范十进制串，origin 取约束自身的位置。 */
+  private List<CoreModel.Constraint> lowerConstraints(List<Constraint> constraints) {
+    List<CoreModel.Constraint> out = new ArrayList<>();
+    if (constraints == null) {
+      return out;
+    }
+    for (Constraint c : constraints) {
+      out.add(switch (c) {
+        case Constraint.Required r -> {
+          CoreModel.Constraint.Required req = new CoreModel.Constraint.Required();
+          req.origin = spanToOrigin(r.span());
+          yield req;
+        }
+        case Constraint.Range r -> {
+          CoreModel.Constraint.Range range = new CoreModel.Constraint.Range();
+          range.min = r.min() == null ? null : canonicalDecimal(r.min());
+          range.max = r.max() == null ? null : canonicalDecimal(r.max());
+          range.origin = spanToOrigin(r.span());
+          yield range;
+        }
+        case Constraint.Pattern p -> {
+          CoreModel.Constraint.Pattern pat = new CoreModel.Constraint.Pattern();
+          pat.regexp = p.regexp();
+          pat.origin = spanToOrigin(p.span());
+          yield pat;
+        }
+      });
+    }
     return out;
   }
 
@@ -364,7 +394,7 @@ public final class CoreLowering {
       }
       case Expr.Double dbl -> {
         CoreModel.DoubleE out = new CoreModel.DoubleE();
-        out.value = dbl.value();
+        out.value = canonicalDecimal(dbl.lexeme());
         out.origin = spanToOrigin(dbl.span());
         yield out;
       }
@@ -483,14 +513,12 @@ public final class CoreLowering {
       case Pattern.PatternCtor ctor -> {
         CoreModel.PatCtor out = new CoreModel.PatCtor();
         out.typeName = canonicalOf(ctor.typeName(), ctor.resolved());
-        out.names = ctor.names() == null ? new ArrayList<>() : new ArrayList<>(ctor.names());
+        // v2 没有 names（ADR 0055 #15）：AST 的 names 只是 args 中 PatternName 的冗余投影
+        out.args = new ArrayList<>();
         if (ctor.args() != null) {
-          out.args = new ArrayList<>();
           for (Pattern arg : ctor.args()) {
             out.args.add(lowerPattern(arg));
           }
-        } else {
-          out.args = null;
         }
         out.origin = withResolution(spanToOrigin(ctor.span()), ctor.resolved());
         // 主语类型在 R1 未知的用户构造器（含 Java 的裸名构造器 `When Hoch,`）留给 R2；关键词构造器不查词汇
@@ -608,120 +636,38 @@ public final class CoreLowering {
   private CoreModel.Type wrapWithPiiType(CoreModel.Type baseType, Annotation annotation, Type source) {
     CoreModel.PiiType pii = new CoreModel.PiiType();
     pii.baseType = baseType;
-    pii.sensitivity = annotationValue(annotation, "level", "$0");
-    pii.category = annotationValue(annotation, "category", "$1");
+    CoreModel.Annotation lowered = lowerAnnotation(annotation);
+    pii.sensitivity = argText(lowered, "level", "$0");
+    pii.category = argText(lowered, "category", "$1");
     pii.origin = source == null ? null : spanToOrigin(source.span());
     return pii;
   }
 
-  private String annotationValue(Annotation annotation, String... keys) {
-    if (annotation == null || annotation.params() == null || annotation.params().isEmpty()) {
-      return "";
-    }
-    Map<String, Object> params = annotation.params();
-    for (String key : keys) {
-      Object value = params.get(key);
-      if (value != null) {
-        return value.toString();
+  /** 按名取注解参数并转为文本：依次尝试给出的参数名（具名优先、位置参数 $n 兜底），都没有时为空串。 */
+  private static String argText(CoreModel.Annotation annotation, String... names) {
+    for (String name : names) {
+      java.util.Optional<Object> value = annotation.arg(name);
+      if (value.isPresent()) {
+        return value.get().toString();
       }
     }
     return "";
   }
 
-  private void annotateFuncPii(CoreModel.Func func) {
-    if (func == null) {
-      return;
+  /**
+   * 规范十进制串（ADR 0055 §5）：按源码字面量构造 BigDecimal，去尾随零后输出无指数形式；{@code -0} 归一为 {@code "0"}。
+   * 全程任意精度，不经二进制浮点，所以 {@code 1e-7} 得到 {@code 0.0000001}、{@code 1E3} 得到 {@code 1000}。
+   *
+   * @param literal 十进制字面量原文（可带指数）
+   * @return 满足 schema {@code $defs/CanonicalDecimal} 的字符串
+   */
+  public static String canonicalDecimal(String literal) {
+    java.math.BigDecimal value = new java.math.BigDecimal(literal);
+    if (value.signum() == 0) {
+      return "0";
     }
-    PiiMetadata summary = null;
-    if (func.params != null) {
-      for (CoreModel.Param param : func.params) {
-        summary = mergePiiMeta(summary, extractPiiFromType(param.type));
-      }
-    }
-    summary = mergePiiMeta(summary, extractPiiFromType(func.ret));
-    if (summary == null || summary.level == null || summary.level.isEmpty()) {
-      func.piiLevel = "";
-      func.piiCategories = Collections.emptyList();
-      return;
-    }
-    func.piiLevel = summary.level;
-    func.piiCategories = new ArrayList<>(summary.categories());
+    return value.stripTrailingZeros().toPlainString();
   }
-
-  private PiiMetadata extractPiiFromType(CoreModel.Type type) {
-    if (type == null) {
-      return null;
-    }
-    if (type instanceof CoreModel.PiiType pii) {
-      LinkedHashSet<String> categories = new LinkedHashSet<>();
-      if (pii.category != null && !pii.category.isEmpty()) {
-        categories.add(pii.category);
-      }
-      PiiMetadata nested = extractPiiFromType(pii.baseType);
-      PiiMetadata current = new PiiMetadata(pii.sensitivity == null ? "" : pii.sensitivity, categories);
-      return mergePiiMeta(current, nested);
-    }
-    if (type instanceof CoreModel.Result result) {
-      return mergePiiMeta(extractPiiFromType(result.ok), extractPiiFromType(result.err));
-    }
-    if (type instanceof CoreModel.Maybe maybe) {
-      return extractPiiFromType(maybe.type);
-    }
-    if (type instanceof CoreModel.Option option) {
-      return extractPiiFromType(option.type);
-    }
-    if (type instanceof CoreModel.ListT list) {
-      return extractPiiFromType(list.type);
-    }
-    if (type instanceof CoreModel.MapT map) {
-      return mergePiiMeta(extractPiiFromType(map.key), extractPiiFromType(map.val));
-    }
-    if (type instanceof CoreModel.FuncType funcType) {
-      PiiMetadata meta = null;
-      if (funcType.params != null) {
-        for (CoreModel.Type param : funcType.params) {
-          meta = mergePiiMeta(meta, extractPiiFromType(param));
-        }
-      }
-      return mergePiiMeta(meta, extractPiiFromType(funcType.ret));
-    }
-    if (type instanceof CoreModel.TypeApp app && app.args != null) {
-      PiiMetadata meta = null;
-      for (CoreModel.Type arg : app.args) {
-        meta = mergePiiMeta(meta, extractPiiFromType(arg));
-      }
-      return meta;
-    }
-    return null;
-  }
-
-  private PiiMetadata mergePiiMeta(PiiMetadata left, PiiMetadata right) {
-    if (left == null) return right;
-    if (right == null) return left;
-    String level = maxPiiLevel(left.level, right.level);
-    LinkedHashSet<String> categories = new LinkedHashSet<>(left.categories());
-    categories.addAll(right.categories());
-    return new PiiMetadata(level, categories);
-  }
-
-  private String maxPiiLevel(String a, String b) {
-    String left = a == null ? "" : a;
-    String right = b == null ? "" : b;
-    int leftRank = piiLevelRank(left);
-    int rightRank = piiLevelRank(right);
-    return leftRank >= rightRank ? left : right;
-  }
-
-  private int piiLevelRank(String level) {
-    return switch (level) {
-      case "L1" -> 1;
-      case "L2" -> 2;
-      case "L3" -> 3;
-      default -> 0;
-    };
-  }
-
-  private record PiiMetadata(String level, LinkedHashSet<String> categories) {}
 
   private CoreModel.Block emptyBlock(Span source) {
     CoreModel.Block block = new CoreModel.Block();
@@ -736,17 +682,24 @@ public final class CoreLowering {
     }
     List<CoreModel.Annotation> out = new ArrayList<>(annotations.size());
     for (Annotation annotation : annotations) {
-      CoreModel.Annotation lowered = new CoreModel.Annotation();
-      lowered.name = annotation.name();
-      Map<String, Object> params = annotation.params();
-      LinkedHashMap<String, Object> copied = new LinkedHashMap<>();
-      if (params != null) {
-        copied.putAll(params);
-      }
-      lowered.params = copied;
-      out.add(lowered);
+      out.add(lowerAnnotation(annotation));
     }
     return out;
+  }
+
+  /**
+   * AST 的 params 是按源码顺序插入的 LinkedHashMap（键为 $0/$1… 或参数名，解析期已拒收重名），
+   * 按插入序展开为有序 args（ADR 0055 #3）。
+   */
+  private static CoreModel.Annotation lowerAnnotation(Annotation annotation) {
+    CoreModel.Annotation lowered = new CoreModel.Annotation();
+    lowered.name = annotation.name();
+    List<CoreModel.AnnotationArg> args = new ArrayList<>();
+    if (annotation.params() != null) {
+      annotation.params().forEach((name, value) -> args.add(new CoreModel.AnnotationArg(name, value)));
+    }
+    lowered.args = args;
+    return lowered;
   }
 
   /** 名称解析（ADR 0051）：有 R1 结果时取规范名，否则保留原写法。 */

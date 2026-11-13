@@ -640,7 +640,7 @@ class BaseTypeCheckerTest {
 
   private CoreModel.DoubleE createDouble(double value) {
     var doubleExpr = new CoreModel.DoubleE();
-    doubleExpr.value = value;
+    doubleExpr.value = java.math.BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();
     return doubleExpr;
   }
 

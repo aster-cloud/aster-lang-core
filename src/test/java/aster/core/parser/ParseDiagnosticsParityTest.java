@@ -93,7 +93,7 @@ class ParseDiagnosticsParityTest {
             .filter(code -> !covered.contains(code))
             .toList();
         assertEquals(List.of(), missing);
-        assertEquals(20, Arrays.stream(ErrorCode.values()).filter(e -> e.category() == ErrorCode.Category.SYNTAX).count());
+        assertEquals(21, Arrays.stream(ErrorCode.values()).filter(e -> e.category() == ErrorCode.Category.SYNTAX).count());
         assertTrue(covered.contains("E807"));
     }
 }

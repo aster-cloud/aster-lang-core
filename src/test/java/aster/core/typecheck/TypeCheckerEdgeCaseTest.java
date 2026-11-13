@@ -395,8 +395,11 @@ class TypeCheckerEdgeCaseTest {
     // }
     var pattern = new CoreModel.PatCtor();
     pattern.typeName = "Pair";
-    pattern.names = List.of("x", "x");
-    pattern.args = List.of();
+    var x1 = new CoreModel.PatName();
+    x1.name = "x";
+    var x2 = new CoreModel.PatName();
+    x2.name = "x";
+    pattern.args = List.of(x1, x2);
     pattern.origin = createOrigin();
 
     var kase = new CoreModel.Case();

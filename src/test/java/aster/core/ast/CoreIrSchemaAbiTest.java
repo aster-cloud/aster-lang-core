@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 都会让本测试失败，强制开发者：
  * <ol>
  *   <li>确认这是有意的 breaking change；</li>
- *   <li>bump {@link CoreIrSchemaVersion} 并更新承诺窗口；</li>
+ *   <li>按 ADR 0055 先改 locales 的 Core IR schema，再同步 {@link CoreIrSchemaVersion}；</li>
  *   <li>同步更新下方 golden 清单 + 通告下游消费方（Truffle / TS 解释器 / aster-api）。</li>
  * </ol>
  *
@@ -54,27 +54,20 @@ class CoreIrSchemaAbiTest {
     );
 
     @Test
-    @DisplayName("schema 版本常量与承诺窗口稳定")
+    @DisplayName("schema 版本只有 v2（ADR 0055 D3）")
     void schemaVersionStable() {
-        assertThat(CoreIrSchemaVersion.CURRENT).isEqualTo(CoreIrSchemaVersion.V1);
-        assertThat(CoreIrSchemaVersion.V1.version).isEqualTo("1.0");
-        assertThat(CoreIrSchemaVersion.V1.releasedAt).isEqualTo("2026-06-09");
-        assertThat(CoreIrSchemaVersion.V1.guaranteedUntil).isEqualTo("2027-12-01");
+        assertThat(CoreIrSchemaVersion.CURRENT).isEqualTo(CoreIrSchemaVersion.V2);
+        assertThat(CoreIrSchemaVersion.V2.version).isEqualTo(2);
+        assertThat(CoreIrSchemaVersion.values()).containsExactly(CoreIrSchemaVersion.V2);
     }
 
     @Test
-    @DisplayName("schema 版本兼容性判定")
+    @DisplayName("schema 版本兼容性判定：只接受 2")
     void schemaCompatibility() {
-        // 未声明（旧消费方）→ 向后兼容
-        assertThat(CoreIrSchemaVersion.isCompatible(null)).isTrue();
-        assertThat(CoreIrSchemaVersion.isCompatible("")).isTrue();
-        // v1 各种形态
-        assertThat(CoreIrSchemaVersion.isCompatible("1")).isTrue();
-        assertThat(CoreIrSchemaVersion.isCompatible("1.0")).isTrue();
-        assertThat(CoreIrSchemaVersion.isCompatible("1.3")).isTrue();
-        // 未来 major 不兼容当前 core
-        assertThat(CoreIrSchemaVersion.isCompatible("2")).isFalse();
-        assertThat(CoreIrSchemaVersion.isCompatible("2.0")).isFalse();
+        assertThat(CoreIrSchemaVersion.isCompatible(2)).isTrue();
+        assertThat(CoreIrSchemaVersion.isCompatible(1)).isFalse();
+        assertThat(CoreIrSchemaVersion.isCompatible(3)).isFalse();
+        assertThat(CoreIrSchemaVersion.isCompatible(0)).isFalse();
     }
 
     @Test

@@ -150,7 +150,16 @@ topLevelDecl
  *     ...
  */
 funcDecl
-    : (annotation NEWLINE*)* RULE nameIdent typeParamList? givenParamList? COMMA? (PRODUCE annotatedType?)? (DOT capabilityAnnotation? funcBody | funcBody | DOT)
+    : (annotation NEWLINE*)* RULE nameIdent typeParamList? effectParamList? givenParamList? COMMA? (PRODUCE annotatedType?)? (DOT capabilityAnnotation? funcBody | funcBody | DOT)
+    ;
+
+/**
+ * 效应参数列表（ADR 0055 #5、#6；与 aster-lang-ts decl-parser parseEffectParams 同语法）
+ * 语法: Rule relay <E> given x ...  /  Rule f <E, F> ...  /  Rule f <E and F> ...
+ * 写在类型参数之后、形参之前；效应参数名是大写标识符。
+ */
+effectParamList
+    : LT TYPE_IDENT ((COMMA | AND) TYPE_IDENT)* GT
     ;
 
 // ADR 0028：函数体形态。缩进块（现有）走 `COLON NEWLINE block`；显式块（新增）走
@@ -200,9 +209,16 @@ param
 /**
  * 能力标注
  * 语法: It performs io [Http, Sql, Time]
+ *       It performs io with Http and E      （与 aster-lang-ts parseEffectList 同形）
+ *       It performs E                       （E 为已声明的效应参数）
+ * effect 位置与列表中的名字统一由 AstBuilder 分类：io / cpu（大小写不敏感）是授权型效应，pure 不授权，
+ * 已声明的效应参数是效应变量，其余大写名字是能力。
  */
 capabilityAnnotation
-    : IT PERFORMS IDENT (LBRACKET TYPE_IDENT (COMMA TYPE_IDENT)* RBRACKET)?
+    : IT PERFORMS effect=(IDENT | TYPE_IDENT)
+      ( LBRACKET caps+=TYPE_IDENT (COMMA caps+=TYPE_IDENT)* RBRACKET
+      | (WITH | AND) caps+=(IDENT | TYPE_IDENT) (AND caps+=(IDENT | TYPE_IDENT))*
+      )?
     ;
 
 /**
@@ -252,13 +268,22 @@ field
     ;
 
 /**
- * 字段/参数约束修饰符（与 TS constraint-parser 对齐）。
- * required：必填；between X and Y：范围。当前仅 parse 接受以对齐双引擎语法，
- * 约束语义（校验执行）作为后续阶段，不进 Core IR fingerprint（结构级比较）。
+ * 字段/参数约束修饰符（与 TS constraint-parser 对齐，ADR 0055 #4）。
+ * required：必填；between X and Y：范围，两端只能是数值字面量（可带负号），规范十进制串由 lowering 从原文求出；
+ * at least X / at most Y：单边范围（另一端为 null）；matching "…" 或 matching pattern "…"：正则。
+ * 都降级为 Core IR 的 Field / Param.constraints。at least / at most 复用比较运算的多词 token，
+ * 其中只有 at least / at most 两种写法是约束，AstBuilder 拒收其它写法（如 greater than or equal to）。
  */
 fieldConstraint
     : REQUIRED
-    | BETWEEN expr AND expr
+    | BETWEEN rangeBound AND rangeBound
+    | GREATER_THAN_OR_EQUAL_WORD rangeBound
+    | LESS_THAN_OR_EQUAL_WORD rangeBound
+    | MATCHING IDENT? STRING_LITERAL
+    ;
+
+rangeBound
+    : MINUS? (INT_LITERAL | FLOAT_LITERAL)
     ;
 
 nameIdent
@@ -320,6 +345,9 @@ structKeywordName
     | COMPENSATE
     | BACKOFF
     | SECONDS
+    // ADR 0055 #4：约束关键词 matching 是 lexer 硬 token，在标识符位置（成员名、变量名、字段、参数）
+    // 同样软关键字，`obj.matching` 等写法不受影响；约束位置仍按 MATCHING token 分派。
+    | MATCHING
     ;
 
 /**
@@ -390,8 +418,10 @@ annotationArg
 annotationValue
     : STRING_LITERAL
     | INT_LITERAL
+    // FLOAT / LONG / NULL 只为给出 E067 而接受（ADR 0055 #3：注解值只能是 string / Int32 / boolean），见 AstBuilder
     | FLOAT_LITERAL
     | LONG_LITERAL
+    | NULL_LITERAL
     | BOOL_LITERAL
     | IDENT
     | TYPE_IDENT

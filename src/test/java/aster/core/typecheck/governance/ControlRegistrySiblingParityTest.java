@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * 本地开发为兄弟目录 ../aster-lang-locales；CI（ci.yml）把 locales checkout 到工作区子目录
  * ./aster-lang-locales。CI 中两者都不存在即失败——静默跳过的门禁不是门禁；仅本地允许跳过。
  */
-class ControlRegistrySiblingParityTest {
+public class ControlRegistrySiblingParityTest {
   static final List<Path> CANDIDATES = List.of(
       Path.of("..", "aster-lang-locales", "controls", "registry.json"),
       Path.of("aster-lang-locales", "controls", "registry.json"));
@@ -48,7 +48,7 @@ class ControlRegistrySiblingParityTest {
   }
 
   /** 返回首个存在的候选；全部缺失时 CI 下失败，本地返回空以便跳过。 */
-  static Optional<Path> locate(List<Path> candidates, String ciEnv) {
+  public static Optional<Path> locate(List<Path> candidates, String ciEnv) {
     Optional<Path> found = candidates.stream().filter(Files::exists).findFirst();
     if (found.isEmpty() && ciEnv != null && !ciEnv.isBlank()) {
       fail("CI 中必须 checkout aster-lang-locales 以校验控制项注册表副本一致性，以下路径均不存在："

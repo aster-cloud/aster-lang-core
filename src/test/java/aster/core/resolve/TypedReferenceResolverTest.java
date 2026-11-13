@@ -192,7 +192,7 @@ class TypedReferenceResolverTest {
     private static Decl.Func withBody(Decl.Func f, Block body) {
         return new Decl.Func(f.name(), f.nameSpan(), f.typeParams(), f.params(), f.retType(), f.annotations(),
             f.retAnnotations(), body, f.effects(), f.effectCaps(), f.effectCapsExplicit(), f.span(),
-            f.retTypeInferred(), f.typeParamsInferred(), f.resolved());
+            f.retTypeInferred(), f.resolved(), f.effectParams());
     }
 
     // ---- Let 无注解右侧：只用显式声明类型 ----
@@ -450,7 +450,7 @@ class TypedReferenceResolverTest {
             CoreModel.PatCtor pat = assertInstanceOf(CoreModel.PatCtor.class,
                 stmt(func(r.module(), "f"), 1, CoreModel.Match.class).cases.get(0).pattern);
             assertEquals("Driver", pat.typeName);
-            assertEquals(List.of("a"), pat.names);
+            assertEquals("a", assertInstanceOf(CoreModel.PatName.class, pat.args.get(0)).name);
         }
 
         @Test
@@ -581,7 +581,9 @@ class TypedReferenceResolverTest {
             assertEquals(List.of(), r.r2Codes());
             List<JsonNode> origins = new ArrayList<>();
             collect(MAPPER.valueToTree(r.module()), new ArrayList<>(), origins);
-            assertEquals(List.of(), origins.stream().filter(o -> o.has("written") || o.has("role")).toList());
+            // ADR 0055 #17：written / role 恒输出，规范名源码上恒为 null
+            assertEquals(List.of(), origins.stream()
+                .filter(o -> !o.path("written").isNull() || !o.path("role").isNull()).toList());
         }
 
         @Test
@@ -843,8 +845,8 @@ class TypedReferenceResolverTest {
             + "Rule f given x as Fahrer, produce Int:\n  Return x.alter.\n");
         CoreModel.Module core = new CoreLowering().lowerModule(ast);
         String json = MAPPER.writeValueAsString(core);
-        assertFalse(json.contains("\"written\""));
-        assertFalse(json.contains("\"role\""));
+        assertFalse(json.contains("\"written\":\""), json);
+        assertFalse(json.contains("\"role\":\""), json);
         assertEquals("x.alter", nameOf(returned(func(core, "f"), 0)).name);
         assertEquals("Fahrer", ((CoreModel.Data) core.decls.get(0)).name);
     }

@@ -69,6 +69,10 @@ dependencies {
     api("com.fasterxml.jackson.core:jackson-databind:2.18.2")
     api("com.fasterxml.jackson.core:jackson-annotations:2.18.2")
 
+    // Core IR v2 JSON Schema 校验（ADR 0055 §5 读方流程第 ② 步）。须 ≥ 2.0：pattern 的 `$` 按 ECMA-262
+    // 只匹配输入结尾（locales 夹具 bad-decimal-trailing-newline 检出低版本）。
+    implementation("com.networknt:json-schema-validator:2.0.1")
+
     // 测试框架
     testImplementation("org.junit.jupiter:junit-jupiter:6.0.0")
     testImplementation("org.assertj:assertj-core:3.27.3")

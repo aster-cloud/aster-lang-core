@@ -1,7 +1,5 @@
 package aster.core.ir;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,8 +7,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * Func.retTypeInferred 的 IR JSON 协议：false 不输出（既有 IR 与哈希不变），true 输出，
- * 读取 TS 产出的带该字段的 IR 时能正确恢复。
+ * Func.retTypeInferred 的 IR JSON 协议（ADR 0055 #9、#19）：恒输出，false 与 true 都写出并能往返。
  */
 class RetTypeInferredSerializationTest {
 
@@ -30,9 +27,9 @@ class RetTypeInferredSerializationTest {
   }
 
   @Test
-  void falseIsOmittedFromJson() throws Exception {
+  void falseIsAlwaysSerialized() throws Exception {
     String json = mapper.writeValueAsString(func(false));
-    assertFalse(json.contains("retTypeInferred"), json);
+    assertTrue(json.contains("\"retTypeInferred\":false"), json);
   }
 
   @Test
@@ -41,15 +38,5 @@ class RetTypeInferredSerializationTest {
     assertTrue(json.contains("\"retTypeInferred\":true"), json);
     var back = mapper.readValue(json, CoreModel.Func.class);
     assertTrue(back.retTypeInferred);
-  }
-
-  @Test
-  void tsStyleIrWithFlagIsRead() throws Exception {
-    String tsIr = "{\"kind\":\"Func\",\"name\":\"r\",\"typeParams\":[],\"params\":[],"
-        + "\"ret\":{\"kind\":\"TypeName\",\"name\":\"Unknown\"},\"retTypeInferred\":true,\"effects\":[],"
-        + "\"body\":{\"kind\":\"Block\",\"statements\":[]}}";
-    var decl = mapper.readValue(tsIr, CoreModel.Decl.class);
-    assertTrue(decl instanceof CoreModel.Func f && f.retTypeInferred);
-    assertEquals("Unknown", ((CoreModel.TypeName) ((CoreModel.Func) decl).ret).name);
   }
 }

@@ -1,5 +1,6 @@
 package aster.core.ir;
 
+import aster.core.ast.CoreIrSchemaVersion;
 import aster.core.ast.ResolvedRole;
 import com.fasterxml.jackson.annotation.*;
 import java.util.*;
@@ -15,6 +16,11 @@ import java.util.*;
  * - JSON 序列化：通过 Jackson 注解支持与 TypeScript 版本互操作
  * - 类型安全：使用 sealed 接口限制子类型
  * - 位置追踪：所有节点携带 Origin 信息用于错误报告
+ * <p>
+ * JSON 形状即 Core IR v2（ADR 0055），由 {@code core-ir/core-ir.v2.schema.json} 定义：所有字段恒输出
+ * （标量 / 对象无值为 null，列表为空数组，布尔为 false），没有 {@code @JsonInclude} 省略规则。
+ * 读写 JSON 一律经 {@link CoreIrJson}（严格读方 + 规范序列化），{@code CoreModelSchemaShapeTest} 核对
+ * 每个类的属性集与 schema 的 {@code $defs} 完全相等。
  *
  * @since 0.3.0
  */
@@ -37,11 +43,9 @@ public final class CoreModel {
     public String file;        // 源文件路径
     public Position start;     // 起始位置
     public Position end;       // 结束位置
-    /** ADR 0051：源码原写法，仅在与规范名不同时写入；缺省不输出，未改写的 IR 逐字节不变。 */
-    @JsonInclude(JsonInclude.Include.NON_NULL)
+    /** ADR 0051：源码原写法，仅在与规范名不同时写入；未改写时为 null（恒输出）。 */
     public String written;
-    /** ADR 0051：该写法按哪种角色解析，与 written 同时出现。 */
-    @JsonInclude(JsonInclude.Include.NON_NULL)
+    /** ADR 0051：该写法按哪种角色解析，与 written 同时为 null 或非 null。 */
     public ResolvedRole role;
 
     /**
@@ -78,9 +82,10 @@ public final class CoreModel {
    */
   public static final class Module {
     public String kind = "Module";  // 类型标识（与 TypeScript Core IR 保持一致）
-    public String name;             // 模块名称
-    // ADR 0046：声明的治理档案 id；缺省不输出，保证未声明档案的模块 IR 逐字节不变
-    @JsonInclude(JsonInclude.Include.NON_NULL)
+    /** ADR 0055 #1：IR 形状版本，恒为整数 2，读方遇到其它值即拒收。 */
+    public int schemaVersion = CoreIrSchemaVersion.CURRENT.version;
+    public String name;             // 模块名称（无模块头时为 null）
+    /** ADR 0046：声明的治理档案 id；未声明为 null。 */
     public String profile;
     public List<Decl> decls;        // 顶层声明列表
     public Origin origin;           // 源码位置
@@ -142,24 +147,27 @@ public final class CoreModel {
     public List<String> typeParams;        // 类型参数列表（泛型，如 <T, U>）
     public List<Param> params;             // 形参列表
     public Type ret;                       // 返回类型
-    /** 返回类型由推断得到（源码省略 produce 类型）：ret 仅为占位，类型检查跳过返回类型比对，与 TS IR 的同名字段对齐。 */
-    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+    /** 返回类型由推断得到（源码省略 produce 类型）：ret 仅为占位，类型检查跳过返回类型比对（ADR 0055 #9）。 */
     public boolean retTypeInferred;
     public List<Annotation> annotations = Collections.emptyList(); // 函数声明注解（@entry 等）
     public List<Annotation> retAnnotations = Collections.emptyList(); // 返回类型上的注解（@pii 等）
-    public List<String> effects;           // 效果声明列表（IO、CPU、Secrets 等）
+    /**
+     * ADR 0055 #5：只含授权型具体效应 {@code io} / {@code cpu}（小写）与已在 {@link #effectParams} 中声明的效应变量，
+     * 按首次声明顺序、不重复；pure、async 与未知名不写入。
+     */
+    public List<String> effects = Collections.emptyList();
+    /** ADR 0055 #6：源码声明的效应参数（{@code Rule f<E>}），无则为空数组。 */
+    public List<String> effectParams = Collections.emptyList();
     public List<String> effectCaps = Collections.emptyList(); // 能力列表（Http、Sql 等）
     public boolean effectCapsExplicit;     // 是否显式声明能力
-    public String piiLevel = "";           // 聚合后的 PII 等级（L1/L2/L3）
-    public List<String> piiCategories = Collections.emptyList(); // 聚合后的 PII 类别
     public Block body;                     // 函数体
     public Origin origin;
     /**
      * ADR 0046 §11 D2：返回 Verdict 的规则对第一个参数读取的源码字段路径（点连接，字典序去重；
-     * {@code ""} 为参数本身，{@code ["*"]} 为无法静态确定）。只在声明了档案的模块中写入，由名称解析 R2
-     * 之后的 {@code InputRefsAnalyzer} 计算；其余函数为 null 且不输出，未声明档案的模块 IR 逐字节不变。
+     * {@code ""} 为参数本身，{@code ["*"]} 为无法静态确定）。由名称解析 R2 之后的 {@code InputRefsAnalyzer} 计算。
+     * ADR 0055 #12：v2 唯一可空的列表——null 表示未计算（非档案模块，或不返回 Verdict 的规则），
+     * {@code []} 表示已计算且不读任何输入；合法状态由 {@link CoreIrJson#validateCoreIrInvariants} 检查。
      */
-    @JsonInclude(JsonInclude.Include.NON_NULL)
     public List<String> inputRefs;
   }
 
@@ -170,16 +178,17 @@ public final class CoreModel {
     public String name;                          // 字段名
     public Type type;                            // 字段类型
     public List<Annotation> annotations;         // 注解列表（默认空）
+    /** ADR 0055 #4：源码约束（required / between / matching），按源码顺序。 */
+    public List<Constraint> constraints;
     /**
      * 源码未声明类型：type 只是按字段名推断的占位，类型检查器在成员访问时把它当动态值（Unknown）。
-     * 不进 IR JSON（与 TS 的 WeakSet 旁路表同一取舍）：golden 与 TS↔Java IR 指纹不变；
-     * 从 JSON 读回的 IR 查不到标记，退回按 type 检查。
+     * ADR 0055 #9：恒输出，读方据此知道类型只是占位。
      */
-    @JsonIgnore
     public boolean typeInferred;
 
     public Field() {
       this.annotations = Collections.emptyList();
+      this.constraints = Collections.emptyList();
     }
   }
 
@@ -190,27 +199,87 @@ public final class CoreModel {
     public String name;                          // 参数名
     public Type type;                            // 参数类型
     public List<Annotation> annotations;         // 注解列表（默认空）
-    /**
-     * 源码未标注类型：type 只是按参数名推断的占位，名称解析（ADR 0051 R2）视其类型未知。
-     * 与 {@link Field#typeInferred} 同为不进 IR JSON 的旁路信息。
-     */
-    @JsonIgnore
+    /** ADR 0055 #4：源码约束，同 {@link Field#constraints}。 */
+    public List<Constraint> constraints;
+    /** 源码未标注类型：type 只是按参数名推断的占位，名称解析（ADR 0051 R2）视其类型未知；恒输出（ADR 0055 #9）。 */
     public boolean typeInferred;
 
     public Param() {
       this.annotations = Collections.emptyList();
+      this.constraints = Collections.emptyList();
     }
   }
 
   /**
-   * 注解定义（元数据标注，如 @sensitive、@pii）
+   * 注解定义（元数据标注，如 @sensitive、@pii）。
+   * <p>
+   * ADR 0055 #3：{@code args} 是有序数组而非映射——规范序列化会给对象键排序，映射一旦排序就丢了源码顺序。
+   * 位置参数按出现顺序命名为 {@code $0}、{@code $1}…（序号只在位置参数之间计数），具名参数用其名字；
+   * 同一注解内参数名唯一（解析期 E900，不变式 dup-annotation-arg 兜底）。
    */
   public static final class Annotation {
     public String name;                              // 注解名称
-    public Map<String, Object> params;               // 注解参数（键值对，默认空）
+    public List<AnnotationArg> args;                 // 注解参数（源码顺序，无参为空数组）
 
     public Annotation() {
-      this.params = Collections.emptyMap();
+      this.args = Collections.emptyList();
+    }
+
+    /** 按参数名取值（位置参数用 {@code $0}、{@code $1}…）；所有读方都经此取参数，不直接遍历 args。 */
+    public Optional<Object> arg(String name) {
+      if (args == null) {
+        return Optional.empty();
+      }
+      for (AnnotationArg a : args) {
+        if (a.name().equals(name)) {
+          return Optional.ofNullable(a.value());
+        }
+      }
+      return Optional.empty();
+    }
+  }
+
+  /**
+   * 注解参数（ADR 0055 #3）：value 只能是 String、Integer（Int32）或 Boolean。
+   *
+   * @param name  参数名：位置参数为 {@code $n}，具名参数为源码名字
+   * @param value 参数值
+   */
+  public record AnnotationArg(String name, Object value) {}
+
+  // ========== 约束 (Constraint) ==========
+
+  /**
+   * 字段 / 形参约束（ADR 0055 #4）。与其它带 kind 的节点一样必带 origin（ADR 0055 #17）。
+   * 嵌套命名是为了不与模式联合 {@link Pattern} 冲突（schema 中模式联合同样改名为 {@code Pat}）。
+   */
+  @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "kind")
+  @JsonSubTypes({
+    @JsonSubTypes.Type(value = Constraint.Required.class, name = "Required"),
+    @JsonSubTypes.Type(value = Constraint.Range.class, name = "Range"),
+    @JsonSubTypes.Type(value = Constraint.Pattern.class, name = "Pattern")
+  })
+  public sealed interface Constraint permits Constraint.Required, Constraint.Range, Constraint.Pattern {
+
+    /** 必填（源码 {@code required}）。 */
+    @JsonTypeName("Required")
+    final class Required implements Constraint {
+      public Origin origin;
+    }
+
+    /** 范围（源码 {@code between X and Y}）：min / max 为规范十进制串（ADR 0055 §5），至少一个非 null。 */
+    @JsonTypeName("Range")
+    final class Range implements Constraint {
+      public String min;
+      public String max;
+      public Origin origin;
+    }
+
+    /** 正则（源码 {@code matching "…"}）。 */
+    @JsonTypeName("Pattern")
+    final class Pattern implements Constraint {
+      public String regexp;
+      public Origin origin;
     }
   }
 
@@ -395,11 +464,8 @@ public final class CoreModel {
   public static final class Workflow implements Stmt {
     public List<Step> steps = Collections.emptyList();     // 步骤列表
     public List<String> effectCaps = Collections.emptyList(); // 工作流声明的能力
-    // retry / timeout / Step.compensate 为 null 时不输出键，与 TS IR（undefined 省略）一致
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public RetryPolicy retry;                              // 重试策略
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public Timeout timeout;                                // 超时配置
+    public RetryPolicy retry;                              // 重试策略（未声明为 null）
+    public Timeout timeout;                                // 超时配置（未声明为 null）
     public Origin origin;
   }
 
@@ -407,8 +473,7 @@ public final class CoreModel {
     public String kind = "step";                   // 与 TS IR 对齐
     public String name;                            // 步骤名称
     public Block body;                             // 主体代码块
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public Block compensate;                       // 补偿代码块（可选）
+    public Block compensate;                       // 补偿代码块（没有为 null）
     public List<String> dependencies = Collections.emptyList(); // 依赖步骤名称
     public List<String> effectCaps = Collections.emptyList();   // 步骤能力
     public Origin origin;
@@ -453,11 +518,14 @@ public final class CoreModel {
     public Origin origin;
   }
 
+  /**
+   * 构造器 / 枚举变体模式（ADR 0055 #15、#16）：0 参变体为 {@code args:[]}；位置绑定由 args 中的
+   * {@link PatName} 表达（v1 的 names 已删除）。
+   */
   @JsonTypeName("PatCtor")
   public static final class PatCtor implements Pattern {
     public String typeName;         // 构造器名称
-    public List<String> names;      // 位置绑定变量名列表（遗留字段，保持向后兼容）
-    public List<Pattern> args;      // 嵌套模式列表（新字段，用于递归模式匹配）
+    public List<Pattern> args = Collections.emptyList(); // 嵌套模式列表
     public Origin origin;
     /** 留给 R2 的解析标记（ADR 0051），不进 IR JSON。 */
     @JsonIgnore
@@ -558,9 +626,13 @@ public final class CoreModel {
     public Origin origin;
   }
 
+  /**
+   * 浮点字面量（ADR 0055 #18）：value 是规范十进制串（无指数、无前导零、无尾随零，不存在 "-0"），
+   * 由 lowering 从源码字面量经 BigDecimal 求出；需要浮点数时由读方解析。
+   */
   @JsonTypeName("Double")
   public static final class DoubleE implements Expr {
-    public double value;    // 浮点数
+    public String value;    // 规范十进制串
     public Origin origin;
   }
 
@@ -632,7 +704,6 @@ public final class CoreModel {
   @JsonTypeName("Lambda")
   public static final class Lambda implements Expr {
     public List<Param> params;      // 参数列表
-    @JsonAlias("retType")           // 兼容 TypeScript 使用的 retType 字段名
     public Type ret;                // 返回类型
     public Block body;              // 函数体
     public List<String> captures;   // 捕获的外部变量列表

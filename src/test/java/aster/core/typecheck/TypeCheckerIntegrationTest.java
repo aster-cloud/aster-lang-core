@@ -582,11 +582,15 @@ class TypeCheckerIntegrationTest {
     );
   }
 
-  /** 构造 `case Ctor(names...) -> body` 的分支。 */
+  /** 构造 `case Ctor(names...) -> body` 的分支：每个名字是 args 中的一个 PatName。 */
   private CoreModel.Case ctorCase(String typeName, List<String> names, CoreModel.Stmt body) {
     var ctor = new CoreModel.PatCtor();
     ctor.typeName = typeName;
-    ctor.names = names;
+    ctor.args = names.stream().map(n -> {
+      var p = new CoreModel.PatName();
+      p.name = n;
+      return (CoreModel.Pattern) p;
+    }).toList();
     var kase = new CoreModel.Case();
     kase.pattern = ctor;
     kase.body = body;
@@ -604,7 +608,7 @@ class TypeCheckerIntegrationTest {
   void ctorPatternBindingIsInScope() {
     // ★issue #132 标题里的原始例子就是 `match x { case Some(v) -> v }`——PatCtor。
     //   此前两条测试全用 PatName，PatCtor 整条路径零覆盖：
-    //   definePatternBindings 里 ctor.names 循环可以整块删掉而全绿。
+    //   definePatternBindings 里 ctor.args 循环可以整块删掉而全绿。
     var match = matchOn("x", ctorCase("Some", List.of("v"), createReturnStmt(createNameExpr("v"))));
 
     var module = createModuleWithFunction(
@@ -624,11 +628,12 @@ class TypeCheckerIntegrationTest {
     //   match x { case Some(Some(inner)) -> inner }
     var innerCtor = new CoreModel.PatCtor();
     innerCtor.typeName = "Some";
-    innerCtor.names = List.of("inner");
+    var inner = new CoreModel.PatName();
+    inner.name = "inner";
+    innerCtor.args = List.of(inner);
 
     var outerCtor = new CoreModel.PatCtor();
     outerCtor.typeName = "Some";
-    outerCtor.names = List.of();
     outerCtor.args = List.of(innerCtor);
 
     var kase = new CoreModel.Case();

@@ -99,8 +99,12 @@ jobs:
         working-directory: aster-lang-test/packages/jvm
         run: ./gradlew publishToMavenLocal -x test
 
-      # Phase 3: 运行 core 完整构建（含测试）
+      # Phase 3: 运行 core 完整构建（含测试）。ASTER_LOCALES_DIR 让语言包按源码 composite 联编，
+      # 并供 Core IR v2 schema / 夹具的 sibling parity 测试定位 locales（ADR 0055 §3；同名分支
+      # feat/core-ir-v2 存在时 checkout-sibling 取该分支，P1 列车之后改回 tag）。
       - name: Test
+        env:
+          ASTER_LOCALES_DIR: ${{ github.workspace }}/aster-lang-locales
         run: ./gradlew test
 
   # Strict tier1 dual-engine parity gate. Mirrors aster-lang-test's
