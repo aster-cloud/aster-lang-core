@@ -96,7 +96,7 @@ class DualEngineCrossLangTest {
             JsonNode expected = c.path("expectedOutput");
 
             tests.add(DynamicTest.dynamicTest(caseName, () -> {
-                JsonNode actual = invokeTsEngine(runner, source, caseEntry, input);
+                JsonNode actual = invokeTsEngine(runner, source, lexiconOf(sample), caseEntry, input);
                 if (expectsError) {
                     assertThat(actual.path("success").asBoolean())
                         .as("TS engine must reject %s / %s", displayName, caseName)
@@ -116,10 +116,17 @@ class DualEngineCrossLangTest {
         return DynamicContainer.dynamicContainer(displayName, tests);
     }
 
-    private JsonNode invokeTsEngine(Path runner, String source, String entry, JsonNode input)
+    /** 样本 meta 声明的词法表（缺省 en-US）：非英文样本须按其词法表编译，TS runner 据 request.lexicon 选择。 */
+    private static String lexiconOf(CorpusLoader.Sample sample) {
+        return sample.meta == null || sample.meta.lexicon == null || sample.meta.lexicon.isBlank()
+            ? "en-US" : sample.meta.lexicon;
+    }
+
+    private JsonNode invokeTsEngine(Path runner, String source, String lexicon, String entry, JsonNode input)
         throws IOException, InterruptedException {
         ObjectNode request = MAPPER.createObjectNode();
         request.put("source", source);
+        request.put("lexicon", lexicon);
         request.put("entry", entry);
         request.set("input", input);
 
