@@ -273,7 +273,6 @@ nameIdent
     | VERSION
     | REQUIRED
     | BETWEEN
-    | MATCHING
     | structKeywordName
     ;
 
@@ -326,6 +325,9 @@ structKeywordName
     | COMPENSATE
     | BACKOFF
     | SECONDS
+    // ADR 0055 #4：约束关键词 matching 是 lexer 硬 token，在标识符位置（成员名、变量名、字段、参数）
+    // 同样软关键字，`obj.matching` 等写法不受影响；约束位置仍按 MATCHING token 分派。
+    | MATCHING
     ;
 
 /**

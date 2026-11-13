@@ -7,6 +7,8 @@ import aster.core.parser.ParseDiagnostics;
 import aster.core.resolve.NameResolution;
 import aster.core.resolve.ResolutionContext;
 import aster.core.typecheck.ErrorCode;
+import aster.core.typecheck.TypeChecker;
+import aster.core.typecheck.model.Diagnostic;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -104,9 +106,32 @@ class CoreLoweringV2Test {
 
     @Test
     void between_non_literal_is_parse_error() {
-        var result = ParseDiagnostics.parse("Module m.\n\nDefine Person has age as Int between x and 120.\n",
-            LexiconRegistry.getInstance().getOrThrow("en-US"));
-        assertFalse(result.diagnostics().isEmpty(), "between 的两端只能是数值字面量");
+        // 两端任一侧不是数值字面量都在该位置报解析错误
+        assertParseErrorAt("Module m.\n\nDefine Person has age as Int between x and 120.\n", 3, 38);
+        assertParseErrorAt("Module m.\n\nDefine Person has age as Int between 0 and y.\n", 3, 44);
+    }
+
+    @Test
+    void param_required_and_range_and_field_pattern_lowered() {
+        CoreModel.Module m = compile("Module m.\n\nDefine Account has code as Text matching \"^[0-9]+$\".\n\n"
+            + "Rule pay given amount as Int required between 1 and 1000, produce Int:\n  Return amount.\n");
+        CoreModel.Constraint.Pattern code = assertInstanceOf(CoreModel.Constraint.Pattern.class,
+            ((CoreModel.Data) m.decls.get(0)).fields.get(0).constraints.get(0));
+        assertEquals("^[0-9]+$", code.regexp);
+        List<CoreModel.Constraint> cs = func(m, "pay").params.get(0).constraints;
+        assertInstanceOf(CoreModel.Constraint.Required.class, cs.get(0));
+        CoreModel.Constraint.Range range = assertInstanceOf(CoreModel.Constraint.Range.class, cs.get(1));
+        assertEquals(List.of("1", "1000"), List.of(range.min, range.max));
+    }
+
+    @Test
+    void matching_is_still_an_identifier_outside_constraints() {
+        CoreModel.Module m = compile("Module m.\n\nDefine Rule1 has matching as Bool.\n\n"
+            + "Rule check given r as Rule1, matching as Int, produce Bool:\n  Let flag be r.matching.\n  Return flag.\n");
+        assertEquals("matching", ((CoreModel.Data) m.decls.get(0)).fields.get(0).name);
+        assertEquals("matching", func(m, "check").params.get(1).name);
+        CoreModel.Let let = (CoreModel.Let) func(m, "check").body.statements.get(0);
+        assertEquals("r.matching", ((CoreModel.Name) let.expr).name);
     }
 
     // ---------- 效应（#5） ----------
@@ -137,6 +162,44 @@ class CoreLoweringV2Test {
         assertEquals("Red", red.typeName);
         assertEquals(List.of(), red.args);
         assertEquals("other", assertInstanceOf(CoreModel.PatName.class, ps.get(1)).name);
+    }
+
+    @Test
+    void keyword_and_payload_constructors_keep_patctor_shape() {
+        CoreModel.Module m = compile("Module m.\n\n"
+            + "Rule pick given x, produce:\n  Match x:\n    When Ok(v), Return v.\n    When Err(Some(e)), Return e.\n    When None, Return 0.\n");
+        List<CoreModel.Pattern> ps = patterns(func(m, "pick"));
+        CoreModel.PatCtor ok = assertInstanceOf(CoreModel.PatCtor.class, ps.get(0));
+        assertEquals("Ok", ok.typeName);
+        assertEquals("v", assertInstanceOf(CoreModel.PatName.class, ok.args.get(0)).name);
+        CoreModel.PatCtor err = assertInstanceOf(CoreModel.PatCtor.class, ps.get(1));
+        CoreModel.PatCtor some = assertInstanceOf(CoreModel.PatCtor.class, err.args.get(0));
+        assertEquals(List.of("Err", "Some"), List.of(err.typeName, some.typeName));
+        assertEquals("e", assertInstanceOf(CoreModel.PatName.class, some.args.get(0)).name);
+        CoreModel.PatCtor none = assertInstanceOf(CoreModel.PatCtor.class, ps.get(2));
+        assertEquals(List.of("None", List.of()), List.of(none.typeName, none.args));
+    }
+
+    @Test
+    void rewritten_patterns_keep_exhaustiveness_and_bindings() {
+        String enumDecl = "Module m.\n\nDefine Color as one of Red, Green.\n\n";
+        var complete = new TypeChecker().typecheckModule(compile(enumDecl
+            + "Rule name given c as Color, produce Text:\n  Match c:\n    When Red, Return \"r\".\n    When Green, Return \"g\".\n"));
+        assertEquals(List.of(), codes(complete));
+        var partial = new TypeChecker().typecheckModule(compile(enumDecl
+            + "Rule name given c as Color, produce Text:\n  Match c:\n    When Red, Return \"r\".\n"));
+        assertEquals(List.of(ErrorCode.NON_EXHAUSTIVE_ENUM), codes(partial));
+        var bound = new TypeChecker().typecheckModule(compile(enumDecl
+            + "Rule name given c as Color, produce Color:\n  Match c:\n    When Red, Return c.\n    When Other, Return Other.\n"));
+        assertEquals(List.of(), codes(bound));
+    }
+
+    @Test
+    void pure_declaration_still_rejects_io_call() {
+        var diags = new TypeChecker().typecheckModule(compile("Module m.\n\n"
+            + "Rule fetch, produce Int. It performs io:\n  Return 1.\n\n"
+            + "Rule r, produce Int. It performs pure:\n  Return fetch().\n"));
+        assertTrue(codes(diags).contains(ErrorCode.EFF_MISSING_IO), diags.toString());
     }
 
     @Test
@@ -221,6 +284,17 @@ class CoreLoweringV2Test {
         var parsed = ParseDiagnostics.parse(source, LexiconRegistry.getInstance().getOrThrow("en-US"));
         assertNull(parsed.module());
         assertEquals(List.of(code), parsed.diagnostics().stream().map(d -> d.code()).toList());
+    }
+
+    private static void assertParseErrorAt(String source, int line, int column) {
+        var parsed = ParseDiagnostics.parse(source, LexiconRegistry.getInstance().getOrThrow("en-US"));
+        assertNull(parsed.module(), "between 的两端只能是数值字面量");
+        assertEquals(List.of(line, column), List.of(parsed.diagnostics().get(0).line(), parsed.diagnostics().get(0).column()),
+            parsed.diagnostics().toString());
+    }
+
+    private static List<ErrorCode> codes(List<Diagnostic> ds) {
+        return ds.stream().map(Diagnostic::code).toList();
     }
 
     private static CoreModel.Func func(CoreModel.Module m, String name) {
