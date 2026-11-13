@@ -270,12 +270,16 @@ field
 /**
  * 字段/参数约束修饰符（与 TS constraint-parser 对齐，ADR 0055 #4）。
  * required：必填；between X and Y：范围，两端只能是数值字面量（可带负号），规范十进制串由 lowering 从原文求出；
- * matching "…"：正则。三者都降级为 Core IR 的 Field / Param.constraints。
+ * at least X / at most Y：单边范围（另一端为 null）；matching "…" 或 matching pattern "…"：正则。
+ * 都降级为 Core IR 的 Field / Param.constraints。at least / at most 复用比较运算的多词 token，
+ * 其中只有 at least / at most 两种写法是约束，AstBuilder 拒收其它写法（如 greater than or equal to）。
  */
 fieldConstraint
     : REQUIRED
     | BETWEEN rangeBound AND rangeBound
-    | MATCHING STRING_LITERAL
+    | GREATER_THAN_OR_EQUAL_WORD rangeBound
+    | LESS_THAN_OR_EQUAL_WORD rangeBound
+    | MATCHING IDENT? STRING_LITERAL
     ;
 
 rangeBound

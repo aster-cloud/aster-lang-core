@@ -125,6 +125,35 @@ class CoreLoweringV2Test {
     }
 
     @Test
+    void single_sided_ranges_lowered() {
+        CoreModel.Module m = compile("Module m.\n\nDefine Loan has amount as Int at least 1, rate as Double at most 0.25.\n\n"
+            + "Rule pay given n as Int at least -5, produce Int:\n  Return n.\n");
+        CoreModel.Constraint.Range min = (CoreModel.Constraint.Range) ((CoreModel.Data) m.decls.get(0)).fields.get(0).constraints.get(0);
+        CoreModel.Constraint.Range max = (CoreModel.Constraint.Range) ((CoreModel.Data) m.decls.get(0)).fields.get(1).constraints.get(0);
+        assertEquals(java.util.Arrays.asList("1", null), java.util.Arrays.asList(min.min, min.max));
+        assertEquals(java.util.Arrays.asList(null, "0.25"), java.util.Arrays.asList(max.min, max.max));
+        CoreModel.Constraint.Range p = (CoreModel.Constraint.Range) func(m, "pay").params.get(0).constraints.get(0);
+        assertEquals("-5", p.min);
+        assertNull(p.max);
+    }
+
+    @Test
+    void other_comparison_spellings_are_not_constraints() {
+        var parsed = ParseDiagnostics.parse("Module m.\n\nDefine Loan has amount as Int greater than or equal to 1.\n",
+            LexiconRegistry.getInstance().getOrThrow("en-US"));
+        assertEquals(List.of(ErrorCode.PARSE_EXPECTED), parsed.diagnostics().stream().map(d -> d.code()).toList());
+    }
+
+    @Test
+    void matching_pattern_is_same_as_matching() {
+        CoreModel.Module a = compile("Module m.\n\nDefine A has code as Text matching pattern \"^x$\".\n");
+        CoreModel.Module b = compile("Module m.\n\nDefine A has code as Text matching \"^x$\".\n");
+        assertEquals("^x$", ((CoreModel.Constraint.Pattern) ((CoreModel.Data) a.decls.get(0)).fields.get(0).constraints.get(0)).regexp);
+        assertEquals(CoreIrJson.serialize(b).replaceAll("\"col\":\\d+", ""), CoreIrJson.serialize(a).replaceAll("\"col\":\\d+", ""));
+        assertParseError("Module m.\n\nDefine A has code as Text matching regex \"^x$\".\n", ErrorCode.PARSE_EXPECTED_AFTER);
+    }
+
+    @Test
     void matching_is_still_an_identifier_outside_constraints() {
         CoreModel.Module m = compile("Module m.\n\nDefine Rule1 has matching as Bool.\n\n"
             + "Rule check given r as Rule1, matching as Int, produce Bool:\n  Let flag be r.matching.\n  Return flag.\n");

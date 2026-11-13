@@ -561,11 +561,35 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                 out.add(new Constraint.Required(span));
             } else if (c.BETWEEN() != null) {
                 out.add(new Constraint.Range(rangeBoundText(c.rangeBound(0)), rangeBoundText(c.rangeBound(1)), span));
+            } else if (c.GREATER_THAN_OR_EQUAL_WORD() != null) {
+                requireSingleSidedSpelling(c.GREATER_THAN_OR_EQUAL_WORD(), "at least");
+                out.add(new Constraint.Range(rangeBoundText(c.rangeBound(0)), null, span));
+            } else if (c.LESS_THAN_OR_EQUAL_WORD() != null) {
+                requireSingleSidedSpelling(c.LESS_THAN_OR_EQUAL_WORD(), "at most");
+                out.add(new Constraint.Range(null, rangeBoundText(c.rangeBound(0)), span));
             } else {
+                // matching pattern "…" 与 matching "…" 同义（ts parseMatchingConstraint）；其余词报「matching 后需要正则字符串」
+                if (c.IDENT() != null && !"pattern".equals(c.IDENT().getText())) {
+                    throw new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED_AFTER,
+                        Map.of("token", "token.regexString", "after", "kw.matching"),
+                        "Expected a regular expression string after 'matching'", c.IDENT().getSymbol());
+                }
                 out.add(new Constraint.Pattern(parseStringLiteral(c.STRING_LITERAL()), span));
             }
         }
         return List.copyOf(out);
+    }
+
+    /**
+     * 单边范围约束只接受 at least / at most（与 ts parseAtConstraint 一致）；比较运算的其它同义写法
+     * （is at least、greater than or equal to …）在约束位置报「需要 at least 或 at most」。
+     */
+    private static void requireSingleSidedSpelling(TerminalNode token, String expected) {
+        String spelled = token.getText().trim().replaceAll("[ \\t]+", " ");
+        if (!spelled.equals(expected)) {
+            throw new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED, Map.of("token", "token.atLeastOrAtMost"),
+                "Expected 'at least' or 'at most' in a field constraint, got '" + token.getText() + "'", token.getSymbol());
+        }
     }
 
     /** 范围端点的字面量原文：可选负号加整数或小数字面量。 */
