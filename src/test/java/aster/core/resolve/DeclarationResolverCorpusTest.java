@@ -67,7 +67,9 @@ public class DeclarationResolverCorpusTest {
      */
     private static final Map<String, String> IR_REWRITTEN_WITHOUT_VOCABULARY = Map.of(
         "tier1-parity/vocab-de/case-only-fields.aster",
-        "引用 p.Alter 与声明字段 alter 仅大小写不同，R2 按 ADR 0051 §6.3 大小写折叠解析为 p.alter（written=p.Alter）");
+        "引用 p.Alter 与声明字段 alter 仅大小写不同，R2 按 ADR 0051 §6.3 大小写折叠解析为 p.alter（written=p.Alter）",
+        "tier1-equivalence/policies/pattern-nested-name-matches-enum-member.aster",
+        "Java 把中文裸名词法化为 TYPE_IDENT、解析为无参 PatCtor；嵌套位置的 其余 不是成员，R2 按 ADR 0055 #16 改写为绑定 PatName");
 
     /** 语料文件的引擎声明；lexicon 缺省为 en-US。 */
     private record Meta(boolean java, boolean reject, String lexicon) {}
