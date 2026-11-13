@@ -64,6 +64,16 @@ class CoreLoweringV2Test {
         assertParseError("Module m.\n\nDefine User has @meta(n: 5L) email as Text.\n", ErrorCode.PARSE_INVALID_VALUE);
     }
 
+    @Test
+    void annotation_null_value_is_parse_error() {
+        assertParseError("Module m.\n\nDefine User has @meta(n: null) email as Text.\n", ErrorCode.PARSE_INVALID_VALUE);
+        var parsed = ParseDiagnostics.parse("Module m.\n\n@x(null)\nRule r given a as Int, produce Int:\n  Return a.\n",
+            LexiconRegistry.getInstance().getOrThrow("en-US"));
+        assertEquals(List.of(ErrorCode.PARSE_INVALID_VALUE), parsed.diagnostics().stream().map(d -> d.code()).toList());
+        assertEquals(List.of(3, 4), List.of(parsed.diagnostics().get(0).line(), parsed.diagnostics().get(0).column()));
+        assertEquals("null", parsed.diagnostics().get(0).params().get("value"));
+    }
+
     // ---------- 约束（#4） ----------
 
     @Test

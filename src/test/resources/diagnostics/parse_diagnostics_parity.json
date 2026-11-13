@@ -333,6 +333,16 @@
       ]
     },
     {
+      "name": "E067 注解参数值为 null",
+      "source": "Module m.\n\n@x(null)\nRule f given x as Int, produce Int:\n  Return x.\n",
+      "codes": [
+        [
+          "E067",
+          3
+        ]
+      ]
+    },
+    {
       "name": "E068 前缀运算符参数个数",
       "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Return +(x, 1, 2).\n",
       "codes": [

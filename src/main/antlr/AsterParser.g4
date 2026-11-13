@@ -418,8 +418,10 @@ annotationArg
 annotationValue
     : STRING_LITERAL
     | INT_LITERAL
+    // FLOAT / LONG / NULL 只为给出 E067 而接受（ADR 0055 #3：注解值只能是 string / Int32 / boolean），见 AstBuilder
     | FLOAT_LITERAL
     | LONG_LITERAL
+    | NULL_LITERAL
     | BOOL_LITERAL
     | IDENT
     | TYPE_IDENT

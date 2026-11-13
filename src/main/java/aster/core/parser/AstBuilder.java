@@ -714,13 +714,15 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         if (ctx.INT_LITERAL() != null) {
             return LiteralParsing.parseInt(ctx.INT_LITERAL().getText(), ctx.INT_LITERAL().getSymbol());
         }
-        // ADR 0055 #3：注解参数值只能是 string / Int32 / boolean；浮点与 Long 字面量在解析期拒收（E067）
-        TerminalNode numeric = ctx.FLOAT_LITERAL() != null ? ctx.FLOAT_LITERAL() : ctx.LONG_LITERAL();
-        if (numeric != null) {
+        // ADR 0055 #3：注解参数值只能是 string / Int32 / boolean；浮点、Long 与 null 字面量在解析期拒收（E067，
+        // 参数与位置同 ts parseAnnotationValue：value 为字面量原文，位置为该字面量）
+        TerminalNode invalid = ctx.FLOAT_LITERAL() != null ? ctx.FLOAT_LITERAL()
+            : ctx.LONG_LITERAL() != null ? ctx.LONG_LITERAL() : ctx.NULL_LITERAL();
+        if (invalid != null) {
             throw new ParseDiagnosticException(ErrorCode.PARSE_INVALID_VALUE,
-                Map.of("construct", "token.annotationArgumentValue", "value", numeric.getText(),
+                Map.of("construct", "token.annotationArgumentValue", "value", invalid.getText(),
                     "allowed", "string, Int or Bool"),
-                "Annotation argument value must be a string, Int or Bool: " + numeric.getText(), numeric.getSymbol());
+                "Annotation argument value must be a string, Int or Bool: " + invalid.getText(), invalid.getSymbol());
         }
         if (ctx.BOOL_LITERAL() != null) {
             return Boolean.parseBoolean(ctx.BOOL_LITERAL().getText());
