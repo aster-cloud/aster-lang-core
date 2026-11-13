@@ -129,6 +129,7 @@ public final class CoreLowering {
     out.annotations = lowerAnnotations(func.annotations());
     out.retAnnotations = lowerAnnotations(func.retAnnotations());
     out.effects = func.effects() == null ? new ArrayList<>() : new ArrayList<>(func.effects());
+    out.effectParams = new ArrayList<>(func.effectParams());
     out.effectCaps = func.effectCaps() == null ? new ArrayList<>() : new ArrayList<>(func.effectCaps());
     out.effectCapsExplicit = func.effectCapsExplicit();
     out.body = func.body() == null ? emptyBlock(func.span()) : lowerBlock(func.body());

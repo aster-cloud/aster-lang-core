@@ -705,7 +705,7 @@ public final class DeclarationResolver {
         Block body = resolveOptionalBlock(scope, d.body());
         return new Decl.Func(d.name(), d.nameSpan(), typeParams, params, retType, d.annotations(), d.retAnnotations(),
             body, d.effects(), d.effectCaps(), d.effectCapsExplicit(), d.span(), d.retTypeInferred(),
-            d.typeParamsInferred(), resolved);
+            d.typeParamsInferred(), resolved, d.effectParams());
     }
 
     /**

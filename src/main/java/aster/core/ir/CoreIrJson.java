@@ -2,6 +2,7 @@ package aster.core.ir;
 
 import aster.core.ast.CoreIrSchemaVersion;
 import aster.core.canonical.CanonicalJson;
+import aster.core.util.AsciiCase;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -235,7 +236,7 @@ public final class CoreIrJson {
         for (int k = 0; k < params.size(); k++) {
             String p = params.get(k).asText();
             effectParams.add(p);
-            if (RESERVED_EFFECT_NAMES.contains(asciiLower(p))) {
+            if (RESERVED_EFFECT_NAMES.contains(AsciiCase.lower(p))) {
                 out.add(new CoreIrProblem(path + "/effectParams/" + k, EFFECT_PARAM_SHADOWS_BUILTIN));
             }
         }
@@ -294,16 +295,6 @@ public final class CoreIrJson {
         JsonNode target = expr.path("target");
         return "Call".equals(expr.path("kind").asText()) && "Name".equals(target.path("kind").asText())
             && VERDICT_CALLS.contains(target.path("name").asText());
-    }
-
-    /** 按 ASCII 大小写不敏感比较所用的小写化（内建效应名都是 ASCII）。 */
-    private static String asciiLower(String s) {
-        StringBuilder b = new StringBuilder(s.length());
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            b.append(c >= 'A' && c <= 'Z' ? (char) (c + 32) : c);
-        }
-        return b.toString();
     }
 
     /** JSON Pointer 段转义（RFC 6901）。IR 的键都是标识符，这里只为路径严格正确。 */

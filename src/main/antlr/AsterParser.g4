@@ -150,7 +150,16 @@ topLevelDecl
  *     ...
  */
 funcDecl
-    : (annotation NEWLINE*)* RULE nameIdent typeParamList? givenParamList? COMMA? (PRODUCE annotatedType?)? (DOT capabilityAnnotation? funcBody | funcBody | DOT)
+    : (annotation NEWLINE*)* RULE nameIdent typeParamList? effectParamList? givenParamList? COMMA? (PRODUCE annotatedType?)? (DOT capabilityAnnotation? funcBody | funcBody | DOT)
+    ;
+
+/**
+ * 效应参数列表（ADR 0055 #5、#6；与 aster-lang-ts decl-parser parseEffectParams 同语法）
+ * 语法: Rule relay <E> given x ...  /  Rule f <E, F> ...  /  Rule f <E and F> ...
+ * 写在类型参数之后、形参之前；效应参数名是大写标识符。
+ */
+effectParamList
+    : LT TYPE_IDENT ((COMMA | AND) TYPE_IDENT)* GT
     ;
 
 // ADR 0028：函数体形态。缩进块（现有）走 `COLON NEWLINE block`；显式块（新增）走
@@ -200,9 +209,16 @@ param
 /**
  * 能力标注
  * 语法: It performs io [Http, Sql, Time]
+ *       It performs io with Http and E      （与 aster-lang-ts parseEffectList 同形）
+ *       It performs E                       （E 为已声明的效应参数）
+ * effect 位置与列表中的名字统一由 AstBuilder 分类：io / cpu（大小写不敏感）是授权型效应，pure 不授权，
+ * 已声明的效应参数是效应变量，其余大写名字是能力。
  */
 capabilityAnnotation
-    : IT PERFORMS effect=(IDENT | TYPE_IDENT) (LBRACKET caps+=TYPE_IDENT (COMMA caps+=TYPE_IDENT)* RBRACKET)?
+    : IT PERFORMS effect=(IDENT | TYPE_IDENT)
+      ( LBRACKET caps+=TYPE_IDENT (COMMA caps+=TYPE_IDENT)* RBRACKET
+      | (WITH | AND) caps+=(IDENT | TYPE_IDENT) (AND caps+=(IDENT | TYPE_IDENT))*
+      )?
     ;
 
 /**

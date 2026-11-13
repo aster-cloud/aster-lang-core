@@ -235,8 +235,19 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
         @JsonProperty("span") Span span,
         @JsonProperty("retTypeInferred") boolean retTypeInferred,
         @JsonInclude(JsonInclude.Include.NON_DEFAULT) @JsonProperty("typeParamsInferred") boolean typeParamsInferred,
-        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved
+        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved,
+        /** 效应参数（ADR 0055 #6，源码 {@code Rule f <E>}），按源码顺序；没有为空列表。 */
+        @JsonProperty("effectParams") List<String> effectParams
     ) implements Decl {
+        /** 无效应参数的函数。 */
+        public Func(String name, Span nameSpan, List<String> typeParams, List<Parameter> params, Type retType,
+                    List<Annotation> annotations, List<Annotation> retAnnotations, Block body, List<String> effects,
+                    List<String> effectCaps, boolean effectCapsExplicit, Span span, boolean retTypeInferred,
+                    boolean typeParamsInferred, Resolved resolved) {
+            this(name, nameSpan, typeParams, params, retType, annotations, retAnnotations, body, effects,
+                effectCaps, effectCapsExplicit, span, retTypeInferred, typeParamsInferred, resolved, List.of());
+        }
+
         /** 旧签名构造器（无 retTypeInferred，默认 false）：保持仓外 Java 调用方源码兼容。 */
         public Func(String name, Span nameSpan, List<String> typeParams, List<Parameter> params, Type retType,
                     List<Annotation> annotations, List<Annotation> retAnnotations, Block body, List<String> effects,
@@ -260,6 +271,7 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
             effectCaps = effectCaps == null ? List.of() : List.copyOf(effectCaps);
             annotations = annotations == null ? List.of() : List.copyOf(annotations);
             retAnnotations = retAnnotations == null ? List.of() : List.copyOf(retAnnotations);
+            effectParams = effectParams == null ? List.of() : List.copyOf(effectParams);
         }
 
         @Override

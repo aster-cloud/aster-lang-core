@@ -135,6 +135,7 @@ public final class TypeChecker {
             defineFunctionSignature(func);
           }
         }
+        bindEffectVariables(module.decls, ctx);
       }
 
       // 第二遍：检查所有声明
@@ -314,9 +315,65 @@ public final class TypeChecker {
   }
 
   /**
+   * 效应多态函数（effects 引用了效应参数）的签名效果：效应变量绑定到「具体声明 ∪ 函数体推断」中最宽的效应，
+   * 写回符号表供调用方使用。效应只增不减，按声明顺序迭代到不动点（互相调用的多态函数也能收敛）。
+   */
+  private void bindEffectVariables(List<CoreModel.Decl> decls, VisitorContext ctx) {
+    var polymorphic = decls.stream()
+      .filter(d -> d instanceof CoreModel.Func f && usesEffectVariable(f) && f.body != null)
+      .map(CoreModel.Func.class::cast)
+      .toList();
+    boolean changed = !polymorphic.isEmpty();
+    for (int round = 0; changed && round <= polymorphic.size(); round++) {
+      changed = false;
+      for (var func : polymorphic) {
+        var bound = effectChecker.join(concreteDeclaredEffect(func), effectChecker.inferBlockEffect(func.body, ctx));
+        var current = symbolTable.lookup(func.name).flatMap(s -> s.declaredEffect()).orElse(null);
+        if (!bound.name().equals(current)) {
+          symbolTable.replaceDeclaredEffect(func.name, Optional.of(bound.name()));
+          changed = true;
+        }
+      }
+    }
+  }
+
+  /** effects 中是否有已声明的效应参数（效应变量）。 */
+  private static boolean usesEffectVariable(CoreModel.Func func) {
+    return func.effects.stream().anyMatch(func.effectParams::contains);
+  }
+
+  /** effects 中具体效应（效应变量之外）的最宽者；无具体效应为 PURE。 */
+  private static EffectChecker.Effect concreteDeclaredEffect(CoreModel.Func func) {
+    var max = EffectChecker.Effect.PURE;
+    for (String effect : func.effects) {
+      if (func.effectParams.contains(effect)) {
+        continue;
+      }
+      var e = EffectChecker.Effect.fromString(effect);
+      if (e.compareTo(max) > 0) {
+        max = e;
+      }
+    }
+    return max;
+  }
+
+  /** 保留的效应名（schema $defs/ReservedEffectName）：效应参数按 ASCII 大小写不敏感比较不得与之相同（E213）。 */
+  private static final java.util.Set<String> RESERVED_EFFECT_NAMES = java.util.Set.of("io", "cpu", "pure", "async");
+
+  private void checkEffectParams(CoreModel.Func func) {
+    for (String name : func.effectParams) {
+      if (RESERVED_EFFECT_NAMES.contains(aster.core.util.AsciiCase.lower(name))) {
+        diagnostics.error(ErrorCode.EFFECT_PARAM_SHADOWS_BUILTIN, Optional.ofNullable(func.origin),
+          Map.of("name", name, "func", func.name));
+      }
+    }
+  }
+
+  /**
    * 检查函数声明
    */
   private void checkFunction(CoreModel.Func func, VisitorContext ctx) {
+    checkEffectParams(func);
     // 签名已在 collectFunctionSignatures 预扫描阶段注册，此处只检查函数体。
 
     // 进入函数作用域检查函数体
@@ -351,19 +408,15 @@ public final class TypeChecker {
       // 检查效果兼容性：验证推断效果在声明效果范围内
       var inferredEffect = effectChecker.inferBlockEffect(func.body, ctx);
 
-      if (func.effects.isEmpty()) {
-        // 无声明效果 = PURE，直接检查
-        effectChecker.checkEffectCompatibility(EffectChecker.Effect.PURE, inferredEffect, Optional.ofNullable(func.origin));
-      } else {
-        // 【修复】检查所有声明的效果，取最宽容的效果进行兼容性检查
-        var maxDeclaredEffect = EffectChecker.Effect.PURE;
-        for (String effectStr : func.effects) {
-          var effectEnum = EffectChecker.Effect.fromString(effectStr);
-          if (effectEnum.compareTo(maxDeclaredEffect) > 0) {
-            maxDeclaredEffect = effectEnum;
-          }
-        }
-        effectChecker.checkEffectCompatibility(maxDeclaredEffect, inferredEffect, Optional.ofNullable(func.origin));
+      // 声明效果取所有具体效应中最宽的一个（无声明 = PURE）；效应变量绑定到函数体的实际效应（ADR 0055 #5），
+      // 因此声明了效应变量的函数不会因函数体效应报缺少声明。
+      var concrete = concreteDeclaredEffect(func);
+      var declared = usesEffectVariable(func) ? effectChecker.join(concrete, inferredEffect) : concrete;
+      effectChecker.checkEffectCompatibility(declared, inferredEffect, Optional.ofNullable(func.origin));
+      // E211：效应参数无法绑定到任何具体效应——函数自身的具体声明与函数体推断都是 PURE（与 TS 同一判定）
+      if (!func.effectParams.isEmpty() && effectChecker.join(concrete, inferredEffect) == EffectChecker.Effect.PURE) {
+        diagnostics.error(ErrorCode.EFFECT_VAR_UNRESOLVED, Optional.ofNullable(func.origin),
+          Map.of("vars", String.join(", ", func.effectParams), "func", func.name));
       }
 
       // 检查异步纪律

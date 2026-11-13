@@ -248,25 +248,20 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
         List<String> finalTypeParams = typeParams.isEmpty() ? List.of() : List.copyOf(typeParams);
 
+        // 效应参数（ADR 0055 #6）：Rule f <E, F>
+        List<String> effectParams = ctx.effectParamList() == null ? List.of()
+            : ctx.effectParamList().TYPE_IDENT().stream().map(TerminalNode::getText).toList();
+
         // 能力标注（默认无副作用）
         List<String> effects = List.of();
         List<String> effectCaps = List.of();
         boolean effectCapsExplicit = false;
         if (ctx.capabilityAnnotation() != null) {
-            AsterParser.CapabilityAnnotationContext capCtx = ctx.capabilityAnnotation();
-            // 效应名大小写不敏感（It performs IO 与 io 同义）；只有授权型效应 io / cpu 进入 effects，
-            // pure、async 与未知名不授权任何效应，不写入（ADR 0055 #5，控制裁决）
-            String effectName = capCtx.effect.getText();
-            effects = authorizingEffects(effectName);
-
-            // 提取能力列表（如 ["Http", "Sql"]）
-            List<String> caps = capCtx.caps.stream()
-                .map(Token::getText)
-                .collect(Collectors.toList());
-            effectCaps = caps.isEmpty() ? List.of() : List.copyOf(caps);
-
+            EffectClause clause = classifyEffectClause(ctx.capabilityAnnotation(), effectParams, name);
+            effects = clause.effects();
+            effectCaps = clause.caps();
             // 只有显式列出能力时才标记为 explicit
-            effectCapsExplicit = !caps.isEmpty();
+            effectCapsExplicit = !effectCaps.isEmpty();
         }
 
         // 函数体（可能为 null）
@@ -301,14 +296,51 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             spanFrom(ctx),
             retTypeInferred,
             typeParamsInferred,
-            null
+            null,
+            effectParams
         );
     }
 
-    /** 授权型具体效应（ADR 0055 #5）：效应名按 ASCII 小写化后为 io / cpu 时写入，其余不授权、不写入。 */
-    private static List<String> authorizingEffects(String written) {
-        String lower = written.toLowerCase(java.util.Locale.ROOT);
-        return lower.equals("io") || lower.equals("cpu") ? List.of(lower) : List.of();
+    /** {@code It performs} 子句的分类结果：effects 按首次出现顺序、不重复；caps 为能力名。 */
+    private record EffectClause(List<String> effects, List<String> caps) {}
+
+    /**
+     * 对 {@code It performs} 子句中的名字（效应位置在前，列表在后，保持源码顺序）逐个分类（ADR 0055 #5）：
+     * <ul>
+     *   <li>按 ASCII 小写化为 io / cpu：授权型具体效应，写入小写名——内建名优先于同名效应参数（后者由类型检查报 E213）；</li>
+     *   <li>pure：不授权任何效应，不写入；</li>
+     *   <li>已声明的效应参数（大小写敏感）：效应变量，原样写入；</li>
+     *   <li>效应位置上其余的大写名字：未声明的效应变量，报 E210；效应位置上其余的小写名字：未知效应名，按 pure 处理、不写入；</li>
+     *   <li>列表中其余的大写名字是能力（Http、Sql…），小写名字按未知效应名处理、不写入。</li>
+     * </ul>
+     */
+    private static EffectClause classifyEffectClause(AsterParser.CapabilityAnnotationContext capCtx,
+                                                    List<String> effectParams, String funcName) {
+        LinkedHashSet<String> effects = new LinkedHashSet<>();
+        List<String> caps = new ArrayList<>();
+        List<Token> names = new ArrayList<>();
+        names.add(capCtx.effect);
+        names.addAll(capCtx.caps);
+        for (int i = 0; i < names.size(); i++) {
+            Token token = names.get(i);
+            String written = token.getText();
+            String lower = aster.core.util.AsciiCase.lower(written);
+            boolean capitalized = token.getType() == AsterParser.TYPE_IDENT;
+            if (lower.equals("io") || lower.equals("cpu")) {
+                effects.add(lower);
+            } else if (lower.equals("pure")) {
+                continue;
+            } else if (effectParams.contains(written)) {
+                effects.add(written);
+            } else if (i == 0 && capitalized) {
+                throw new ParseDiagnosticException(ErrorCode.EFFECT_VAR_UNDECLARED,
+                    Map.of("var", written, "func", funcName),
+                    "Effect variable " + written + " undeclared in '" + funcName + "'", token);
+            } else if (i > 0 && capitalized) {
+                caps.add(written);
+            }
+        }
+        return new EffectClause(List.copyOf(effects), List.copyOf(caps));
     }
 
     @Override

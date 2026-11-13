@@ -68,6 +68,11 @@ public final class SymbolTable {
       return symbols.putIfAbsent(symbol.name(), symbol) == null;
     }
 
+    /** 用 update 的结果替换本作用域中的同名符号；没有该符号时不做任何事。 */
+    boolean replace(String name, java.util.function.UnaryOperator<SymbolInfo> update) {
+      return symbols.computeIfPresent(name, (k, s) -> update.apply(s)) != null;
+    }
+
     /**
      * 递归查找符号（当前作用域 + 父作用域）
      */
@@ -294,6 +299,17 @@ public final class SymbolTable {
       options.onShadow().get().accept(symbol, shadowed.get());
     }
     return true;
+  }
+
+  /**
+   * 改写当前作用域中某个函数符号的声明效果（其余字段不变）。效应多态函数（ADR 0055 #5）的效应变量在签名登记时
+   * 尚未绑定，待函数体的实际效应推断出来后再写回，调用方据此看到绑定结果。
+   *
+   * @return 当前作用域有该符号时为 true
+   */
+  public boolean replaceDeclaredEffect(String name, Optional<String> declaredEffect) {
+    return current.replace(name, s -> new SymbolInfo(s.name(), s.type(), s.kind(), s.mutable(), s.span(), s.captured(),
+      s.shadowedFrom(), declaredEffect));
   }
 
   /**
