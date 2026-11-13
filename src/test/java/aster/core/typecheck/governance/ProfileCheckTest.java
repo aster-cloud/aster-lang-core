@@ -20,7 +20,7 @@ class ProfileCheckTest {
   @Test void 未知档案报E705() {
     var diags = diagnoseSource("Module m.\nProfile \"nope\".\n\nRule r produce Int:\n  Return 1.\n");
     assertEquals(1, count(diags, ErrorCode.GOV_PROFILE_UNKNOWN), diags.toString());
-    assertTrue(messages(diags, ErrorCode.GOV_PROFILE_UNKNOWN).contains("unknown profile 'nope' (controls registry 1.2.0)"));
+    assertTrue(messages(diags, ErrorCode.GOV_PROFILE_UNKNOWN).contains("unknown profile 'nope' (controls registry 1.3.0)"));
   }
 
   @Test void 缺id报E706且W700照常() {
@@ -129,9 +129,20 @@ class ProfileCheckTest {
     assertEquals(0, count(check("Profile \"hr\".\n", false), ErrorCode.GOV_PROFILE_INPUT_UNRESOLVABLE));
   }
 
-  @Test void 默认注册表下高风险档案不报E708() {
+  // registry 1.3.0（ADR 0046 §11.4 ⑦）：默认注册表的 eu-ai-act-high-risk 要求 verifiedInputs，governed 不要求。
+  @Test void 默认注册表下高风险档案的动态键规则报E708() {
     var core = GovernanceTestSupport.resolveSource(
         "Module m.\nProfile \"eu-ai-act-high-risk\".\n\n" + DYNAMIC_RULE + "\n", null, null);
+    var diags = new GovernanceChecker().checkModule(core);
+    assertEquals(1, count(diags, ErrorCode.GOV_PROFILE_INPUT_UNRESOLVABLE), diags.toString());
+    var e708 = diags.stream().filter(d -> d.code() == ErrorCode.GOV_PROFILE_INPUT_UNRESOLVABLE).findFirst().orElseThrow();
+    assertEquals(Map.of("rule", "decide", "profile", "eu-ai-act-high-risk", "construct", "dynamic-map-key"), e708.data());
+    assertEquals(Diagnostic.Severity.ERROR, e708.severity());
+  }
+
+  @Test void 默认注册表下governed档案不报E708() {
+    var core = GovernanceTestSupport.resolveSource(
+        "Module m.\nProfile \"governed\".\n\n" + DYNAMIC_RULE + "\n", null, null);
     assertEquals(0, count(new GovernanceChecker().checkModule(core), ErrorCode.GOV_PROFILE_INPUT_UNRESOLVABLE));
   }
 }
