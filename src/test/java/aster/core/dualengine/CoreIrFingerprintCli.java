@@ -110,7 +110,7 @@ class CoreIrFingerprintCli {
             while ((line = reader.readLine()) != null) {
                 String trimmed = line.trim();
                 if (trimmed.isEmpty()) continue;
-                writer.write(MAPPER.writeValueAsString(emitOne(Request.parse(trimmed))));
+                writer.write(MAPPER.writeValueAsString(emitOne(Request.parse(trimmed), Boolean.getBoolean("parity.ir.full"))));
                 writer.newLine();
             }
         }
@@ -129,7 +129,12 @@ class CoreIrFingerprintCli {
         }
     }
 
-    static ObjectNode emitOne(Request req) {
+    /**
+     * 单个样本走完整 Java 管线。
+     *
+     * @param full 为 true 时附带规范字节 irCanonical（CLI 由 -Dparity.ir.full 决定，合规测试恒为 true）
+     */
+    static ObjectNode emitOne(Request req, boolean full) {
         ObjectNode record = MAPPER.createObjectNode();
         record.put("path", req.path());
         try {
@@ -179,7 +184,7 @@ class CoreIrFingerprintCli {
             record.set("fingerprint", fingerprint(coreJson));
             // ADR 0055 §6：-Dparity.ir.full=true 时附带 CoreIrJson.serialize 产出的规范字节（字段名 irCanonical，
             // 两引擎 CLI 同名），供 parity-tier1.mjs 做 schema 校验与逐字节比较（默认仍只发指纹）。
-            if (Boolean.getBoolean("parity.ir.full")) {
+            if (full) {
                 record.put("irCanonical", CoreIrJson.serialize(resolved.core()));
                 // ADR 0046 §11 D2：inputRefs 为 ["*"] 的函数 → E708 construct（不进 IR），供 parity 核对
                 // .meta.json 的 expectedInputRefConstructs；未声明档案的模块不输出该字段。

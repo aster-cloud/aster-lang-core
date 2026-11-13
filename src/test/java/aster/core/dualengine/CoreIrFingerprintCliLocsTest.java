@@ -26,7 +26,7 @@ class CoreIrFingerprintCliLocsTest {
     @Test
     void resolveFailureCarriesLocsAlignedWithCodes() throws Exception {
         JsonNode rec = CoreIrFingerprintCli.emitOne(
-            new CoreIrFingerprintCli.Request(resource("e807.aster"), "de-DE", resource("e807.vocab.json")));
+            new CoreIrFingerprintCli.Request(resource("e807.aster"), "de-DE", resource("e807.vocab.json")), false);
 
         assertFalse(rec.path("ok").asBoolean(true), rec.toString());
         assertEquals("resolve", rec.path("stage").asText(), rec.toString());
@@ -43,7 +43,7 @@ class CoreIrFingerprintCliLocsTest {
     @Test
     void successWithoutDiagnosticsCarriesEmptyLocs() throws Exception {
         JsonNode rec = CoreIrFingerprintCli.emitOne(
-            new CoreIrFingerprintCli.Request(resource("ok.aster"), "de-DE", resource("e807.vocab.json")));
+            new CoreIrFingerprintCli.Request(resource("ok.aster"), "de-DE", resource("e807.vocab.json")), false);
 
         assertTrue(rec.path("ok").asBoolean(false), rec.toString());
         assertTrue(rec.path("locs").isArray(), "成功时同样输出 locs（可为空）：" + rec);
