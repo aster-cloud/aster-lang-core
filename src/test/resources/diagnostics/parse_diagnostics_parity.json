@@ -494,6 +494,20 @@
       ],
       "source": "Module m.\n\nUse lib.status as Bib.\n\nDefine Zustand as one of Active, Closed.\n",
       "codes": []
+    },
+    {
+      "name": "E800 签名中未声明的大写类型名不是类型参数（ADR 0055 #10）",
+      "source": "Module m.\n\nRule f given x as Element, produce Element:\n  Return x.\n",
+      "codes": [
+        [
+          "E800",
+          3
+        ],
+        [
+          "E800",
+          3
+        ]
+      ]
     }
   ]
 }
