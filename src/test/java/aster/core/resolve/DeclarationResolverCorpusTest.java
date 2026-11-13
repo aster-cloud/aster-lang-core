@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * 无词汇时 R2 仍按设计改写 IR 的样本登记在 {@link #IR_REWRITTEN_WITHOUT_VOCABULARY}。
  * 语料来自同级仓库 aster-lang-test，缺失时跳过。
  */
-class DeclarationResolverCorpusTest {
+public class DeclarationResolverCorpusTest {
 
     private static final Path CORPUS = Path.of("..", "aster-lang-test", "corpus");
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -73,10 +73,10 @@ class DeclarationResolverCorpusTest {
     private record Meta(boolean java, boolean reject, String lexicon) {}
 
     /** 纳入且解析成功的语料文件及其 AST（NoProfileIrUnchangedTest 共用）。 */
-    record Parsed(Path file, Module module) {}
+    public record Parsed(Path file, Module module) {}
 
     /** 按 meta 驱动纳入语料并解析；断言纳入的文件全部解析成功（已知缺口除外）。 */
-    static List<Parsed> parseCorpus(String label) throws IOException {
+    public static List<Parsed> parseCorpus(String label) throws IOException {
         assumeTrue(Files.isDirectory(CORPUS), "缺少 aster-lang-test/corpus");
         List<Path> files;
         try (Stream<Path> walk = Files.walk(CORPUS)) {

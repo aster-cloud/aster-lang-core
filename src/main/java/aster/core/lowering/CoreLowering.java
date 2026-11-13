@@ -635,21 +635,19 @@ public final class CoreLowering {
   private CoreModel.Type wrapWithPiiType(CoreModel.Type baseType, Annotation annotation, Type source) {
     CoreModel.PiiType pii = new CoreModel.PiiType();
     pii.baseType = baseType;
-    pii.sensitivity = annotationValue(annotation, "level", "$0");
-    pii.category = annotationValue(annotation, "category", "$1");
+    CoreModel.Annotation lowered = lowerAnnotation(annotation);
+    pii.sensitivity = argText(lowered, "level", "$0");
+    pii.category = argText(lowered, "category", "$1");
     pii.origin = source == null ? null : spanToOrigin(source.span());
     return pii;
   }
 
-  private String annotationValue(Annotation annotation, String... keys) {
-    if (annotation == null || annotation.params() == null || annotation.params().isEmpty()) {
-      return "";
-    }
-    Map<String, Object> params = annotation.params();
-    for (String key : keys) {
-      Object value = params.get(key);
-      if (value != null) {
-        return value.toString();
+  /** 按名取注解参数并转为文本：依次尝试给出的参数名（具名优先、位置参数 $n 兜底），都没有时为空串。 */
+  private static String argText(CoreModel.Annotation annotation, String... names) {
+    for (String name : names) {
+      java.util.Optional<Object> value = annotation.arg(name);
+      if (value.isPresent()) {
+        return value.get().toString();
       }
     }
     return "";
@@ -683,17 +681,24 @@ public final class CoreLowering {
     }
     List<CoreModel.Annotation> out = new ArrayList<>(annotations.size());
     for (Annotation annotation : annotations) {
-      CoreModel.Annotation lowered = new CoreModel.Annotation();
-      lowered.name = annotation.name();
-      // AST 的 params 是按源码顺序插入的 LinkedHashMap（键 $0/$1… 或参数名），按插入序展开为有序 args（ADR 0055 #3）
-      List<CoreModel.AnnotationArg> args = new ArrayList<>();
-      if (annotation.params() != null) {
-        annotation.params().forEach((name, value) -> args.add(new CoreModel.AnnotationArg(name, value)));
-      }
-      lowered.args = args;
-      out.add(lowered);
+      out.add(lowerAnnotation(annotation));
     }
     return out;
+  }
+
+  /**
+   * AST 的 params 是按源码顺序插入的 LinkedHashMap（键为 $0/$1… 或参数名，解析期已拒收重名），
+   * 按插入序展开为有序 args（ADR 0055 #3）。
+   */
+  private static CoreModel.Annotation lowerAnnotation(Annotation annotation) {
+    CoreModel.Annotation lowered = new CoreModel.Annotation();
+    lowered.name = annotation.name();
+    List<CoreModel.AnnotationArg> args = new ArrayList<>();
+    if (annotation.params() != null) {
+      annotation.params().forEach((name, value) -> args.add(new CoreModel.AnnotationArg(name, value)));
+    }
+    lowered.args = args;
+    return lowered;
   }
 
   /** 名称解析（ADR 0051）：有 R1 结果时取规范名，否则保留原写法。 */
