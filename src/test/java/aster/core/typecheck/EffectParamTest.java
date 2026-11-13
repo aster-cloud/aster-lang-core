@@ -52,7 +52,7 @@ class EffectParamTest {
 
     @Test
     void effect_param_shadowing_builtin_rejected() {
-        for (String name : List.of("IO", "Cpu", "Pure")) {
+        for (String name : List.of("IO", "Cpu", "Pure", "Async", "ASYNC")) {
             List<Diagnostic> diags = typecheck("Module m.\n\nRule g <" + name + "> given x as Int, produce Int:\n  Return x.\n");
             assertTrue(codes(diags).contains(ErrorCode.EFFECT_PARAM_SHADOWS_BUILTIN), name + "：" + diags);
         }
@@ -100,6 +100,37 @@ class EffectParamTest {
         CoreModel.Func f = func(compile("Module m.\n\nRule f <E and F> given x as Int, produce Int. It performs io with E and F:\n  Return x.\n"), "f");
         assertEquals(List.of("E", "F"), f.effectParams);
         assertEquals(List.of("io", "E", "F"), f.effects);
+    }
+
+    @Test
+    void effect_param_list_accepts_comma_separator() {
+        CoreModel.Func f = func(compile("Module m.\n\nRule f <E, F> given x as Int, produce Int. It performs F:\n  Return x.\n"), "f");
+        assertEquals(List.of("E", "F"), f.effectParams);
+        assertEquals(List.of("F"), f.effects);
+    }
+
+    /** 同一函数的效应参数共享一个绑定（与 TS updateBindingsWithEffect 一致）：有具体效应即全部绑定，否则一并列出。 */
+    @Test
+    void all_effect_params_of_a_function_share_one_binding() {
+        assertEquals(List.of(), codes(typecheck("Module m.\n\nRule f <E, F> given x as Int, produce Int. It performs io with E:\n  Return x.\n")));
+        List<Diagnostic> unresolved = typecheck("Module m.\n\nRule f <E, F> given x as Int, produce Int. It performs E:\n  Return x.\n");
+        assertEquals(List.of(ErrorCode.EFFECT_VAR_UNRESOLVED), codes(unresolved));
+        assertTrue(unresolved.get(0).message().contains("E, F"), unresolved.toString());
+    }
+
+    @Test
+    void bodyless_declaration_is_checked_for_e211() {
+        List<Diagnostic> diags = typecheck("Module m.\n\nRule f <E> given x as Int, produce Int.\n");
+        assertEquals(List.of(ErrorCode.EFFECT_VAR_UNRESOLVED), codes(diags));
+    }
+
+    /** 效应参数名大小写敏感：小写的 e 不是 <E>，按未知效应名处理（不写入），E 因此绑定不到具体效应。 */
+    @Test
+    void effect_param_reference_is_case_sensitive() {
+        CoreModel.Func f = func(compile("Module m.\n\nRule f <E> given x as Int, produce Int. It performs e:\n  Return x.\n"), "f");
+        assertEquals(List.of(), f.effects);
+        assertEquals(List.of(ErrorCode.EFFECT_VAR_UNRESOLVED),
+            codes(typecheck("Module m.\n\nRule f <E> given x as Int, produce Int. It performs e:\n  Return x.\n")));
     }
 
     // ---------- 工具 ----------

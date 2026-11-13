@@ -399,25 +399,25 @@ public final class TypeChecker {
 
   /** 检查函数体：返回类型、效果兼容性与异步纪律（调用方已进入函数作用域）。 */
   private void checkFunctionBody(CoreModel.Func func, VisitorContext ctx) {
+    var concrete = concreteDeclaredEffect(func);
+    var inferredEffect = func.body == null ? EffectChecker.Effect.PURE : effectChecker.inferBlockEffect(func.body, ctx);
+    // E211：效应参数绑定不到任何具体效应——函数自身的具体声明与函数体推断都是 PURE。与 TS 同义：TS 的
+    // updateBindingsWithEffect 让同一函数的全部效应参数共享一个绑定值与 resolved 状态，未绑定时一次列出全部参数。
+    // 无函数体的声明同样检查（推断效应为 PURE）。
+    if (!func.effectParams.isEmpty() && effectChecker.join(concrete, inferredEffect) == EffectChecker.Effect.PURE) {
+      diagnostics.error(ErrorCode.EFFECT_VAR_UNRESOLVED, Optional.ofNullable(func.origin),
+        Map.of("vars", String.join(", ", func.effectParams), "func", func.name));
+    }
     if (func.body != null) {
       // 每条 Return 在 BaseTypeChecker 内逐条与声明返回类型比对，E003 落在该 Return 的位置（#239）。
       // 返回类型是推断占位时不比对——TS 侧同样以 retTypeInferred 跳过，否则按函数名猜出的占位类型
       // 会对合法策略报假 E003。
       baseChecker.checkFunctionBody(func.body, func.retTypeInferred ? null : func.ret, ctx);
 
-      // 检查效果兼容性：验证推断效果在声明效果范围内
-      var inferredEffect = effectChecker.inferBlockEffect(func.body, ctx);
-
-      // 声明效果取所有具体效应中最宽的一个（无声明 = PURE）；效应变量绑定到函数体的实际效应（ADR 0055 #5），
-      // 因此声明了效应变量的函数不会因函数体效应报缺少声明。
-      var concrete = concreteDeclaredEffect(func);
+      // 检查效果兼容性：声明效果取所有具体效应中最宽的一个（无声明 = PURE）；效应变量绑定到函数体的实际效应
+      // （ADR 0055 #5），因此声明了效应变量的函数不会因函数体效应报缺少声明。
       var declared = usesEffectVariable(func) ? effectChecker.join(concrete, inferredEffect) : concrete;
       effectChecker.checkEffectCompatibility(declared, inferredEffect, Optional.ofNullable(func.origin));
-      // E211：效应参数无法绑定到任何具体效应——函数自身的具体声明与函数体推断都是 PURE（与 TS 同一判定）
-      if (!func.effectParams.isEmpty() && effectChecker.join(concrete, inferredEffect) == EffectChecker.Effect.PURE) {
-        diagnostics.error(ErrorCode.EFFECT_VAR_UNRESOLVED, Optional.ofNullable(func.origin),
-          Map.of("vars", String.join(", ", func.effectParams), "func", func.name));
-      }
 
       // 检查异步纪律
       asyncChecker.checkFunction(func);
