@@ -95,37 +95,28 @@ public final class CoreIrJson {
     private CoreIrJson() {}
 
     /**
-     * 严格读入 Core IR v2。
+     * 严格读入 Core IR v2，顺序为：解析 → 版本预检 → schema 校验 → 严格绑定 → 不变式（ADR 0055 §5）。
      *
      * @throws CoreIrFormatException 版本错误（code 为 {@link #UNSUPPORTED_SCHEMA_VERSION}），或 JSON 语法、schema、
      *     绑定、不变式任一失败（code 为 {@link #INVALID_REQUEST}）
      */
     public static CoreModel.Module read(String json) throws CoreIrFormatException {
-        JsonNode tree = readTree(json);
+        JsonNode tree = parse(json);
+        throwIfAny(schemaProblems(tree));
+        CoreModel.Module module;
         try {
-            return READER.readValue(tree);
+            module = READER.readValue(tree);
         } catch (IOException e) {
             throw new CoreIrFormatException(INVALID_REQUEST, List.of(), "Core IR 无法严格绑定：" + e.getMessage(), e);
         }
+        throwIfAny(validateCoreIrInvariants(module));
+        return module;
     }
 
-    /** 同 {@link #read} 的前两步与不变式检查，返回校验通过的树，供只读树的调用方使用。 */
+    /** 解析 → 版本预检 → schema 校验 → 不变式，返回校验通过的树，供只读树的调用方使用。 */
     public static JsonNode readTree(String json) throws CoreIrFormatException {
-        JsonNode tree;
-        try {
-            tree = MAPPER.readTree(json);
-        } catch (JsonProcessingException e) {
-            throw new CoreIrFormatException(INVALID_REQUEST, List.of(), "Core IR 不是合法 JSON：" + e.getOriginalMessage(), e);
-        }
-        if (tree == null || tree.isMissingNode()) {
-            throw new CoreIrFormatException(INVALID_REQUEST, List.of(), "Core IR 为空", null);
-        }
-        List<CoreIrProblem> problems = validate(tree);
-        if (!problems.isEmpty()) {
-            String code = problems.getFirst().code().equals(UNSUPPORTED_SCHEMA_VERSION)
-                ? UNSUPPORTED_SCHEMA_VERSION : INVALID_REQUEST;
-            throw new CoreIrFormatException(code, problems, "Core IR 不符合 v2 schema：" + problems, null);
-        }
+        JsonNode tree = parse(json);
+        throwIfAny(validate(tree));
         return tree;
     }
 
@@ -136,20 +127,44 @@ public final class CoreIrJson {
      * @return 空列表表示通过
      */
     public static List<CoreIrProblem> validate(JsonNode tree) {
+        List<CoreIrProblem> problems = schemaProblems(tree);
+        return problems.isEmpty() ? invariantProblems(tree) : problems;
+    }
+
+    private static JsonNode parse(String json) throws CoreIrFormatException {
+        JsonNode tree;
+        try {
+            tree = MAPPER.readTree(json);
+        } catch (JsonProcessingException e) {
+            throw new CoreIrFormatException(INVALID_REQUEST, List.of(), "Core IR 不是合法 JSON：" + e.getOriginalMessage(), e);
+        }
+        if (tree == null || tree.isMissingNode()) {
+            throw new CoreIrFormatException(INVALID_REQUEST, List.of(), "Core IR 为空", null);
+        }
+        return tree;
+    }
+
+    private static void throwIfAny(List<CoreIrProblem> problems) throws CoreIrFormatException {
+        if (problems.isEmpty()) {
+            return;
+        }
+        String code = problems.getFirst().code().equals(UNSUPPORTED_SCHEMA_VERSION) ? UNSUPPORTED_SCHEMA_VERSION : INVALID_REQUEST;
+        throw new CoreIrFormatException(code, problems, "Core IR 不符合 v2 契约：" + problems, null);
+    }
+
+    /** 读入流程的第一、二步：版本预检（不依赖校验器报出的路径），通过后做 JSON Schema 校验。 */
+    private static List<CoreIrProblem> schemaProblems(JsonNode tree) {
         JsonNode version = tree.path("schemaVersion");
         if (!tree.isObject() || !version.isIntegralNumber() || !version.canConvertToInt()
             || !CoreIrSchemaVersion.isCompatible(version.intValue())) {
             return List.of(new CoreIrProblem("/schemaVersion", UNSUPPORTED_SCHEMA_VERSION));
         }
-        List<CoreIrProblem> schemaProblems = new ArrayList<>();
+        List<CoreIrProblem> problems = new ArrayList<>();
         for (com.networknt.schema.Error e : SCHEMA_VALIDATOR.validate(tree)) {
             String at = e.getInstanceLocation().toString();
-            schemaProblems.add(new CoreIrProblem(e.getProperty() == null ? at : at + "/" + e.getProperty(), SCHEMA));
+            problems.add(new CoreIrProblem(e.getProperty() == null ? at : at + "/" + e.getProperty(), SCHEMA));
         }
-        if (!schemaProblems.isEmpty()) {
-            return List.copyOf(new LinkedHashSet<>(schemaProblems.stream().sorted(PROBLEM_ORDER).toList()));
-        }
-        return invariantProblems(tree);
+        return List.copyOf(new LinkedHashSet<>(problems.stream().sorted(PROBLEM_ORDER).toList()));
     }
 
     /** 规范序列化（ADR 0055 §5）：{@link CanonicalJson} 字节。 */

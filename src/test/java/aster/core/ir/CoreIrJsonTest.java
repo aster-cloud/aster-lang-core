@@ -146,6 +146,17 @@ class CoreIrJsonTest {
     }
 
     @Test
+    void long_value_is_json_string_and_exact() throws Exception {
+        ObjectNode tree = baseTree();
+        doubleLiteral(tree).put("kind", "Long").put("value", "9007199254740993");
+        CoreModel.Module m = CoreIrJson.read(MAPPER.writeValueAsString(tree));
+        CoreModel.Return ret = (CoreModel.Return) ((CoreModel.Func) m.decls.get(1)).body.statements.get(0);
+        assertEquals(9007199254740993L, ((CoreModel.LongE) ret.expr).value);
+        assertTrue(CoreIrJson.serialize(m).contains("\"value\":\"9007199254740993\""));
+        assertInvalid(t -> doubleLiteral(t).put("kind", "Long").put("value", 1), CoreIrJson.INVALID_REQUEST);
+    }
+
+    @Test
     void serialize_emits_empty_arrays_and_nulls() {
         String json = CoreIrJson.serialize(baseModule());
         assertTrue(json.contains("\"annotations\":[]"), json);
