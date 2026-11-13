@@ -4,6 +4,7 @@ import aster.core.ir.CoreIrFormatException;
 import aster.core.ir.CoreIrJson;
 import aster.core.ir.CoreIrProblem;
 import aster.core.resolve.DeclarationResolverCorpusTest;
+import aster.core.typecheck.governance.ControlRegistrySiblingParityTest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -31,28 +32,31 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 class CoreIrSchemaConformanceTest {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final Path CORPUS = Path.of("..", "aster-lang-test", "corpus");
+    /**
+     * 本地为兄弟目录 ../aster-lang-test；CI（ci.yml 的 checkout-sibling）把它检出到工作区子目录 ./aster-lang-test。
+     * 两处都不存在时：CI 中失败，本地跳过（ControlRegistrySiblingParityTest.locate 同一规则）。
+     */
+    private static final List<Path> CORPUS_CANDIDATES = List.of(
+        Path.of("..", "aster-lang-test", "corpus"),
+        Path.of("aster-lang-test", "corpus"));
 
     @Test
     void corpus_output_conforms() throws Exception {
-        // 与 sibling parity 测试同一规则：CI 中语料缺失即失败（静默跳过的门禁不是门禁），只有本地允许跳过
-        String ci = System.getenv("CI");
-        if (ci != null && !ci.isBlank()) {
-            assertTrue(Files.isDirectory(CORPUS), "CI 中必须 checkout aster-lang-test：" + CORPUS.toAbsolutePath().normalize());
-        }
-        assumeTrue(Files.isDirectory(CORPUS), "本地未并列 checkout aster-lang-test，跳过");
+        java.util.Optional<Path> located = ControlRegistrySiblingParityTest.locate(CORPUS_CANDIDATES, System.getenv("CI"));
+        assumeTrue(located.isPresent(), "本地未并列 checkout aster-lang-test，跳过");
+        Path corpus = located.get();
         List<String> problems = new ArrayList<>();
         int checked = 0;
         int withVocabulary = 0;
         List<String> failed = new ArrayList<>();
-        for (Path file : javaSamples()) {
+        for (Path file : javaSamples(corpus)) {
             JsonNode meta = MAPPER.readTree(sibling(file, ".meta.json").toFile());
             Path vocab = sibling(file, ".vocab.json");
             boolean hasVocab = Files.isRegularFile(vocab);
             JsonNode rec = CoreIrFingerprintCli.emitOne(new CoreIrFingerprintCli.Request(
                 file.toAbsolutePath().toString(), meta.path("lexicon").asText(null),
                 hasVocab ? vocab.toAbsolutePath().toString() : null), true);
-            String key = CORPUS.relativize(file).toString().replace('\\', '/');
+            String key = corpus.relativize(file).toString().replace('\\', '/');
             if (!rec.path("ok").asBoolean(false)) {
                 failed.add(key);
                 if (!DeclarationResolverCorpusTest.KNOWN_PARSE_GAPS.containsKey(key)) {
@@ -65,15 +69,15 @@ class CoreIrSchemaConformanceTest {
             String canonical = rec.path("irCanonical").asText();
             List<CoreIrProblem> found = CoreIrJson.validate(MAPPER.readTree(canonical));
             if (!found.isEmpty()) {
-                problems.add(CORPUS.relativize(file) + "：" + found);
+                problems.add(corpus.relativize(file) + "：" + found);
                 continue;
             }
             try {
                 if (!canonical.equals(CoreIrJson.serialize(CoreIrJson.read(canonical)))) {
-                    problems.add(CORPUS.relativize(file) + "：读回后再序列化的字节不同");
+                    problems.add(corpus.relativize(file) + "：读回后再序列化的字节不同");
                 }
             } catch (CoreIrFormatException e) {
-                problems.add(CORPUS.relativize(file) + "：严格读回失败 " + e.getMessage());
+                problems.add(corpus.relativize(file) + "：严格读回失败 " + e.getMessage());
             }
         }
         System.out.println("conformance: checked=" + checked + " withVocabulary=" + withVocabulary);
@@ -87,8 +91,8 @@ class CoreIrSchemaConformanceTest {
     }
 
     /** meta 声明 java 引擎且 expect 不是 reject 的样本。 */
-    private static List<Path> javaSamples() throws IOException {
-        try (Stream<Path> walk = Files.walk(CORPUS)) {
+    private static List<Path> javaSamples(Path corpus) throws IOException {
+        try (Stream<Path> walk = Files.walk(corpus)) {
             return walk.filter(p -> p.toString().endsWith(".aster")).sorted().filter(p -> {
                 try {
                     Path metaPath = sibling(p, ".meta.json");
