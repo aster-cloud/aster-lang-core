@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class ControlRegistryTest {
   @Test void 默认注册表含五个初始控制点() {
     var r = ControlRegistry.loadDefault();
-    assertEquals("1.2.0", r.version());
+    assertEquals("1.3.0", r.version());
     assertTrue(r.has("EU_AI_ACT:ART14"));
     assertTrue(r.has("SOX:404"));
     assertEquals(5, r.keys().size());
@@ -114,10 +114,12 @@ class ControlRegistryTest {
     }
   }
 
-  @Test void 默认注册表两个档案都不要求verifiedInputs() {
+  // registry 1.3.0（ADR 0046 §11.4 ⑦）：只有高风险档案要求规则输入可验证。
+  @Test void 默认注册表仅高风险档案要求verifiedInputs() {
     var r = ControlRegistry.loadDefault();
+    assertEquals("1.3.0", r.version());
     assertFalse(r.profile("governed").orElseThrow().verifiedInputs());
-    assertFalse(r.profile("eu-ai-act-high-risk").orElseThrow().verifiedInputs());
+    assertTrue(r.profile("eu-ai-act-high-risk").orElseThrow().verifiedInputs());
   }
 
   @Test void 四参构造器等价于不要求verifiedInputs() {
