@@ -35,7 +35,12 @@ class CoreIrSchemaConformanceTest {
 
     @Test
     void corpus_output_conforms() throws Exception {
-        assumeTrue(Files.isDirectory(CORPUS), "缺少同级 aster-lang-test/corpus");
+        // 与 sibling parity 测试同一规则：CI 中语料缺失即失败（静默跳过的门禁不是门禁），只有本地允许跳过
+        String ci = System.getenv("CI");
+        if (ci != null && !ci.isBlank()) {
+            assertTrue(Files.isDirectory(CORPUS), "CI 中必须 checkout aster-lang-test：" + CORPUS.toAbsolutePath().normalize());
+        }
+        assumeTrue(Files.isDirectory(CORPUS), "本地未并列 checkout aster-lang-test，跳过");
         List<String> problems = new ArrayList<>();
         int checked = 0;
         int withVocabulary = 0;
