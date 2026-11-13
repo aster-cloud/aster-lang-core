@@ -79,6 +79,7 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
      * @param annotations 注解列表（可能为 null）
      * @param resolved    字段声明名的解析结果（ADR 0051，FIELD_DECL；解析前为 null）
      * @param span        字段条目位置（字段名起至类型止，与 TS 一致）；手工构建的 AST 可为 null，诊断退回声明位置
+     * @param constraints 源码约束（ADR 0055 #4），按源码顺序；无约束为空列表
      */
     record Field(
         @JsonProperty("name") String name,
@@ -87,8 +88,18 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
         /** 源码未声明类型（`Define X has a, b.`）：type 是按字段名推断的占位，成员访问时按动态值处理，与 TS 对齐。 */
         @JsonProperty("typeInferred") @JsonInclude(JsonInclude.Include.NON_DEFAULT) boolean typeInferred,
         @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved,
-        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("span") Span span
+        @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("span") Span span,
+        @JsonProperty("constraints") List<Constraint> constraints
     ) {
+        public Field {
+            constraints = constraints == null ? List.of() : List.copyOf(constraints);
+        }
+
+        /** 无约束的字段（手工构建的 AST 与名称解析前后的通用形态）。 */
+        public Field(String name, Type type, List<Annotation> annotations, boolean typeInferred, Resolved resolved, Span span) {
+            this(name, type, annotations, typeInferred, resolved, span, List.of());
+        }
+
         /** 旧签名构造器：显式类型字段。 */
         public Field(String name, Type type, List<Annotation> annotations) {
             this(name, type, annotations, false);
@@ -267,6 +278,7 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
      * @param resolved    参数名的解析结果（ADR 0051，LOCAL；解析前为 null）
      * @param typeInferred 源码未标注类型：type 只是按参数名推断的占位，名称解析（ADR 0051 R2）视其类型未知；
      *                     不进 AST JSON
+     * @param constraints  源码约束（ADR 0055 #4），按源码顺序；无约束为空列表
      */
     record Parameter(
         @JsonProperty("name") String name,
@@ -274,8 +286,18 @@ public sealed interface Decl extends AstNode permits Decl.Import, Decl.Data, Dec
         @JsonProperty("annotations") List<Annotation> annotations,
         @JsonProperty("span") Span span,
         @JsonInclude(JsonInclude.Include.NON_NULL) @JsonProperty("resolved") Resolved resolved,
-        @JsonIgnore boolean typeInferred
+        @JsonIgnore boolean typeInferred,
+        @JsonProperty("constraints") List<Constraint> constraints
     ) {
+        public Parameter {
+            constraints = constraints == null ? List.of() : List.copyOf(constraints);
+        }
+
+        /** 无约束的参数。 */
+        public Parameter(String name, Type type, List<Annotation> annotations, Span span, Resolved resolved, boolean typeInferred) {
+            this(name, type, annotations, span, resolved, typeInferred, List.of());
+        }
+
         /** 未解析、带显式类型的参数。 */
         public Parameter(String name, Type type, List<Annotation> annotations, Span span) {
             this(name, type, annotations, span, null, false);

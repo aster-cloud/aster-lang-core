@@ -94,6 +94,7 @@ public final class CoreLowering {
     out.name = canonicalOf(field.name(), field.resolved());
     out.type = lowerType(field.type());
     out.annotations = lowerAnnotations(field.annotations());
+    out.constraints = lowerConstraints(field.constraints());
     out.typeInferred = field.typeInferred();
     return out;
   }
@@ -140,7 +141,39 @@ public final class CoreLowering {
     out.name = param.name();
     out.type = param.type() == null ? null : lowerType(param.type());
     out.annotations = lowerAnnotations(param.annotations());
+    out.constraints = lowerConstraints(param.constraints());
     out.typeInferred = param.typeInferred();
+    return out;
+  }
+
+  /** ADR 0055 #4：约束原样透传；Range 两端由字面量原文求规范十进制串，origin 取约束自身的位置。 */
+  private List<CoreModel.Constraint> lowerConstraints(List<Constraint> constraints) {
+    List<CoreModel.Constraint> out = new ArrayList<>();
+    if (constraints == null) {
+      return out;
+    }
+    for (Constraint c : constraints) {
+      out.add(switch (c) {
+        case Constraint.Required r -> {
+          CoreModel.Constraint.Required req = new CoreModel.Constraint.Required();
+          req.origin = spanToOrigin(r.span());
+          yield req;
+        }
+        case Constraint.Range r -> {
+          CoreModel.Constraint.Range range = new CoreModel.Constraint.Range();
+          range.min = r.min() == null ? null : canonicalDecimal(r.min());
+          range.max = r.max() == null ? null : canonicalDecimal(r.max());
+          range.origin = spanToOrigin(r.span());
+          yield range;
+        }
+        case Constraint.Pattern p -> {
+          CoreModel.Constraint.Pattern pat = new CoreModel.Constraint.Pattern();
+          pat.regexp = p.regexp();
+          pat.origin = spanToOrigin(p.span());
+          yield pat;
+        }
+      });
+    }
     return out;
   }
 
@@ -360,7 +393,7 @@ public final class CoreLowering {
       }
       case Expr.Double dbl -> {
         CoreModel.DoubleE out = new CoreModel.DoubleE();
-        out.value = canonicalDecimal(java.math.BigDecimal.valueOf(dbl.value()).toPlainString());
+        out.value = canonicalDecimal(dbl.lexeme());
         out.origin = spanToOrigin(dbl.span());
         yield out;
       }

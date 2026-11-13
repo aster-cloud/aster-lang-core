@@ -120,14 +120,21 @@ public sealed interface Expr extends AstNode
     /**
      * Double 浮点数字面量
      *
-     * @param value 浮点数值
-     * @param span  源码位置信息
+     * @param value  浮点数值（类型检查与求值用）
+     * @param span   源码位置信息
+     * @param lexeme 源码字面量原文；Core IR 的规范十进制串由 lowering 从它经 BigDecimal 求出，不经 double（ADR 0055 §5）
      */
     @JsonTypeName("Double")
     record Double(
         @JsonProperty("value") double value,
-        @JsonProperty("span") Span span
+        @JsonProperty("span") Span span,
+        @JsonProperty("lexeme") java.lang.String lexeme
     ) implements Expr {
+        /** 手工构建的字面量：原文取 double 的最短十进制表示。 */
+        public Double(double value, Span span) {
+            this(value, span, java.lang.Double.toString(value));
+        }
+
         @Override
         public java.lang.String kind() {
             return "Double";

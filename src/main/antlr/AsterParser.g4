@@ -202,7 +202,7 @@ param
  * 语法: It performs io [Http, Sql, Time]
  */
 capabilityAnnotation
-    : IT PERFORMS IDENT (LBRACKET TYPE_IDENT (COMMA TYPE_IDENT)* RBRACKET)?
+    : IT PERFORMS effect=(IDENT | TYPE_IDENT) (LBRACKET caps+=TYPE_IDENT (COMMA caps+=TYPE_IDENT)* RBRACKET)?
     ;
 
 /**
@@ -252,13 +252,18 @@ field
     ;
 
 /**
- * 字段/参数约束修饰符（与 TS constraint-parser 对齐）。
- * required：必填；between X and Y：范围。当前仅 parse 接受以对齐双引擎语法，
- * 约束语义（校验执行）作为后续阶段，不进 Core IR fingerprint（结构级比较）。
+ * 字段/参数约束修饰符（与 TS constraint-parser 对齐，ADR 0055 #4）。
+ * required：必填；between X and Y：范围，两端只能是数值字面量（可带负号），规范十进制串由 lowering 从原文求出；
+ * matching "…"：正则。三者都降级为 Core IR 的 Field / Param.constraints。
  */
 fieldConstraint
     : REQUIRED
-    | BETWEEN expr AND expr
+    | BETWEEN rangeBound AND rangeBound
+    | MATCHING STRING_LITERAL
+    ;
+
+rangeBound
+    : MINUS? (INT_LITERAL | FLOAT_LITERAL)
     ;
 
 nameIdent
@@ -268,6 +273,7 @@ nameIdent
     | VERSION
     | REQUIRED
     | BETWEEN
+    | MATCHING
     | structKeywordName
     ;
 

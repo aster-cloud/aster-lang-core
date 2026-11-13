@@ -489,7 +489,7 @@ public final class DeclarationResolver {
         String typeName = type instanceof Type.TypeName tn && tn.resolved() != null ? tn.resolved().canonical() : null;
         scope.locals.add(new Local(CaseFold.nfc(p.name()), typeName));
         Resolved resolved = new Resolved(p.name(), ResolvedRole.LOCAL, p.name());
-        return new Decl.Parameter(p.name(), type, p.annotations(), p.span(), resolved, p.typeInferred());
+        return new Decl.Parameter(p.name(), type, p.annotations(), p.span(), resolved, p.typeInferred(), p.constraints());
     }
 
     // ---- 表达式 ----
@@ -692,7 +692,7 @@ public final class DeclarationResolver {
         for (int i = 0; i < d.fields().size(); i++) {
             Decl.Field f = d.fields().get(i);
             out.add(new Decl.Field(f.name(), resolveType(scope, f.type()), f.annotations(), f.typeInferred(), names.get(i),
-                f.span()));
+                f.span(), f.constraints()));
         }
         return new Decl.Data(d.name(), out, d.span(), resolved);
     }

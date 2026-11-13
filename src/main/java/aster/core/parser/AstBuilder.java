@@ -254,13 +254,14 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         boolean effectCapsExplicit = false;
         if (ctx.capabilityAnnotation() != null) {
             AsterParser.CapabilityAnnotationContext capCtx = ctx.capabilityAnnotation();
-            // 提取效应名称（如 "io"）
-            String effectName = capCtx.IDENT().getText();
-            effects = List.of(effectName);
+            // 效应名大小写不敏感（It performs IO 与 io 同义）；只有授权型效应 io / cpu 进入 effects，
+            // pure、async 与未知名不授权任何效应，不写入（ADR 0055 #5，控制裁决）
+            String effectName = capCtx.effect.getText();
+            effects = authorizingEffects(effectName);
 
             // 提取能力列表（如 ["Http", "Sql"]）
-            List<String> caps = capCtx.TYPE_IDENT().stream()
-                .map(TerminalNode::getText)
+            List<String> caps = capCtx.caps.stream()
+                .map(Token::getText)
                 .collect(Collectors.toList());
             effectCaps = caps.isEmpty() ? List.of() : List.copyOf(caps);
 
@@ -304,6 +305,12 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         );
     }
 
+    /** 授权型具体效应（ADR 0055 #5）：效应名按 ASCII 小写化后为 io / cpu 时写入，其余不授权、不写入。 */
+    private static List<String> authorizingEffects(String written) {
+        String lower = written.toLowerCase(java.util.Locale.ROOT);
+        return lower.equals("io") || lower.equals("cpu") ? List.of(lower) : List.of();
+    }
+
     @Override
     public Decl.Parameter visitParam(AsterParser.ParamContext ctx) {
         String name = nameIdentText(ctx.nameIdent());
@@ -330,7 +337,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         List<Annotation> allAnnotations = new ArrayList<>(prefixAnnotations);
         allAnnotations.addAll(typeAnnotations);
         List<Annotation> finalAnnotations = allAnnotations.isEmpty() ? List.of() : List.copyOf(allAnnotations);
-        return new Decl.Parameter(name, type, finalAnnotations, span, null, ctx.annotatedType() == null);
+        return new Decl.Parameter(name, type, finalAnnotations, span, null, ctx.annotatedType() == null,
+            constraintsOf(ctx.fieldConstraint()));
     }
 
     private void collectTypeParamCandidates(Type type, Set<String> acc) {
@@ -506,7 +514,32 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         List<Annotation> finalAnnotations = allAnnotations.isEmpty() ? List.of() : List.copyOf(allAnnotations);
         // 条目位置从字段名起（前置注解不计入，与 TS 一致）至类型/约束止
         Span span = mergeSpans(spanFrom(ctx.nameIdent()), spanFrom(ctx));
-        return new Decl.Field(name, type, finalAnnotations, typeInferred, span);
+        return new Decl.Field(name, type, finalAnnotations, typeInferred, null, span, constraintsOf(ctx.fieldConstraint()));
+    }
+
+    /** 字段 / 形参约束（ADR 0055 #4），按源码顺序；Range 两端保留字面量原文，由 lowering 规范化。 */
+    private List<Constraint> constraintsOf(List<AsterParser.FieldConstraintContext> ctxs) {
+        if (ctxs == null || ctxs.isEmpty()) {
+            return List.of();
+        }
+        List<Constraint> out = new ArrayList<>(ctxs.size());
+        for (AsterParser.FieldConstraintContext c : ctxs) {
+            Span span = spanFrom(c);
+            if (c.REQUIRED() != null) {
+                out.add(new Constraint.Required(span));
+            } else if (c.BETWEEN() != null) {
+                out.add(new Constraint.Range(rangeBoundText(c.rangeBound(0)), rangeBoundText(c.rangeBound(1)), span));
+            } else {
+                out.add(new Constraint.Pattern(parseStringLiteral(c.STRING_LITERAL()), span));
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    /** 范围端点的字面量原文：可选负号加整数或小数字面量。 */
+    private static String rangeBoundText(AsterParser.RangeBoundContext ctx) {
+        String digits = ctx.INT_LITERAL() != null ? ctx.INT_LITERAL().getText() : ctx.FLOAT_LITERAL().getText();
+        return ctx.MINUS() == null ? digits : "-" + digits;
     }
 
     private String nameIdentText(AsterParser.NameIdentContext ctx) {
@@ -625,13 +658,13 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         if (ctx.INT_LITERAL() != null) {
             return LiteralParsing.parseInt(ctx.INT_LITERAL().getText(), ctx.INT_LITERAL().getSymbol());
         }
-        if (ctx.FLOAT_LITERAL() != null) {
-            return LiteralParsing.parseDouble(ctx.FLOAT_LITERAL().getText(), ctx.FLOAT_LITERAL().getSymbol());
-        }
-        if (ctx.LONG_LITERAL() != null) {
-            String text = ctx.LONG_LITERAL().getText();
-            String digits = text.substring(0, text.length() - 1);
-            return LiteralParsing.parseLong(digits, ctx.LONG_LITERAL().getSymbol());
+        // ADR 0055 #3：注解参数值只能是 string / Int32 / boolean；浮点与 Long 字面量在解析期拒收（E067）
+        TerminalNode numeric = ctx.FLOAT_LITERAL() != null ? ctx.FLOAT_LITERAL() : ctx.LONG_LITERAL();
+        if (numeric != null) {
+            throw new ParseDiagnosticException(ErrorCode.PARSE_INVALID_VALUE,
+                Map.of("construct", "token.annotationArgumentValue", "value", numeric.getText(),
+                    "allowed", "string, Int or Bool"),
+                "Annotation argument value must be a string, Int or Bool: " + numeric.getText(), numeric.getSymbol());
         }
         if (ctx.BOOL_LITERAL() != null) {
             return Boolean.parseBoolean(ctx.BOOL_LITERAL().getText());
@@ -1725,8 +1758,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Expr visitFloatExpr(AsterParser.FloatExprContext ctx) {
-        double value = LiteralParsing.parseDouble(ctx.FLOAT_LITERAL().getText(), ctx.FLOAT_LITERAL().getSymbol());
-        return new Expr.Double(value, spanFrom(ctx));
+        String lexeme = ctx.FLOAT_LITERAL().getText();
+        double value = LiteralParsing.parseDouble(lexeme, ctx.FLOAT_LITERAL().getSymbol());
+        return new Expr.Double(value, spanFrom(ctx), lexeme);
     }
 
     @Override
