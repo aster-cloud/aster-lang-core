@@ -49,7 +49,7 @@ public class DeclarationResolverCorpusTest {
      * 已知的 Java 解析缺口（相对语料根路径 → 原因）。显式列出而非静默跳过：断言这些文件仍解析失败，
      * 缺口修复后本表须同步删除对应条目。
      */
-    private static final Map<String, String> KNOWN_PARSE_GAPS = Map.of(
+    public static final Map<String, String> KNOWN_PARSE_GAPS = Map.of(
         "conformance/cjk-v2/03-v2-keywords-all.aster",
         "Java 语法不支持 for-each（对每个 … 属于 …）；该用例对 java 的契约仅为规范化一致性（normalize-cjk-conformance）");
 

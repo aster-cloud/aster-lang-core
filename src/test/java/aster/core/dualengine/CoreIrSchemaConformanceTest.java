@@ -3,6 +3,7 @@ package aster.core.dualengine;
 import aster.core.ir.CoreIrFormatException;
 import aster.core.ir.CoreIrJson;
 import aster.core.ir.CoreIrProblem;
+import aster.core.resolve.DeclarationResolverCorpusTest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -23,8 +24,9 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * Java 对 aster-lang-test 语料的输出全部符合 Core IR v2（ADR 0055 §3「合规检查」；plan Task C5）。
  *
  * <p>与 parity 门禁走同一条路径：{@link CoreIrFingerprintCli#emitOne}，按 meta 声明的词法表规范化，样本自带
- * {@code .vocab.json} 时以该词汇做名称解析。纳入 meta 声明 java 引擎、非 reject 的全部样本；编译成功的每份
- * {@code irCanonical} 都必须通过 schema 与不变式，严格读回后再序列化逐字节相同。带词汇的样本必须全部编译成功。
+ * {@code .vocab.json} 时以该词汇做名称解析。纳入 meta 声明 java 引擎、非 reject 的全部样本：除登记在
+ * {@link DeclarationResolverCorpusTest#KNOWN_PARSE_GAPS} 的已知解析缺口外都必须编译成功，每份 {@code irCanonical}
+ * 都必须通过 schema 与不变式，严格读回后再序列化逐字节相同。
  */
 class CoreIrSchemaConformanceTest {
 
@@ -37,6 +39,7 @@ class CoreIrSchemaConformanceTest {
         List<String> problems = new ArrayList<>();
         int checked = 0;
         int withVocabulary = 0;
+        List<String> failed = new ArrayList<>();
         for (Path file : javaSamples()) {
             JsonNode meta = MAPPER.readTree(sibling(file, ".meta.json").toFile());
             Path vocab = sibling(file, ".vocab.json");
@@ -44,8 +47,12 @@ class CoreIrSchemaConformanceTest {
             JsonNode rec = CoreIrFingerprintCli.emitOne(new CoreIrFingerprintCli.Request(
                 file.toAbsolutePath().toString(), meta.path("lexicon").asText(null),
                 hasVocab ? vocab.toAbsolutePath().toString() : null), true);
+            String key = CORPUS.relativize(file).toString().replace('\\', '/');
             if (!rec.path("ok").asBoolean(false)) {
-                if (hasVocab) problems.add(CORPUS.relativize(file) + "：带词汇样本编译失败 " + rec);
+                failed.add(key);
+                if (!DeclarationResolverCorpusTest.KNOWN_PARSE_GAPS.containsKey(key)) {
+                    problems.add(key + "：编译失败 " + rec);
+                }
                 continue;
             }
             checked++;
@@ -66,6 +73,8 @@ class CoreIrSchemaConformanceTest {
         }
         System.out.println("conformance: checked=" + checked + " withVocabulary=" + withVocabulary);
         assertEquals(List.of(), problems);
+        // 已知解析缺口必须仍然失败；缺口修复后应从 DeclarationResolverCorpusTest.KNOWN_PARSE_GAPS 删除
+        assertEquals(DeclarationResolverCorpusTest.KNOWN_PARSE_GAPS.keySet().stream().sorted().toList(), failed.stream().sorted().toList());
         // 2026-11-14（aster-lang-test b595d6a）java 引擎、非 reject 的样本中 323 份编译成功（含带词汇的 26 份）；
         // 低于此数说明纳入口径或编译回退
         assertTrue(checked >= 320, "纳入的语料过少：" + checked);
