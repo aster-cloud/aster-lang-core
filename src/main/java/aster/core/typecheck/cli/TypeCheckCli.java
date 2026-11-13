@@ -1,10 +1,11 @@
 package aster.core.typecheck.cli;
 
+import aster.core.ir.CoreIrFormatException;
+import aster.core.ir.CoreIrJson;
 import aster.core.ir.CoreModel;
 import aster.core.typecheck.TypeChecker;
 import aster.core.typecheck.model.Diagnostic;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
@@ -27,10 +28,10 @@ import java.util.Set;
  */
 public final class TypeCheckCli {
 
+  /** 只用于输出诊断结果 JSON；读 Core IR 一律经 {@link CoreIrJson#read}（ADR 0055 §5 严格读方）。 */
   private static final ObjectMapper MAPPER = new ObjectMapper()
     .setSerializationInclusion(JsonInclude.Include.NON_NULL)
-    .enable(SerializationFeature.INDENT_OUTPUT)
-    .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    .enable(SerializationFeature.INDENT_OUTPUT);
 
   /** emit-core 单文件解析通常秒级完成；超时只为兜底 node 挂死，避免 CLI 永久等待。 */
   private static final Duration EMIT_CORE_TIMEOUT = Duration.ofSeconds(60);
@@ -123,10 +124,15 @@ public final class TypeCheckCli {
       throw new CliException(errorText, output.exitCode());
     }
 
+    return readCoreIr(output.stdout());
+  }
+
+  /** emit-core 的输出必须是 Core IR v2：版本、schema、严格绑定与不变式任一不过即退出码 1。 */
+  static CoreModel.Module readCoreIr(byte[] stdout) {
     try {
-      return MAPPER.readValue(output.stdout(), CoreModel.Module.class);
-    } catch (IOException ex) {
-      throw new CliException("无法解析 emit-core 输出: " + ex.getMessage(), 1);
+      return CoreIrJson.read(new String(stdout, StandardCharsets.UTF_8));
+    } catch (CoreIrFormatException ex) {
+      throw new CliException("emit-core 输出不是合法的 Core IR v2（" + ex.code() + "）: " + ex.getMessage(), 1);
     }
   }
 
@@ -303,7 +309,7 @@ public final class TypeCheckCli {
     Set<String> filterCodes
   ) {}
 
-  private static final class CliException extends RuntimeException {
+  static final class CliException extends RuntimeException {
     private static final long serialVersionUID = 1L;
     private final int exitCode;
 

@@ -3,6 +3,7 @@ package aster.core.dualengine;
 import aster.core.canonicalizer.Canonicalizer;
 import aster.core.identifier.VocabularyLoader;
 import aster.core.identifier.VocabularyScopes;
+import aster.core.ir.CoreIrJson;
 import aster.core.ir.CoreModel;
 import aster.core.lexicon.LexiconRegistry;
 import aster.core.parser.AstBuilder;
@@ -176,11 +177,10 @@ class CoreIrFingerprintCli {
             record.set("diagnostics", codesOf(resolved.diagnostics()));
             record.set("locs", locsOf(resolved.diagnostics()));
             record.set("fingerprint", fingerprint(coreJson));
-            // ADR 0016 阶段1：-Dparity.ir.full=true 时附带完整 Core IR JSON，
-            // 供 parity-tier1.mjs 的归一化字段级比较器消费（默认仍只发指纹，
-            // 保持现有 IR-mode 行为不变）。
+            // ADR 0055 §6：-Dparity.ir.full=true 时附带 CoreIrJson.serialize 产出的规范字节（字段名 irCanonical，
+            // 两引擎 CLI 同名），供 parity-tier1.mjs 做 schema 校验与逐字节比较（默认仍只发指纹）。
             if (Boolean.getBoolean("parity.ir.full")) {
-                record.set("ir", coreJson);
+                record.put("irCanonical", CoreIrJson.serialize(resolved.core()));
                 // ADR 0046 §11 D2：inputRefs 为 ["*"] 的函数 → E708 construct（不进 IR），供 parity 核对
                 // .meta.json 的 expectedInputRefConstructs；未声明档案的模块不输出该字段。
                 if (resolved.core().profile != null) record.set("inputRefConstructs", constructsOf(resolved.core()));
