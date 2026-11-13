@@ -42,6 +42,13 @@ class GovernanceCheckerArgsTest {
     }
 
     @Test
+    void non_string_dollar0_is_invalid() throws Exception {
+        CoreModel.Func f = func(roundTrip(GovernanceTestSupport.resolveSource(
+            SRC.replace("@id(\"R-1\")", "@id(42)"), null, null)), "decide");
+        assertEquals(Optional.empty(), GovernanceChecker.ruleId(f));
+    }
+
+    @Test
     void extra_argument_makes_annotation_invalid() throws Exception {
         CoreModel.Func f = func(roundTrip(GovernanceTestSupport.resolveSource(
             SRC.replace("@id(\"R-1\")", "@id(\"R-1\", \"R-2\")"), null, null)), "decide");
@@ -68,6 +75,7 @@ class GovernanceCheckerArgsTest {
     void corpus_typecheck_is_unchanged_after_v2_round_trip() throws Exception {
         List<String> diffs = new ArrayList<>();
         int checked = 0;
+        int withRuleId = 0;
         for (DeclarationResolverCorpusTest.Parsed p : DeclarationResolverCorpusTest.parseCorpus("args")) {
             NameResolution.ResolvedCore resolved = NameResolution.resolveAndLower(p.module(), ResolutionContext.none());
             if (NameResolution.hasErrors(resolved.diagnostics())) continue;
@@ -80,6 +88,7 @@ class GovernanceCheckerArgsTest {
             for (int i = 0; i < memory.decls.size(); i++) {
                 if (memory.decls.get(i) instanceof CoreModel.Func f) {
                     CoreModel.Func g = (CoreModel.Func) back.decls.get(i);
+                    if (GovernanceChecker.ruleId(g).isPresent()) withRuleId++;
                     if (!GovernanceChecker.ruleId(f).equals(GovernanceChecker.ruleId(g))
                         || !GovernanceChecker.controls(f).equals(GovernanceChecker.controls(g))) {
                         diffs.add(p.file() + " " + f.name + "：@id / @control 读取不同");
@@ -89,6 +98,8 @@ class GovernanceCheckerArgsTest {
         }
         assertEquals(List.of(), diffs);
         assertTrue(checked > 100, "纳入的语料过少：" + checked);
+        // 防止两侧都读成空而恒等：语料中确有读出 @id 的规则
+        assertTrue(withRuleId > 10, "读回后带 @id 的规则过少：" + withRuleId);
     }
 
     private static List<String> describe(List<Diagnostic> ds) {
