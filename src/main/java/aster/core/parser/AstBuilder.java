@@ -207,10 +207,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             retType = retInfo.type();
             retAnnotations = retInfo.annotations();
         } else {
-            // 隐式返回类型 - 使用类型推断
-            // 对于 generateQuote，尝试推断为对应的数据类型（首字母大写）
-            String inferredTypeName = inferReturnTypeName(name);
-            retType = new Type.TypeName(inferredTypeName, List.of(), spanFrom(ctx));
+            // 源码没写返回类型：固定为占位 Unknown，不按规则名猜（ADR 0056 §3.1）；真正的返回类型由类型检查器
+            // 从函数体推断，不写回 IR。占位锚定在 produce 关键词，省略 produce 时锚定在形参之后的第一个 token（§3.3）。
+            retType = new Type.TypeName("Unknown", List.of(), inferredRetSpan(ctx));
             retAnnotations = List.of();
             retTypeInferred = true;
         }
@@ -328,8 +327,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             type = typeInfo.type();
             typeAnnotations = typeInfo.annotations();
         } else {
-            // 隐式类型路径 - 使用类型推断
-            type = TypeInference.inferFieldType(name, span);
+            // 隐式类型路径 - 按名字推断，类型节点锚定在名字 token（ADR 0056 §3.3）
+            type = TypeInference.inferFieldType(name, spanFrom(ctx.nameIdent()));
             typeAnnotations = List.of();
         }
 
@@ -344,59 +343,26 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     }
 
     /**
-     * 从函数名推断返回类型
-     *
-     * 规则：
-     * 1. 如果函数名以 "generate"、"create"、"build" 等前缀开头，
-     *    提取后缀并首字母大写作为类型名
-     *    例如: generateQuote → Quote, buildResult → Result
-     * 2. 如果函数名以 "calculate"、"compute" 等计算前缀开头，默认返回 Int
-     * 3. 如果函数名以 "is"、"has"、"can" 等布尔前缀开头，返回 Bool
-     * 4. 其他情况默认返回 Text
+     * 推断返回类型占位的 origin（ADR 0056 §3.3）：{@code produce} 关键词；源码省略 {@code produce} 时，
+     * 取形参列表及其后可选逗号之后的第一个 token（{@code .}、{@code :} 等），与 ts decl-parser 相同。
      */
-    private String inferReturnTypeName(String funcName) {
-        if (funcName == null || funcName.isEmpty()) {
-            return "Text";
+    private Span inferredRetSpan(AsterParser.FuncDeclContext ctx) {
+        if (ctx.PRODUCE() != null) {
+            return spanFrom(ctx.PRODUCE());
         }
-
-        // 生成/创建类前缀 - 提取后缀作为类型名
-        String[] generatorPrefixes = {"generate", "create", "build", "make", "new", "get", "fetch", "load"};
-        for (String prefix : generatorPrefixes) {
-            if (funcName.toLowerCase(Locale.ROOT).startsWith(prefix) && funcName.length() > prefix.length()) {
-                String suffix = funcName.substring(prefix.length());
-                // 首字母大写
-                if (!suffix.isEmpty()) {
-                    return Character.toUpperCase(suffix.charAt(0)) + suffix.substring(1);
-                }
-            }
+        // 函数头最后一个组成部分之后的第一个子节点
+        org.antlr.v4.runtime.tree.ParseTree last = ctx.COMMA() != null ? ctx.COMMA()
+            : ctx.givenParamList() != null ? ctx.givenParamList()
+            : ctx.effectParamList() != null ? ctx.effectParamList()
+            : ctx.typeParamList() != null ? ctx.typeParamList()
+            : ctx.nameIdent();
+        int next = ctx.children.indexOf(last) + 1;
+        if (next >= ctx.getChildCount()) {
+            return spanFrom(ctx);
         }
-
-        // 计算类前缀 - 返回 Int
-        String[] calculatePrefixes = {"calculate", "compute", "count", "sum", "total"};
-        for (String prefix : calculatePrefixes) {
-            if (funcName.toLowerCase(Locale.ROOT).startsWith(prefix)) {
-                return "Int";
-            }
-        }
-
-        // 布尔前缀 - 返回 Bool
-        String[] boolPrefixes = {"is", "has", "can", "should", "will", "did", "does", "allow", "enable", "disable", "check", "validate"};
-        for (String prefix : boolPrefixes) {
-            if (funcName.toLowerCase(Locale.ROOT).startsWith(prefix)) {
-                return "Bool";
-            }
-        }
-
-        // 查找类前缀 - 返回 Text
-        String[] findPrefixes = {"find", "search", "lookup"};
-        for (String prefix : findPrefixes) {
-            if (funcName.toLowerCase(Locale.ROOT).startsWith(prefix)) {
-                return "Text";
-            }
-        }
-
-        // 默认返回 Text
-        return "Text";
+        org.antlr.v4.runtime.tree.ParseTree child = ctx.getChild(next);
+        Token first = child instanceof TerminalNode t ? t.getSymbol() : ((ParserRuleContext) child).getStart();
+        return spanFrom(first);
     }
 
     // ============================================================
@@ -433,9 +399,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             type = typeInfo.type();
             typeAnnotations = typeInfo.annotations();
         } else {
-            // 隐式类型路径 - 使用类型推断；成员访问时按动态值处理（见 Decl.Field.typeInferred）
-            Span fieldSpan = spanFrom(ctx);
-            type = TypeInference.inferFieldType(name, fieldSpan);
+            // 隐式类型路径 - 按名字推断，类型节点锚定在名字 token（ADR 0056 §3.3）；成员访问时按动态值处理（见 Decl.Field.typeInferred）
+            type = TypeInference.inferFieldType(name, spanFrom(ctx.nameIdent()));
             typeAnnotations = List.of();
             typeInferred = true;
         }
@@ -1675,10 +1640,10 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                 .collect(Collectors.toList());
         }
 
-        // 提取返回类型：produce 后类型可省，省略时推断为 Unknown（与 TS 对齐）
+        // 提取返回类型：produce 后类型可省，省略时为占位 Unknown，锚定在 produce 关键词（ADR 0056 §3.3）
         Type retType = ctx.annotatedType() != null
             ? extractAnnotatedType(ctx.annotatedType()).type()
-            : new Type.TypeName("Unknown", List.of(), spanFrom(ctx));
+            : new Type.TypeName("Unknown", List.of(), spanFrom(ctx.PRODUCE()));
 
         // 提取函数体
         Block body;

@@ -90,10 +90,11 @@ class NaturalLanguageCnlTest {
         Decl.Func func = (Decl.Func) module.decls().get(0);
         assertEquals("checkValue", func.name());
 
-        // checkValue 以 "check" 开头，所以返回类型推断为 Bool
+        // 未写返回类型：占位 Unknown，不按规则名猜（ADR 0056 §3.1）
         Type retType = func.retType();
+        assertTrue(func.retTypeInferred());
         assertTrue(retType instanceof Type.TypeName);
-        assertEquals("Bool", ((Type.TypeName) retType).name());
+        assertEquals("Unknown", ((Type.TypeName) retType).name());
     }
 
     @Test
@@ -114,10 +115,11 @@ class NaturalLanguageCnlTest {
         Decl.Func func = (Decl.Func) module.decls().get(0);
         assertEquals("calculateTotal", func.name());
 
-        // calculateTotal 以 "calculate" 开头，所以返回类型推断为 Int
+        // 未写返回类型：占位 Unknown，不按规则名猜（ADR 0056 §3.1）
         Type retType = func.retType();
+        assertTrue(func.retTypeInferred());
         assertTrue(retType instanceof Type.TypeName);
-        assertEquals("Int", ((Type.TypeName) retType).name());
+        assertEquals("Unknown", ((Type.TypeName) retType).name());
     }
 
     @Test
@@ -176,7 +178,7 @@ class NaturalLanguageCnlTest {
     }
 
     @Test
-    void testGenerateReturnTypeInference() {
+    void testOmittedReturnTypeIsUnknownPlaceholder() {
         String source = """
             Module test.
 
@@ -192,10 +194,11 @@ class NaturalLanguageCnlTest {
         Decl.Func func = (Decl.Func) module.decls().get(1);
         assertEquals("generateQuote", func.name());
 
-        // generateQuote 以 "generate" 开头，所以返回类型推断为 Quote
+        // 未写返回类型：占位 Unknown，不再按 generate 前缀猜成 Quote（ADR 0056 §3.1）
         Type retType = func.retType();
+        assertTrue(func.retTypeInferred());
         assertTrue(retType instanceof Type.TypeName);
-        assertEquals("Quote", ((Type.TypeName) retType).name());
+        assertEquals("Unknown", ((Type.TypeName) retType).name());
     }
 
     @Test

@@ -701,21 +701,12 @@ public final class DeclarationResolver {
         List<String> typeParams = d.typeParams();
         Scope scope = rootScope(typeParams);
         List<Decl.Parameter> params = d.params().stream().map(p -> resolveParam(scope, p)).toList();
-        Type retType = d.retTypeInferred() ? inferredRetType(d.retType()) : resolveType(scope, d.retType());
+        // 推断返回类型是占位 Unknown，不参与名称解析（ADR 0056 §3.1）
+        Type retType = d.retTypeInferred() ? d.retType() : resolveType(scope, d.retType());
         Block body = resolveOptionalBlock(scope, d.body());
         return new Decl.Func(d.name(), d.nameSpan(), typeParams, params, retType, d.annotations(), d.retAnnotations(),
             body, d.effects(), d.effectCaps(), d.effectCapsExplicit(), d.span(), d.retTypeInferred(),
             resolved, d.effectParams());
-    }
-
-    /**
-     * 省略返回类型时 retType 是解析器按函数名合成的占位（如 getKunde → Kunde）：静默探测，命中声明 / 导入 /
-     * 词汇时写入规范名（与 R13 移除同名隐式类型参数配套，避免本地化写法流入 lowering）；未命中保持原样，不报 E800。
-     */
-    private Type inferredRetType(Type retType) {
-        if (!(retType instanceof Type.TypeName tn) || !(probeTypeChoice(tn.name()) instanceof Hit h)) return retType;
-        Resolved stamped = new Resolved(h.entry().canonical(), ResolvedRole.TYPE, tn.name());
-        return new Type.TypeName(tn.name(), tn.annotations(), tn.span(), stamped);
     }
 
 }
