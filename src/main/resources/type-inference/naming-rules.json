@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "default": "Text",
+  "rules": [
+    {"type": "Text", "priority": 11, "match": "lastWord", "words": ["message", "dosage"]},
+    {"type": "Text", "priority": 10, "match": "lastWordMulti", "words": ["id", "identifier"]},
+    {"type": "Text", "priority": 8, "match": "lastWord", "words": ["code", "key", "token", "uuid", "guid", "vin"]},
+    {"type": "Float", "priority": 10, "match": "lastWord", "words": ["amount", "price", "cost", "fee", "total", "balance", "salary", "income", "payment", "percentage", "ratio"]},
+    {"type": "Float", "priority": 9, "match": "lastWord", "words": ["rate", "interest"]},
+    {"type": "Int", "priority": 10, "match": "lastWord", "words": ["count", "number", "qty", "quantity", "score", "level", "rank", "index", "size", "length", "width", "height", "age"]},
+    {"type": "Int", "priority": 9, "match": "anyWord", "words": ["year", "years", "month", "months", "week", "weeks", "day", "days", "hour", "hours", "minute", "minutes", "second", "seconds"]},
+    {"type": "Bool", "priority": 11, "match": "firstWord", "words": ["is", "iss", "ises", "isd", "ised", "has", "hass", "hases", "hasd", "hased", "can", "cans", "canes", "cand", "caned", "should", "shoulds", "shouldes", "shouldd", "shoulded", "was", "wass", "wases", "wasd", "wased", "will", "wills", "willes", "willd", "willed", "did", "dids", "dides", "didd", "dided", "does", "doess", "doeses", "doesd", "doesed", "allow", "allows", "allowes", "allowd", "allowed", "enable", "enables", "enablees", "enabled", "enableed", "disable", "disables", "disablees", "disabled", "disableed", "active", "actives", "activees", "actived", "activeed", "valid", "valids", "valides", "validd", "valided", "require", "requires", "requirees", "required", "requireed"]},
+    {"type": "Bool", "priority": 8, "match": "lastWord", "words": ["flag", "enabled", "disabled", "active", "valid", "approved", "rejected", "completed", "confirmed", "sufficient", "success", "passed", "verified"]},
+    {"type": "DateTime", "priority": 10, "match": "lastWord", "words": ["date", "time", "at", "timestamp", "created", "updated", "modified", "expired", "birthday", "anniversary"]},
+    {"type": "Text", "priority": 8, "match": "lastWord", "words": ["type", "status", "category", "kind", "mode"]},
+    {"type": "Text", "priority": 7, "match": "lastWord", "words": ["make", "model", "brand", "manufacturer"]},
+    {"type": "Text", "priority": 7, "match": "lastWord", "words": ["name", "title", "description", "comment", "note", "remark", "address", "email", "phone", "url", "path", "reason", "recommendation", "factors", "purpose"]},
+    {"type": "Int", "priority": 9, "match": "lastWord", "words": ["rating", "limit", "premium", "deductible", "multiplier", "deposit", "line", "utilization", "inquiries", "rent", "debt", "cards", "value", "payments"]},
+    {"type": "Int", "priority": 8, "match": "lastWord", "words": ["licensed", "employed", "job", "experience"]},
+    {"type": "Int", "priority": 9, "match": "lastWord", "words": ["bps", "apr", "apy"]},
+    {"type": "Int", "priority": 8, "match": "lastWord", "words": ["checked"]},
+    {"type": "Bool", "priority": 11, "match": "textPrefix", "strings": ["是否", "有无", "能否", "可否", "允许", "启用", "禁用"]},
+    {"type": "Bool", "priority": 8, "match": "textSuffix", "strings": ["批准", "通过", "有效", "合格", "可疑", "确认", "验证"]},
+    {"type": "Int", "priority": 10, "match": "textSuffix", "strings": ["评分", "年龄", "数量", "次数", "额度", "金额", "保费", "免赔额", "账龄", "卡数"]},
+    {"type": "Float", "priority": 9, "match": "textSuffix", "strings": ["利率", "费率", "比率", "百分比"]},
+    {"type": "Bool", "priority": 8, "match": "textSuffix", "strings": ["genehmigt", "berechtigt", "verdaechtig", "aktiviert", "deaktiviert", "aktiv", "gueltig", "erfolgreich", "bestanden", "bestaetigt", "verifiziert", "abgelehnt", "abgeschlossen", "erforderlich"]}
+  ]
+}

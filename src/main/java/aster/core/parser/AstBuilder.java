@@ -316,6 +316,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     public Decl.Parameter visitParam(AsterParser.ParamContext ctx) {
         String name = nameIdentText(ctx.nameIdent());
         Span span = spanFrom(ctx);
+        List<Constraint> constraints = constraintsOf(ctx.fieldConstraint());
 
         Type type;
         List<Annotation> typeAnnotations;
@@ -327,8 +328,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             type = typeInfo.type();
             typeAnnotations = typeInfo.annotations();
         } else {
-            // 隐式类型路径 - 按名字推断，类型节点锚定在名字 token（ADR 0056 §3.3）
-            type = TypeInference.inferFieldType(name, spanFrom(ctx.nameIdent()));
+            // 隐式类型路径 - 按名字推断并按约束修正（ADR 0056 §3.2），类型节点锚定在名字 token（§3.3）
+            type = TypeInference.inferFieldType(name, constraints, spanFrom(ctx.nameIdent()));
             typeAnnotations = List.of();
         }
 
@@ -338,8 +339,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         List<Annotation> allAnnotations = new ArrayList<>(prefixAnnotations);
         allAnnotations.addAll(typeAnnotations);
         List<Annotation> finalAnnotations = allAnnotations.isEmpty() ? List.of() : List.copyOf(allAnnotations);
-        return new Decl.Parameter(name, type, finalAnnotations, span, null, ctx.annotatedType() == null,
-            constraintsOf(ctx.fieldConstraint()));
+        return new Decl.Parameter(name, type, finalAnnotations, span, null, ctx.annotatedType() == null, constraints);
     }
 
     /**
@@ -387,6 +387,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     @Override
     public Decl.Field visitField(AsterParser.FieldContext ctx) {
         String name = nameIdentText(ctx.nameIdent());
+        List<Constraint> constraints = constraintsOf(ctx.fieldConstraint());
 
         Type type;
         List<Annotation> typeAnnotations;
@@ -399,8 +400,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             type = typeInfo.type();
             typeAnnotations = typeInfo.annotations();
         } else {
-            // 隐式类型路径 - 按名字推断，类型节点锚定在名字 token（ADR 0056 §3.3）；成员访问时按动态值处理（见 Decl.Field.typeInferred）
-            type = TypeInference.inferFieldType(name, spanFrom(ctx.nameIdent()));
+            // 隐式类型路径 - 按名字推断并按约束修正（ADR 0056 §3.2），类型节点锚定在名字 token（§3.3）；
+            // 成员访问时按动态值处理（见 Decl.Field.typeInferred）
+            type = TypeInference.inferFieldType(name, constraints, spanFrom(ctx.nameIdent()));
             typeAnnotations = List.of();
             typeInferred = true;
         }
@@ -413,7 +415,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         List<Annotation> finalAnnotations = allAnnotations.isEmpty() ? List.of() : List.copyOf(allAnnotations);
         // 条目位置从字段名起（前置注解不计入，与 TS 一致）至类型/约束止
         Span span = mergeSpans(spanFrom(ctx.nameIdent()), spanFrom(ctx));
-        return new Decl.Field(name, type, finalAnnotations, typeInferred, null, span, constraintsOf(ctx.fieldConstraint()));
+        return new Decl.Field(name, type, finalAnnotations, typeInferred, null, span, constraints);
     }
 
     /** 字段 / 形参约束（ADR 0055 #4），按源码顺序；Range 两端保留字面量原文，由 lowering 规范化。 */
