@@ -140,4 +140,21 @@ class TypeInferenceTest {
     void shouldMatchTsEngineInference(String fieldName, String expectedType) {
         assertThat(TypeInference.inferTypeNameFromFieldName(fieldName)).isEqualTo(expectedType);
     }
+
+    /**
+     * Range 端点按规范十进制值判断是否带小数（ADR 0056 §3.2 第 5 步），不看字面量原文：
+     * 原文 1.0 / 2.00 / 1E3 的规范串分别是 1 / 2 / 1000，不算小数；1.50、-0.5 算。ts 侧同一组用例见 type-inference.test.ts。
+     */
+    @ParameterizedTest(name = "Range({0}, {1}) → {2}")
+    @CsvSource({
+        "1.0, 2.00, Int",
+        "1E3, , Int",
+        ", 1.50, Float",
+        "-0.5, , Float",
+        "0, 1e-1, Float",
+    })
+    void rangeBoundsUseCanonicalDecimal(String min, String max, String expected) {
+        var range = new aster.core.ast.Constraint.Range(min, max, null);
+        assertThat(TypeInference.inferTypeName("nickname", java.util.List.of(range))).isEqualTo(expected);
+    }
 }
