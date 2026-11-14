@@ -313,6 +313,27 @@ class CapabilityCheckerTest {
   }
 
   @Test
+  void workflowWithoutExplicitCapabilitiesSkipsStepCapabilityCheck() {
+    // ADR 0056 §4.1：步骤能力只对照显式能力清单检查；裸 io 函数没有清单可对照，不报（与 ts 一致）
+    var workflow = workflow(step(
+      "fetchHttp",
+      blockWithStatements(returnCall("Http.get")),
+      blockWithStatements(returnCall("Http.post"))
+    ));
+    var func = createFunc("syncOrder", List.of("io"), blockWithStatements(workflow));
+    func.effectCaps = List.of();
+    func.effectCapsExplicit = false;
+
+    var diagnostics = checker.checkModule(List.of(func));
+
+    assertTrue(
+      diagnostics.stream().noneMatch(d -> d.code() == ErrorCode.WORKFLOW_UNDECLARED_CAPABILITY),
+      "非显式能力的 workflow 不应报 WORKFLOW_UNDECLARED_CAPABILITY；实际诊断="
+        + diagnostics.stream().map(d -> d.code().toString()).toList()
+    );
+  }
+
+  @Test
   void workflowCompensateParity() {
     var workflow = workflow(step(
       "settlePayment",

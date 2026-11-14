@@ -178,7 +178,11 @@ public final class CapabilityChecker {
         Map.of("func", func.name)
       );
     }
-    var declaredCapabilityKinds = toCapabilityKinds(normalizeEffectCaps(func.effectCaps));
+    // 步骤能力只对照显式声明的能力检查（ADR 0056 §4.1，与 ts 一致）：只写了效应（裸 io）的函数
+    // 没有能力清单可对照，传 null 表示不检查；补偿块的能力一致性检查不受影响。
+    var declaredCapabilityKinds = func.effectCapsExplicit
+      ? toCapabilityKinds(normalizeEffectCaps(func.effectCaps))
+      : null;
     for (var workflow : workflows) {
       checkWorkflow(func, workflow, declaredCapabilityKinds);
     }
@@ -240,7 +244,7 @@ public final class CapabilityChecker {
       Map<CapabilityKind, List<String>> observed,
       CoreModel.Origin origin
   ) {
-    if (observed == null || observed.isEmpty()) {
+    if (declaredCaps == null || observed == null || observed.isEmpty()) {
       return;
     }
     for (var cap : observed.keySet()) {
