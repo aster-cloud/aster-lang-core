@@ -357,4 +357,21 @@ class LambdaCaptureParityTest {
         + "  Return f(outer).\n");
     assertEquals(List.of("outer", "tmp"), caps.get(0));
   }
+
+  @Test
+  void startTaskNameIsALocalBinding() {
+    // 与 R1 一致：Start 的任务名是局部绑定——外层的 task 被捕获，lambda 内自己的 Start 遮蔽外层同名形参
+    var outer = allCapturesOf(rule("v",
+        "  Start task as async helper(v).",
+        "  Let f be function with x, produce:",
+        "    Return task.",
+        "  Return f(v)."));
+    assertEquals(List.of("task"), outer.get(0));
+    var shadowed = allCapturesOf(rule("v, task",
+        "  Let f be function with x, produce:",
+        "    Start task as async helper(x).",
+        "    Return task.",
+        "  Return f(v)."));
+    assertEquals(List.of(), shadowed.get(0));
+  }
 }

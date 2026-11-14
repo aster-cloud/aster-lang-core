@@ -16,8 +16,8 @@ import java.util.Set;
  * Lambda 的闭包捕获（ADR 0056 §4.2）。名字 n 进入 lambda L 的 captures，当且仅当：
  * <ol>
  *   <li>n 作为 {@code Name} 节点（值位置或调用目标）出现在 L 体内，含 L 内嵌套 lambda 的体内；</li>
- *   <li>该出现处 n 没有被 L 内部的绑定遮蔽（L 的形参、此前的 Let、Match 模式绑定、嵌套 lambda 的形参）；</li>
- *   <li>n 是 L 外层的局部绑定（外层函数形参、L 之前的 Let、外层 Match 模式绑定、外层 lambda 形参）。</li>
+ *   <li>该出现处 n 没有被 L 内部的绑定遮蔽（L 的形参、此前的 Let / Start、Match 模式绑定、嵌套 lambda 的形参）；</li>
+ *   <li>n 是 L 外层的局部绑定（外层函数形参、L 之前的 Let / Start、外层 Match 模式绑定、外层 lambda 形参）。</li>
  * </ol>
  * 判定在已降级的 Core IR 上进行，方法调用已改写为「方法名作调用目标、接收者作首参」，与 ts 一致；
  * 方法名、效应关键词、运算符、模块声明、导入与内建函数都不是外层局部，不进 captures。
@@ -106,7 +106,11 @@ final class LambdaCaptures {
         }
         case CoreModel.Scope scope -> block(scope.statements);
         case CoreModel.Block b -> block(b.statements);
-        case CoreModel.Start start -> expr(start.expr);
+        case CoreModel.Start start -> {
+          // 与 R1 一致：任务名先绑定
+          bound.peek().add(start.name);
+          expr(start.expr);
+        }
         case CoreModel.Wait ignored -> { }
         case CoreModel.Workflow wf -> {
           for (CoreModel.Step step : wf.steps) {

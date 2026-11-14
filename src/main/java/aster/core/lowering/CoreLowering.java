@@ -61,6 +61,9 @@ public final class CoreLowering {
    */
   public CoreModel.Module lowerModule(aster.core.ast.Module ast) {
     Objects.requireNonNull(ast, "ast");
+    if (!locals.isEmpty()) {
+      throw new IllegalStateException("CoreLowering 实例有状态，不可并发或重入使用；每次降级请新建实例");
+    }
     CoreModel.Module module = new CoreModel.Module();
     module.name = ast.name();
     module.profile = ast.profile();
@@ -278,6 +281,8 @@ public final class CoreLowering {
       case Stmt.Start start -> {
         CoreModel.Start out = new CoreModel.Start();
         out.name = start.name();
+        // 与 R1 一致：Start 的任务名先入作用域，此后的 lambda 可以捕获它
+        bindLocal(start.name());
         out.expr = lowerExpr(start.expr());
         out.origin = spanToOrigin(start.span());
         yield out;
