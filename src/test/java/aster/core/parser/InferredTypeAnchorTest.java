@@ -86,6 +86,29 @@ class InferredTypeAnchorTest {
     assertSpan(withComma.retType().span(), 3, 32, 3, 39);
   }
 
+  /** 函数头的各种形态：期望值与 ts inferred-type-anchor.test.ts 的同名用例逐一相同。 */
+  @ParameterizedTest
+  @org.junit.jupiter.params.provider.CsvSource(delimiter = '|', value = {
+    // 无形参、省略 produce：锚定在名字后的 `:`
+    "Module m.\\n\\nRule now:\\n  Return 1.\\n|3|9|3|10",
+    // 无形参、带逗号的 produce
+    "Module m.\\n\\nRule now, produce:\\n  Return 1.\\n|3|11|3|18",
+    // 类型参数 + 形参、省略 produce
+    "Module m.\\n\\nRule identity of T given x as T:\\n  Return x.\\n|3|32|3|33",
+    // 效应参数 + 形参 + It performs，省略 produce：锚定在形参后的 `.`
+    "Module m.\\n\\nRule relay <E> given x as Int. It performs E:\\n  Return x.\\n|3|30|3|31",
+    // 前置注解不影响锚点
+    "Module m.\\n\\n@entry\\nRule f given x as Int, produce:\\n  Return x.\\n|4|24|4|31",
+    // 无函数体
+    "Module m.\\n\\nRule f given x as Int.\\n|3|22|3|23",
+  })
+  void headerFormsAnchorConsistently(String escaped, int line, int startCol, int endLine, int endCol) {
+    var f = func(escaped.replace("\\n", "\n"));
+    assertTrue(f.retTypeInferred());
+    assertEquals("Unknown", ((Type.TypeName) f.retType()).name());
+    assertSpan(f.retType().span(), line, startCol, endLine, endCol);
+  }
+
   @Test
   void inferredLambdaReturnTypeAnchorsOnProduceKeyword() {
     var f = func("Module m.\n\nRule f given xs as List of Int, produce List of Int:\n"
