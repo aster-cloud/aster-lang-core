@@ -1,5 +1,6 @@
 package aster.core.lowering;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import aster.core.canonicalizer.Canonicalizer;
@@ -262,5 +263,115 @@ class LambdaCaptureParityTest {
         "lambda 自身参数 x 是绑定变量，不得计入 captures");
     assertTrue(!capturesOf("If x then outer else x").contains("x"),
         "内联 if 里出现的参数 x 同样不得计入 captures");
+  }
+
+  // ---- ADR 0056 §4.2：captures 只列外层局部，按首次引用位置排序，方法调用改写后判定 ----
+
+  private static String rule(String params, String... lines) {
+    StringBuilder sb = new StringBuilder("Module probe.\n\nRule helper given v, produce:\n  Return v.\n\n");
+    sb.append("Rule r given ").append(params).append(", produce:\n");
+    for (String line : lines) sb.append(line).append("\n");
+    return sb.toString();
+  }
+
+  @Test
+  void methodCallRewriteDoesNotCaptureMethodNameOrNonLocalReceiver() {
+    // x.add(outer) 改写为 add(x, outer)：add 是方法名，不是外层局部
+    var caps = allCapturesOf(rule("outer",
+        "  Let f be function with x, produce:",
+        "    Return x.add(outer).",
+        "  Return f(outer)."));
+    assertEquals(List.of("outer"), caps.get(0));
+    // io.get(url)：io 是效应关键词、get 是方法名，都不是外层局部
+    var io = allCapturesOf(rule("base",
+        "  Let f be function with url, produce:",
+        "    Return io.get(Text.concat(base, url)).",
+        "  Return f(\"/x\")."));
+    assertEquals(List.of("base"), io.get(0));
+  }
+
+  @Test
+  void moduleRulesBuiltinsAndOperatorsAreNotCaptured() {
+    var caps = allCapturesOf(rule("k",
+        "  Let f be function with y, produce:",
+        "    Return helper(y) plus k greater than 0.",
+        "  Return f(k)."));
+    assertEquals(List.of("k"), caps.get(0));
+  }
+
+  @Test
+  void capturesFollowFirstReferenceOrder() {
+    var caps = allCapturesOf(rule("first, second, third",
+        "  Let f be function with x, produce:",
+        "    Return If second then first else third.",
+        "  Return f(first)."));
+    assertEquals(List.of("second", "first", "third"), caps.get(0));
+  }
+
+  @Test
+  void onlyLocalsBoundBeforeTheLambdaAreOuterLocals() {
+    // later 在 lambda 之后才绑定，lambda 体内的 later 不是外层局部（按 R1 解析不到局部）
+    var caps = allCapturesOf(rule("a",
+        "  Let early be 1.",
+        "  Let f be function with x, produce:",
+        "    Return early plus later plus a.",
+        "  Let later be 2.",
+        "  Return f(a)."));
+    assertEquals(List.of("early", "a"), caps.get(0));
+  }
+
+  @Test
+  void outerMatchBindingIsAnOuterLocal() {
+    var caps = allCapturesOf(rule("m",
+        "  Match m:",
+        "    When bound,",
+        "      Let f be function with x, produce:",
+        "        Return x plus bound.",
+        "      Return f(1)."));
+    assertEquals(List.of("bound"), caps.get(0));
+  }
+
+  @Test
+  void nestedLambdaShadowingAndPassThrough() {
+    // 外层 lambda 内 Let a 遮蔽形参 a；内层形参 c 遮蔽外层形参 c；内层穿透引用的 b 记到外层
+    var caps = allCapturesOf(rule("a, b, c",
+        "  Let outer be function with x, produce:",
+        "    Let a be x times 2.",
+        "    Let inner be function with c, produce:",
+        "      Return c plus b plus a.",
+        "    Return inner(x).",
+        "  Return outer(c)."));
+    assertEquals(List.of("b"), caps.get(0));
+    assertEquals(List.of("b", "a"), caps.get(1));
+  }
+
+  @Test
+  void blockScopedLetDoesNotHideOuterLocalAfterTheBlock() {
+    // 块内 Let tmp 遮蔽外层形参 tmp；出块后的 `Return tmp` 指外层形参，必须捕获（与 ts 同一用例）
+    var caps = allCapturesOf("Module probe.\n\nRule r given outer, tmp, produce:\n"
+        + "  Let f be function with x, produce:\n"
+        + "    If x:\n"
+        + "      Let tmp be outer.\n"
+        + "      Return tmp.\n"
+        + "    Return tmp.\n"
+        + "  Return f(outer).\n");
+    assertEquals(List.of("outer", "tmp"), caps.get(0));
+  }
+
+  @Test
+  void startTaskNameIsALocalBinding() {
+    // 与 R1 一致：Start 的任务名是局部绑定——外层的 task 被捕获，lambda 内自己的 Start 遮蔽外层同名形参
+    var outer = allCapturesOf(rule("v",
+        "  Start task as async helper(v).",
+        "  Let f be function with x, produce:",
+        "    Return task.",
+        "  Return f(v)."));
+    assertEquals(List.of("task"), outer.get(0));
+    var shadowed = allCapturesOf(rule("v, task",
+        "  Let f be function with x, produce:",
+        "    Start task as async helper(x).",
+        "    Return task.",
+        "  Return f(v)."));
+    assertEquals(List.of(), shadowed.get(0));
   }
 }

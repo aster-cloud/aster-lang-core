@@ -22,6 +22,35 @@ import java.util.Set;
 public final class CoreLowering {
 
   /**
+   * 降级函数体时可见的局部绑定（形参、此前的 Let、Match 模式绑定、外层 lambda 形参），按块分层。
+   * 只用于判定 lambda 的 captures 是否为外层局部（ADR 0056 §4.2，见 {@link LambdaCaptures}）；因此实例有状态，
+   * 每次降级新建一个，不跨线程共享。
+   */
+  private final ArrayDeque<Set<String>> locals = new ArrayDeque<>();
+
+  /** 在新的一层局部作用域内执行。 */
+  private <T> T inScope(Set<String> initial, java.util.function.Supplier<T> body) {
+    locals.push(new HashSet<>(initial));
+    try {
+      return body.get();
+    } finally {
+      locals.pop();
+    }
+  }
+
+  private void bindLocal(String name) {
+    if (!locals.isEmpty() && name != null) {
+      locals.peek().add(name);
+    }
+  }
+
+  private Set<String> visibleLocals() {
+    Set<String> out = new HashSet<>();
+    locals.forEach(out::addAll);
+    return out;
+  }
+
+  /**
    * 将 AST 模块降级为 Core IR 模块。
    *
    * @apiNote 内部 API（ADR 0051 裁决 R49）：未经名称解析 R1/R2 的 AST 降级后名字保持原写法（可能是本地化名），
@@ -32,6 +61,9 @@ public final class CoreLowering {
    */
   public CoreModel.Module lowerModule(aster.core.ast.Module ast) {
     Objects.requireNonNull(ast, "ast");
+    if (!locals.isEmpty()) {
+      throw new IllegalStateException("CoreLowering 实例有状态，不可并发或重入使用；每次降级请新建实例");
+    }
     CoreModel.Module module = new CoreModel.Module();
     module.name = ast.name();
     module.profile = ast.profile();
@@ -132,7 +164,9 @@ public final class CoreLowering {
     out.effectParams = new ArrayList<>(func.effectParams());
     out.effectCaps = func.effectCaps() == null ? new ArrayList<>() : new ArrayList<>(func.effectCaps());
     out.effectCapsExplicit = func.effectCapsExplicit();
-    out.body = func.body() == null ? emptyBlock(func.span()) : lowerBlock(func.body());
+    Set<String> paramNames = new HashSet<>();
+    out.params.forEach(p -> paramNames.add(p.name));
+    out.body = func.body() == null ? emptyBlock(func.span()) : inScope(paramNames, () -> lowerBlock(func.body()));
     out.origin = withResolution(spanToOrigin(func.span()), func.resolved());
     return out;
   }
@@ -180,14 +214,22 @@ public final class CoreLowering {
 
   private CoreModel.Block lowerBlock(Block block) {
     CoreModel.Block out = new CoreModel.Block();
-    out.statements = new ArrayList<>();
-    if (block.statements() != null) {
-      for (Stmt stmt : block.statements()) {
-        out.statements.add(lowerStmt(stmt));
-      }
-    }
+    out.statements = lowerStatements(block.statements());
     out.origin = spanToOrigin(block.span());
     return out;
+  }
+
+  /** 块内语句在新的一层局部作用域内降级：块内 Let 出块后不可见。 */
+  private List<CoreModel.Stmt> lowerStatements(List<Stmt> statements) {
+    return inScope(Set.of(), () -> {
+      List<CoreModel.Stmt> out = new ArrayList<>();
+      if (statements != null) {
+        for (Stmt stmt : statements) {
+          out.add(lowerStmt(stmt));
+        }
+      }
+      return out;
+    });
   }
 
   private CoreModel.Stmt lowerStmt(Stmt stmt) {
@@ -198,6 +240,7 @@ public final class CoreLowering {
         out.name = let.name();
         out.expr = lowerExpr(let.expr());
         out.origin = spanToOrigin(let.span());
+        bindLocal(let.name());
         yield out;
       }
       case Stmt.Set set -> {
@@ -238,6 +281,8 @@ public final class CoreLowering {
       case Stmt.Start start -> {
         CoreModel.Start out = new CoreModel.Start();
         out.name = start.name();
+        // 与 R1 一致：Start 的任务名先入作用域，此后的 lambda 可以捕获它
+        bindLocal(start.name());
         out.expr = lowerExpr(start.expr());
         out.origin = spanToOrigin(start.span());
         yield out;
@@ -251,12 +296,7 @@ public final class CoreLowering {
       case Stmt.Workflow workflow -> lowerWorkflow(workflow);
       case Block block -> {
         CoreModel.Scope out = new CoreModel.Scope();
-        out.statements = new ArrayList<>();
-        if (block.statements() != null) {
-          for (Stmt inner : block.statements()) {
-            out.statements.add(lowerStmt(inner));
-          }
-        }
+        out.statements = lowerStatements(block.statements());
         out.origin = spanToOrigin(block.span());
         yield out;
       }
@@ -352,7 +392,7 @@ public final class CoreLowering {
   private CoreModel.Case lowerCase(Stmt.Case kase) {
     CoreModel.Case out = new CoreModel.Case();
     out.pattern = lowerPattern(kase.pattern());
-    out.body = lowerCaseBody(kase.body());
+    out.body = inScope(patternBindings(kase.pattern()), () -> lowerCaseBody(kase.body()));
     out.origin = spanToOrigin(kase.span());
     return out;
   }
@@ -496,8 +536,13 @@ public final class CoreLowering {
       }
     }
     out.ret = lambda.retType() == null ? null : lowerType(lambda.retType());
-    out.body = lambda.body() == null ? emptyBlock(lambda.span()) : lowerBlock(lambda.body());
-    out.captures = new ArrayList<>(collectCaptures(lambda));
+    // captures 只列外层局部（ADR 0056 §4.2）：先取 lambda 所在位置可见的局部，再在 lambda 形参作用域内降级函数体
+    Set<String> outer = visibleLocals();
+    List<String> paramNames = out.params.stream().map(p -> p.name).toList();
+    out.body = lambda.body() == null
+        ? emptyBlock(lambda.span())
+        : inScope(new HashSet<>(paramNames), () -> lowerBlock(lambda.body()));
+    out.captures = new ArrayList<>(LambdaCaptures.collect(paramNames, out.body, outer));
     out.origin = spanToOrigin(lambda.span());
     return out;
   }
@@ -770,182 +815,6 @@ public final class CoreLowering {
     place.line = pos.line();
     place.col = pos.col();
     return place;
-  }
-
-  private Set<String> collectCaptures(Expr.Lambda lambda) {
-    if (lambda.body() == null) {
-      return Set.of();
-    }
-    Set<String> params = new HashSet<>();
-    if (lambda.params() != null) {
-      for (Decl.Parameter param : lambda.params()) {
-        params.add(param.name());
-      }
-    }
-    LinkedHashSet<String> captures = new LinkedHashSet<>();
-    ArrayDeque<Set<String>> scopes = new ArrayDeque<>();
-    scopes.push(new HashSet<>(params));
-    traverseBlock(lambda.body(), scopes, captures);
-    return captures;
-  }
-
-  private void traverseBlock(Block block, ArrayDeque<Set<String>> scopes, Set<String> captures) {
-    if (block == null || block.statements() == null) {
-      return;
-    }
-    scopes.push(new HashSet<>(scopes.peek()));
-    try {
-      for (Stmt stmt : block.statements()) {
-        traverseStmt(stmt, scopes, captures);
-      }
-    } finally {
-      scopes.pop();
-    }
-  }
-
-  private void traverseStmt(Stmt stmt, ArrayDeque<Set<String>> scopes, Set<String> captures) {
-    if (stmt == null) {
-      return;
-    }
-    switch (stmt) {
-      case Stmt.Let let -> {
-        visitExpr(let.expr(), scopes, captures);
-        scopes.peek().add(let.name());
-      }
-      case Stmt.Set set -> visitExpr(set.expr(), scopes, captures);
-      case Stmt.Return ret -> visitExpr(ret.expr(), scopes, captures);
-      case Stmt.If ifStmt -> {
-        visitExpr(ifStmt.cond(), scopes, captures);
-        traverseBlock(ifStmt.thenBlock(), scopes, captures);
-        if (ifStmt.elseBlock() != null) {
-          traverseBlock(ifStmt.elseBlock(), scopes, captures);
-        }
-      }
-      case Stmt.Match match -> {
-        visitExpr(match.expr(), scopes, captures);
-        if (match.cases() != null) {
-          for (Stmt.Case kase : match.cases()) {
-            Set<String> next = new HashSet<>(scopes.peek());
-            next.addAll(patternBindings(kase.pattern()));
-            scopes.push(next);
-            try {
-              if (kase.body() instanceof Stmt.Return ret) {
-                visitExpr(ret.expr(), scopes, captures);
-              } else if (kase.body() instanceof Block block) {
-                traverseBlock(block, scopes, captures);
-              }
-            } finally {
-              scopes.pop();
-            }
-          }
-        }
-      }
-      case Stmt.Start start -> visitExpr(start.expr(), scopes, captures);
-      case Stmt.Wait ignored -> { }
-      case Stmt.Workflow workflow -> {
-        if (workflow.steps() != null) {
-          for (Stmt.WorkflowStep step : workflow.steps()) {
-            traverseBlock(step.body(), scopes, captures);
-            if (step.compensate() != null) {
-              traverseBlock(step.compensate(), scopes, captures);
-            }
-          }
-        }
-      }
-      case Block block -> traverseBlock(block, scopes, captures);
-    }
-  }
-
-  private void visitExpr(Expr expr, ArrayDeque<Set<String>> scopes, Set<String> captures) {
-    if (expr == null) {
-      return;
-    }
-    if (expr instanceof Expr.Name name) {
-      // 以 R1 规范名记录捕获（未解析时即原写法；R2 再按其解析结果改写）
-      String captured = name.name() == null ? null : canonicalOf(name.name(), name.resolved());
-      if (captured != null && !captured.contains(".") && !isBound(captured, scopes)) {
-        captures.add(captured);
-      }
-      return;
-    }
-    if (expr instanceof Expr.Call call) {
-      visitExpr(call.target(), scopes, captures);
-      if (call.args() != null) {
-        for (Expr arg : call.args()) {
-          visitExpr(arg, scopes, captures);
-        }
-      }
-      return;
-    }
-    if (expr instanceof Expr.Construct construct) {
-      if (construct.fields() != null) {
-        for (Expr.Construct.ConstructField field : construct.fields()) {
-          visitExpr(field.expr(), scopes, captures);
-        }
-      }
-      return;
-    }
-    if (expr instanceof Expr.Ok ok) {
-      visitExpr(ok.expr(), scopes, captures);
-      return;
-    }
-    if (expr instanceof Expr.Err err) {
-      visitExpr(err.expr(), scopes, captures);
-      return;
-    }
-    if (expr instanceof Expr.Some some) {
-      visitExpr(some.expr(), scopes, captures);
-      return;
-    }
-    if (expr instanceof Expr.Await await) {
-      visitExpr(await.expr(), scopes, captures);
-      return;
-    }
-    if (expr instanceof Expr.Lambda inner) {
-      // 嵌套 lambda：内层引用的外部变量必须**穿透**记到外层的 captures 上——
-      // 外层不捕获就没有该变量，内层无从拿到。递归时把内层形参压入作用域，
-      // 使内层自己的参数不被误记为外层捕获。
-      Set<String> innerScope = new HashSet<>();
-      if (inner.params() != null) {
-        for (Decl.Parameter param : inner.params()) {
-          if (param != null && param.name() != null) {
-            innerScope.add(param.name());
-          }
-        }
-      }
-      scopes.push(innerScope);
-      try {
-        traverseBlock(inner.body(), scopes, captures);
-      } finally {
-        scopes.pop();
-      }
-      return;
-    }
-    if (expr instanceof Expr.ListLiteral list) {
-      if (list.items() != null) {
-        for (Expr item : list.items()) {
-          visitExpr(item, scopes, captures);
-        }
-      }
-      return;
-    }
-    if (expr instanceof Expr.IfExpr ifExpr) {
-      // ADR 0019 G2b：表达式级 if 的三个子表达式都要递归。漏掉它们会让
-      // `If c then outer else x` 里的 outer 收不进 captures——两侧都不报错，
-      // 只是 Truffle 帧里没有 outer 的槽位。
-      visitExpr(ifExpr.cond(), scopes, captures);
-      visitExpr(ifExpr.thenExpr(), scopes, captures);
-      visitExpr(ifExpr.elseExpr(), scopes, captures);
-    }
-  }
-
-  private boolean isBound(String name, ArrayDeque<Set<String>> scopes) {
-    for (Set<String> scope : scopes) {
-      if (scope.contains(name)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   private Set<String> patternBindings(Pattern pattern) {
