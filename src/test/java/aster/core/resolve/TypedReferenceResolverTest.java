@@ -513,7 +513,7 @@ class TypedReferenceResolverTest {
         }
 
         @Test
-        void lambdaExpectedTypeFromDeclaredReturnAndCapturesRewritten() {
+        void lambdaExpectedTypeFromDeclaredReturnAndEnumMemberNotCaptured() {
             Run r = run("Module m.\n\nDefine Stufe as one of Hoch, Niedrig.\n\n"
                 + "Rule f given outer as Int, produce Int:\n"
                 + "  Let g be function with x as Int, produce Stufe:\n"
@@ -524,7 +524,8 @@ class TypedReferenceResolverTest {
             CoreModel.Lambda lambda = assertInstanceOf(CoreModel.Lambda.class, stmt(func(r.module(), "f"), 0, CoreModel.Let.class).expr);
             CoreModel.Return ret = assertInstanceOf(CoreModel.Return.class, lambda.body.statements.get(1));
             assertEquals("High", nameOf(ret.expr).name);
-            assertEquals(List.of("outer", "High"), lambda.captures);
+            // 枚举成员不是外层局部，lowering 就不把它放进 captures（ADR 0056 §4.2），R2 无须改写
+            assertEquals(List.of("outer"), lambda.captures);
         }
     }
 
