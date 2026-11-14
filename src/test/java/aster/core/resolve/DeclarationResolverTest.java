@@ -700,22 +700,24 @@ class DeclarationResolverTest {
         assertEquals("Int", typeResolved(data.fields().get(0).type()).canonical());
     }
 
-    /** Java 独有：省略返回类型时按函数名合成的占位（getKunde → Kunde）命中词汇 → 写入规范名，且隐式类型参数被移除（裁决 R27）。 */
+    /** 省略返回类型时 retType 是占位 Unknown（ADR 0056 §3.1）：不按规则名合成类型名，也不参与名称解析。 */
     @Test
-    void inferredReturnTypePlaceholderHittingVocabularyIsStamped() {
+    void inferredReturnTypePlaceholderIsNotStampedEvenWhenVocabularyMapsUnknown() {
         Module m = parse("Module m.\n\nRule getKunde given x as Int, produce:\n  Return x.\n");
         Decl.Func parsed = decl(m, 0, Decl.Func.class);
         assertTrue(parsed.retTypeInferred(), "前提：返回类型为推断占位");
+        assertEquals("Unknown", ((Type.TypeName) parsed.retType()).name());
         assertEquals(List.of(), parsed.typeParams(), "占位返回类型名不是类型参数（ADR 0055 #10）");
-        ResolutionResult<Module> r = DeclarationResolver.resolve(m, ctxOf(List.of(struct("Customer", "Kunde"))));
+        ResolutionResult<Module> r = DeclarationResolver.resolve(m,
+            ctxOf(List.of(struct("Customer", "Kunde"), struct("Mystery", "Unknown"))));
         Decl.Func f = decl(r.value(), 0, Decl.Func.class);
         assertEquals(List.of(), f.typeParams());
-        assertEquals(res("Customer", ResolvedRole.TYPE, "Kunde"), typeResolved(f.retType()));
-        assertEquals("Kunde", ((Type.TypeName) f.retType()).name(), "原写法保持");
+        assertNull(typeResolved(f.retType()), "占位不参与名称解析");
+        assertEquals("Unknown", ((Type.TypeName) f.retType()).name());
         assertEquals(List.of(), codes(r));
     }
 
-    /** Java 独有：占位类型（如 generateQuote → Quote）未命中时保持原样，不报 E800。 */
+    /** 占位类型未命中任何声明时保持原样，不报 E800。 */
     @Test
     void inferredReturnTypePlaceholderIsNotResolved() {
         Module m = parse("Module m.\n\nRule generateQuote given x as Int, produce:\n  Return x.\n");

@@ -280,7 +280,7 @@ public final class TypeChecker {
       if (inferred != null && !TypeSystem.isUnknown(inferred)) {
         funcType.ret = inferred;
       } else {
-        // 推断失败时的占位按函数名猜出，调用方把它当实参传递时不作约束（#229）
+        // 推断失败时退回占位 Unknown（ADR 0056 §3.1），调用方把它当实参传递时不作约束（#229）
         baseChecker.markUncheckedForCalls(funcType.ret);
       }
     }
@@ -410,8 +410,7 @@ public final class TypeChecker {
     }
     if (func.body != null) {
       // 每条 Return 在 BaseTypeChecker 内逐条与声明返回类型比对，E003 落在该 Return 的位置（#239）。
-      // 返回类型是推断占位时不比对——TS 侧同样以 retTypeInferred 跳过，否则按函数名猜出的占位类型
-      // 会对合法策略报假 E003。
+      // 返回类型是推断占位 Unknown 时不比对——TS 侧同样以 retTypeInferred 跳过。
       baseChecker.checkFunctionBody(func.body, func.retTypeInferred ? null : func.ret, ctx);
 
       // 检查效果兼容性：声明效果取所有具体效应中最宽的一个（无声明 = PURE）；效应变量绑定到函数体的实际效应
