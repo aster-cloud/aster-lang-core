@@ -203,12 +203,11 @@ class DeclarationResolverTest {
         Type.Map map = assertInstanceOf(Type.Map.class, data.fields().get(1).type());
         assertEquals("Driver", typeResolved(map.val()).canonical());
         assertEquals("Text", typeResolved(map.key()).canonical());
-        // Java 解析器把 `Result of A and B` 产出为基名小写的 TypeApp（TS 为 Result 节点）：基名按内置处理，参数按 TYPE 解析
-        Type.TypeApp res = assertInstanceOf(Type.TypeApp.class, decl(r.value(), 1, Decl.Func.class).retType());
-        assertEquals("result", res.resolved().canonical());
+        // `Result of A and B` 与 TS 一样产出 Result 节点（#256）：两个分量按 TYPE 解析
+        Type.Result res = assertInstanceOf(Type.Result.class, decl(r.value(), 1, Decl.Func.class).retType());
         assertEquals(List.of(), codes(r));
-        assertEquals("Driver", typeResolved(res.args().get(0)).canonical());
-        assertEquals("Text", typeResolved(res.args().get(1)).canonical());
+        assertEquals("Driver", typeResolved(res.ok()).canonical());
+        assertEquals("Text", typeResolved(res.err()).canonical());
     }
 
     @Test

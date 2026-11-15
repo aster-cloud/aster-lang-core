@@ -316,8 +316,8 @@ public class AsterCustomLexer extends AsterLexer {
 
     private final TypeNestingTracker typeNesting = new TypeNestingTracker(MAX_TYPE_NESTING_DEPTH);
 
-    private void trackNestingDepth(int type) {
-        if (typeNesting.onToken(type)) {
+    private void trackNestingDepth(int type, String text) {
+        if (typeNesting.onToken(type, text)) {
             throw new ParseDiagnosticException(ErrorCode.PARSE_NESTING_TOO_DEEP,
                 Map.of("limit", String.valueOf(MAX_TYPE_NESTING_DEPTH)),
                 "类型嵌套过深（> " + MAX_TYPE_NESTING_DEPTH + "），拒绝以防栈溢出", getLine(), getCharPositionInLine() + 1);
@@ -364,7 +364,7 @@ public class AsterCustomLexer extends AsterLexer {
      */
     private void recordMeaningful(Token t) {
         int type = t.getType();
-        trackNestingDepth(type);
+        trackNestingDepth(type, t.getText());
         if (type == NEWLINE || type == AsterParser.INDENT || type == AsterParser.DEDENT
                 || type == Token.EOF || t.getChannel() == Token.HIDDEN_CHANNEL) {
             return;

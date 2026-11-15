@@ -107,7 +107,8 @@ class RuleCallArgumentCheckTest {
 
   @Test
   void optionToPlainStillRejected() {
-    assertMismatch("Int", "option<Int>", INC, "Rule main given o as Option of Int, produce Int:\n  Return inc(o).");
+    // `Option of T` 降为 Option 节点（与 aster-lang-ts 一致，#256），类型名按 Option<T> 显示
+    assertMismatch("Int", "Option<Int>", INC, "Rule main given o as Option of Int, produce Int:\n  Return inc(o).");
   }
 
   @Test

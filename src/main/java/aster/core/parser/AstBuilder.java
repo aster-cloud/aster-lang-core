@@ -476,16 +476,6 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         return ctx.getText();
     }
 
-    private String ofGenericTypeName(AsterParser.OfGenericTypeContext ctx) {
-        if (ctx.TYPE_IDENT() != null) {
-            return ctx.TYPE_IDENT().getText();
-        }
-        if (ctx.IDENT() != null) {
-            return ctx.IDENT().getText();
-        }
-        throw new IllegalStateException("泛型类型缺失名称");
-    }
-
     @Override
     public Decl.Enum visitEnumDecl(AsterParser.EnumDeclContext ctx) {
         String name = ctx.typeIdent().getText();
@@ -712,21 +702,28 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Type visitOfGenericType(AsterParser.OfGenericTypeContext ctx) {
-        String name = ofGenericTypeName(ctx);
-        List<Type> args = ctx.annotatedType().stream()
-            .map(this::extractAnnotatedType)
-            .map(TypeWithAnnotations::type)
-            .collect(Collectors.toList());
-        if ("list".equalsIgnoreCase(name) && !args.isEmpty()) {
-            Type inner = args.get(0);
-            return new Type.List(inner, List.of(), spanFrom(ctx));
+        String name = ctx.name.getText();
+        List<Type> args = new ArrayList<>();
+        args.add(extractAnnotatedType(ctx.annotatedType()).type());
+        for (AsterParser.AnnotatedTypeContext arg : ctx.ofTypeArgs().annotatedType()) {
+            args.add(extractAnnotatedType(arg).type());
+        }
+        // 元数已由文法（ofTypeArgs 的谓词）按名字限定：list / option 恰一个参数，result 至多两个。
+        // 节点与 aster-lang-ts parseTypePrimary 一致（aster-lang-core#256）：list → List，option → Option，
+        // result → Result（省略失败类型时为 Text，定位在 of 上，ts 取 `result of` 的末个记号），其余为 TypeApp。
+        if ("list".equalsIgnoreCase(name)) {
+            return new Type.List(args.get(0), List.of(), spanFrom(ctx));
+        }
+        if ("option".equalsIgnoreCase(name)) {
+            return new Type.Option(args.get(0), List.of(), spanFrom(ctx));
+        }
+        if ("result".equalsIgnoreCase(name)) {
+            Type err = args.size() > 1
+                ? args.get(1)
+                : new Type.TypeName("Text", List.of(), spanFrom(ctx.OF().getSymbol()));
+            return new Type.Result(args.get(0), err, List.of(), spanFrom(ctx));
         }
         return new Type.TypeApp(name, List.of(), args, spanFrom(ctx));
-    }
-
-    @Override
-    public Type visitParenType(AsterParser.ParenTypeContext ctx) {
-        return visitType(ctx.type());
     }
 
     @Override
@@ -737,12 +734,32 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Type visitFuncType(AsterParser.FuncTypeContext ctx) {
-        List<Type> params = ctx.typeList().annotatedType().stream()
+        List<AsterParser.AnnotatedTypeContext> paramCtxs = ctx.typeList().annotatedType();
+        if (ctx.ARROW() == null) {
+            // 没有 `->` 就是括号类型 `(T)`：只允许一个不带注解的类型（与 aster-lang-ts parseParenOrFuncType 同码同文案）
+            Token after = ctx.RPAREN().getSymbol();
+            if (paramCtxs.size() > 1) {
+                throw expectedArrowAfter("token.functionParameterTypes",
+                    "Expected '->' after function parameter types", after);
+            }
+            if (!paramCtxs.get(0).annotation().isEmpty()) {
+                throw expectedArrowAfter("token.annotatedFunctionParameterType",
+                    "Expected '->' after annotated function parameter type", after);
+            }
+            return visitType(paramCtxs.get(0).type());
+        }
+        List<Type> params = paramCtxs.stream()
             .map(this::extractAnnotatedType)
             .map(TypeWithAnnotations::type)
             .collect(Collectors.toList());
         Type ret = visitType(ctx.type());
         return new Type.FuncType(params, ret, List.of(), spanFrom(ctx));
+    }
+
+    /** 括号后缺 `->`：报在 `)` 上（ts 报在其后的记号上；parity 只比较码与行，二者同行）。 */
+    private ParseDiagnosticException expectedArrowAfter(String after, String message, Token rparen) {
+        return new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED_AFTER,
+            Map.of("token", "'->'", "after", after), message, rparen);
     }
 
     @Override

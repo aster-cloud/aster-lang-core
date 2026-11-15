@@ -17,6 +17,10 @@ options {
 // ============================================================
 tokens { INDENT, DEDENT }
 
+@parser::header {
+import org.antlr.v4.runtime.atn.PredictionMode;
+}
+
 @parser::members {
     /** 由 stmt 按关键词独占分派的语句头；exprStmt 不得以它们开头。 */
     private static final java.util.Set<Integer> STATEMENT_HEADS =
@@ -57,6 +61,101 @@ tokens { INDENT, DEDENT }
         }
         char c = t.getText().charAt(0);
         return (c >= '\u0900' && c <= '\u0963') || (c >= '\u0966' && c <= '\u097F');
+    }
+
+    /**
+     * `X of A` 已有 {@code extra} 个追加参数时还能否再接一个（aster-lang-core#256，名字大小写不敏感，与 aster-lang-ts 一致）：
+     * list / option 恰一个参数，result 至多一个失败类型，其余泛型不限。
+     */
+    protected static boolean acceptsOfTypeArg(String generic, int extra) {
+        if ("list".equalsIgnoreCase(generic) || "option".equalsIgnoreCase(generic)) {
+            return false;
+        }
+        return !"result".equalsIgnoreCase(generic) || extra == 0;
+    }
+
+    /** 进入类型：预测切到 SLL，返回调用方原先的模式（见 annotatedType 规则的说明）。 */
+    protected PredictionMode enterTypePrediction() {
+        PredictionMode outer = getInterpreter().getPredictionMode();
+        getInterpreter().setPredictionMode(PredictionMode.SLL);
+        return outer;
+    }
+
+    protected void exitTypePrediction(PredictionMode outer) {
+        getInterpreter().setPredictionMode(outer);
+    }
+
+    // ------------------------------------------------------------
+    // 解析器层嵌套守卫（aster-lang-core#255）
+    // ------------------------------------------------------------
+    //
+    // AsterCustomLexer 的词法期守卫按 token 序列估算深度，语法错误里夹杂的 token 会把它的计数清零
+    // （`not + not + …` 每个 `+` 都打断 not 链，3000 层仍在 1MB 栈上溢出）。这里在规则进入 / 退出时按
+    // 真实的递归层数再数一遍，作为第二道守卫：错误恢复越过杂 token 继续递归时，层数照样累加。
+    // 三种计数的单位与上限都与第一道守卫相同，合法源码在第一道守卫（或 AstBuilder 的表达式深度守卫）
+    // 放行的范围内，这里不会更早拒绝：
+    //   - 类型：`type` 规则的进入次数，与 TypeNestingTracker / aster-lang-ts parseType 同单位，上限 64；
+    //   - 表达式：`expr` 规则的嵌套层数，与 AstBuilder.visitExpr 同单位，上限 64；
+    //   - not 链：同一表达式内连续 `not` 的个数（notExpr 的嵌套层数减去末尾那层），上限 64。
+    // 超限时在进入规则之前抛出，不改动解析器状态。
+
+    private int typeNestingDepth = 0;
+    private int exprNestingDepth = 0;
+    /** 当前表达式内 notExpr 的嵌套层数；进入子表达式时压栈清零，退出时恢复。 */
+    private int notExprDepth = 0;
+    private final java.util.ArrayDeque<Integer> outerNotExprDepths = new java.util.ArrayDeque<>();
+
+    @Override
+    public void enterRule(ParserRuleContext localctx, int state, int ruleIndex) {
+        if (ruleIndex == RULE_expr) {
+            guardNesting(exprNestingDepth, aster.core.parser.AstBuilder.MAX_EXPR_DEPTH, "表达式");
+            exprNestingDepth++;
+            outerNotExprDepths.push(notExprDepth);
+            notExprDepth = 0;
+        } else if (ruleIndex == RULE_notExpr) {
+            // notExpr 层数 = 已读的 not 个数 + 1：允许 64 个 not（第 65 层 notExpr），与词法期 not 链守卫一致
+            guardNesting(notExprDepth - 1, aster.core.parser.AsterCustomLexer.MAX_NESTING_DEPTH, "not 链");
+            notExprDepth++;
+        }
+        super.enterRule(localctx, state, ruleIndex);
+    }
+
+    @Override
+    public void exitRule() {
+        int ruleIndex = _ctx.getRuleIndex();
+        if (ruleIndex == RULE_expr) {
+            exprNestingDepth--;
+            notExprDepth = outerNotExprDepths.pop();
+        } else if (ruleIndex == RULE_notExpr) {
+            notExprDepth--;
+        }
+        super.exitRule();
+    }
+
+    @Override
+    public void enterRecursionRule(ParserRuleContext localctx, int state, int ruleIndex, int precedence) {
+        if (ruleIndex == RULE_type) {
+            guardNesting(typeNestingDepth, aster.core.parser.AsterCustomLexer.MAX_TYPE_NESTING_DEPTH, "类型");
+            typeNestingDepth++;
+        }
+        super.enterRecursionRule(localctx, state, ruleIndex, precedence);
+    }
+
+    @Override
+    public void unrollRecursionContexts(ParserRuleContext parentctx) {
+        if (_ctx.getRuleIndex() == RULE_type) {
+            typeNestingDepth--;
+        }
+        super.unrollRecursionContexts(parentctx);
+    }
+
+    /** 已有 {@code depth} 层时再进一层是否超过 {@code limit}；超过则在当前 token 上报 E054。 */
+    private void guardNesting(int depth, int limit, String what) {
+        if (depth + 1 > limit) {
+            throw new aster.core.parser.ParseDiagnosticException(aster.core.typecheck.ErrorCode.PARSE_NESTING_TOO_DEEP,
+                java.util.Map.of("limit", String.valueOf(limit)),
+                what + "嵌套过深（> " + limit + "），拒绝以防栈溢出", _input.LT(1));
+        }
     }
 }
 
@@ -435,19 +534,36 @@ annotationValue
 /**
  * 类型表达式（按优先级从低到高）
  * 支持：基础类型、泛型、Maybe、Result、函数类型等
+ *
+ * <p>类型内的预测一律用 SLL（aster-lang-core#254）：类型文法本身有歧义（`result of result of A and B and C` 的 and、
+ * `list of Int?` 的 ?），ANTLR 按「贪婪归最内层」裁决，与 aster-lang-ts 的递归下降一致。LL 模式下每遇到这类冲突
+ * 都要做全上下文预测，result 成功 / 失败分量交替嵌套时耗时随层数指数增长（修复前 24 层约 0.7 秒、32 层约 9 秒；
+ * 只合并分支而不切 SLL 时 20 层仍约 0.3 秒且逐层翻倍）；SLL 遇到冲突直接取最小分支，也就是贪婪的那一个，
+ * 结果相同而耗时线性。只在类型内切换，类型之外仍按调用方设定的模式（aster-api 全程 SLL 不受影响）。
  */
 annotatedType
+    @init { PredictionMode outerPredictionMode = enterTypePrediction(); }
     : annotation* type
     ;
+    finally { exitTypePrediction(outerPredictionMode); }
 
+// ★两处结构决定了预测代价（aster-lang-core#254）：
+//   1. 函数类型与括号类型共用一个分支、在 `)` 之后用一个 token（有无 `->`）区分。分成两个以 `(` 开头的
+//      分支时，ANTLR 要越过整段括号内容才能选分支，括号里的类型再各自嵌套括号时预测配置随层数指数膨胀
+//      （aster-api 的 sll-pathological-types.aster，4.6KB 在 SLL 下约 46 秒）。
+//      `(A, B)` 没有 `->`、或带注解的 `(@pii(…) T)` 没有 `->` 由 AstBuilder 报 E056，与 aster-lang-ts 同码同文案。
+//   2. `X of` 按名字分三种元数（aster-lang-core#256，与 aster-lang-ts parseTypePrimary 一致）：
+//      list / option 恰一个参数；result 一个成功类型加可选的失败类型；其余名字是可变参数的泛型。
+//      此前一律可变参数，`result of list of Int and Text` 的 `and Text` 被内层 list 贪婪吞掉后静默丢弃。
+//      list / option / result 是软关键字，不能升为独立 token，元数由 ofTypeArgs 的语义谓词按名字判定。
+//      三种元数不能拆成三个以 `X of` 开头的分支：那样选分支要先越过整个参数类型，预测又回到指数级。
 type
     : type QUESTION                       # MaybeType
-    | LPAREN typeList RPAREN ARROW type   # FuncType
+    | LPAREN typeList RPAREN (ARROW type)?  # FuncType
     | MAP annotatedType TO_WORD annotatedType  # MapType
-    | (TYPE_IDENT | IDENT) OF annotatedType ((AND | COMMA) annotatedType)*  # OfGenericType
+    | name=(TYPE_IDENT | IDENT) OF annotatedType ofTypeArgs[$name.text]  # OfGenericType
     | TYPE_IDENT LT typeList GT           # GenericType
     | typeIdent                           # TypeName
-    | LPAREN type RPAREN                  # ParenType
     ;
 
 /**
@@ -456,6 +572,15 @@ type
  */
 typeList
     : annotatedType (COMMA annotatedType)*
+    ;
+
+/**
+ * `X of A` 之后的追加参数：`and` / `,` 分隔，个数上限由泛型名决定（acceptsOfTypeArg）。
+ * 谓词在循环决策的左边缘，与「退出循环」冲突时由它裁决：名字不再接受参数时 `and` / `,` 留给外层。
+ */
+ofTypeArgs[String generic]
+    locals [int extra = 0]
+    : ( {acceptsOfTypeArg($generic, $extra)}? (AND | COMMA) annotatedType {$extra++;} )*
     ;
 
 // ============================================================

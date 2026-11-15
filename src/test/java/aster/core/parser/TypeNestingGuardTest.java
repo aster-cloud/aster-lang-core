@@ -58,14 +58,26 @@ class TypeNestingGuardTest {
 
   @Test
   void eachResultComponentCounts() {
-    // 填充用 Map 值链而非 list 链：core 文法里 `list of A and B` 的 and 归最内层 list（OfGenericType 贪婪），
-    // 用 list 填成功分量会让后面的 and 落进更深一层；Map 值链没有这个歧义，两引擎归属一致
+    // 填充用 Map 值链；list 链的情形见 andAfterUnaryGoesToEnclosingResult
     String deep = TypeNestingShapes.type("mapval", LIMIT - 1);
     String over = TypeNestingShapes.type("mapval", LIMIT);
     assertParses(src("result of " + deep + " and Text"), "成功分量为上限 - 1");
     assertParses(src("result of Int and " + deep), "失败分量为上限 - 1");
     assertE054(src("result of " + over + " and Text"), "成功分量超限");
     assertE054(src("result of Int and " + over), "失败分量超限");
+  }
+
+  @Test
+  void andAfterUnaryGoesToEnclosingResult() {
+    // list / option 只接一个参数（#256）：成功分量里 list 链之后的 and 属于外层 result，失败分量从 result 下一层数起，
+    // 与解析器和 aster-lang-ts 一致；计数器若仍把 and 记到最内层 list，会在合法深度上误报 E054
+    String deep = TypeNestingShapes.type("list", LIMIT - 1);
+    assertParses(src("result of " + deep + " and " + deep), "成功 / 失败分量都为上限 - 1 的 list 链");
+    assertParses(src("result of " + TypeNestingShapes.type("option", LIMIT - 1) + " and " + deep), "option 链同理");
+    assertE054(src("result of " + deep + " and " + TypeNestingShapes.type("list", LIMIT)), "失败分量超限");
+    // result 至多一个失败类型：第二个 and 不再归它，`and y as Text` 是下一个参数
+    assertParses("Module probe.\n\nRule f given x as result of " + deep + " and Text and y as " + deep
+        + ", produce Int:\n  Return 1.\n", "失败类型之后的 and 是参数分隔符");
   }
 
   @Test
@@ -134,7 +146,7 @@ class TypeNestingGuardTest {
   private static boolean feed(TypeNestingTracker t, int... types) {
     boolean exceeded = false;
     for (int type : types) {
-      exceeded |= t.onToken(type);
+      exceeded |= t.onToken(type, null);
     }
     return exceeded;
   }

@@ -2,6 +2,8 @@ package aster.core.parser;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.EnumSet;
+import java.util.Set;
 
 /**
  * 词法期的类型嵌套深度计数（aster-lang-core#250），供 {@link AsterCustomLexer} 在 ANTLR 解析之前拦下过深的类型。
@@ -16,9 +18,10 @@ import java.util.Deque;
  * 一个尚未结束的复合类型，新的一次类型解析发生在「栈深 + 1」层。识别不了的写法一律退出类型模式，不报错——
  * 判语法对错是解析器的事，这里只负责在递归开始前数清层数。
  *
- * <p>分隔词按语法的贪婪规则归属：{@code and} / {@code ,} 交给最内层已满足的 {@code X of} 帧（ANTLR 的
- * {@code ((AND | COMMA) annotatedType)*} 是贪婪的），{@code to} 交给最内层等键的 {@code Map} 帧，
- * {@code )} / {@code >} / {@code ->} 交给对应的括号 / 泛型帧；途经的已满足帧随之出栈。
+ * <p>分隔词按语法的贪婪规则归属：{@code and} / {@code ,} 交给最内层还能再接参数的 {@code X of} 帧——
+ * list / option 恰一个参数、result 至多一个失败类型、其余泛型不限（aster-lang-core#256，与文法 {@code ofTypeArgs}
+ * 及 aster-lang-ts 一致），{@code to} 交给最内层等键的 {@code Map} 帧，{@code )} / {@code >} / {@code ->}
+ * 交给对应的括号 / 泛型帧；途经的已满足帧随之出栈。
  */
 final class TypeNestingTracker {
 
@@ -33,6 +36,14 @@ final class TypeNestingTracker {
         OF_MORE,
         /** {@code X of A} 已满足，还可接 {@code and} / {@code ,} 追加参数。 */
         OF_DONE,
+        /** {@code list of} / {@code option of} 之后，等唯一的参数；参数结束即整帧结束。 */
+        UNARY_OPEN,
+        /** {@code result of} 之后，等成功类型。 */
+        RESULT_OPEN,
+        /** 成功类型已满足，可就此结束，也可接一个 {@code and} / {@code ,} 再跟失败类型。 */
+        RESULT_DONE,
+        /** {@code and} / {@code ,} 之后的失败类型（同 {@link #OF_MORE}，也可能只是参数表的分隔符）；结束即整帧结束。 */
+        RESULT_ERR,
         /** {@code Map} 之后，等键类型。 */
         MAP_KEY,
         /** 键类型结束，等 {@code to}。 */
@@ -53,7 +64,8 @@ final class TypeNestingTracker {
         RET_OPEN;
 
         boolean expectsType() {
-            return this == OF_OPEN || this == OF_MORE || this == MAP_KEY || this == MAP_VAL
+            return this == OF_OPEN || this == OF_MORE || this == UNARY_OPEN || this == RESULT_OPEN
+                || this == RESULT_ERR || this == MAP_KEY || this == MAP_VAL
                 || this == LT_OPEN || this == PAREN_OPEN || this == RET_OPEN;
         }
     }
@@ -75,6 +87,8 @@ final class TypeNestingTracker {
     private int prev2 = -1;
     /** 已读到一个类型名，要看下一个 token 才知道它是叶子还是 {@code X of} / {@code X <} 的头。 */
     private boolean pendingName = false;
+    /** {@link #pendingName} 对应的名字文本，用来决定 {@code X of} 的元数。 */
+    private String pendingNameText = null;
     private Annotation annotation = Annotation.NONE;
     private int annotationParens = 0;
 
@@ -85,9 +99,10 @@ final class TypeNestingTracker {
     /**
      * 处理一个有意义的 token。
      *
+     * @param text token 文本（只用于判定 {@code X of} 的名字），可为 null
      * @return {@code true} 表示这个 token 开始的类型解析超过上限，调用方应报 E054
      */
-    boolean onToken(int type) {
+    boolean onToken(int type, String text) {
         int before2 = prev2;
         if (type != AsterParser.INDENT && type != AsterParser.DEDENT) {
             prev2 = prev1;
@@ -117,7 +132,7 @@ final class TypeNestingTracker {
         if (pendingName) {
             pendingName = false;
             if (type == AsterParser.OF) {
-                frames.push(Frame.OF_OPEN);
+                frames.push(ofFrame(pendingNameText));
                 return false;
             }
             if (type == AsterParser.LT) {
@@ -127,7 +142,10 @@ final class TypeNestingTracker {
             childDone();
         }
         return switch (type) {
-            case AsterParser.TYPE_IDENT, AsterParser.IDENT -> enter(null);
+            case AsterParser.TYPE_IDENT, AsterParser.IDENT -> {
+                pendingNameText = text;
+                yield enter(null);
+            }
             case AsterParser.MAP -> enter(Frame.MAP_KEY);
             case AsterParser.LPAREN -> enter(Frame.PAREN_OPEN);
             case AsterParser.AT -> {
@@ -136,8 +154,8 @@ final class TypeNestingTracker {
             }
             case AsterParser.QUESTION -> false;
             case AsterParser.TO_WORD -> resume(Frame.MAP_TO, Frame.MAP_VAL);
-            case AsterParser.AND -> resume(Frame.OF_DONE, Frame.OF_MORE);
-            case AsterParser.COMMA -> resumeAfterComma();
+            case AsterParser.AND -> resumeAfterSeparator(false);
+            case AsterParser.COMMA -> resumeAfterSeparator(true);
             case AsterParser.GT -> resume(Frame.LT_DONE, null);
             case AsterParser.RPAREN -> resume(Frame.PAREN_DONE, Frame.PAREN_CLOSED);
             case AsterParser.ARROW -> resume(Frame.PAREN_CLOSED, Frame.RET_OPEN);
@@ -151,7 +169,7 @@ final class TypeNestingTracker {
     /** 栈顶帧必须接一个类型（{@code X of}、{@code Map}、{@code to}、{@code <}、{@code (}、{@code ->} 之后）。 */
     private boolean mustContinue() {
         return !pendingName && annotation == Annotation.NONE && !frames.isEmpty()
-            && frames.peek().expectsType() && frames.peek() != Frame.OF_MORE;
+            && frames.peek().expectsType() && frames.peek() != Frame.OF_MORE && frames.peek() != Frame.RESULT_ERR;
     }
 
     private static boolean startsType(int type) {
@@ -180,9 +198,23 @@ final class TypeNestingTracker {
         return false;
     }
 
-    private boolean resumeAfterComma() {
-        // `,` 可延续 X of 参数、泛型参数或括号 / 函数参数，交给最内层能接的那一帧
-        Frame target = popToAcceptor(Frame.OF_DONE, Frame.LT_DONE, Frame.PAREN_DONE);
+    /** {@code X of} 帧的元数按名字定（大小写不敏感，与文法 acceptsOfTypeArg 一致）。 */
+    private static Frame ofFrame(String name) {
+        if ("list".equalsIgnoreCase(name) || "option".equalsIgnoreCase(name)) {
+            return Frame.UNARY_OPEN;
+        }
+        return "result".equalsIgnoreCase(name) ? Frame.RESULT_OPEN : Frame.OF_OPEN;
+    }
+
+    /**
+     * {@code and} 可延续可变参数泛型或 result 的失败类型；{@code ,} 另外还可延续 {@code X <} 泛型参数与括号 / 函数参数。
+     * 交给最内层能接的那一帧。
+     */
+    private boolean resumeAfterSeparator(boolean comma) {
+        Set<Frame> acceptors = comma
+            ? EnumSet.of(Frame.OF_DONE, Frame.RESULT_DONE, Frame.LT_DONE, Frame.PAREN_DONE)
+            : EnumSet.of(Frame.OF_DONE, Frame.RESULT_DONE);
+        Frame target = popToAcceptor(acceptors);
         if (target == null) {
             reset();
             return false;
@@ -190,6 +222,7 @@ final class TypeNestingTracker {
         frames.pop();
         frames.push(switch (target) {
             case OF_DONE -> Frame.OF_MORE;
+            case RESULT_DONE -> Frame.RESULT_ERR;
             case LT_DONE -> Frame.LT_OPEN;
             default -> Frame.PAREN_OPEN;
         });
@@ -201,7 +234,7 @@ final class TypeNestingTracker {
      * {@code next} 为 null 表示该帧随之结束。找不到可接的帧说明类型已经结束，退出类型模式。
      */
     private boolean resume(Frame accept, Frame next) {
-        Frame target = popToAcceptor(accept, null, null);
+        Frame target = popToAcceptor(EnumSet.of(accept));
         if (target == null) {
             reset();
             return false;
@@ -215,14 +248,14 @@ final class TypeNestingTracker {
         return false;
     }
 
-    /** 出栈可以就此结束的帧（{@code X of A}、括号类型），直到栈顶是可接的帧；返回该帧，找不到为 null。 */
-    private Frame popToAcceptor(Frame a, Frame b, Frame c) {
+    /** 出栈可以就此结束的帧（{@code X of A}、{@code result of A}、括号类型），直到栈顶是可接的帧；返回该帧，找不到为 null。 */
+    private Frame popToAcceptor(Set<Frame> acceptors) {
         while (!frames.isEmpty()) {
             Frame top = frames.peek();
-            if (top == a || top == b || top == c) {
+            if (acceptors.contains(top)) {
                 return top;
             }
-            if (top != Frame.OF_DONE && top != Frame.PAREN_CLOSED) {
+            if (top != Frame.OF_DONE && top != Frame.RESULT_DONE && top != Frame.PAREN_CLOSED) {
                 return null;
             }
             frames.pop();
@@ -239,11 +272,12 @@ final class TypeNestingTracker {
         Frame top = frames.peek();
         Frame next = switch (top) {
             case OF_OPEN, OF_MORE -> Frame.OF_DONE;
+            case RESULT_OPEN -> Frame.RESULT_DONE;
             case MAP_KEY -> Frame.MAP_TO;
             case LT_OPEN -> Frame.LT_DONE;
             case PAREN_OPEN -> Frame.PAREN_DONE;
-            // 值类型 / 返回类型结束即整帧结束，再通知外层
-            case MAP_VAL, RET_OPEN -> null;
+            // 值类型 / 返回类型 / 单参数 / 失败类型结束即整帧结束，再通知外层
+            case MAP_VAL, RET_OPEN, UNARY_OPEN, RESULT_ERR -> null;
             // 已满足的帧不会再收到子类型结束，保持原状
             default -> top;
         };
@@ -289,6 +323,7 @@ final class TypeNestingTracker {
         typeMode = false;
         atStart = false;
         pendingName = false;
+        pendingNameText = null;
         annotation = Annotation.NONE;
         annotationParens = 0;
         frames.clear();
