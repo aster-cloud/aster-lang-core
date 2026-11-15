@@ -176,6 +176,21 @@
       ]
     },
     {
+      "name": "E054 类型嵌套=64（result of 成功分量为 list 链：and 归 result 而非最内层 list，core#256）",
+      "source": "Module m.\n\nRule f given x as result of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of Int and list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of Int, produce Int:\n  Return x.\n",
+      "codes": []
+    },
+    {
+      "name": "E054 类型嵌套=65（result of 失败分量为 list 链，上限+1）",
+      "source": "Module m.\n\nRule f given x as result of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of Int and list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of list of Int, produce Int:\n  Return x.\n",
+      "codes": [
+        [
+          "E054",
+          3
+        ]
+      ]
+    },
+    {
       "name": "E055 缺能力名",
       "source": "Module m.\n\nRule f, produce Int. It performs io [with]:\n  Return 1.\n",
       "codes": [
@@ -192,6 +207,26 @@
         [
           "E056",
           4
+        ]
+      ]
+    },
+    {
+      "name": "E056 括号内多个类型缺 ->（函数类型与括号类型同一分支，core#254）",
+      "source": "Module m.\n\nRule f given x as (Int, Text), produce Int:\n  Return 1.\n",
+      "codes": [
+        [
+          "E056",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E056 带注解的括号类型缺 ->",
+      "source": "Module m.\n\nRule f given x as (@pii(L1, email) Text), produce Int:\n  Return 1.\n",
+      "codes": [
+        [
+          "E056",
+          3
         ]
       ]
     },
