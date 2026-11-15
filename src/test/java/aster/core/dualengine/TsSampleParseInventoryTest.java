@@ -12,8 +12,10 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import aster.core.parser.AstBuilder;
 import aster.core.parser.AsterCustomLexer;
 import aster.core.parser.AsterParser;
+import aster.core.parser.ParseDiagnosticException;
 import cloud.aster.test.CorpusLoader;
 
 import java.util.ArrayList;
@@ -87,7 +89,16 @@ class TsSampleParseInventoryTest {
                 AsterParser parser = new AsterParser(tokens);
                 parser.removeErrorListeners();
                 parser.addErrorListener(listener);
-                parser.module();
+                AsterParser.ModuleContext module = parser.module();
+                // AstBuilder 阶段的解析诊断（E056 括号类型缺 ->、E064 类型表歧义逗号等）同属解析错误：
+                // ts 在同一次解析里报出，这里只看 ANTLR 会把它们记成 Java 接受，必拒样本因此永远锁不住。
+                if (listener.errors.isEmpty()) {
+                    try {
+                        new AstBuilder().visitModule(module);
+                    } catch (ParseDiagnosticException e) {
+                        listener.errors.add("L" + e.line() + ":" + e.column() + " " + e.code().code() + " " + e.getMessage());
+                    }
+                }
             } catch (Throwable t) {
                 listener.errors.add("THROWN: " + t.getClass().getSimpleName() + ": " + t.getMessage());
             }

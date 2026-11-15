@@ -231,6 +231,26 @@
       ]
     },
     {
+      "name": "E064 括号类型表里 X of A, B 的逗号有歧义（parity 清扫 1.0.48）",
+      "source": "Module m.\n\nRule f given g as (result of Int, Text) -> Bool, produce Int:\n  Return 1.\n",
+      "codes": [
+        [
+          "E064",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E064 类型表里开放元数泛型后的逗号同样有歧义",
+      "source": "Module m.\n\nDefine Pair has a as Int.\n\nRule f given g as (Pair of Int, Text) -> Bool, produce Int:\n  Return 1.\n",
+      "codes": [
+        [
+          "E064",
+          5
+        ]
+      ]
+    },
+    {
       "name": "E057 构造缺 set to",
       "source": "Module m.\n\nDefine User has name as Text.\n\nRule f, produce User:\n  Return User with name 1.\n",
       "codes": [
