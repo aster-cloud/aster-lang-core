@@ -1,0 +1,96 @@
+{
+  "description": "manifest 能力检查（E300 CAPABILITY_NOT_ALLOWED）双引擎 parity 夹具（ADR 0056 §4.1、aster-lang-ts#320）。aster-lang-ts shared/manifest_capability_parity.json 与 aster-lang-core src/test/resources/diagnostics/manifest_capability_parity.json 必须 byte-identical。每例把 allow / deny 里的标签（能力名，或 io / cpu 类别键）换成各引擎自己的 manifest 格式，模式一律为 *（ts：{allow: {标签: [\"*\"]}}；core：{capabilities: {allow: [标签]}}），编译 source 并做带 manifest 的类型检查，断言 E300 诊断恰为 codes 的 [码, 行, cap]（按 cap 排序）。规则：受约束的能力 = 显式声明的能力 ∪ 函数体实际用到的能力，裸 io / cpu 不展开；io / cpu 类别键按 shared/capabilities.json 的 class 展开；deny 优先于 allow。",
+  "cases": [
+    {
+      "name": "裸 It performs io 不按预置能力受 manifest 约束（函数体没用能力）",
+      "source": "Module m.\n\nRule f given x as Int, produce Int. It performs io:\n  Return x.\n",
+      "allow": [
+        "Http"
+      ],
+      "deny": [],
+      "codes": []
+    },
+    {
+      "name": "函数体实际用到的能力受 manifest 约束",
+      "source": "Module m.\n\nRule f given u as Text, produce Text. It performs io:\n  Return Http.get(u).\n",
+      "allow": [
+        "Sql"
+      ],
+      "deny": [],
+      "codes": [
+        [
+          "E300",
+          3,
+          "Http"
+        ]
+      ]
+    },
+    {
+      "name": "显式能力列表里的能力受 manifest 约束（即使函数体没用到）",
+      "source": "Module m.\n\nRule f given u as Text, produce Text. It performs io [Http, Sql]:\n  Return Http.get(u).\n",
+      "allow": [
+        "Http"
+      ],
+      "deny": [],
+      "codes": [
+        [
+          "E300",
+          3,
+          "Sql"
+        ]
+      ]
+    },
+    {
+      "name": "io 类别键按 capabilities.json 的 class 展开（含 Process）",
+      "source": "Module m.\n\nRule f given c as Text, produce Text. It performs io:\n  Return Process.exec(c).\n",
+      "allow": [
+        "io"
+      ],
+      "deny": [],
+      "codes": []
+    },
+    {
+      "name": "cpu 类别键按 class 展开（含 Crypto）",
+      "source": "Module m.\n\nRule f given t as Text, produce Text. It performs cpu:\n  Return Crypto.hash(t).\n",
+      "allow": [
+        "cpu"
+      ],
+      "deny": [],
+      "codes": []
+    },
+    {
+      "name": "deny 的具体能力优先于 io 类别 allow",
+      "source": "Module m.\n\nRule f given u as Text, produce Text. It performs io:\n  Return Http.get(u).\n",
+      "allow": [
+        "io"
+      ],
+      "deny": [
+        "Http"
+      ],
+      "codes": [
+        [
+          "E300",
+          3,
+          "Http"
+        ]
+      ]
+    },
+    {
+      "name": "deny 的 io 类别键拒绝所有 io 类能力",
+      "source": "Module m.\n\nRule f given u as Text, produce Text. It performs io:\n  Return Http.get(u).\n",
+      "allow": [
+        "Http"
+      ],
+      "deny": [
+        "io"
+      ],
+      "codes": [
+        [
+          "E300",
+          3,
+          "Http"
+        ]
+      ]
+    }
+  ]
+}
