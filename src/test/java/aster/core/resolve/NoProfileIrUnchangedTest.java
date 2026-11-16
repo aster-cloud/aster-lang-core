@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * ADR 0046 §11 D2：inputRefs 只写入声明了档案的模块。对 aster-lang-test 语料（与 DeclarationResolverCorpusTest
  * 同一纳入口径）逐个编译：未声明档案的模块中所有 inputRefs 都是 null（未计算，ADR 0055 #12）、标注步骤原样返回同一对象；
- * 声明档案的模块只有返回 Verdict 的规则带 inputRefs。语料来自同级仓库 aster-lang-test，缺失时跳过。
+ * 声明档案的模块只有返回 Verdict 的规则带 inputRefs。语料定位同 {@link DeclarationResolverCorpusTest}（CI 中缺失即失败，本地才跳过）。
  */
 class NoProfileIrUnchangedTest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
