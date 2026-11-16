@@ -107,6 +107,31 @@ jobs:
           ASTER_LOCALES_DIR: ${{ github.workspace }}/aster-lang-locales
         run: ./gradlew test
 
+      # Gradle 默认不在日志里逐条列出测试；打印总数与依赖 sibling 语料的测试类的执行/跳过数，
+      # 让 CI 日志能直接看出语料测试真正跑了而不是被静默跳过（aster-lang-core#263）。
+      - name: Test summary
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import glob, xml.etree.ElementTree as ET
+          watched = ("DeclarationResolverCorpusTest", "GovernanceCheckerArgsTest",
+                     "NoProfileIrUnchangedTest", "CoreIrSchemaConformanceTest")
+          total = {"tests": 0, "skipped": 0, "failures": 0, "errors": 0}
+          seen = set()
+          for path in sorted(glob.glob("build/test-results/test/*.xml")):
+              suite = ET.parse(path).getroot()
+              for k in total:
+                  total[k] += int(suite.get(k, 0))
+              if suite.get("name", "").endswith(watched):
+                  seen.add(suite.get("name").rsplit(".", 1)[-1])
+                  print(f"{suite.get('name')}: tests={suite.get('tests')} skipped={suite.get('skipped')} "
+                        f"failures={suite.get('failures')} errors={suite.get('errors')}")
+          for name in watched:
+              if name not in seen:
+                  print(f"{name}: report missing")
+          print("total: " + " ".join(f"{k}={v}" for k, v in total.items()))
+          PY
+
   # Strict tier1 dual-engine parity gate. Mirrors aster-lang-test's
   # parity-tier1 job so a Java grammar change that breaks bidirectional
   # parity is blocked at the source PR — not weeks later when the

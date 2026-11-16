@@ -42,7 +42,8 @@ class CoreIrSchemaConformanceTest {
 
     @Test
     void corpus_output_conforms() throws Exception {
-        java.util.Optional<Path> located = ControlRegistrySiblingParityTest.locate(CORPUS_CANDIDATES, System.getenv("CI"));
+        java.util.Optional<Path> located = ControlRegistrySiblingParityTest.locate(
+            CORPUS_CANDIDATES, System.getenv("CI"), "aster-lang-test 以校验 Core IR v2 合规");
         assumeTrue(located.isPresent(), "本地未并列 checkout aster-lang-test，跳过");
         Path corpus = located.get();
         List<String> problems = new ArrayList<>();

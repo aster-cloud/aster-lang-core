@@ -49,9 +49,14 @@ public class ControlRegistrySiblingParityTest {
 
   /** 返回首个存在的候选；全部缺失时 CI 下失败，本地返回空以便跳过。 */
   public static Optional<Path> locate(List<Path> candidates, String ciEnv) {
+    return locate(candidates, ciEnv, "aster-lang-locales 以校验控制项注册表副本一致性");
+  }
+
+  /** 同 {@link #locate(List, String)}；{@code requirement} 说明 CI 中缺的是哪个仓、为何需要，写进失败信息。 */
+  public static Optional<Path> locate(List<Path> candidates, String ciEnv, String requirement) {
     Optional<Path> found = candidates.stream().filter(Files::exists).findFirst();
     if (found.isEmpty() && ciEnv != null && !ciEnv.isBlank()) {
-      fail("CI 中必须 checkout aster-lang-locales 以校验控制项注册表副本一致性，以下路径均不存在："
+      fail("CI 中必须 checkout " + requirement + "，以下路径均不存在："
           + candidates.stream().map(p -> p.toAbsolutePath().normalize().toString()).toList()
           + "。请检查 .github/workflows/ci.yml 的 checkout 步骤。");
     }
