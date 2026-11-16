@@ -11,11 +11,13 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -53,7 +55,14 @@ public final class DynamicLexicon implements Lexicon {
         this.id = id;
         this.name = name;
         this.direction = direction;
-        this.keywords = Map.copyOf(keywords);
+        // EnumMap：遍历顺序固定为 SemanticTokenKind 声明顺序。Map.copyOf 的遍历顺序随 JVM 启动时的随机 SALT 变化，
+        // 而 Canonicalizer 等按遍历顺序处理同形拼写（zh「包含」= TYPE_WITH 与 TYPE_HAS），会让同一份源在不同进程里
+        // 规范化结果不同（KeywordOrderDeterminismTest）
+        Map<SemanticTokenKind, String> keywordCopy = new EnumMap<>(SemanticTokenKind.class);
+        for (Map.Entry<SemanticTokenKind, String> e : keywords.entrySet()) {
+            keywordCopy.put(Objects.requireNonNull(e.getKey(), "keyword kind"), Objects.requireNonNull(e.getValue(), "keyword"));
+        }
+        this.keywords = Collections.unmodifiableMap(keywordCopy);
         // 深拷贝为不可变（ADR 0022）。别名缺省为空 Map，向后兼容。
         Map<SemanticTokenKind, List<String>> aliasCopy = new EnumMap<>(SemanticTokenKind.class);
         if (aliases != null) {
@@ -63,7 +72,7 @@ public final class DynamicLexicon implements Lexicon {
                 }
             }
         }
-        this.aliases = Map.copyOf(aliasCopy);
+        this.aliases = Collections.unmodifiableMap(aliasCopy);
         this.blockEndWords = blockEndWords == null ? List.of() : List.copyOf(blockEndWords);
         this.punctuation = punctuation;
         this.canonicalization = canonicalization;

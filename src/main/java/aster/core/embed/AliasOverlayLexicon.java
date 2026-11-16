@@ -7,6 +7,7 @@ import aster.core.lexicon.PunctuationConfig;
 import aster.core.lexicon.SemanticTokenKind;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -78,12 +79,12 @@ public final class AliasOverlayLexicon implements Lexicon {
                 }
             }
         }
-        // 深拷贝为不可变
+        // 深拷贝为不可变；保持 EnumMap 的声明顺序遍历（Map.copyOf 的顺序随 JVM 进程变化，见 DynamicLexicon）
         Map<SemanticTokenKind, List<String>> immutable = new EnumMap<>(SemanticTokenKind.class);
         for (Map.Entry<SemanticTokenKind, List<String>> e : merged.entrySet()) {
             immutable.put(e.getKey(), List.copyOf(e.getValue()));
         }
-        return new AliasOverlayLexicon(base, Map.copyOf(immutable));
+        return new AliasOverlayLexicon(base, Collections.unmodifiableMap(immutable));
     }
 
     @Override
