@@ -21,6 +21,11 @@ on:
         description: 'release train 标识（审计用）'
         required: false
         type: string
+      forceTests:
+        description: '发布 run 跑完整测试而不要求 main CI 已通过（ADR 0053 修订 A2 的逃生口）'
+        required: false
+        type: boolean
+        default: false
 
 # dispatch(vX) 与 tag-push(vX) 用同一 concurrency group（inputs.version 不含 v 前缀，
 # 补 format 成 vX 对齐 ref_name），串行化同版本的 create-tag 与 publish。
@@ -56,6 +61,7 @@ jobs:
       - name: Create & push release tag
         env:
           VERSION: ${{ inputs.version }}
+          FORCE_TESTS: ${{ inputs.forceTests }}
         run: |
           RESOLVED=$(./gradlew -q properties | sed -n 's/^version: //p' | head -n1)
           if [ "$VERSION" != "$RESOLVED" ]; then
@@ -73,7 +79,12 @@ jobs:
             fi
             echo "::error::$TAG exists but points to $TAG_SHA, not HEAD $HEAD_SHA"; exit 1
           fi
-          git tag "$TAG"
+          # ADR 0053 修订 A2：forceTests 时打 annotated tag，消息带标记，tag-push 的发布 run 据此跑完整测试。
+          if [ "$FORCE_TESTS" = "true" ]; then
+            git tag -a "$TAG" -m "release-gate: force-tests"
+          else
+            git tag "$TAG"
+          fi
           git push origin "$TAG"
 
   publish:
@@ -81,10 +92,18 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
+      # ADR 0053 修订 A2：main CI 门禁读本仓的 CI run 与 job。
+      actions: read
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v6
+
+      # ADR 0053 修订 A2：发布的 commit 必须已在 main CI 上通过，发布 run 不再重跑测试。
+      # 必需 job 见 .github/main-ci-gate.json；tag 带「release-gate: force-tests」时门禁跳过、本 run 跑完整测试。
+      - name: Require main CI green for this commit
+        id: ci-gate
+        uses: aster-cloud/aster-lang-platform/.github/actions/require-main-ci-green@main
 
       # 共享版本目录（aster-lang-platform，ADR 0012）—— core settings 依赖它。
       - uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
@@ -152,13 +171,41 @@ jobs:
       - name: Publish test corpus locally
         run: cd aster-lang-test/packages/jvm && ./gradlew publishToMavenLocal
 
+      # force-tests（ADR 0053 修订 A2）：按 main CI 的 build job 跑一遍 core 测试。测试的 testRuntimeOnly(hi)
+      # 前向依赖要求 hi 先进 Maven Local——hi 的 vX tag 此刻尚未建立，checkout-sibling 回落 hi main。
+      - name: Checkout aster-lang-hi (force-tests only)
+        if: steps.ci-gate.outputs.force-tests == 'true'
+        uses: aster-cloud/aster-lang-platform/.github/actions/checkout-sibling@main
+        with:
+          repository: aster-cloud/aster-lang-hi
+          path: aster-lang-hi
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+      - name: Test (force-tests only)
+        if: steps.ci-gate.outputs.force-tests == 'true'
+        env:
+          ASTER_LOCALES_DIR: ${{ github.workspace }}/aster-lang-locales
+        run: |
+          (cd aster-lang-hi && ./gradlew publishToMavenLocal -x test)
+          ./gradlew test
+
       # 发布时只 assemble 制品，**不跑 test**（-x test）。原因：core:test 有 testRuntimeOnly(hi) +
       # langPacks(hi) 的**前向依赖**——hi 在 release-train DAG 里晚于 core 一层（hi impl(core)），
       # lockstep bump 后 core:test 会要 hi:<新版>，而该版本此刻尚未发布 → 解析 401，卡住级联。
-      # 测试已在 PR CI 阶段跑过（发布前门），发布步骤无须重测。与上面依赖 publishToMavenLocal 步骤
-      # 已用的 -x test 一致。
-      - name: Build (assemble only, tests ran in PR CI)
+      # 测试已在 main CI 上对本 commit 跑过并通过——这一点此前只是约定，现在由上面的门禁强制
+      # （ADR 0053 修订 A2）。force-tests 时上面的 Test 步骤先从 hi 源码补齐依赖再跑测试。
+      - name: Build (assemble only, tests ran in main CI)
         run: ./gradlew build -x test
+
+      # jar 级冒烟：主 jar 存在、版本与 tag 一致、含必需条目。测试跑的是 class 目录，不看 jar。
+      - name: Verify jar contents
+        uses: aster-cloud/aster-lang-platform/.github/actions/verify-jar-contents@main
+        with:
+          jars: build/libs/*.jar
+          version: ${{ github.ref_name }}
+          entries: |
+            ^aster/core/.*\.class$
+            ^governance/controls-registry\.json$
+            ^type-inference/naming-rules\.json$
 
       - name: Publish to GitHub Packages
         run: ./gradlew publish
