@@ -762,6 +762,13 @@
     "message": "Rule '{rule}' reads inputs that cannot be resolved statically ({construct}); profile '{profile}' requires verified inputs",
     "help": "Read input fields by literal path (for example req.context.amount), or move the dynamic access out of this rule, so its input references are known at compile time."
   },
+  "GOV_PII_RETURNED_AS_TEXT": {
+    "code": "W709",
+    "category": "governance",
+    "severity": "warning",
+    "message": "Rule '{rule}' returns Text built from @pii field '{field}'; the execution output is stored and shown unmasked",
+    "help": "Leave the field out of the returned text or return a non-Text result; if the output must contain it, declare the return type as @pii(level, category) Text to record that it is PII."
+  },
   "CEDAR_NOT_EXPORTABLE_SHAPE": {
     "code": "E720",
     "category": "governance",
