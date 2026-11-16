@@ -89,14 +89,21 @@ class TsSampleParseInventoryTest {
                 AsterParser parser = new AsterParser(tokens);
                 parser.removeErrorListeners();
                 parser.addErrorListener(listener);
-                AsterParser.ModuleContext module = parser.module();
+                // 解析期由文法动作直接报出的诊断（E054 嵌套过深、E055 `X of A` 后的裸小写名字，aster-lang-ts#334）
+                // 与 AstBuilder 阶段的一样是解析错误，与 ParseDiagnostics.parse 同样处理，不算崩溃
+                AsterParser.ModuleContext module = null;
+                try {
+                    module = parser.module();
+                } catch (ParseDiagnosticException e) {
+                    listener.errors.add(describe(e));
+                }
                 // AstBuilder 阶段的解析诊断（E056 括号类型缺 ->、E064 类型表歧义逗号等）同属解析错误：
                 // ts 在同一次解析里报出，这里只看 ANTLR 会把它们记成 Java 接受，必拒样本因此永远锁不住。
-                if (listener.errors.isEmpty()) {
+                if (module != null && listener.errors.isEmpty()) {
                     try {
                         new AstBuilder().visitModule(module);
                     } catch (ParseDiagnosticException e) {
-                        listener.errors.add("L" + e.line() + ":" + e.column() + " " + e.code().code() + " " + e.getMessage());
+                        listener.errors.add(describe(e));
                     }
                 }
             } catch (Throwable t) {
@@ -235,5 +242,10 @@ class TsSampleParseInventoryTest {
                 + "，但 LexiconRegistry 取不到该词法表。"
                 + "不得静默退回英语——那会让本清单对非英语样本给出与真实解析能力无关的结论。"));
         return new Canonicalizer(lexicon).canonicalize(rawSource);
+    }
+
+    /** 解析诊断的清单文本：`L<行>:<列> <码> <消息>`，必拒门据此取行号。 */
+    private static String describe(ParseDiagnosticException e) {
+        return "L" + e.line() + ":" + e.column() + " " + e.code().code() + " " + e.getMessage();
     }
 }

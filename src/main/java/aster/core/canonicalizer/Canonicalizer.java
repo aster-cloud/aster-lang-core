@@ -613,6 +613,9 @@ public final class Canonicalizer {
         // (?<![\p{L}.]) - 前面不是字母也不是点（点排除模块路径 risk.A / 成员访问 A.a 里的标识符段，
         //                 避免单字母大写标识符如 'A' 被 CASE_INSENSITIVE 误判为冠词 'a' 而吞掉）
         // (?![\p{L}.])   - 后面不紧跟字母或点（同理排除 A.a 中的 A）
+        // 两侧同样排除数字与下划线（aster-lang-ts#334）：它们是标识符的续字符，`a_b`、`the_total`、`Box_A`、`x1a`
+        //                 里的 a / the / A 是标识符的一段而不是冠词，与 ts 的 `\b…\b` 一致。此前 `_` 属于 \p{Punct}，
+        //                 `a_b` 被剥成 `_b`、`Box_A has` 被剥成 `Box_has`（静默改名）
         // 标识符保护——冠词修饰名词才是冠词，否则它是参数名/变量名（标识符），必须保留：
         //   (?!\s+(as|and|...)(?!\p{L})) 后跟声明关键字/运算符词 → 标识符（如 `a as Int`、`a equals to`）
         //   (?!\s+[-+*/<>=%])            后跟翻译后的运算符符号 → 标识符（如 `a + b`、`the == 1`）
@@ -630,7 +633,7 @@ public final class Canonicalizer {
                 + "(?!\\s*[,.:)\\]])"
                 + "(?![ \\t]*\\n)"
                 + CALL_SITE_GUARD;
-        String pattern = "(?<![\\p{L}.])(" + quotedArticles + ")(?![\\p{L}.])"
+        String pattern = "(?<![\\p{L}\\p{N}_.])(" + quotedArticles + ")(?![\\p{L}\\p{N}_.])"
                 + identifierGuard
                 + "(?=\\s|$|[\\p{Punct}\\u3001-\\u303F\\uFF00-\\uFF65])\\s?";
         return Pattern.compile(pattern,

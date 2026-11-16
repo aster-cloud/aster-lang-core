@@ -337,6 +337,97 @@
       "codes": []
     },
     {
+      "name": "E055 大写字段名（aster-lang-ts#334）",
+      "source": "Module m.\n\nDefine Order with Id as Text.\n",
+      "codes": [
+        [
+          "E055",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E055 多行字段表里的大写字段名（aster-lang-ts#334）",
+      "source": "Module m.\n\nDefine Order has\n  id as Text,\n  Amount as Int.\n",
+      "codes": [
+        [
+          "E055",
+          5
+        ]
+      ]
+    },
+    {
+      "name": "E055 大写字段名（zh-CN，aster-lang-ts#334）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n定义 订单 包含 Id 作为 文本。\n",
+      "codes": [
+        [
+          "E055",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "字段前置注解两引擎都接受（aster-lang-ts#334）",
+      "source": "Module m.\n\nDefine Order has @pii(L1, email) email as Text, @audit amount as Int.\n",
+      "codes": []
+    },
+    {
+      "name": "E055 大写规则名（aster-lang-ts#334）",
+      "source": "Module m.\n\nRule Approve given x as Int, produce Int:\n  Return x.\n",
+      "codes": [
+        [
+          "E055",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "导入关键词 USE / uSe 两引擎都接受（aster-lang-ts#334）",
+      "source": "Module m.\n\nUSE lib.status as Status.\nuSe lib.other.\n",
+      "codes": []
+    },
+    {
+      "name": "E050 下划线开头的标识符（aster-lang-ts#334）",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Let _y be x.\n  Return _y.\n",
+      "codes": [
+        [
+          "E050",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "冠词与下划线相邻时是标识符的一段，不剥成 _ 开头（aster-lang-ts#334）",
+      "source": "Module m.\n\nDefine Box_A has a_b as Int, the_total as Int.\n",
+      "codes": []
+    },
+    {
+      "name": "lambda 单行体两引擎都接受（aster-lang-ts#334）",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Let g be function given y as Int, produce Int: Return y plus 1.\n  Return g(x).\n",
+      "codes": []
+    },
+    {
+      "name": "E055 X of A 之后的裸小写名字不是类型参数（aster-lang-ts#334）",
+      "source": "Module m.\n\nDefine Pair has a as Int.\n\nRule f given x as Pair of Int, y, produce Int:\n  Return 1.\n",
+      "codes": [
+        [
+          "E055",
+          5
+        ]
+      ]
+    },
+    {
+      "name": "E055 X of A 之后带注解的裸小写名字（aster-lang-ts#334）",
+      "source": "Module m.\n\nDefine Pair has a as Int.\n\nDefine B has x as Pair of Int, @audit y.\n",
+      "codes": [
+        [
+          "E055",
+          5
+        ]
+      ]
+    },
+    {
       "name": "前缀可空 maybe（zh-CN）",
       "lexicon": "zh-CN",
       "source": "模块 m。\n\n定义 用户 包含 名字 作为 可选 文本。\n",

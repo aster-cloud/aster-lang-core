@@ -110,10 +110,9 @@ class SignatureSyntaxParityTest {
   }
 
   @Test
-  void capitalizedFieldAndLetNamesAreOutOfScope() {
-    // 本裁决只针对形参；字段名 / Let 名的大小写另行处理，这里锁住「不受影响」
-    var r = parse("Module m.\n\nDefine Box has Code as Text.\n\nRule f given x as Int, produce Int:\n"
-        + "  Let Low be x.\n  Return Low.\n");
+  void capitalizedLetNameIsOutOfScope() {
+    // 本裁决只针对形参；Let 名的大小写不受影响（字段名见 DeclarationSyntaxParityTest，aster-lang-ts#334）
+    var r = parse("Module m.\n\nRule f given x as Int, produce Int:\n  Let Low be x.\n  Return Low.\n");
     assertEquals(List.of(), r.diagnostics());
   }
 
