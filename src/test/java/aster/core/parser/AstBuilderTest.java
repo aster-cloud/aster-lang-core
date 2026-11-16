@@ -536,7 +536,7 @@ class AstBuilderTest {
     @Test
     void testOptionConstructors() {
         String input = """
-            Rule optionize produce Option<Int>:
+            Rule optionize produce Option of Int:
               Return Some(7).
             """;
 
@@ -552,7 +552,7 @@ class AstBuilderTest {
     @Test
     void testNoneConstructor() {
         String input = """
-            Rule getNone produce Option<Int>:
+            Rule getNone produce Option of Int:
               Return None().
             """;
 
@@ -609,16 +609,17 @@ class AstBuilderTest {
     @Test
     void testGenericType() {
         String input = """
-            Rule getList produce List<Int>.
+            Rule getPair produce Pair of Int and Text.
             """;
 
         aster.core.ast.Module module = parseAndBuild(input);
 
         Decl.Func func = (Decl.Func) module.decls().get(0);
         Type.TypeApp typeApp = (Type.TypeApp) func.retType();
-        assertEquals("List", typeApp.base());
-        assertEquals(1, typeApp.args().size());
+        assertEquals("Pair", typeApp.base());
+        assertEquals(2, typeApp.args().size());
         assertEquals("Int", ((Type.TypeName) typeApp.args().get(0)).name());
+        assertEquals("Text", ((Type.TypeName) typeApp.args().get(1)).name());
     }
 
     @Test

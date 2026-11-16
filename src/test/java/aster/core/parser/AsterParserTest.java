@@ -144,7 +144,7 @@ class AsterParserTest {
     @Test
     void testGenericType() {
         String input = """
-            Rule getList produce List<Int>.
+            Rule getList produce List of Int.
             """;
 
         ParseTree tree = parse(input);

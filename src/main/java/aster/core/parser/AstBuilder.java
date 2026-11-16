@@ -314,6 +314,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Decl.Parameter visitParam(AsterParser.ParamContext ctx) {
+        rejectCapitalizedParamName(ctx.nameIdent());
         String name = nameIdentText(ctx.nameIdent());
         Span span = spanFrom(ctx);
         List<Constraint> constraints = constraintsOf(ctx.fieldConstraint());
@@ -340,6 +341,29 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         allAnnotations.addAll(typeAnnotations);
         List<Annotation> finalAnnotations = allAnnotations.isEmpty() ? List.of() : List.copyOf(allAnnotations);
         return new Decl.Parameter(name, type, finalAnnotations, span, null, ctx.annotatedType() == null, constraints);
+    }
+
+    /**
+     * 形参名不能以 ASCII 大写字母开头（aster-lang-ts#328）：大写名字是类型名，ts parseParamList 只收 IDENT，报 E055。
+     * 此前 core 的 nameIdent 含 TYPE_IDENT，{@code given Customer as Text} 被接受，{@code list of Int and Text}
+     * 里的 Text 还会被读成一个无类型形参。判据与 ts 词法一致：只看首字符是否为 A–Z；CJK、Latin 扩展大写字母
+     * （ts 词法归 IDENT）与由本地化关键词还原的标识符（ts tryReadTranslatedIdent 放行）不受影响。
+     */
+    private static void rejectCapitalizedParamName(AsterParser.NameIdentContext ctx) {
+        if (ctx == null || ctx.TYPE_IDENT() == null) return;
+        Token tok = ctx.TYPE_IDENT().getSymbol();
+        String text = tok.getText();
+        if (text.isEmpty() || text.charAt(0) < 'A' || text.charAt(0) > 'Z' || isRestoredKeywordIdent(tok)) return;
+        throw new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED, Map.of("token", "token.identifier"),
+            "Expected identifier", tok);
+    }
+
+    /** AsterCustomLexer 由本地化关键词还原出的标识符：原文以私有区标记 U+E000 开头，token 文本是还原后的源词。 */
+    private static boolean isRestoredKeywordIdent(Token tok) {
+        org.antlr.v4.runtime.CharStream in = tok.getInputStream();
+        int start = tok.getStartIndex();
+        return in != null && start >= 0 && start < in.size()
+            && in.getText(org.antlr.v4.runtime.misc.Interval.of(start, start)).equals("");
     }
 
     /**
@@ -498,11 +522,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             .map(this::annotationName)
             .collect(Collectors.toList());
         List<String> finalAnnotations = annotations.isEmpty() ? List.of() : List.copyOf(annotations);
-        String name = ctx.TYPE_IDENT() != null
-            ? ctx.TYPE_IDENT().getText()
-            : ctx.IDENT() != null ? ctx.IDENT().getText()
-            // ADR 0019 G1：类型别名名为软关键字（小写结构词）。
-            : ctx.structKeywordName() != null ? ctx.structKeywordName().getText() : null;
+        // 名字是 TYPE_IDENT / IDENT，或软关键字（ADR 0019 G1：小写结构词），都是单 token
+        String name = ctx.typeAliasName() == null ? null : ctx.typeAliasName().getText();
         if (name == null || name.isEmpty()) {
             throw new IllegalStateException("Type alias 缺失名称");
         }
@@ -690,20 +711,35 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         return new Type.TypeName(name, List.of(), spanFrom(ctx));
     }
 
+    /**
+     * 尖括号泛型 {@code Pair<Int, Text>} 不是 Aster 语法，正式写法是 {@code Pair of Int and Text}（aster-lang-ts#328）。
+     * 文法保留这一分支只为给出明确诊断：在 {@code <} 上报 E056，码、参数与 aster-lang-ts parseTypePrimary 一致。
+     */
     @Override
     public Type visitGenericType(AsterParser.GenericTypeContext ctx) {
-        String name = ctx.TYPE_IDENT().getText();
-        List<Type> args = ctx.typeList().annotatedType().stream()
-            .map(this::extractAnnotatedType)
-            .map(TypeWithAnnotations::type)
-            .collect(Collectors.toList());
-        return new Type.TypeApp(name, List.of(), args, spanFrom(ctx));
+        throw new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED_AFTER,
+            Map.of("token", "'of'", "after", "token.typeName"),
+            ANGLE_BRACKET_GENERIC_MESSAGE, ctx.LT().getSymbol());
     }
+
+    /** 与 aster-lang-ts type-parser 的同名文案逐字相同。 */
+    private static final String MAYBE_OF_MESSAGE =
+        "Unexpected 'of': write 'maybe T' or 'T?' for an optional type";
+
+    /** 与 aster-lang-ts type-parser 的同名文案逐字相同。 */
+    private static final String ANGLE_BRACKET_GENERIC_MESSAGE =
+        "Expected 'of' after type name: angle-bracket type arguments are not supported, write 'Pair of Int and Text'";
 
     @Override
     public Type visitOfGenericType(AsterParser.OfGenericTypeContext ctx) {
-        rejectAmbiguousCommaInTypeList(ctx);
         String name = ctx.name.getText();
+        // maybe 不带 of（`maybe T` / `T?`），`maybe of T` 两引擎都在 of 上报 E061（aster-lang-ts#328）；
+        // 此前 core 把它读成名为 maybe 的泛型 TypeApp
+        if ("maybe".equalsIgnoreCase(name)) {
+            throw new ParseDiagnosticException(ErrorCode.PARSE_UNEXPECTED_TOKEN, Map.of("token", "'of'"),
+                MAYBE_OF_MESSAGE, ctx.OF().getSymbol());
+        }
+        rejectAmbiguousCommaInTypeList(ctx);
         List<Type> args = new ArrayList<>();
         args.add(extractAnnotatedType(ctx.annotatedType()).type());
         for (AsterParser.AnnotatedTypeContext arg : ctx.ofTypeArgs().annotatedType()) {
@@ -728,7 +764,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     }
 
     /**
-     * 括号 / 尖括号类型表里，`X of A, B` 的逗号既可以是 X 的下一个参数，也可以是类型表的下一项：真歧义（parity 清扫 1.0.48）。
+     * 括号类型表里，`X of A, B` 的逗号既可以是 X 的下一个参数，也可以是类型表的下一项：真歧义（parity 清扫 1.0.48）。
      * 文法在类型内用 SLL 贪婪地把逗号归给 X（ofTypeArgs 的直接子记号），这里只要 X 位于某个 typeList 之内就报 E064，
      * 要求写 `and` 或给 X 加括号；码、参数与 aster-lang-ts continuesOfTypeArgs 一致。类型表之外（形参 / 字段 / 返回类型）
      * 的逗号由文法按「名字 as」前瞻判归属，不歧义。
@@ -743,6 +779,12 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                     commas.get(0).getSymbol());
             }
         }
+    }
+
+    /** 前缀可空 {@code maybe T}，与 {@code T?} 同为 Maybe 节点（aster-lang-ts#328）。 */
+    @Override
+    public Type visitPrefixMaybeType(AsterParser.PrefixMaybeTypeContext ctx) {
+        return new Type.Maybe(extractAnnotatedType(ctx.annotatedType()).type(), List.of(), spanFrom(ctx));
     }
 
     @Override

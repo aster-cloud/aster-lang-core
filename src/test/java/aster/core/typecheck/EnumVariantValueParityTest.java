@@ -104,9 +104,11 @@ class EnumVariantValueParityTest {
 
   @Test
   void parameterNamedLikeVariantShadowsTheVariant() {
-    // 符号优先于变体（与 TS 一致）：参数 Low 是 Int，赋给 RiskTier 字段必须报类型不符
+    // 符号优先于变体（与 TS 一致）：局部绑定 Low 是 Int，赋给 RiskTier 字段必须报类型不符。
+    // 形参名不能大写（aster-lang-ts#328，解析期 E055），故用 Let 引入同名符号
     var diags = check(DECLS
-        + "Rule decide given Low as Int, produce LoanDecision:\n"
+        + "Rule decide given score as Int, produce LoanDecision:\n"
+        + "  Let Low be score.\n"
         + "  Return LoanDecision with status set to Approved, reason set to \"ok\", riskTier set to Low.");
     assertTrue(diags.stream().anyMatch(d -> d.code() == ErrorCode.FIELD_TYPE_MISMATCH
             && d.message().contains("riskTier")),
@@ -171,9 +173,9 @@ class EnumVariantValueParityTest {
 
   @Test
   void knownNonRecordIntermediateTypeIsNotRescuedByFieldInference() {
-    // tags 是 List<Text>（已知非记录类型）：即使别的 Data 恰好有 amount 字段，也必须报 E011（TS 非 TypeName 分支）
+    // tags 是 list of Text（已知非记录类型）：即使别的 Data 恰好有 amount 字段，也必须报 E011（TS 非 TypeName 分支）
     var diags = check("Define Loan has amount as Int.\n"
-        + "Define Bag has tags as List<Text>.\n"
+        + "Define Bag has tags as list of Text.\n"
         + DECLS
         + "Rule decide given bag as Bag, produce LoanDecision:\n"
         + "  If bag.tags.amount less than 1\n"
@@ -198,7 +200,7 @@ class EnumVariantValueParityTest {
 
   @Test
   void namespacedBuiltinCallsAreNotUndefinedVariables() {
-    var diags = check("Define Req has roles as List<Text>, amount as Decimal.\n\n"
+    var diags = check("Define Req has roles as list of Text, amount as Decimal.\n\n"
         + "Rule gate given req as Req, produce Verdict:\n"
         + "  Let rounded be Decimal.round(req.amount, 2).\n"
         + "  If List.contains(req.roles, \"suspended\")\n"
