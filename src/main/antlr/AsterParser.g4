@@ -85,6 +85,15 @@ import org.antlr.v4.runtime.atn.PredictionMode;
     }
 
     /**
+     * 下一个记号是否为 {@code Use} / {@code use} 以外拼写的导入关键词（{@code USE}、{@code uSe} 等，aster-lang-ts#334）。
+     * 与 {@link #isTypeAliasKeyword()} 同理：只在 importDecl 句首按文本判定，不夺走这些拼写作名字的用法。
+     */
+    protected boolean isUseKeyword() {
+        Token t = _input.LT(1);
+        return t != null && (t.getType() == TYPE_IDENT || t.getType() == IDENT) && "use".equalsIgnoreCase(t.getText());
+    }
+
+    /**
      * 下一个记号是否为前缀可空类型关键词 {@code maybe}（大小写不敏感，aster-lang-ts#328）。
      * maybe 是各 lexicon 的类型构造关键词（SemanticTokenKind.MAYBE，zh「可选」、de「vielleicht」经规范化成 maybe），
      * 与 option of / result of 同类；词法上仍是 IDENT / TYPE_IDENT，只在类型位置按文本判定，不夺走 maybe 作名字的用法。
@@ -92,6 +101,48 @@ import org.antlr.v4.runtime.atn.PredictionMode;
     protected boolean isMaybeKeyword() {
         Token t = _input.LT(1);
         return t != null && (t.getType() == IDENT || t.getType() == TYPE_IDENT) && "maybe".equalsIgnoreCase(t.getText());
+    }
+
+    /** 小写开头、却只能读成类型名的词：内建类型关键词与 `maybe T` / `map K to V` 的引导词（与 aster-lang-ts 同表）。 */
+    private static final java.util.Set<String> LOWERCASE_TYPE_WORDS =
+        java.util.Set.of("text", "int", "float", "bool", "maybe", "map");
+
+    /**
+     * `X of A` 的分隔符之后是裸的小写拉丁名字（可带前置注解，后面不是 `of` / `<`，本身也不是内建类型关键词）时报 E055（aster-lang-ts#334）。
+     *
+     * <p>{@code given x as Pair of Int, y, produce …} 的 {@code y} 既可读作 Pair 的下一个类型参数，也可读作下一个无类型形参；
+     * 循环左边缘的谓词把分隔符判给 Pair，而类型名只收大写开头（typeIdent），于是在 ANTLR 错误恢复里失败，首条非 E063
+     * 诊断随预测缓存的冷热而变（冷启动是下一行的 E052，热身后是本行的 E055）。这里在进入类型之前直接报出，码、参数、文案与位置
+     * 都与 aster-lang-ts 的 isBareLowercaseName 一致。只在真正解析时执行（预测不执行动作），不改变接受集合。
+     */
+    protected void rejectBareLowercaseTypeArg() {
+        int i = 1;
+        while (_input.LA(i) == AT) {
+            i += 2; // '@' 与注解名
+            if (_input.LA(i) != LPAREN) continue;
+            int depth = 0;
+            do {
+                int type = _input.LA(i);
+                if (type == EOF) return;
+                if (type == LPAREN) depth++;
+                if (type == RPAREN) depth--;
+                i++;
+            } while (depth > 0);
+        }
+        Token t = _input.LT(i);
+        if (t == null || t.getType() != IDENT || t.getText().isEmpty()) return;
+        String text = t.getText();
+        if (Character.getType(text.codePointAt(0)) != Character.LOWERCASE_LETTER
+            || LOWERCASE_TYPE_WORDS.contains(text.toLowerCase(java.util.Locale.ROOT))) {
+            return;
+        }
+        int after = _input.LA(i + 1);
+        if (after == OF || after == LT) return;
+        throw new aster.core.parser.ParseDiagnosticException(aster.core.typecheck.ErrorCode.PARSE_EXPECTED,
+            java.util.Map.of("token", "token.typeName"),
+            "Expected type name: '" + text + "' would be read as another type argument; write '" + text
+                + " as <Type>' or wrap the generic type in parentheses",
+            t);
     }
 
     /** 进入类型：预测切到 SLL，返回调用方原先的模式（见 annotatedType 规则的说明）。 */
@@ -497,7 +548,16 @@ variantList
  *   Use io.Http version 2 as HttpClient.
  */
 importDecl
-    : USE qualifiedName (VERSION INT_LITERAL)? (AS importAlias)? DOT
+    : importKeyword qualifiedName (VERSION INT_LITERAL)? (AS importAlias)? DOT
+    ;
+
+/**
+ * 导入关键词大小写不敏感（aster-lang-ts#334）：`Use` / `use` 由 USE 记号承担，`USE`、`uSe` 等其余写法在词法上仍是
+ * TYPE_IDENT / IDENT，只在 importDecl 句首按文本判定，不升为硬关键词，作名字时照旧可用（与 typeAliasKeyword 同法）。
+ */
+importKeyword
+    : USE
+    | {isUseKeyword()}? (TYPE_IDENT | IDENT)
     ;
 
 /**
@@ -616,7 +676,7 @@ typeList
  */
 ofTypeArgs[String generic]
     locals [int extra = 0]
-    : ( {acceptsOfTypeArg($generic, $extra)}? (AND | COMMA) annotatedType {$extra++;} )*
+    : ( {acceptsOfTypeArg($generic, $extra)}? (AND | COMMA) {rejectBareLowercaseTypeArg();} annotatedType {$extra++;} )*
     ;
 
 // ============================================================

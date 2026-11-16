@@ -168,6 +168,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         if (ctx.nameIdent() == null) {
             throw new IllegalStateException("Rule 声明缺失名称");
         }
+        rejectCapitalizedName(ctx.nameIdent(), "token.identifier", "Expected identifier");
         String name = nameIdentText(ctx.nameIdent());
 
         List<String> typeParams = new ArrayList<>();
@@ -314,7 +315,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Decl.Parameter visitParam(AsterParser.ParamContext ctx) {
-        rejectCapitalizedParamName(ctx.nameIdent());
+        rejectCapitalizedName(ctx.nameIdent(), "token.identifier", "Expected identifier");
         String name = nameIdentText(ctx.nameIdent());
         Span span = spanFrom(ctx);
         List<Constraint> constraints = constraintsOf(ctx.fieldConstraint());
@@ -344,18 +345,19 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     }
 
     /**
-     * 形参名不能以 ASCII 大写字母开头（aster-lang-ts#328）：大写名字是类型名，ts parseParamList 只收 IDENT，报 E055。
-     * 此前 core 的 nameIdent 含 TYPE_IDENT，{@code given Customer as Text} 被接受，{@code list of Int and Text}
+     * 规则名、形参名与字段名不能以 ASCII 大写字母开头（形参 aster-lang-ts#328；规则名、字段名 aster-lang-ts#334）：
+     * 大写名字是类型名，ts 在这三处只收 IDENT，报 E055（形参与规则名 {@code token.identifier}，字段名
+     * {@code token.fieldName}）。此前 core 的 nameIdent 含 TYPE_IDENT，{@code given Customer as Text}、
+     * {@code Rule Approve …}、{@code Define Order has Id as Text.} 都被接受，{@code list of Int and Text}
      * 里的 Text 还会被读成一个无类型形参。判据与 ts 词法一致：只看首字符是否为 A–Z；CJK、Latin 扩展大写字母
      * （ts 词法归 IDENT）与由本地化关键词还原的标识符（ts tryReadTranslatedIdent 放行）不受影响。
      */
-    private static void rejectCapitalizedParamName(AsterParser.NameIdentContext ctx) {
+    private static void rejectCapitalizedName(AsterParser.NameIdentContext ctx, String expected, String message) {
         if (ctx == null || ctx.TYPE_IDENT() == null) return;
         Token tok = ctx.TYPE_IDENT().getSymbol();
         String text = tok.getText();
         if (text.isEmpty() || text.charAt(0) < 'A' || text.charAt(0) > 'Z' || isRestoredKeywordIdent(tok)) return;
-        throw new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED, Map.of("token", "token.identifier"),
-            "Expected identifier", tok);
+        throw new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED, Map.of("token", expected), message, tok);
     }
 
     /** AsterCustomLexer 由本地化关键词还原出的标识符：原文以私有区标记 U+E000 开头，token 文本是还原后的源词。 */
@@ -410,6 +412,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Decl.Field visitField(AsterParser.FieldContext ctx) {
+        rejectCapitalizedName(ctx.nameIdent(), "token.fieldName", "Expected field name");
         String name = nameIdentText(ctx.nameIdent());
         List<Constraint> constraints = constraintsOf(ctx.fieldConstraint());
 
