@@ -150,7 +150,7 @@ class OfTypeArityTest {
   }
 
   /**
-   * 括号 / 尖括号类型表里，`X of A, B` 的逗号既可以是 X 的下一个参数，也可以是类型表的下一项（parity 清扫 1.0.48）。
+   * 括号类型表里，`X of A, B` 的逗号既可以是 X 的下一个参数，也可以是类型表的下一项（parity 清扫 1.0.48）。
    * 文法按 SLL 贪婪归 X，ts 此前归类型表，两端 Core IR 不同；裁决为真歧义、两引擎都报 E064（写 `and` 或给 X 加括号）。
    * 元数已满的 X（list / option / 已有失败类型的 result）不歧义，见上面的正例。
    */
@@ -160,7 +160,6 @@ class OfTypeArityTest {
       "g as (Pair of Int, Text) -> Bool",
       "g as (Map Text to Pair of Int, Text) -> Bool",
       "g as ((Int) -> Pair of Int, Text) -> Bool",
-      "g as Pair<result of Int, Text>",
   })
   void commaInsideTypeListAfterOpenGenericIsAmbiguousE064(String params) {
     List<ParseDiagnostic> diags = parse(params).diagnostics();

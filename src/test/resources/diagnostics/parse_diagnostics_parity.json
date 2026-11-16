@@ -251,6 +251,108 @@
       ]
     },
     {
+      "name": "E056 尖括号泛型（形参类型，aster-lang-ts#328）",
+      "source": "Module m.\n\nRule f given x as Pair<Int, Text>, produce Int:\n  Return 1.\n",
+      "codes": [
+        [
+          "E056",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E056 尖括号泛型（字段类型）",
+      "source": "Module m.\n\nDefine Box has p as List<Int>.\n",
+      "codes": [
+        [
+          "E056",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E056 尖括号泛型（返回类型）",
+      "source": "Module m.\n\nRule f given x as Int, produce List<Int>:\n  Return [x].\n",
+      "codes": [
+        [
+          "E056",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E055 大写形参名（aster-lang-ts#328）",
+      "source": "Module m.\n\nRule f given Customer as Text, produce Text:\n  Return \"x\".\n",
+      "codes": [
+        [
+          "E055",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E055 list of Int and Text 的 Text 不是无类型形参名",
+      "source": "Module m.\n\nRule f given x as list of Int and Text, produce Int:\n  Return 1.\n",
+      "codes": [
+        [
+          "E055",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E055 大写形参名（zh-CN）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f 给定 Customer 作为 文本，产出 文本：\n  返回 「x」。\n",
+      "codes": [
+        [
+          "E055",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E062 result of A or B（失败类型用 and 引出，aster-lang-ts#328）",
+      "source": "Module m.\n\nRule f given x as result of Int or Text, produce Int:\n  Return 1.\n",
+      "codes": [
+        [
+          "E062",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "形参前置注解两引擎都接受（aster-lang-ts#328）",
+      "source": "Module m.\n\nDefine Pair has a as Int.\n\nRule f given x as Pair of Int, @pii(L1, email) y as Text, produce Text:\n  Return y.\n",
+      "codes": []
+    },
+    {
+      "name": "类型别名关键词首字母大写两引擎都接受（aster-lang-ts#328）",
+      "source": "Module m.\n\nType Amount as Int.\n\nRule f given a as Amount, produce Int:\n  Return 1.\n",
+      "codes": []
+    },
+    {
+      "name": "前缀可空 Maybe 带注解两引擎都接受（aster-lang-ts#328）",
+      "source": "Module m.\n\nDefine U has n as Maybe @pii(L1, name) Text, m as maybe Int.\n",
+      "codes": []
+    },
+    {
+      "name": "前缀可空 maybe（zh-CN）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n定义 用户 包含 名字 作为 可选 文本。\n",
+      "codes": []
+    },
+    {
+      "name": "E061 maybe of T（写 maybe T 或 T?）",
+      "source": "Module m.\n\nDefine U has n as maybe of Text.\n",
+      "codes": [
+        [
+          "E061",
+          3
+        ]
+      ]
+    },
+    {
       "name": "E057 构造缺 set to",
       "source": "Module m.\n\nDefine User has name as Text.\n\nRule f, produce User:\n  Return User with name 1.\n",
       "codes": [

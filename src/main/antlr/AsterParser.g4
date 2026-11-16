@@ -74,6 +74,26 @@ import org.antlr.v4.runtime.atn.PredictionMode;
         return !"result".equalsIgnoreCase(generic) || extra == 0;
     }
 
+    /**
+     * 下一个记号是否为首字母大写拼写的类型别名关键词（{@code Type} / {@code TYPE} 等，aster-lang-ts#328）。
+     * 小写 {@code type} 由 TYPE 记号承担；其余大小写形式在词法上仍是 TYPE_IDENT，只在 typeDecl 句首按文本判定，
+     * 不升为硬关键词，{@code Type} 作类型名 / 字段类型时照旧可用（与 aster-lang-ts 按小写比较关键词一致）。
+     */
+    protected boolean isTypeAliasKeyword() {
+        Token t = _input.LT(1);
+        return t != null && t.getType() == TYPE_IDENT && "type".equalsIgnoreCase(t.getText());
+    }
+
+    /**
+     * 下一个记号是否为前缀可空类型关键词 {@code maybe}（大小写不敏感，aster-lang-ts#328）。
+     * maybe 是各 lexicon 的类型构造关键词（SemanticTokenKind.MAYBE，zh「可选」、de「vielleicht」经规范化成 maybe），
+     * 与 option of / result of 同类；词法上仍是 IDENT / TYPE_IDENT，只在类型位置按文本判定，不夺走 maybe 作名字的用法。
+     */
+    protected boolean isMaybeKeyword() {
+        Token t = _input.LT(1);
+        return t != null && (t.getType() == IDENT || t.getType() == TYPE_IDENT) && "maybe".equalsIgnoreCase(t.getText());
+    }
+
     /** 进入类型：预测切到 SLL，返回调用方原先的模式（见 annotatedType 规则的说明）。 */
     protected PredictionMode enterTypePrediction() {
         PredictionMode outer = getInterpreter().getPredictionMode();
@@ -491,10 +511,22 @@ importAlias
 
 /**
  * 类型别名声明
- * 语法: @pii type Email as Text.
+ * 语法: @pii type Email as Text.  /  Type Email as Text.
+ * 关键词大小写不敏感，与 Define / Rule / Use 等其它声明关键词、以及 aster-lang-ts 一致（aster-lang-ts#328）。
  */
 typeDecl
-    : annotation* TYPE (TYPE_IDENT | IDENT | structKeywordName) AS annotatedType DOT
+    : annotation* typeAliasKeyword typeAliasName AS annotatedType DOT
+    ;
+
+typeAliasKeyword
+    : TYPE
+    | {isTypeAliasKeyword()}? TYPE_IDENT
+    ;
+
+typeAliasName
+    : TYPE_IDENT
+    | IDENT
+    | structKeywordName
     ;
 
 /**
@@ -561,8 +593,12 @@ type
     : type QUESTION                       # MaybeType
     | LPAREN typeList RPAREN (ARROW type)?  # FuncType
     | MAP annotatedType TO_WORD annotatedType  # MapType
+    // 前缀可空 `maybe T`（≡ `T?`），T 可带注解：`maybe @pii(L1, name) Text`。与 aster-lang-ts parseTypePrimary 一致
+    | {isMaybeKeyword()}? name=(IDENT | TYPE_IDENT) annotatedType  # PrefixMaybeType
     | name=(TYPE_IDENT | IDENT) OF annotatedType ofTypeArgs[$name.text]  # OfGenericType
-    | TYPE_IDENT LT typeList GT           # GenericType
+    // 尖括号泛型不是 Aster 语法，保留分支只为让 AstBuilder 报 E056 并提示 `X of A and B`（aster-lang-ts#328）；
+    // 小写名字同样收（ts 对任何类型名后的 `<` 都报 E056）
+    | (TYPE_IDENT | IDENT) LT typeList GT  # GenericType
     | typeIdent                           # TypeName
     ;
 
