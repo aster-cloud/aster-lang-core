@@ -82,6 +82,13 @@ class OfTypeArityTest {
       x as Pair of Int and y as Text                      | x: Pair<Int>; y: Text
       x as (Int)                                          | x: Int
       x as (Int, Text) -> Bool                            | x: (Int, Text) -> Bool
+      x as result of Int, Text                            | x: Result(Int, Text)
+      x as result of Int, Text and y as Text              | x: Result(Int, Text); y: Text
+      x as Pair of result of Int, Text                    | x: Pair<Result(Int, Text)>
+      x as Pair of result of Int and Text, Bool           | x: Pair<Result(Int, Text), Bool>
+      g as (list of Int, Text) -> Bool                    | g: (List(Int), Text) -> Bool
+      g as (result of Int and Text) -> Bool               | g: (Result(Int, Text)) -> Bool
+      g as ((Pair of Int), Text) -> Bool                  | g: (Pair<Int>, Text) -> Bool
       """)
   void ofTypesMatchTsArity(String params, String expected) {
     assertEquals(expected, paramsOf(params));
@@ -139,6 +146,27 @@ class OfTypeArityTest {
     assertEquals(ErrorCode.PARSE_EXPECTED_AFTER, diags.get(0).code());
     assertEquals(Map.of("token", "'->'", "after", after), diags.get(0).params());
     assertEquals(message, diags.get(0).message());
+    assertEquals(3, diags.get(0).line());
+  }
+
+  /**
+   * 括号 / 尖括号类型表里，`X of A, B` 的逗号既可以是 X 的下一个参数，也可以是类型表的下一项（parity 清扫 1.0.48）。
+   * 文法按 SLL 贪婪归 X，ts 此前归类型表，两端 Core IR 不同；裁决为真歧义、两引擎都报 E064（写 `and` 或给 X 加括号）。
+   * 元数已满的 X（list / option / 已有失败类型的 result）不歧义，见上面的正例。
+   */
+  @ParameterizedTest(name = "{0}")
+  @ValueSource(strings = {
+      "g as (result of Int, Text) -> Bool",
+      "g as (Pair of Int, Text) -> Bool",
+      "g as (Map Text to Pair of Int, Text) -> Bool",
+      "g as ((Int) -> Pair of Int, Text) -> Bool",
+      "g as Pair<result of Int, Text>",
+  })
+  void commaInsideTypeListAfterOpenGenericIsAmbiguousE064(String params) {
+    List<ParseDiagnostic> diags = parse(params).diagnostics();
+    assertEquals(1, diags.size(), params + ": " + diags);
+    assertEquals(ErrorCode.PARSE_UNEXPECTED_CONSTRUCT, diags.get(0).code());
+    assertEquals(Map.of("construct", "','"), diags.get(0).params());
     assertEquals(3, diags.get(0).line());
   }
 }

@@ -702,6 +702,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Type visitOfGenericType(AsterParser.OfGenericTypeContext ctx) {
+        rejectAmbiguousCommaInTypeList(ctx);
         String name = ctx.name.getText();
         List<Type> args = new ArrayList<>();
         args.add(extractAnnotatedType(ctx.annotatedType()).type());
@@ -724,6 +725,24 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             return new Type.Result(args.get(0), err, List.of(), spanFrom(ctx));
         }
         return new Type.TypeApp(name, List.of(), args, spanFrom(ctx));
+    }
+
+    /**
+     * 括号 / 尖括号类型表里，`X of A, B` 的逗号既可以是 X 的下一个参数，也可以是类型表的下一项：真歧义（parity 清扫 1.0.48）。
+     * 文法在类型内用 SLL 贪婪地把逗号归给 X（ofTypeArgs 的直接子记号），这里只要 X 位于某个 typeList 之内就报 E064，
+     * 要求写 `and` 或给 X 加括号；码、参数与 aster-lang-ts continuesOfTypeArgs 一致。类型表之外（形参 / 字段 / 返回类型）
+     * 的逗号由文法按「名字 as」前瞻判归属，不歧义。
+     */
+    private void rejectAmbiguousCommaInTypeList(AsterParser.OfGenericTypeContext ctx) {
+        List<org.antlr.v4.runtime.tree.TerminalNode> commas = ctx.ofTypeArgs().COMMA();
+        if (commas.isEmpty()) return;
+        for (ParserRuleContext p = ctx.getParent(); p != null; p = p.getParent()) {
+            if (p instanceof AsterParser.TypeListContext) {
+                throw new ParseDiagnosticException(ErrorCode.PARSE_UNEXPECTED_CONSTRUCT, Map.of("construct", "','"),
+                    "Ambiguous ',' in a parenthesised type list: write 'and' for another type argument, or wrap the generic type in parentheses",
+                    commas.get(0).getSymbol());
+            }
+        }
     }
 
     @Override

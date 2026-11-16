@@ -48,11 +48,29 @@ public final class ManifestReader {
         throw new IllegalArgumentException("Manifest 能力定义必须是字符串: " + element);
       }
       var label = element.asText();
+      var effectClass = effectClassOf(label);
+      if (effectClass != null) {
+        // io / cpu 类别键按 shared/capabilities.json 的 class（CapabilityKind.effectClass）展开，与 aster-lang-ts
+        // normalizeManifest 一致（ADR 0056 §4.1、aster-lang-ts#320）；必须先于 fromLabel 判断，否则 cpu 只命中 Cpu 一项
+        for (var kind : CapabilityKind.values()) {
+          if (kind.effectClass() == effectClass) caps.add(kind);
+        }
+        continue;
+      }
       var kind = CapabilityKind.fromLabel(label).orElseThrow(() ->
         new IllegalArgumentException("Manifest 包含未知能力: " + label)
       );
       caps.add(kind);
     }
     return caps;
+  }
+
+  /** manifest 里的效果类别键（只认小写 io / cpu，与 ts manifest 键一致）；不是类别键时返回 null。 */
+  private static CapabilityKind.EffectClass effectClassOf(String label) {
+    return switch (label) {
+      case "io" -> CapabilityKind.EffectClass.IO;
+      case "cpu" -> CapabilityKind.EffectClass.CPU;
+      default -> null;
+    };
   }
 }
