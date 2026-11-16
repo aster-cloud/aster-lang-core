@@ -110,7 +110,9 @@ public interface Lexicon {
         Map<String, SemanticTokenKind> index = new HashMap<>();
         for (Map.Entry<SemanticTokenKind, String> entry : getKeywords().entrySet()) {
             // 使用 Locale.ROOT 避免土耳其语等特殊区域设置导致的大小写转换问题
-            index.put(entry.getValue().toLowerCase(Locale.ROOT), entry.getKey());
+            // 同一拼写对应多个 kind（zh「包含」= TYPE_WITH / TYPE_HAS）时取声明顺序在前者，与 Canonicalizer、
+            // findSemanticTokenKind 一致（getKeywords 按声明顺序遍历）
+            index.putIfAbsent(entry.getValue().toLowerCase(Locale.ROOT), entry.getKey());
         }
         // 别名也进索引（识别侧多对一）。规范拼写优先：别名不覆盖已存在的规范 key。
         // 校验阶段（LexiconValidator）已保证别名不遮蔽任何规范拼写，故此处 putIfAbsent

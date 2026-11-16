@@ -518,8 +518,10 @@ public final class Canonicalizer {
             }
 
             String targetKeyword = targetLexicon.getKeywords().get(kind);
-            if (targetKeyword != null && !sourceKeyword.equals(targetKeyword)) {
-                String srcCanon = applyCustomRulesToKey(sourceKeyword);
+            // 无论本 kind 是否需要翻译都先占位：声明顺序在前的 kind 拼写已与英文相同（不翻译）时，后面同拼写的 kind 也不得改写它
+            String srcCanon = applyCustomRulesToKey(sourceKeyword);
+            boolean firstClaim = claimedInThisStep.add(srcCanon);
+            if (firstClaim && targetKeyword != null && !sourceKeyword.equals(targetKeyword)) {
                 // "关键词当标识符"保护：单源词(无空格)翻成多英文词(含空格)的关键词,当用户标识符
                 // 时多词展开(`result of`=两 token)会撑破标识符位置。改为映射到自包含标记
                 // {@code 源词英文展开} 单 token,由 AsterCustomLexer 按位置还原(标识符)
@@ -527,9 +529,7 @@ public final class Canonicalizer {
                 // ★只包裹 OF 家族(wrapExpr `IDENT OF expr`):首词是普通 IDENT,与用户标识符真撞名。
                 //   结构短语(为以下之一/结果为/执行/对每个/等候/最多尝试)不包裹——它们在固定语法
                 //   位置或被文本级 transformer(如 ResultIsTransformer)消费,包裹会破坏其关键词用法。
-                if (!claimedInThisStep.add(srcCanon)) {
-                    // 已由声明顺序在前的 kind 占用：保留先到者（别名仍照常登记，见下）
-                } else if (WRAPPABLE_OF_FAMILY.contains(kind)
+                if (WRAPPABLE_OF_FAMILY.contains(kind)
                         && !srcCanon.trim().contains(" ") && targetKeyword.trim().contains(" ")) {
                     translationMap.put(srcCanon, wrapKeywordIdent(sourceKeyword, targetKeyword));
                 } else {
