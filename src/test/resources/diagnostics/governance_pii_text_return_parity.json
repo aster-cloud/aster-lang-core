@@ -1,0 +1,298 @@
+{
+  "$comment": "W709 GOV_PII_RETURNED_AS_TEXT（aster-cloud#772 方案 3）：@pii 输入字段经拼接 / Let / Set / if 表达式流入返回的 Text 的两引擎共享夹具。aster-lang-core src/test/resources/diagnostics/governance_pii_text_return_parity.json 与 aster-lang-ts shared/governance_pii_text_return_parity.json 逐字节相同。expect 按诊断顺序列出 {rule, field, line}（line 为 Return 语句起始行）；空数组表示该例不得出现 W709。",
+  "cases": [
+    {
+      "name": "concat-literal-and-pii-field",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule greet given applicant as Applicant, produce Text:\n  Return \"Hello, \" + applicant.name.\n",
+      "expect": [
+        {
+          "rule": "greet",
+          "field": "applicant.name",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "name": "pii-field-returned-directly",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule nameOf given applicant as Applicant, produce Text:\n  Return applicant.name.\n",
+      "expect": [
+        {
+          "rule": "nameOf",
+          "field": "applicant.name",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "name": "let-chain",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule greet given applicant as Applicant, produce Text:\n  Let greeting be \"Hello, \" + applicant.name.\n  Let message be greeting + \"!\".\n  Return message.\n",
+      "expect": [
+        {
+          "rule": "greet",
+          "field": "applicant.name",
+          "line": 9
+        }
+      ]
+    },
+    {
+      "name": "non-pii-field-not-reported",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule where given applicant as Applicant, produce Text:\n  Return \"City: \" + applicant.city + \", \" + applicant.contact.city.\n",
+      "expect": []
+    },
+    {
+      "name": "nested-record-field",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule mail given applicant as Applicant, produce Text:\n  Let c be applicant.contact.\n  Return \"Mail: \" + c.email.\n",
+      "expect": [
+        {
+          "rule": "mail",
+          "field": "applicant.contact.email",
+          "line": 8
+        }
+      ]
+    },
+    {
+      "name": "two-fields-sorted",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule card given applicant as Applicant, produce Text:\n  Return applicant.name + \" <\" + applicant.contact.email + \">\".\n",
+      "expect": [
+        {
+          "rule": "card",
+          "field": "applicant.contact.email",
+          "line": 7
+        },
+        {
+          "rule": "card",
+          "field": "applicant.name",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "name": "text-concat-builtin",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule greet given applicant as Applicant, produce Text:\n  Return Text.concat(\"Hi \", applicant.name).\n",
+      "expect": [
+        {
+          "rule": "greet",
+          "field": "applicant.name",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "name": "pii-parameter",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule mailLine given email as @pii(L2, email) Text, produce Text:\n  Return \"Mail: \" + email.\n",
+      "expect": [
+        {
+          "rule": "mailLine",
+          "field": "email",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "name": "pii-wrapping-record-parameter",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule where given who as @pii(L2, name) Applicant, produce Text:\n  Return \"City: \" + who.city.\n",
+      "expect": [
+        {
+          "rule": "where",
+          "field": "who",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "name": "return-type-int-not-reported",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule ageOf given applicant as Applicant, produce Int:\n  Return applicant.age.\n",
+      "expect": []
+    },
+    {
+      "name": "return-type-bool-not-reported",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule isAlice given applicant as Applicant, produce Bool:\n  Return applicant.name equals to \"Alice\".\n",
+      "expect": []
+    },
+    {
+      "name": "return-type-declared-pii-not-reported",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule nameOf given applicant as Applicant, produce @pii(L2, name) Text:\n  Return \"Name: \" + applicant.name.\n",
+      "expect": []
+    },
+    {
+      "name": "inferred-return-text-concat",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule greet given applicant as Applicant:\n  Return \"Hello, \" + applicant.name.\n",
+      "expect": [
+        {
+          "rule": "greet",
+          "field": "applicant.name",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "name": "inferred-return-text-field",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule nameOf given applicant as Applicant:\n  Return applicant.name.\n",
+      "expect": [
+        {
+          "rule": "nameOf",
+          "field": "applicant.name",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "name": "inferred-return-int-field-not-reported",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule ageOf given applicant as Applicant:\n  Return applicant.age.\n",
+      "expect": []
+    },
+    {
+      "name": "if-branches-report-each-return",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule greet given applicant as Applicant, produce Text:\n  If applicant.age greater than 18:\n    Return \"Dear \" + applicant.name.\n  Return \"Hi \" + applicant.name.\n",
+      "expect": [
+        {
+          "rule": "greet",
+          "field": "applicant.name",
+          "line": 8
+        },
+        {
+          "rule": "greet",
+          "field": "applicant.name",
+          "line": 9
+        }
+      ]
+    },
+    {
+      "name": "condition-only-not-reported",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule band given applicant as Applicant, produce Text:\n  If applicant.age greater than 65:\n    Return \"senior\".\n  Return \"standard\".\n",
+      "expect": []
+    },
+    {
+      "name": "set-overwrites-taint",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule greet given applicant as Applicant, produce Text:\n  Let message be applicant.name.\n  Set message to \"anonymous\".\n  Return message.\n",
+      "expect": []
+    },
+    {
+      "name": "set-in-branch-merges",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule greet given applicant as Applicant, produce Text:\n  Let message be \"anonymous\".\n  If applicant.age greater than 18:\n    Set message to \"Dear \" + applicant.name.\n  Return message.\n",
+      "expect": [
+        {
+          "rule": "greet",
+          "field": "applicant.name",
+          "line": 10
+        }
+      ]
+    },
+    {
+      "name": "if-expression-branch",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule label given applicant as Applicant, produce Text:\n  Let shown be if applicant.age greater than 18 then applicant.name else \"minor\".\n  Return \"Applicant \" + shown.\n",
+      "expect": [
+        {
+          "rule": "label",
+          "field": "applicant.name",
+          "line": 8
+        }
+      ]
+    },
+    {
+      "name": "other-builtin-calls-not-propagated",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule size given applicant as Applicant, produce Text:\n  Return \"Length: \" + Int.toString(Text.length(applicant.name)).\n",
+      "expect": []
+    },
+    {
+      "name": "cross-function-not-propagated",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule wrap given value as Text, produce Text:\n  Return \"<\" + value + \">\".\n\nRule greet given applicant as Applicant, produce Text:\n  Return wrap(applicant.name).\n",
+      "expect": []
+    },
+    {
+      "name": "helper-with-pii-parameter-reported-in-helper",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule wrap given value as @pii(L2, name) Text, produce Text:\n  Return \"<\" + value + \">\".\n\nRule greet given applicant as Applicant, produce Text:\n  Return wrap(applicant.name).\n",
+      "expect": [
+        {
+          "rule": "wrap",
+          "field": "value",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "name": "local-shadows-parameter",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule greet given applicant as Applicant, produce Text:\n  Let name be applicant.city.\n  Return \"Hello, \" + name.\n",
+      "expect": []
+    },
+    {
+      "name": "match-branch-set-merges",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule greet given applicant as Applicant, produce Text:\n  Let message be \"anonymous\".\n  Match applicant.age:\n    When 1,\n      Set message to \"Dear \" + applicant.name.\n    When 2, Return \"two\".\n  Return message.\n",
+      "expect": [
+        {
+          "rule": "greet",
+          "field": "applicant.name",
+          "line": 12
+        }
+      ]
+    },
+    {
+      "name": "match-pattern-binding-not-tracked",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule greet given applicant as Applicant, produce Text:\n  Match applicant.name:\n    When n, Return \"Hi \" + n.\n",
+      "expect": []
+    },
+    {
+      "name": "returned-branch-does-not-reach-later-return",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule greet given applicant as Applicant, produce Text:\n  Let message be \"anonymous\".\n  If applicant.age greater than 18:\n    Set message to applicant.name.\n    Return \"hidden\".\n  Return message.\n",
+      "expect": []
+    },
+    {
+      "name": "unreachable-after-return-not-reported",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule greet given applicant as Applicant, produce Text:\n  Return \"fixed\".\n  Return applicant.name.\n",
+      "expect": []
+    },
+    {
+      "name": "option-wrapped-pii",
+      "source": "Module demo.pii.\n\nDefine Profile has nickname as Option of @pii(L1, name) Text, motto as Option of Text.\n\nRule label given profile as Profile, produce Text:\n  Return \"Nick \" + profile.nickname + profile.motto.\n",
+      "expect": [
+        {
+          "rule": "label",
+          "field": "profile.nickname",
+          "line": 6
+        }
+      ]
+    },
+    {
+      "name": "localized-zh-canonical-path",
+      "lexicon": "zh-CN",
+      "vocabulary": {
+        "id": "probe.pii",
+        "name": "probe",
+        "version": "1.0.0",
+        "functions": [],
+        "enumValues": [],
+        "literals": [],
+        "locale": "zh-CN",
+        "structs": [
+          {
+            "canonical": "Applicant",
+            "localized": "申请人",
+            "kind": "struct"
+          }
+        ],
+        "fields": [
+          {
+            "canonical": "name",
+            "localized": "姓名",
+            "kind": "field",
+            "parent": "Applicant"
+          },
+          {
+            "canonical": "city",
+            "localized": "城市",
+            "kind": "field",
+            "parent": "Applicant"
+          }
+        ]
+      },
+      "source": "模块 demo.zh。\n\n定义 申请人 包含 姓名 作为 @pii(L2, name) 文本，城市 作为 文本。\n\n规则 问候 给定 甲 作为 申请人，产出 文本：\n  返回 \"你好\" + 甲.姓名。\n\n规则 城市名 给定 甲 作为 申请人，产出 文本：\n  返回 \"城市\" + 甲.城市。\n",
+      "expect": [
+        {
+          "rule": "问候",
+          "field": "甲.name",
+          "line": 6
+        }
+      ]
+    }
+  ]
+}

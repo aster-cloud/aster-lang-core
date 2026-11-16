@@ -38,7 +38,7 @@ public final class GovernanceChecker {
     this.registry = registry;
   }
 
-  /** 检查整个模块：E702 注解参数、W700 缺 @id、E701 模块内 @id 重复、E705/E706/E708 档案（ADR 0046）。 */
+  /** 检查整个模块：E702 注解参数、W700 缺 @id、E701 模块内 @id 重复、W704 未登记控制点、W709 @pii 字段流入返回的 Text、E705/E706/E708 档案（ADR 0046）。 */
   public List<Diagnostic> checkModule(CoreModel.Module module) {
     List<Diagnostic> out = new ArrayList<>();
     if (module == null || module.decls == null) return out;
@@ -91,6 +91,10 @@ public final class GovernanceChecker {
       if (registry.has(key)) continue;
       out.add(diag(ErrorCode.GOV_CONTROL_UNREGISTERED, func.origin,
           Map.of("control", key, "rule", rule, "version", registry.version())));
+    }
+    // aster-cloud#772：@pii 输入字段流入返回的 Text 给 W709，与档案无关，永不阻断
+    for (PiiTextReturnAnalyzer.Leak leak : PiiTextReturnAnalyzer.analyze(module, func)) {
+      out.add(diag(ErrorCode.GOV_PII_RETURNED_AS_TEXT, leak.origin(), Map.of("rule", rule, "field", leak.field())));
     }
     profile.ifPresent(p -> checkProfile(module, func, p, out));
   }
