@@ -756,6 +756,120 @@
           3
         ]
       ]
+    },
+    {
+      "name": "E050 只含 U+00A0 的源码不是空白源码（aster-lang-ts#348）",
+      "source": "\u00a0\n",
+      "codes": [
+        [
+          "E050",
+          1
+        ]
+      ]
+    },
+    {
+      "name": "E050 只含 U+3000 的源码（en-US 不做全角转半角，aster-lang-ts#348）",
+      "source": "\u3000\n",
+      "codes": [
+        [
+          "E050",
+          1
+        ]
+      ]
+    },
+    {
+      "name": "E050 行尾的 U+00A0 不当空白去掉（aster-lang-ts#348）",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Return x.\u00a0\n",
+      "codes": [
+        [
+          "E050",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "E050 只含 U+2003 的行不当空行清空（aster-lang-ts#348）",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n\u2003\n  Return x.\n",
+      "codes": [
+        [
+          "E050",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "E050 句末符前的 U+202F 不当空白去掉（aster-lang-ts#348）",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Return x\u202f.\n",
+      "codes": [
+        [
+          "E050",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "E050 整行注释前的 U+00A0（aster-lang-ts#348）",
+      "source": "Module m.\n\u00a0# 注释\nRule f given x as Int, produce Int:\n  Return x.\n",
+      "codes": [
+        [
+          "E050",
+          2
+        ]
+      ]
+    },
+    {
+      "name": "E050 文件末尾的 U+FEFF 不是 BOM（aster-lang-ts#348）",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Return x.\n\ufeff",
+      "codes": [
+        [
+          "E050",
+          5
+        ]
+      ]
+    },
+    {
+      "name": "E050 行尾的 U+2028（aster-lang-ts#348）",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Return x.\u2028\n",
+      "codes": [
+        [
+          "E050",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "E050 行尾的 U+00A0（zh-CN，aster-lang-ts#348）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  返回 x。\u00a0\n",
+      "codes": [
+        [
+          "E050",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "E050 行尾的 U+00A0（de-DE，aster-lang-ts#348）",
+      "lexicon": "de-DE",
+      "source": "Modul m.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  gib x zurück.\u00a0\n",
+      "codes": [
+        [
+          "E050",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "U+3000 在 zh-CN 是空白：缩进、token 间、行尾、只含它的行都照常（aster-lang-ts#348）",
+      "lexicon": "zh-CN",
+      "source": "模块\u3000m。\n\u3000\n规则 f 给定 x 作为 整数，产出 整数：\n\u3000\u3000返回\u3000x。\u3000\n",
+      "codes": []
+    },
+    {
+      "name": "\\x0B \\f 在句末符与冒号前照常去掉（zh-CN，与 Java ASCII \\s 同集，aster-lang-ts#348）",
+      "lexicon": "zh-CN",
+      "source": "模块 m\u000b。\n\n规则 f 给定 x 作为 整数，产出 整数\f：\n  返回 x\u000b。\n",
+      "codes": []
     }
   ]
 }
