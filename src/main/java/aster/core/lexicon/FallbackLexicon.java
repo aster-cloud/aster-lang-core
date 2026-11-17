@@ -1,7 +1,7 @@
 package aster.core.lexicon;
 
+import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,10 +41,11 @@ public final class FallbackLexicon implements Lexicon {
 
     /**
      * 合并策略：fallback 全集做底，target 覆盖（target 缺的 key 自然保留 fallback 值）。
-     * 用 LinkedHashMap 保持插入顺序便于调试。
+     * 用 EnumMap：遍历顺序固定为 SemanticTokenKind 声明顺序，与 JVM 进程无关（见 DynamicLexicon 构造器的说明）。
      */
     private static Map<SemanticTokenKind, String> mergeKeywords(Lexicon target, Lexicon fallback) {
-        Map<SemanticTokenKind, String> merged = new LinkedHashMap<>(fallback.getKeywords());
+        Map<SemanticTokenKind, String> merged = new EnumMap<>(SemanticTokenKind.class);
+        merged.putAll(fallback.getKeywords());
         for (Map.Entry<SemanticTokenKind, String> e : target.getKeywords().entrySet()) {
             String v = e.getValue();
             if (v != null && !v.isEmpty()) {

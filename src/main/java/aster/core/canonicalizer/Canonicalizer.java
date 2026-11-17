@@ -345,7 +345,8 @@ public final class Canonicalizer {
      * ANTLR 解析器只支持符号运算符（如 {@code <}, {@code >}），不支持关键词形式（如 "less than", "小于"）。
      * 这些关键词需要直接翻译为符号，而非翻译为英语关键词。
      */
-    private static final Map<SemanticTokenKind, String> OPERATOR_SYMBOL_MAP = Map.ofEntries(
+    // 包一层 EnumMap：遍历顺序固定为声明顺序（Map.ofEntries 的遍历顺序随 JVM 进程变化，见 buildTranslationMap 第 4 步）
+    private static final Map<SemanticTokenKind, String> OPERATOR_SYMBOL_MAP = java.util.Collections.unmodifiableMap(new java.util.EnumMap<>(Map.ofEntries(
         Map.entry(SemanticTokenKind.LESS_THAN, "<"),
         Map.entry(SemanticTokenKind.GREATER_THAN, ">"),
         Map.entry(SemanticTokenKind.EQUALS_TO, "=="),
@@ -364,7 +365,7 @@ public final class Canonicalizer {
         Map.entry(SemanticTokenKind.UNDER, "<"),
         Map.entry(SemanticTokenKind.OVER, ">"),
         Map.entry(SemanticTokenKind.MORE_THAN, ">")
-    );
+    )));
 
     /**
      * 构建关键词翻译映射
@@ -496,6 +497,12 @@ public final class Canonicalizer {
         }
 
         // 4. 遍历其他关键词，建立到英语关键词的映射（排除已处理的运算符和上下文关键词）
+        //    同一源拼写对应多个 kind 时（zh「包含」= TYPE_WITH 与 TYPE_HAS，见 lexicon 的 allowedDuplicates），
+        //    取 SemanticTokenKind 声明顺序在前者，不依赖遍历顺序。此前后写者胜、而遍历顺序随 JVM 进程变化，
+        //    同一份 zh 源在不同 pod / 重启前后一会儿规范化成 with、一会儿成 has，Core IR 的 origin 列随之差 1
+        //    （KeywordOrderDeterminismTest）。WITH 在语法里覆盖 HAS 的全部位置，取 with 不会让原先可解析的源失败。
+        //    只约束本步内部的先后；本步覆盖前几步（如 zh「等于」先作 EQUALS_TO 运算符、后被 IS 覆盖）的既有行为不变。
+        Set<String> claimedInThisStep = new java.util.HashSet<>();
         for (Map.Entry<SemanticTokenKind, String> entry : sourceLexicon.getKeywords().entrySet()) {
             SemanticTokenKind kind = entry.getKey();
             String sourceKeyword = entry.getValue();
@@ -511,8 +518,10 @@ public final class Canonicalizer {
             }
 
             String targetKeyword = targetLexicon.getKeywords().get(kind);
-            if (targetKeyword != null && !sourceKeyword.equals(targetKeyword)) {
-                String srcCanon = applyCustomRulesToKey(sourceKeyword);
+            // 无论本 kind 是否需要翻译都先占位：声明顺序在前的 kind 拼写已与英文相同（不翻译）时，后面同拼写的 kind 也不得改写它
+            String srcCanon = applyCustomRulesToKey(sourceKeyword);
+            boolean firstClaim = claimedInThisStep.add(srcCanon);
+            if (firstClaim && targetKeyword != null && !sourceKeyword.equals(targetKeyword)) {
                 // "关键词当标识符"保护：单源词(无空格)翻成多英文词(含空格)的关键词,当用户标识符
                 // 时多词展开(`result of`=两 token)会撑破标识符位置。改为映射到自包含标记
                 // {@code 源词英文展开} 单 token,由 AsterCustomLexer 按位置还原(标识符)
