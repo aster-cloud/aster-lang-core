@@ -150,6 +150,15 @@ public enum ErrorCode {
   CEDAR_UNTYPED_CONTEXT_KEY("E722", Category.GOVERNANCE, Severity.ERROR, "Context key '{key}' in rule '{rule}' is used as both {first} and {second}", "Use each context key with a single type (number, text or boolean)."),
   CEDAR_EQUIVALENCE_MISMATCH("E723", Category.GOVERNANCE, Severity.ERROR, "Cedar export of rule '{rule}' disagrees with Aster on probe {probe}: Aster {aster}, Cedar {cedar}", "This is an exporter defect; the export was withheld. Please report it."),
   CEDAR_SCHEMA_INVALID("E724", Category.GOVERNANCE, Severity.ERROR, "Generated Cedar for rule '{rule}' failed schema validation: {detail}", "This is an exporter defect; the export was withheld. Please report it."),
+  EXPORT_IO_CAPABILITY("E730", Category.EXPORT, Severity.ERROR, "Function '{function}' declares IO capability {capability}; exported packages cannot perform IO", "Remove the IO capability from the function, or keep this policy on the platform; exported packages run without any IO."),
+  EXPORT_ASYNC_CONSTRUCT("E731", Category.EXPORT, Severity.ERROR, "Function '{function}' uses {construct} (workflow / async); exported packages cannot await", "Rewrite the logic without workflow, Async or Await, or keep this policy on the platform."),
+  EXPORT_UNRESOLVED_NAME("E732", Category.EXPORT, Severity.ERROR, "Name '{name}' in function '{function}' does not resolve to a module function, local binding, type constructor or a pure builtin of the {target} engine", "Use a module function or a pure builtin that the target engine supports, or keep this policy on the platform."),
+  EXPORT_ENTRY_TYPE_UNSUPPORTED("E733", Category.EXPORT, Severity.ERROR, "Entry '{entry}' {position} has type {type}, which has no JSON input/output form", "Give the entry parameters and a return type that have a JSON form (such as Int, Text, Decimal, Data and List types), or export a different entry."),
+  EXPORT_SIZE_EXCEEDED("E734", Category.EXPORT, Severity.ERROR, "Package size {size} bytes exceeds the {limit}-byte limit", "Shorten the policy source, its vocabulary or its alias set so the package fits within the limit."),
+  EXPORT_NODE_PROBE_MISMATCH("E735", Category.EXPORT, Severity.ERROR, "Node probe {probe} disagrees with the platform: expected {expected}, got {actual}", "The Node engine and the platform evaluate this policy differently; export a JRE package instead and report the difference."),
+  EXPORT_ENTRY_SHADOWED_BY_MAIN("E737", Category.EXPORT, Severity.ERROR, "Entry '{entry}' is shadowed by function 'main' on the JVM engine", "Rename the function 'main', or export 'main' as the entry, so the JVM engine runs the intended function."),
+  EXPORT_ENTRY_VALUE_FORM_UNDEFINED("E738", Category.EXPORT, Severity.ERROR, "Entry '{entry}' uses {type} at {path}; its value form is not defined yet", "Remove the DateTime or @pii type from the entry's inputs and output, or keep this policy on the platform until the package format defines its value form."),
+  EXPORT_NODE_RECOMPILE_DRIFT("E739", Category.EXPORT, Severity.ERROR, "Node recompilation of the policy differs from the platform Core IR (positionFreeSha256 {platform} vs {node})", "The Node compiler and the platform produce different Core IR for this source; export a JRE package instead and report the difference."),
   UNRESOLVED_TYPE("E800", Category.SCOPE, Severity.ERROR, "Cannot resolve type '{written}' in {role} position", "Check the spelling, import the type, or use a name from the active vocabulary."),
   UNRESOLVED_FIELD("E801", Category.SCOPE, Severity.ERROR, "Cannot resolve field '{written}' in {role} position", "Check the field name against the data type declaration or the active vocabulary."),
   UNRESOLVED_NAME("E802", Category.SCOPE, Severity.ERROR, "Cannot resolve name '{written}' in {role} position", "Declare the name, import it, use a name from the active vocabulary, or write a qualified enum member (e.g. Stufe.Hoch)."),
@@ -245,6 +254,7 @@ public enum ErrorCode {
     ASYNC,
     LOWERING,
     GOVERNANCE,
+    EXPORT,
     OTHER
   }
 
