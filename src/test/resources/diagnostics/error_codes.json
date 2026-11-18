@@ -804,6 +804,69 @@
     "message": "Generated Cedar for rule '{rule}' failed schema validation: {detail}",
     "help": "This is an exporter defect; the export was withheld. Please report it."
   },
+  "EXPORT_IO_CAPABILITY": {
+    "code": "E730",
+    "category": "export",
+    "severity": "error",
+    "message": "Function '{function}' declares IO capability {capability}; exported packages cannot perform IO",
+    "help": "Remove the IO capability from the function, or keep this policy on the platform; exported packages run without any IO."
+  },
+  "EXPORT_ASYNC_CONSTRUCT": {
+    "code": "E731",
+    "category": "export",
+    "severity": "error",
+    "message": "Function '{function}' uses {construct} (workflow / async); exported packages cannot await",
+    "help": "Rewrite the logic without workflow, Async or Await, or keep this policy on the platform."
+  },
+  "EXPORT_UNRESOLVED_NAME": {
+    "code": "E732",
+    "category": "export",
+    "severity": "error",
+    "message": "Name '{name}' in function '{function}' does not resolve to a module function, local binding, type constructor or a pure builtin of the {target} engine",
+    "help": "Use a module function or a pure builtin that the target engine supports, or keep this policy on the platform."
+  },
+  "EXPORT_ENTRY_TYPE_UNSUPPORTED": {
+    "code": "E733",
+    "category": "export",
+    "severity": "error",
+    "message": "Entry '{entry}' {position} has type {type}, which has no JSON input/output form",
+    "help": "Give the entry parameters and a return type that have a JSON form (such as Int, Text, Decimal, Data and List types), or export a different entry."
+  },
+  "EXPORT_SIZE_EXCEEDED": {
+    "code": "E734",
+    "category": "export",
+    "severity": "error",
+    "message": "Package size {size} bytes exceeds the {limit}-byte limit",
+    "help": "Shorten the policy source, its vocabulary or its alias set so the package fits within the limit."
+  },
+  "EXPORT_NODE_PROBE_MISMATCH": {
+    "code": "E735",
+    "category": "export",
+    "severity": "error",
+    "message": "Node probe {probe} disagrees with the platform: expected {expected}, got {actual}",
+    "help": "The Node engine and the platform evaluate this policy differently; export a JRE package instead and report the difference."
+  },
+  "EXPORT_ENTRY_SHADOWED_BY_MAIN": {
+    "code": "E737",
+    "category": "export",
+    "severity": "error",
+    "message": "Entry '{entry}' is shadowed by function 'main' on the JVM engine",
+    "help": "Rename the function 'main', or export 'main' as the entry, so the JVM engine runs the intended function."
+  },
+  "EXPORT_ENTRY_VALUE_FORM_UNDEFINED": {
+    "code": "E738",
+    "category": "export",
+    "severity": "error",
+    "message": "Entry '{entry}' uses {type} at {path}; its value form is not defined yet",
+    "help": "Remove the DateTime or @pii type from the entry's inputs and output, or keep this policy on the platform until the package format defines its value form."
+  },
+  "EXPORT_NODE_RECOMPILE_DRIFT": {
+    "code": "E739",
+    "category": "export",
+    "severity": "error",
+    "message": "Node recompilation of the policy differs from the platform Core IR (positionFreeSha256 {platform} vs {node})",
+    "help": "The Node compiler and the platform produce different Core IR for this source; export a JRE package instead and report the difference."
+  },
   "UNRESOLVED_TYPE": {
     "code": "E800",
     "category": "scope",
