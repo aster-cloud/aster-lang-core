@@ -120,28 +120,30 @@ public final class AliasIdentifierGuard {
      * 解析失败归因（与 aster-lang-ts {@code attributeParseFailure} 同一算法）：取第一条解析错误所在的源码行，按位置逐个尝试
      * 该行里汉字单词别名的整词出现——把这一处换成 {@link #PROBE_PLACEHOLDER} 后若源码能通过语法分析，说明这里只能是把
      * 别名当作名字使用，返回 E808；否则返回 null，调用方照常抛原解析错误。
-     * 该行的每处出现都会探测（不按个数截断，以免漏掉真正的冲突）；总耗时由调用方给 {@code syntaxOk} 的共享预算约束，
-     * 预算用尽后 {@code syntaxOk} 一律返回 false，保留原解析错误。
-     *
-     * @param syntaxOk 只做语法分析的探测（不做名称解析）：通过返回 true
+     * 该行的每处出现都会探测（不按个数截断，以免漏掉真正的冲突）；总耗时由调用方的共享预算约束：每次构造候选源码之前先问
+     * {@link Prober#exhausted()}，用尽即停止，保留原解析错误。
      */
     static AliasIdentifierCollision attributeParseFailure(String source, Map<SemanticTokenKind, List<String>> aliasSet,
                                                           String locale, InProcessCnlParser.CnlParseException failure,
-                                                          java.util.function.Predicate<String> syntaxOk) {
+                                                          Prober prober) {
         Map<String, Hit> forbidden = forbiddenKeys(aliasSet, locale);
         if (forbidden.isEmpty() || failure.getDiagnostics().isEmpty()) {
             return null;
         }
         int line = failure.getDiagnostics().get(0).line();
-        String[] lines = source.split("\n", -1);
-        if (line < 1 || line > lines.length) {
+        int lineStart = lineStart(source, line);
+        if (lineStart < 0) {
             return null;
         }
-        String text = lines[line - 1];
+        int lineEnd = source.indexOf('\n', lineStart);
+        String text = source.substring(lineStart, lineEnd < 0 ? source.length() : lineEnd);
         for (Occurrence o : hanAliasOccurrences(text, forbidden)) {
-            String[] probe = lines.clone();
-            probe[line - 1] = text.substring(0, o.start()) + PROBE_PLACEHOLDER + text.substring(o.start() + o.hit().alias().length());
-            if (syntaxOk.test(String.join("\n", probe))) {
+            if (prober.exhausted()) {
+                return null;
+            }
+            int at = lineStart + o.start();
+            String probe = source.substring(0, at) + PROBE_PLACEHOLDER + source.substring(at + o.hit().alias().length());
+            if (prober.parses(probe)) {
                 Collector collector = new Collector(forbidden);
                 collector.report(o.hit().alias(), o.hit(), new Span(new Span.Position(line, o.start() + 1),
                     new Span.Position(line, o.start() + 1 + o.hit().alias().length())));
@@ -150,6 +152,26 @@ public final class AliasIdentifierGuard {
             }
         }
         return null;
+    }
+
+    /** 归因探测：共享预算是否用尽、候选源码能否通过语法分析（不做名称解析）。 */
+    interface Prober {
+        boolean exhausted();
+
+        boolean parses(String source);
+    }
+
+    /** 第 {@code line} 行（1 起）在源码中的起始下标；行号越界返回 -1。 */
+    private static int lineStart(String source, int line) {
+        int start = 0;
+        for (int i = 1; i < line; i++) {
+            int nl = source.indexOf('\n', start);
+            if (nl < 0) {
+                return -1;
+            }
+            start = nl + 1;
+        }
+        return line >= 1 ? start : -1;
     }
 
     private record Occurrence(int start, Hit hit) {}

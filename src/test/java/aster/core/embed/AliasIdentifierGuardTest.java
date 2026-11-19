@@ -143,9 +143,41 @@ class AliasIdentifierGuardTest {
             List.of(new CnlErrorListener.Diagnostic(4, 3, "x", "E061", Map.of())));
         int[] calls = {0};
         var result = AliasIdentifierGuard.attributeParseFailure(source,
-            Map.of(SemanticTokenKind.RETURN, List.of("低头")), "zh-CN", failure, probe -> ++calls[0] == 6);
+            Map.of(SemanticTokenKind.RETURN, List.of("低头")), "zh-CN", failure, prober(() -> false, probe -> ++calls[0] == 6));
         assertEquals(6, calls[0]);
         assertEquals(18, result.getDiagnostics().get(0).column());
+    }
+
+    @Test
+    void noCandidateIsBuiltOnceTheBudgetIsSpent() {
+        // 第 2 次探测后预算用尽：不再构造、也不再解析后面的候选，保留原解析错误
+        String source = "模块 测试。\n\n规则 甲，产出 整数：\n  低头 低头 低头 低头 低头 低头。\n";
+        var failure = new InProcessCnlParser.CnlParseException("x",
+            List.of(new CnlErrorListener.Diagnostic(4, 3, "x", "E061", Map.of())));
+        int[] calls = {0};
+        var result = AliasIdentifierGuard.attributeParseFailure(source,
+            Map.of(SemanticTokenKind.RETURN, List.of("低头")), "zh-CN", failure,
+            prober(() -> calls[0] >= 2, probe -> {
+                calls[0]++;
+                return false;
+            }));
+        assertEquals(null, result);
+        assertEquals(2, calls[0]);
+    }
+
+    private static AliasIdentifierGuard.Prober prober(java.util.function.BooleanSupplier exhausted,
+                                                      java.util.function.Predicate<String> parses) {
+        return new AliasIdentifierGuard.Prober() {
+            @Override
+            public boolean exhausted() {
+                return exhausted.getAsBoolean();
+            }
+
+            @Override
+            public boolean parses(String source) {
+                return parses.test(source);
+            }
+        };
     }
 
     @Test
@@ -154,6 +186,7 @@ class AliasIdentifierGuardTest {
         ParseBudget spent = ParseBudget.start(java.time.Duration.ofNanos(1));
         Thread.sleep(1);
         // 预算已用尽：即使源码本可解析也不再解析，返回 false（保留原解析错误）
+        assertTrue(InProcessCnlParser.isSpent(spent));
         assertFalse(InProcessCnlParser.parsesSyntactically(ok, "zh-CN", null, null, spent));
         assertTrue(InProcessCnlParser.parsesSyntactically(ok, "zh-CN", null, null, ParseBudget.startDefault()));
     }

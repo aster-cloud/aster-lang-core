@@ -154,7 +154,17 @@ public class InProcessCnlParser {
             // 全部探测共享一份语法分析预算：失败路径的总耗时至多再加一个预算（core#254 的同一上限）
             ParseBudget probeBudget = ParseBudget.startDefault();
             AliasIdentifierGuard.AliasIdentifierCollision attributed = AliasIdentifierGuard.attributeParseFailure(
-                source, aliasSet, locale, e, probe -> parsesSyntactically(probe, locale, scopes, aliasSet, probeBudget));
+                source, aliasSet, locale, e, new AliasIdentifierGuard.Prober() {
+                    @Override
+                    public boolean exhausted() {
+                        return isSpent(probeBudget);
+                    }
+
+                    @Override
+                    public boolean parses(String probe) {
+                        return parsesSyntactically(probe, locale, scopes, aliasSet, probeBudget);
+                    }
+                });
             throw attributed != null ? attributed : e;
         }
     }
@@ -163,6 +173,16 @@ public class InProcessCnlParser {
      * 只做语法分析的探测（名称解析失败也算通过）：供 {@link AliasIdentifierGuard#attributeParseFailure} 使用。
      * {@code budget} 由同一次归因的全部探测共享；已用尽时直接返回 false，不再解析。
      */
+    /** 预算是否已用尽（不抛异常的查询）。 */
+    static boolean isSpent(ParseBudget budget) {
+        try {
+            budget.check();
+            return false;
+        } catch (ParseBudget.Exceeded e) {
+            return true;
+        }
+    }
+
     static boolean parsesSyntactically(String source, String locale, VocabularyScopes scopes,
                                        Map<SemanticTokenKind, List<String>> aliasSet, ParseBudget budget) {
         try {
