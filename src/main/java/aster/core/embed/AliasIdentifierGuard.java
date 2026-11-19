@@ -34,6 +34,10 @@ import java.util.TreeSet;
  * 点号分隔的名字逐段检查——折叠后属于 K 即失败。包含别名本身是因为两引擎在名字位置的处理不必相同
  * （core 在文本层把别名译成英文关键词，ts 的上下文关键词模型可能保留原写法）。多词别名不需要本守卫：含空格，不可能是名字。
  *
+ * <p>解析失败时守卫跑不到：两引擎在部分名字位置不接受翻译后的关键词（core：Data / 枚举名、枚举成员，以及
+ * MODULE_DECL / FUNC_PRODUCE / 运算符的别名在任何名字位置；ts：参数、Let、字段声明、规则名等）。
+ * {@link #attributeParseFailure} 用「把这一处别名换成普通名字后能否通过语法分析」判定它是否被当作名字，两侧同一算法、同报 E808。
+ *
  * <p>检查的名字：模块名、导入路径与导入别名、Data / 枚举 / 类型别名 / 规则的声明名、字段、枚举成员、类型参数、
  * 参数（含 lambda）、Let / Set / Start / Wait / 工作流步骤名、名字引用与成员访问、调用目标、构造类型与构造字段、
  * 模式里的构造名、绑定名与模式名、类型引用。与 aster-lang-ts {@code alias-identifier-guard.ts} 逐项对应。
@@ -50,6 +54,9 @@ public final class AliasIdentifierGuard {
             super(message, diagnostics);
         }
     }
+
+    /** 归因探测用的占位名：普通汉字名字，不是任何关键词或别名（U+4E96 两个）。 */
+    static final String PROBE_PLACEHOLDER = "\u4e96\u4e96";
 
     /** K 中一项：命中时诊断里报告的 kind 与别名。 */
     private record Hit(SemanticTokenKind kind, String alias) {}
@@ -107,6 +114,70 @@ public final class AliasIdentifierGuard {
             }
         }
         return out;
+    }
+
+    /**
+     * 解析失败归因（与 aster-lang-ts {@code attributeParseFailure} 同一算法）：取第一条解析错误所在的源码行，按位置逐个尝试
+     * 该行里汉字单词别名的整词出现——把这一处换成 {@link #PROBE_PLACEHOLDER} 后若源码能通过语法分析，说明这里只能是把
+     * 别名当作名字使用，返回 E808；否则返回 null，调用方照常抛原解析错误。
+     *
+     * @param syntaxOk 只做语法分析的探测（不做名称解析）：通过返回 true
+     */
+    static AliasIdentifierCollision attributeParseFailure(String source, Map<SemanticTokenKind, List<String>> aliasSet,
+                                                          String locale, InProcessCnlParser.CnlParseException failure,
+                                                          java.util.function.Predicate<String> syntaxOk) {
+        Map<String, Hit> forbidden = forbiddenKeys(aliasSet, locale);
+        if (forbidden.isEmpty() || failure.getDiagnostics().isEmpty()) {
+            return null;
+        }
+        int line = failure.getDiagnostics().get(0).line();
+        String[] lines = source.split("\n", -1);
+        if (line < 1 || line > lines.length) {
+            return null;
+        }
+        String text = lines[line - 1];
+        for (Occurrence o : hanAliasOccurrences(text, forbidden)) {
+            String[] probe = lines.clone();
+            probe[line - 1] = text.substring(0, o.start()) + PROBE_PLACEHOLDER + text.substring(o.start() + o.hit().alias().length());
+            if (syntaxOk.test(String.join("\n", probe))) {
+                Collector collector = new Collector(forbidden);
+                collector.report(o.hit().alias(), o.hit(), new Span(new Span.Position(line, o.start() + 1),
+                    new Span.Position(line, o.start() + 1 + o.hit().alias().length())));
+                return new AliasIdentifierCollision("别名名字守卫失败 — " + collector.diagnostics.get(0).message(),
+                    collector.diagnostics);
+            }
+        }
+        return null;
+    }
+
+    private record Occurrence(int start, Hit hit) {}
+
+    /** 一行里汉字单词别名的整词出现位置（UTF-16 下标），按位置排序。 */
+    private static List<Occurrence> hanAliasOccurrences(String text, Map<String, Hit> forbidden) {
+        List<Occurrence> out = new ArrayList<>();
+        forbidden.forEach((key, hit) -> {
+            // 只取汉字别名本身的键（英文拼写的键也指向同一 Hit，跳过）
+            if (!key.equals(CaseFold.foldKey(hit.alias()))) {
+                return;
+            }
+            String alias = hit.alias();
+            for (int i = text.indexOf(alias); i >= 0; i = text.indexOf(alias, i + 1)) {
+                if (!isIdentChar(text, i - 1) && !isIdentChar(text, i + alias.length())) {
+                    out.add(new Occurrence(i, hit));
+                }
+            }
+        });
+        out.sort(java.util.Comparator.comparingInt(Occurrence::start));
+        return out;
+    }
+
+    /** zh 词法的标识符字符（汉字基本区 / 扩展 A、ASCII 字母数字、{@code _}），用于整词边界判定；越界视为非标识符。 */
+    private static boolean isIdentChar(String text, int index) {
+        if (index < 0 || index >= text.length()) {
+            return false;
+        }
+        char ch = text.charAt(index);
+        return UserAliasValidator.isHanBasicOrExtA(ch) || (ch < 0x80 && (Character.isLetterOrDigit(ch) || ch == '_'));
     }
 
     private static List<String> englishSpellings(Lexicon english, SemanticTokenKind kind) {

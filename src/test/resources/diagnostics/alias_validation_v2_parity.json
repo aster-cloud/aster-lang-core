@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "description": "ADR 0060 §5.4 别名校验器 v2 跨引擎夹具。aster-lang-core src/test/resources/diagnostics/ 与 aster-lang-ts shared/ 两份逐字节相同。cases 只跑校验器（core UserAliasValidator.validate / ts validateAliasSet）：valid 与 codes（cloud AliasIssueCode 名，按错误消息映射）都须一致。guardCases 跑完整编译（core InProcessCnlParser.parseWithUserAliases / ts compileSource，含名称解析，不含类型检查）：ok = 零 error；alias_identifier_collision = 编译失败且只有 E808；rejected = 编译失败（码不固定，见 note）。",
+  "description": "ADR 0060 §5.4 别名校验器 v2 跨引擎夹具。aster-lang-core src/test/resources/diagnostics/ 与 aster-lang-ts shared/ 两份逐字节相同。cases 只跑校验器（core UserAliasValidator.validate / ts validateAliasSet）：valid 与 codes（cloud AliasIssueCode 名，按错误消息映射）都须一致。guardCases 跑完整编译（core InProcessCnlParser.parseWithUserAliases / ts compileSource，含名称解析，不含类型检查）：ok = 零 error；alias_identifier_collision = 编译失败且只有 E808（含解析失败归因）；parse_error = 编译失败且不含 E808。",
   "cases": [
     {
       "id": "zh-han-2",
@@ -865,8 +865,7 @@
       },
       "vocabulary": null,
       "source": "模块 测试。\n\n定义 状态 为以下之一 低头、进行中。\n\n规则 甲，产出 整数：\n  返回 1。\n",
-      "expect": "rejected",
-      "note": "core 的语法在这里不接受关键词（Data / 枚举名与枚举成员不收软关键字），解析即报语法错误；ts 解析通过，由名字守卫报 E808。两侧都拒绝，码不同"
+      "expect": "alias_identifier_collision"
     },
     {
       "id": "return-as-data-name",
@@ -881,8 +880,7 @@
       },
       "vocabulary": null,
       "source": "模块 测试。\n\n定义 低头 包含 数量 作为 整数。\n\n规则 甲，产出 整数：\n  返回 1。\n",
-      "expect": "rejected",
-      "note": "core 的语法在这里不接受关键词（Data / 枚举名与枚举成员不收软关键字），解析即报语法错误；ts 解析通过，由名字守卫报 E808。两侧都拒绝，码不同"
+      "expect": "alias_identifier_collision"
     },
     {
       "id": "return-as-enum-name",
@@ -897,8 +895,7 @@
       },
       "vocabulary": null,
       "source": "模块 测试。\n\n定义 低头 为以下之一 甲乙、丙丁。\n\n规则 甲，产出 整数：\n  返回 1。\n",
-      "expect": "rejected",
-      "note": "core 的语法在这里不接受关键词（Data / 枚举名与枚举成员不收软关键字），解析即报语法错误；ts 解析通过，由名字守卫报 E808。两侧都拒绝，码不同"
+      "expect": "alias_identifier_collision"
     },
     {
       "id": "return-as-pattern-name",
@@ -1064,8 +1061,7 @@
       },
       "vocabulary": null,
       "source": "模块 测试。\n\n规则 甲 给定 立篇 作为 整数，产出 整数：\n  返回 1。\n",
-      "expect": "rejected",
-      "note": "core 把该 kind 的别名译成不是软关键字的记号（Module / produce / +），名字位置一律语法错误；ts 由名字守卫报 E808。两侧都拒绝，码不同"
+      "expect": "alias_identifier_collision"
     },
     {
       "id": "kind-MODULE_DECL-other-spelling",
@@ -1125,8 +1121,7 @@
       },
       "vocabulary": null,
       "source": "模块 测试。\n\n规则 甲 给定 产得 作为 整数，产出 整数：\n  返回 1。\n",
-      "expect": "rejected",
-      "note": "core 把该 kind 的别名译成不是软关键字的记号（Module / produce / +），名字位置一律语法错误；ts 由名字守卫报 E808。两侧都拒绝，码不同"
+      "expect": "alias_identifier_collision"
     },
     {
       "id": "kind-FUNC_PRODUCE-other-spelling",
@@ -1306,8 +1301,7 @@
       },
       "vocabulary": null,
       "source": "模块 测试。\n\n规则 甲 给定 接着 作为 整数，产出 整数：\n  返回 1。\n",
-      "expect": "rejected",
-      "note": "core 把该 kind 的别名译成不是软关键字的记号（Module / produce / +），名字位置一律语法错误；ts 由名字守卫报 E808。两侧都拒绝，码不同"
+      "expect": "alias_identifier_collision"
     },
     {
       "id": "kind-PLUS-other-spelling",
@@ -1323,6 +1317,21 @@
       "vocabulary": null,
       "source": "模块 测试。\n\n规则 甲 给定 return 作为 整数，产出 整数：\n  返回 return。\n",
       "expect": "ok"
+    },
+    {
+      "id": "structural-alias-line-with-other-error",
+      "kind": "RETURN",
+      "position": "none",
+      "locale": "zh-CN",
+      "allowStructural": true,
+      "aliasSet": {
+        "RETURN": [
+          "低头"
+        ]
+      },
+      "vocabulary": null,
+      "source": "模块 测试。\n\n规则 甲，产出 整数：\n  低头 1 加上。\n",
+      "expect": "parse_error"
     },
     {
       "id": "substring-name",

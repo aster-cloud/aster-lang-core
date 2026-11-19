@@ -23,7 +23,7 @@ import java.util.Map;
 final class AliasValidationV2Fixture {
 
     static final String RESOURCE = "/diagnostics/alias_validation_v2_parity.json";
-    static final String SHA256 = "3ea7904191950858bd43ab16a95a8303fe89aa6d03f08fe2db01d2ea0d07fa1d";
+    static final String SHA256 = "721ab90b1f847ce7e3806d32360db1157d6a1ac5368ef5d15f99e402464765c4";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 

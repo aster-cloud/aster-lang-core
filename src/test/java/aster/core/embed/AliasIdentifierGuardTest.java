@@ -60,10 +60,13 @@ class AliasIdentifierGuardTest {
                 assertEquals(Set.of(E808), codes, failure.getMessage());
                 assertTrue(failure instanceof AliasIdentifierGuard.AliasIdentifierCollision, failure.getClass().getName());
             }
-            case "rejected" -> {
+            case "parse_error" -> {
                 if (failure == null) {
-                    fail("期望编译失败（" + c.path("note").asText() + "），实际编译通过");
+                    fail("期望解析错误，实际编译通过");
                 }
+                Set<String> codes = new TreeSet<>();
+                failure.getDiagnostics().forEach(d -> codes.add(String.valueOf(d.code())));
+                assertFalse(codes.contains(E808), failure.getMessage());
             }
             default -> fail("未知 expect: " + expect);
         }
@@ -117,5 +120,18 @@ class AliasIdentifierGuardTest {
                 Map.of(SemanticTokenKind.RETURN, List.of("低头")), true));
         assertFalse(e instanceof InProcessCnlParser.NameResolutionFailure, e.getMessage());
         assertEquals(E808, e.getDiagnostics().get(0).code());
+    }
+
+    @Test
+    void parseFailureAtANameOnlyPositionIsAttributedToE808() {
+        // core 语法不收关键词作 Data 名：解析失败，归因探测把 低头 换成普通名字后可解析 → E808，诊断指向源码里的别名
+        String source = "模块 测试。\n\n定义 低头 包含 数量 作为 整数。\n\n规则 甲，产出 整数：\n  返回 1。\n";
+        var e = assertThrows(AliasIdentifierGuard.AliasIdentifierCollision.class, () ->
+            InProcessCnlParser.parseWithUserAliases(source, "zh-CN", null,
+                Map.of(SemanticTokenKind.RETURN, List.of("低头")), true));
+        var d = e.getDiagnostics().get(0);
+        assertEquals("低头", d.params().get("name"));
+        assertEquals(3, d.line());
+        assertEquals(4, d.column());
     }
 }

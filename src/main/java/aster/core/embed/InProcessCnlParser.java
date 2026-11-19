@@ -142,10 +142,32 @@ public class InProcessCnlParser {
         if (!vr.valid()) {
             throw new CnlParseException("用户自定义别名校验失败: " + String.join("; ", vr.errors()));
         }
-        return parseUnsafeWithAliases(source, locale, scopes, aliasSet, (ast, s) -> {
-            AliasIdentifierGuard.check(ast, aliasSet, locale);
-            return resolveNames(ast, s);
-        });
+        try {
+            return parseUnsafeWithAliases(source, locale, scopes, aliasSet, (ast, s) -> {
+                AliasIdentifierGuard.check(ast, aliasSet, locale);
+                return resolveNames(ast, s);
+            });
+        } catch (AliasIdentifierGuard.AliasIdentifierCollision | NameResolutionFailure | BudgetExceededFailure e) {
+            throw e;
+        } catch (CnlParseException e) {
+            // 解析失败：别名被当作名字、而 core 语法在该位置不收关键词时守卫跑不到，按同一算法归因为 E808（ADR 0060 §5.3）
+            AliasIdentifierGuard.AliasIdentifierCollision attributed = AliasIdentifierGuard.attributeParseFailure(
+                source, aliasSet, locale, e, probe -> parsesSyntactically(probe, locale, scopes, aliasSet));
+            throw attributed != null ? attributed : e;
+        }
+    }
+
+    /** 只做语法分析的探测（名称解析失败也算通过）：供 {@link AliasIdentifierGuard#attributeParseFailure} 使用。 */
+    private static boolean parsesSyntactically(String source, String locale, VocabularyScopes scopes,
+                                               Map<SemanticTokenKind, List<String>> aliasSet) {
+        try {
+            parseUnsafeWithAliases(source, locale, scopes, aliasSet);
+            return true;
+        } catch (NameResolutionFailure e) {
+            return true;
+        } catch (CnlParseException e) {
+            return false;
+        }
     }
 
     /**
