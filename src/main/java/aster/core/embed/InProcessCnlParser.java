@@ -110,9 +110,10 @@ public class InProcessCnlParser {
      * 受控编译入口（ADR 0022 方案 D）：**先强制校验** aliasSet，再注入编译。
      *
      * <p>这是生产路径应调用的方法。{@link UserAliasValidator} 强制执行白名单（只允许低风险
-     * 运算符/比较 kind）、仅多词、不遮蔽规范拼写/base 别名、不撞领域词汇——校验失败抛
+     * 运算符/比较 kind）、仅多词（zh 汉字单词除外）、不遮蔽规范拼写/base 别名、不撞领域词汇与字面量触发词——校验失败抛
      * {@link CnlParseException}，绝不让未经校验的 aliasSet 进入编译（堵 Codex 复核的
-     * Critical-1：校验必须前置，不能靠调用方纪律）。
+     * Critical-1：校验必须前置，不能靠调用方纪律）。解析之后、名称解析之前再跑
+     * {@link AliasIdentifierGuard}（ADR 0060 §5.3 第 2 条）：带汉字单词别名时，名字不得与被别名化的 kind 同形。
      *
      * @param aliasSet 用户自定义别名（应来自不可变版本快照、经审批、进哈希覆盖）
      * @param scopes   领域词汇作用域（名称解析 + 别名↔标识符碰撞校验），可为 null
@@ -141,7 +142,61 @@ public class InProcessCnlParser {
         if (!vr.valid()) {
             throw new CnlParseException("用户自定义别名校验失败: " + String.join("; ", vr.errors()));
         }
-        return parseUnsafeWithAliases(source, locale, scopes, aliasSet);
+        try {
+            return parseUnsafeWithAliases(source, locale, scopes, aliasSet, (ast, s) -> {
+                AliasIdentifierGuard.check(ast, aliasSet, locale);
+                return resolveNames(ast, s);
+            });
+        } catch (AliasIdentifierGuard.AliasIdentifierCollision | NameResolutionFailure | BudgetExceededFailure e) {
+            throw e;
+        } catch (CnlParseException e) {
+            // 解析失败：别名被当作名字、而 core 语法在该位置不收关键词时守卫跑不到，按同一算法归因为 E808（ADR 0060 §5.3）
+            // 全部探测共享一份语法分析预算：失败路径的总耗时至多再加一个预算（core#254 的同一上限）
+            ParseBudget probeBudget = ParseBudget.startDefault();
+            AliasIdentifierGuard.AliasIdentifierCollision attributed = AliasIdentifierGuard.attributeParseFailure(
+                source, aliasSet, locale, e, new AliasIdentifierGuard.Prober() {
+                    @Override
+                    public boolean exhausted() {
+                        return isSpent(probeBudget);
+                    }
+
+                    @Override
+                    public boolean parses(String probe) {
+                        return parsesSyntactically(probe, locale, scopes, aliasSet, probeBudget);
+                    }
+                });
+            throw attributed != null ? attributed : e;
+        }
+    }
+
+    /**
+     * 只做语法分析的探测（名称解析失败也算通过）：供 {@link AliasIdentifierGuard#attributeParseFailure} 使用。
+     * {@code budget} 由同一次归因的全部探测共享；已用尽时直接返回 false，不再解析。
+     */
+    /** 预算是否已用尽（不抛异常的查询）。 */
+    static boolean isSpent(ParseBudget budget) {
+        try {
+            budget.check();
+            return false;
+        } catch (ParseBudget.Exceeded e) {
+            return true;
+        }
+    }
+
+    static boolean parsesSyntactically(String source, String locale, VocabularyScopes scopes,
+                                       Map<SemanticTokenKind, List<String>> aliasSet, ParseBudget budget) {
+        try {
+            budget.check();
+            parseUnsafeWithAliases(source, locale, scopes, aliasSet, InProcessCnlParser::resolveNames, budget,
+                PredictionMode.SLL);
+            return true;
+        } catch (ParseBudget.Exceeded e) {
+            return false;
+        } catch (NameResolutionFailure e) {
+            return true;
+        } catch (CnlParseException e) {
+            return false;
+        }
     }
 
     /**

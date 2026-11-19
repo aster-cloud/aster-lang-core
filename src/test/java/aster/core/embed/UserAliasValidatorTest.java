@@ -295,4 +295,35 @@ class UserAliasValidatorTest {
             List.of(), List.of(), List.of(), null);
         return VocabularyScopes.build(vocab);
     }
+
+    @Test
+    void hanSingleTokenCountsCodePointsNotChars() {
+        // "𠀀𠀁" 是两个码点（四个 UTF-16 码元），但属扩展 B，不在两引擎边界一致的区间 → 拒
+        assertFalse(UserAliasValidator.isHanSingleToken("\uD840\uDC00\uD840\uDC01", "zh-CN"));
+        // 扩展 A 两个码点 → 收
+        assertTrue(UserAliasValidator.isHanSingleToken("\u3400\u3401", "zh-CN"));
+        // 八个汉字收、九个拒（按码点计数）
+        assertTrue(UserAliasValidator.isHanSingleToken("一二三四五六七八", "zh-CN"));
+        assertFalse(UserAliasValidator.isHanSingleToken("一二三四五六七八九", "zh-CN"));
+    }
+
+    @Test
+    void hanSingleTokenNeedsAZhLocale() {
+        assertTrue(UserAliasValidator.isHanSingleToken("低头", "zh"));
+        assertTrue(UserAliasValidator.isHanSingleToken("低头", "ZH_tw"));
+        assertFalse(UserAliasValidator.isHanSingleToken("低头", "zhx"));
+        assertFalse(UserAliasValidator.isHanSingleToken("低头", "en-US"));
+        assertFalse(UserAliasValidator.isHanSingleToken("低头", null));
+    }
+
+    @Test
+    void funcProduceIsAStructuralKind() {
+        var granted = UserAliasValidator.validate(
+            Map.of(SemanticTokenKind.FUNC_PRODUCE, List.of("yield up")), "en-US", null, true);
+        assertTrue(granted.valid(), () -> granted.errors().toString());
+        var ungranted = UserAliasValidator.validate(
+            Map.of(SemanticTokenKind.FUNC_PRODUCE, List.of("yield up")), "en-US", null, false);
+        assertFalse(ungranted.valid());
+        assertTrue(ungranted.errors().get(0).contains("不允许为结构词 FUNC_PRODUCE"), ungranted.errors()::toString);
+    }
 }
