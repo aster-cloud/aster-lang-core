@@ -923,6 +923,13 @@
     "message": "Duplicate declaration of '{written}' in {role} position",
     "help": "Rename one of the declarations or remove the duplicate."
   },
+  "ALIAS_IDENTIFIER_COLLISION": {
+    "code": "E808",
+    "category": "scope",
+    "severity": "error",
+    "message": "Name '{name}' is the single-token alias '{alias}' of {kind} or one of its English spellings",
+    "help": "Rename the name, or replace the alias with a multi-word phrase."
+  },
   "SHADOWED_VOCABULARY": {
     "code": "W800",
     "category": "scope",

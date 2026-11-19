@@ -110,9 +110,10 @@ public class InProcessCnlParser {
      * 受控编译入口（ADR 0022 方案 D）：**先强制校验** aliasSet，再注入编译。
      *
      * <p>这是生产路径应调用的方法。{@link UserAliasValidator} 强制执行白名单（只允许低风险
-     * 运算符/比较 kind）、仅多词、不遮蔽规范拼写/base 别名、不撞领域词汇——校验失败抛
+     * 运算符/比较 kind）、仅多词（zh 汉字单词除外）、不遮蔽规范拼写/base 别名、不撞领域词汇与字面量触发词——校验失败抛
      * {@link CnlParseException}，绝不让未经校验的 aliasSet 进入编译（堵 Codex 复核的
-     * Critical-1：校验必须前置，不能靠调用方纪律）。
+     * Critical-1：校验必须前置，不能靠调用方纪律）。解析之后、名称解析之前再跑
+     * {@link AliasIdentifierGuard}（ADR 0060 §5.3 第 2 条）：带汉字单词别名时，名字不得与被别名化的 kind 同形。
      *
      * @param aliasSet 用户自定义别名（应来自不可变版本快照、经审批、进哈希覆盖）
      * @param scopes   领域词汇作用域（名称解析 + 别名↔标识符碰撞校验），可为 null
@@ -141,7 +142,10 @@ public class InProcessCnlParser {
         if (!vr.valid()) {
             throw new CnlParseException("用户自定义别名校验失败: " + String.join("; ", vr.errors()));
         }
-        return parseUnsafeWithAliases(source, locale, scopes, aliasSet);
+        return parseUnsafeWithAliases(source, locale, scopes, aliasSet, (ast, s) -> {
+            AliasIdentifierGuard.check(ast, aliasSet, locale);
+            return resolveNames(ast, s);
+        });
     }
 
     /**

@@ -14,23 +14,27 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 用户自定义别名校验（ADR 0022 §11.5，方案 D）。
+ * 用户自定义别名校验（ADR 0022 §11.5，方案 D；规则 v2 见 ADR 0060 §5）。
  *
  * <p>用户提交的 aliasSet 必须先过本校验才能进入编译/版本快照。本校验堵住 Codex 对抗复核
  * 挖出的 High-3 社会工程攻击面：别名映射到哪个 kind 是用户定的，若放任用户把 {@code approve}
  * 映射到 {@code RETURN} 或把误导短语映射到控制流/授权/拒绝类 kind，审批者看到的是别名源码、
  * 实际批准的却是归一后的语义。
  *
- * <p>两条铁律：
+ * <p>两条铁律（第 2 条由 ADR 0060 §5.2 修订）：
  * <ol>
  *   <li><b>白名单（非黑名单）</b>：只有低风险的运算符/比较类 kind 允许用户自定义别名。
  *       用 allowlist 而非 denylist：新增 kind 默认**不**可被用户别名（deny-by-default），
  *       避免"加了新 kind 忘记拉黑"的静默放行。</li>
- *   <li><b>仅多词</b>：单词别名占用标识符命名空间（用户拿同名词作字段/参数会被当关键词，
- *       破坏用户空间）。多词别名（含空格）天然安全：仅相邻序列匹配，子词仍可作标识符。</li>
+ *   <li><b>仅多词，zh 下的汉字单词除外</b>：单词别名占用标识符命名空间（用户拿同名词作字段/参数会被当关键词，
+ *       破坏用户空间）。多词别名（含空格）天然安全：仅相邻序列匹配，子词仍可作标识符。
+ *       例外（ADR 0060 §5.2）：locale 主子标签为 {@code zh}、每个码点都在汉字基本区或扩展 A、长 2–8 个码点的
+ *       单词别名放行——两引擎都按整词匹配汉字（只取两侧 token 边界一致的交集），别名只属于一个版本；
+ *       同形名字被软关键字静默改名的风险由 {@link AliasIdentifierGuard} 在解析后拦截。</li>
  * </ol>
  *
- * <p>另复用 core {@code LexiconValidator} 的不遮蔽语义：别名不得撞规范拼写/其它别名。
+ * <p>另复用 core {@code LexiconValidator} 的不遮蔽语义：别名不得撞规范拼写/其它别名；
+ * 也不得撞有效词汇的任一写法，含字面量宏触发词（ADR 0060 §5.3 第 1 条）。
  */
 public final class UserAliasValidator {
 
@@ -39,11 +43,11 @@ public final class UserAliasValidator {
      * 白名单/多词规则/不遮蔽/碰撞校验等任一规则变更时**必须 bump**，使旧版本 envelope
      * 与新校验逻辑可区分（"这条规则当时是用哪版校验规则接受的"可审计）。
      */
-    public static final String VERSION = "1";
+    public static final String VERSION = "2";
 
     /**
      * W2 DoS 上界（与 cloud policy-alias-shared 同名常量逐一对齐，跨引擎 parity）。
-     * 可别名 kind 上限 18（11 运算符 + 7 结构词），故界远宽于合法用途，只兜异常/恶意
+     * 可别名 kind 上限 19（11 运算符 + 8 结构词），故界远宽于合法用途，只兜异常/恶意
      * 巨量输入——防单条别名达 MB 级拖垮归一正则/信封哈希，或几千 kind/短语撑爆内存。
      */
     public static final int MAX_ALIAS_KINDS = 32;
@@ -51,6 +55,10 @@ public final class UserAliasValidator {
     public static final int MAX_ALIASES_PER_KIND = 8;
     /** 单条别名短语最大长度（字符）。 */
     public static final int MAX_ALIAS_LENGTH = 64;
+    /** 汉字单词别名的码点数下限（ADR 0060 §5.2：单字最容易撞日常标识符）。 */
+    public static final int MIN_HAN_SINGLE_TOKEN = 2;
+    /** 汉字单词别名的码点数上限（ADR 0060 §5.2）。 */
+    public static final int MAX_HAN_SINGLE_TOKEN = 8;
 
     private UserAliasValidator() {}
 
@@ -76,15 +84,17 @@ public final class UserAliasValidator {
     );
 
     /**
-     * **结构词** kind（声明+控制流+返回）：**仅当 allowStructural=true（管理员按用户授权）时**
-     * 可自定义别名。红队 H3 默认排除（别名滥用误导审批）；放开需三重护栏（多词 + 审批显规范结构 +
-     * 审计留痕）。与 cloud policy-alias-shared.STRUCTURAL_KINDS 对齐（跨引擎 parity）。
+     * **结构词** kind（声明+函数签名+控制流+返回）：**仅当 allowStructural=true（管理员按用户授权）时**
+     * 可自定义别名。红队 H3 默认排除（别名滥用误导审批）；放开需三重护栏（审批显规范结构 + 审计留痕 +
+     * 多词或 zh 汉字单词）。{@code FUNC_PRODUCE} 只引出返回类型、改不了控制流，与 {@code FUNC_TO} 同属
+     * 函数签名关键词（ADR 0060 §5.1）。与 cloud policy-alias-shared.STRUCTURAL_KINDS 对齐（跨引擎 parity）。
      *
      * <p>仍禁（不在此集，任何授权都不放开）：IMPORT/effects/AND/OR/NOT/布尔——护栏兜不住。
      */
     private static final Set<SemanticTokenKind> STRUCTURAL_KINDS = Set.of(
         SemanticTokenKind.MODULE_DECL,
         SemanticTokenKind.FUNC_TO,
+        SemanticTokenKind.FUNC_PRODUCE,
         SemanticTokenKind.IF,
         SemanticTokenKind.OTHERWISE,
         SemanticTokenKind.MATCH,
@@ -207,10 +217,10 @@ public final class UserAliasValidator {
                     continue;
                 }
 
-                // 铁律 2：仅多词（按归一后的真实分词，≥2 个非空 token）
-                if (norm.indexOf(' ') < 0) {
-                    errors.add("别名 '" + alias + "'（" + kind + "）必须是多词短语；"
-                        + "单词别名会占用标识符命名空间，破坏用户空间");
+                // 铁律 2：多词（按归一后的真实分词，≥2 个非空 token），或 zh 下 2–8 个汉字的单词（ADR 0060 §5.2）
+                if (norm.indexOf(' ') < 0 && !isHanSingleToken(norm, locale)) {
+                    errors.add("别名 '" + alias + "'（" + kind + "）必须是多词短语，或 zh 下 2–8 个汉字的单词；"
+                        + "其余单词别名会占用标识符命名空间，破坏用户空间");
                 }
                 // 不遮蔽 base 规范拼写 / base 别名
                 if (reserved.contains(norm)) {
@@ -225,13 +235,18 @@ public final class UserAliasValidator {
                     errors.add("别名 '" + alias + "'（" + kind + "）与领域词汇标识符同形，"
                         + "会让关键词抢赢用户标识符，禁止");
                 }
+                // 不撞字面量宏触发词（ADR 0060 §5.3 第 1 条）：触发词与关键词同形时两引擎的展开顺序不同
+                if (vocabularyHasLiteral(vocabulary, norm)) {
+                    errors.add("别名 '" + alias + "'（" + kind + "）与字面量宏触发词同形，"
+                        + "两引擎对触发词与关键词的处理顺序不同，禁止");
+                }
             }
         }
 
         return errors.isEmpty() ? Result.ok() : new Result(false, errors);
     }
 
-    /** 别名与任一角色的词汇写法折叠后相同（字面量宏不算标识符，不参与）。 */
+    /** 别名与任一角色的词汇写法折叠后相同（字面量宏由 {@link #vocabularyHasLiteral} 单独检查）。 */
     private static boolean vocabularyHasWritten(VocabularyScopes scopes, String phrase) {
         if (scopes == null) {
             return false;
@@ -240,6 +255,43 @@ public final class UserAliasValidator {
         return scopes.types().containsKey(key) || scopes.functions().containsKey(key)
             || scopes.fields().values().stream().anyMatch(m -> m.containsKey(key))
             || scopes.enumMembers().values().stream().anyMatch(m -> m.containsKey(key));
+    }
+
+    /** 别名与某个字面量宏触发词折叠后相同（ADR 0060 §5.3 第 1 条）。 */
+    private static boolean vocabularyHasLiteral(VocabularyScopes scopes, String phrase) {
+        return scopes != null && scopes.literals().containsKey(CaseFold.foldKey(phrase));
+    }
+
+    /**
+     * 汉字单词别名判定（ADR 0060 §5.2）：locale 的主语言子标签为 {@code zh}，{@code norm} 的每个码点都在
+     * 汉字基本区 U+4E00–U+9FFF 或扩展 A U+3400–U+4DBF，且码点数在 2–8 之间。
+     *
+     * <p>只取这两个区是因为两引擎的 token 边界只在这里一致：core 把假名、谚文、扩展 B 也当标识符字符，
+     * ts 的 zh 词法不当（ADR 0060 §1.3、T4）。按码点而非 UTF-16 码元计数，与 ts {@code [...s].length} 一致。
+     */
+    static boolean isHanSingleToken(String norm, String locale) {
+        if (norm == null || !isZhLocale(locale)) {
+            return false;
+        }
+        int count = norm.codePointCount(0, norm.length());
+        if (count < MIN_HAN_SINGLE_TOKEN || count > MAX_HAN_SINGLE_TOKEN) {
+            return false;
+        }
+        return norm.codePoints().allMatch(UserAliasValidator::isHanBasicOrExtA);
+    }
+
+    /** 汉字基本区或扩展 A。 */
+    static boolean isHanBasicOrExtA(int cp) {
+        return (cp >= 0x4E00 && cp <= 0x9FFF) || (cp >= 0x3400 && cp <= 0x4DBF);
+    }
+
+    /** locale 主语言子标签为 zh（{@code zh}、{@code zh-CN}、{@code zh_TW}…，与 {@link #resolveBase} 的 zh 回退同口径）。 */
+    static boolean isZhLocale(String locale) {
+        if (locale == null) {
+            return false;
+        }
+        String norm = locale.toLowerCase(Locale.ROOT).replace('_', '-');
+        return norm.equals("zh") || norm.startsWith("zh-");
     }
 
     /** 统一归一：trim + 折叠所有空白为单个 ASCII 空格 + lowercase(ROOT)。 */
