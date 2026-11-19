@@ -136,18 +136,25 @@ class AliasIdentifierGuardTest {
     }
 
     @Test
-    void attributionProbesAreCapped() {
-        // 错误行有 6 处别名、探测全部失败：只探测 MAX_ATTRIBUTION_PROBES 处，然后保留原解析错误（返回 null）
+    void everyOccurrenceOnTheErrorLineIsProbed() {
+        // 6 处出现，只有第 6 处换掉后可解析：仍归因为 E808（不按个数截断），列号指向第 6 处
         String source = "模块 测试。\n\n规则 甲，产出 整数：\n  低头 低头 低头 低头 低头 低头。\n";
         var failure = new InProcessCnlParser.CnlParseException("x",
             List.of(new CnlErrorListener.Diagnostic(4, 3, "x", "E061", Map.of())));
         int[] calls = {0};
         var result = AliasIdentifierGuard.attributeParseFailure(source,
-            Map.of(SemanticTokenKind.RETURN, List.of("低头")), "zh-CN", failure, probe -> {
-                calls[0]++;
-                return false;
-            });
-        assertEquals(null, result);
-        assertEquals(AliasIdentifierGuard.MAX_ATTRIBUTION_PROBES, calls[0]);
+            Map.of(SemanticTokenKind.RETURN, List.of("低头")), "zh-CN", failure, probe -> ++calls[0] == 6);
+        assertEquals(6, calls[0]);
+        assertEquals(18, result.getDiagnostics().get(0).column());
+    }
+
+    @Test
+    void probesStopOnceTheSharedBudgetIsSpent() throws Exception {
+        String ok = "模块 测试。\n\n规则 甲，产出 整数：\n  返回 1。\n";
+        ParseBudget spent = ParseBudget.start(java.time.Duration.ofNanos(1));
+        Thread.sleep(1);
+        // 预算已用尽：即使源码本可解析也不再解析，返回 false（保留原解析错误）
+        assertFalse(InProcessCnlParser.parsesSyntactically(ok, "zh-CN", null, null, spent));
+        assertTrue(InProcessCnlParser.parsesSyntactically(ok, "zh-CN", null, null, ParseBudget.startDefault()));
     }
 }

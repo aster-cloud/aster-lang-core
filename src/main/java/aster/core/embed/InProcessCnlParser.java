@@ -151,18 +151,27 @@ public class InProcessCnlParser {
             throw e;
         } catch (CnlParseException e) {
             // 解析失败：别名被当作名字、而 core 语法在该位置不收关键词时守卫跑不到，按同一算法归因为 E808（ADR 0060 §5.3）
+            // 全部探测共享一份语法分析预算：失败路径的总耗时至多再加一个预算（core#254 的同一上限）
+            ParseBudget probeBudget = ParseBudget.startDefault();
             AliasIdentifierGuard.AliasIdentifierCollision attributed = AliasIdentifierGuard.attributeParseFailure(
-                source, aliasSet, locale, e, probe -> parsesSyntactically(probe, locale, scopes, aliasSet));
+                source, aliasSet, locale, e, probe -> parsesSyntactically(probe, locale, scopes, aliasSet, probeBudget));
             throw attributed != null ? attributed : e;
         }
     }
 
-    /** 只做语法分析的探测（名称解析失败也算通过）：供 {@link AliasIdentifierGuard#attributeParseFailure} 使用。 */
-    private static boolean parsesSyntactically(String source, String locale, VocabularyScopes scopes,
-                                               Map<SemanticTokenKind, List<String>> aliasSet) {
+    /**
+     * 只做语法分析的探测（名称解析失败也算通过）：供 {@link AliasIdentifierGuard#attributeParseFailure} 使用。
+     * {@code budget} 由同一次归因的全部探测共享；已用尽时直接返回 false，不再解析。
+     */
+    static boolean parsesSyntactically(String source, String locale, VocabularyScopes scopes,
+                                       Map<SemanticTokenKind, List<String>> aliasSet, ParseBudget budget) {
         try {
-            parseUnsafeWithAliases(source, locale, scopes, aliasSet);
+            budget.check();
+            parseUnsafeWithAliases(source, locale, scopes, aliasSet, InProcessCnlParser::resolveNames, budget,
+                PredictionMode.SLL);
             return true;
+        } catch (ParseBudget.Exceeded e) {
+            return false;
         } catch (NameResolutionFailure e) {
             return true;
         } catch (CnlParseException e) {
