@@ -134,4 +134,20 @@ class AliasIdentifierGuardTest {
         assertEquals(3, d.line());
         assertEquals(4, d.column());
     }
+
+    @Test
+    void attributionProbesAreCapped() {
+        // 错误行有 6 处别名、探测全部失败：只探测 MAX_ATTRIBUTION_PROBES 处，然后保留原解析错误（返回 null）
+        String source = "模块 测试。\n\n规则 甲，产出 整数：\n  低头 低头 低头 低头 低头 低头。\n";
+        var failure = new InProcessCnlParser.CnlParseException("x",
+            List.of(new CnlErrorListener.Diagnostic(4, 3, "x", "E061", Map.of())));
+        int[] calls = {0};
+        var result = AliasIdentifierGuard.attributeParseFailure(source,
+            Map.of(SemanticTokenKind.RETURN, List.of("低头")), "zh-CN", failure, probe -> {
+                calls[0]++;
+                return false;
+            });
+        assertEquals(null, result);
+        assertEquals(AliasIdentifierGuard.MAX_ATTRIBUTION_PROBES, calls[0]);
+    }
 }

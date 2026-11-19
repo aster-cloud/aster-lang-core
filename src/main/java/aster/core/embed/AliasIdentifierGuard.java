@@ -58,6 +58,12 @@ public final class AliasIdentifierGuard {
     /** 归因探测用的占位名：普通汉字名字，不是任何关键词或别名（U+4E96 两个）。 */
     static final String PROBE_PLACEHOLDER = "\u4e96\u4e96";
 
+    /**
+     * 每次解析失败最多尝试的探测次数（与 aster-lang-ts {@code MAX_ATTRIBUTION_PROBES} 相同）。每次探测是一次完整的、
+     * 自带时间预算的语法分析；上限让失败路径的总开销至多为常数倍，超出时保留原解析错误。
+     */
+    static final int MAX_ATTRIBUTION_PROBES = 4;
+
     /** K 中一项：命中时诊断里报告的 kind 与别名。 */
     private record Hit(SemanticTokenKind kind, String alias) {}
 
@@ -119,7 +125,7 @@ public final class AliasIdentifierGuard {
     /**
      * 解析失败归因（与 aster-lang-ts {@code attributeParseFailure} 同一算法）：取第一条解析错误所在的源码行，按位置逐个尝试
      * 该行里汉字单词别名的整词出现——把这一处换成 {@link #PROBE_PLACEHOLDER} 后若源码能通过语法分析，说明这里只能是把
-     * 别名当作名字使用，返回 E808；否则返回 null，调用方照常抛原解析错误。
+     * 别名当作名字使用，返回 E808；否则返回 null，调用方照常抛原解析错误。至多探测 {@link #MAX_ATTRIBUTION_PROBES} 处。
      *
      * @param syntaxOk 只做语法分析的探测（不做名称解析）：通过返回 true
      */
@@ -136,7 +142,8 @@ public final class AliasIdentifierGuard {
             return null;
         }
         String text = lines[line - 1];
-        for (Occurrence o : hanAliasOccurrences(text, forbidden)) {
+        List<Occurrence> occurrences = hanAliasOccurrences(text, forbidden);
+        for (Occurrence o : occurrences.subList(0, Math.min(occurrences.size(), MAX_ATTRIBUTION_PROBES))) {
             String[] probe = lines.clone();
             probe[line - 1] = text.substring(0, o.start()) + PROBE_PLACEHOLDER + text.substring(o.start() + o.hit().alias().length());
             if (syntaxOk.test(String.join("\n", probe))) {
