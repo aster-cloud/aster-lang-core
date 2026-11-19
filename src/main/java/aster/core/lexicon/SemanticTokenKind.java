@@ -1,6 +1,8 @@
 package aster.core.lexicon;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -341,8 +343,11 @@ public enum SemanticTokenKind {
 
     /**
      * SemanticTokenKind 分类映射，用于文档和验证。
+     * <p>
+     * 遍历顺序固定为下面的书写顺序（与枚举分组顺序一致）。不能用 {@code Map.ofEntries}：其遍历顺序随 JVM 启动时的
+     * 随机 SALT 变化，{@link LexiconExporter} 导出的 {@code categories} 字段顺序会因此随进程变化，导出物无法逐字节复现。
      */
-    public static final Map<String, List<SemanticTokenKind>> CATEGORIES = Map.ofEntries(
+    public static final Map<String, List<SemanticTokenKind>> CATEGORIES = orderedCategories(
         Map.entry("module", Arrays.asList(MODULE_DECL, IMPORT, IMPORT_ALIAS, IMPORT_VERSION)),
         Map.entry("type", Arrays.asList(TYPE_DEF, TYPE_WITH, TYPE_HAS, TYPE_ONE_OF)),
         Map.entry("function", Arrays.asList(FUNC_TO, FUNC_GIVEN, FUNC_PRODUCE, FUNC_PERFORMS, APPLY)),
@@ -360,4 +365,19 @@ public enum SemanticTokenKind {
         Map.entry("async", Arrays.asList(WITHIN, SCOPE, START, ASYNC, AWAIT, WAIT_FOR)),
         Map.entry("constraint", Arrays.asList(REQUIRED, BETWEEN, AT_LEAST, AT_MOST, MATCHING, PATTERN))
     );
+
+    /**
+     * 按参数顺序构建不可变分类映射；与 {@code Map.ofEntries} 一样拒绝重复的分类名。
+     */
+    @SafeVarargs
+    private static Map<String, List<SemanticTokenKind>> orderedCategories(
+            Map.Entry<String, List<SemanticTokenKind>>... entries) {
+        Map<String, List<SemanticTokenKind>> ordered = new LinkedHashMap<>();
+        for (Map.Entry<String, List<SemanticTokenKind>> entry : entries) {
+            if (ordered.putIfAbsent(entry.getKey(), List.copyOf(entry.getValue())) != null) {
+                throw new IllegalArgumentException("duplicate category: " + entry.getKey());
+            }
+        }
+        return Collections.unmodifiableMap(ordered);
+    }
 }
