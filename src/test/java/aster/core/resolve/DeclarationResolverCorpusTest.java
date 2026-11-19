@@ -67,7 +67,11 @@ public class DeclarationResolverCorpusTest {
      */
     private static final Map<String, String> VOCABULARY_DEPENDENT = Map.of(
         "tier1-parity/vocab-zh/synonyms.aster",
-        "引用用词汇主词 客户 / 分数，源码只声明了同义词 顾客 / 积分；无词汇时 R1 报 E800、R2 报 E801");
+        "引用用词汇主词 客户 / 分数，源码只声明了同义词 顾客 / 积分；无词汇时 R1 报 E800、R2 报 E801",
+        "tier1-parity/vocab-en/literal-macro-escape.aster",
+        "返回值只是字面量宏触发词 archivePath（aster-lang-ts#345）；无词汇时它是未声明的名字，R2 报 E802",
+        "tier1-parity/vocab-zh/literal-macro-escape.aster",
+        "返回值只是字面量宏触发词 archivePath（zh-CN，aster-lang-ts#345）；无词汇时它是未声明的名字，R2 报 E802");
 
     /**
      * 无词汇时 R2 仍按设计改写 IR 的语料（相对语料根路径 → 原因）：不产生诊断，但规范 IR 与直接 lower 不同。

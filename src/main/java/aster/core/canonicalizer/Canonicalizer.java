@@ -686,11 +686,8 @@ public final class Canonicalizer {
         // 3. 移除行注释（// 和 #）
         s = removeLineComments(s);
 
-        // 4. 规范化智能引号为直引号（同时保留中文直角引号「」）
-        s = s.replace("\u201C", "\"")  // 左双引号 "
-             .replace("\u201D", "\"")  // 右双引号 "
-             .replace("\u2018", "'")   // 左单引号 '
-             .replace("\u2019", "'");  // 右单引号 '
+        // 4. 引号归一：只改写充当字符串定界符的弯引号，字符串字面量的内容原样保留（aster-lang-ts#347）
+        s = normalizeQuoteDelimiters(s);
 
         // 4.5-4.8 执行关键词翻译前的语法变换器链
         // （包括属格转换、标点翻译、运算符翻译、函数语法重排等）
@@ -921,22 +918,43 @@ public final class Canonicalizer {
         if (content == null) {
             return token;
         }
-        // 审计 #58：字面量宏内容会被原样包进当前 lexicon 的引号注入源码。词汇作用域虽已校验，这里仍按当前
-        // lexicon 的引号再做一次防注入校验，未通过则拒绝展开、大声抛错，而非注入源码。
+        // 审计 #58：字面量宏内容包进当前 lexicon 的引号注入源码。冻结词汇不经 validate()，这里按当前 lexicon
+        // 的引号再做一次防注入校验，无法写成字面量的内容拒绝展开、大声抛错，而非注入源码。
         if (!isSafeLiteralContent(content)) {
             throw new IllegalStateException(
                 "Unsafe literal-macro content for token '" + token
-                + "': contains quote/backslash/control characters "
+                + "': empty, or contains control characters or quote characters that cannot be escaped "
                 + "(source-injection guard, audit #58)");
         }
-        return stringQuoteOpen + content + stringQuoteClose;
+        return stringQuoteOpen + escapeLiteralContent(content) + stringQuoteClose;
     }
 
     /**
-     * 字面量宏内容防注入校验（审计 #58）。与 IdentifierMapping.isValidLiteralContent 同口径——
-     * 拒绝控制字符（0x00-0x1F/0x7F）、反斜杠、常见字符串定界符（ASCII " / CJK 「」『』/ 法式
-     * «»）——并额外纳入<b>当前 active lexicon 的字符串引号</b>（stringQuoteOpen/stringQuoteClose，
-     * 可能是多字符），确保内容无法提前闭合字符串逃逸出 token。
+     * 字面量宏内容转义：{@code \} → {@code \\}、{@code "} → {@code \"}（aster-lang-ts#345）。
+     * <p>
+     * 此前反斜杠与 ASCII 双引号一律拒绝展开（抛错），TS 侧却原样拼进引号、由词法器按转义解释
+     * （{@code C:\new} 编译成 {@code C:} + 换行 + {@code ew}）。转义后两引擎读回的都是宏值本身。
+     * 与 TS {@code literalMacroLiteral} 逐字符一致。
+     */
+    private static String escapeLiteralContent(String content) {
+        StringBuilder out = new StringBuilder(content.length() + 8);
+        for (int i = 0; i < content.length(); i++) {
+            char c = content.charAt(i);
+            if (c == '\\' || c == '"') {
+                out.append('\\');
+            }
+            out.append(c);
+        }
+        return out.toString();
+    }
+
+    /**
+     * 字面量宏内容防注入校验（审计 #58）：内容能否写成当前 lexicon 的字符串字面量。
+     * 拒绝空内容、控制字符（0x00-0x1F/0x7F）、无从转义的字符串定界符（CJK 「」『』/ 法式 «»），
+     * 以及<b>当前 active lexicon 的非 ASCII 字符串引号</b>（stringQuoteOpen/stringQuoteClose，
+     * 可能是多字符）——词法器只认 {@code \"} {@code \\} 等转义，{@code \」} 不是合法转义。
+     * 反斜杠与 ASCII {@code "} 由 {@link #escapeLiteralContent} 转义，不再拒绝（aster-lang-ts#345）。
+     * 与 TS {@code isExpandableLiteralContent} 同口径。
      */
     private boolean isSafeLiteralContent(String content) {
         if (content == null || content.isEmpty()) {
@@ -944,23 +962,20 @@ public final class Canonicalizer {
         }
         for (int i = 0; i < content.length(); i++) {
             char c = content.charAt(i);
-            if (c <= 0x1F || c == 0x7F || c == '\\') {
+            if (c <= 0x1F || c == 0x7F) {
                 return false;
             }
-            if (c == '"' || c == '「' || c == '」' || c == '『' || c == '』'
-                    || c == '«' || c == '»') {
+            if (c == '「' || c == '」' || c == '『' || c == '』' || c == '«' || c == '»') {
                 return false;
             }
         }
-        if (stringQuoteOpen != null && !stringQuoteOpen.isEmpty()
-                && content.contains(stringQuoteOpen)) {
-            return false;
-        }
-        if (stringQuoteClose != null && !stringQuoteClose.isEmpty()
-                && content.contains(stringQuoteClose)) {
-            return false;
-        }
-        return true;
+        return !containsUnescapableQuote(content, stringQuoteOpen)
+            && !containsUnescapableQuote(content, stringQuoteClose);
+    }
+
+    /** 内容含无从转义的 lexicon 引号（ASCII {@code "} 之外的引号）。 */
+    private static boolean containsUnescapableQuote(String content, String quote) {
+        return quote != null && !quote.isEmpty() && !quote.equals("\"") && content.contains(quote);
     }
 
     /**
@@ -1772,7 +1787,7 @@ public final class Canonicalizer {
                         && text.charAt(0) == '\u300C'
                         && text.charAt(text.length() - 1) == '\u300D') {
                     result.append('"')
-                          .append(text, 1, text.length() - 1)
+                          .append(escapeBareDoubleQuotes(text.substring(1, text.length() - 1)))
                           .append('"');
                 } else {
                     result.append(text);
@@ -1783,6 +1798,80 @@ public final class Canonicalizer {
             }
         }
         return result.toString();
+    }
+
+    /**
+     * 「」字符串内容里未转义的 ASCII {@code "} 转成 {@code \"}：定界符换成 {@code "} 后，内容里的 {@code "}
+     * 不得提前闭合字符串（aster-lang-ts#347）。此前 {@code 「a"b」} 变成 {@code "a"b"} 而报错，
+     * TS 侧按「」定界读回 {@code a"b}；转义后两引擎同值。已转义的 {@code \"} 不动。
+     */
+    private static String escapeBareDoubleQuotes(String content) {
+        if (content.indexOf('"') < 0) {
+            return content;
+        }
+        StringBuilder out = new StringBuilder(content.length() + 4);
+        int backslashes = 0;
+        for (int i = 0; i < content.length(); i++) {
+            char c = content.charAt(i);
+            if (c == '"' && backslashes % 2 == 0) {
+                out.append('\\');
+            }
+            out.append(c);
+            backslashes = c == '\\' ? backslashes + 1 : 0;
+        }
+        return out.toString();
+    }
+
+    /** 一个字符串开引号可被哪些字符闭合（{@link #normalizeQuoteDelimiters} 的分段规则）。 */
+    private String quoteClosers(char opener) {
+        if (opener == '\u201C') {
+            return "\u201D\"\u201C";
+        }
+        return opener == '"' ? "\"" : stringQuoteClose;
+    }
+
+    /**
+     * 引号归一：弯引号只在充当字符串<b>定界符</b>时改写，字符串字面量的<b>内容</b>原样保留（aster-lang-ts#347）。
+     * <p>
+     * 此前整段替换 {@code “ ” ‘ ’}，字符串里的 {@code ‘x’} 被静默改成 {@code 'x'}，{@code "说“好”"} 里的弯引号
+     * 变成 ASCII 引号把字符串截断。与 TS {@code normalizeQuoteDelimiters} 采用同一分段规则：
+     * <ul>
+     *   <li>字符串之外，未转义的词法表开引号、ASCII {@code "}、左弯引号 {@code “} 开启字符串；</li>
+     *   <li>{@code "…"} 只由 {@code "} 闭合，词法表引号对只由其闭引号闭合，内容（含弯引号）不动；</li>
+     *   <li>{@code “…”} 由 {@code ” " “} 任一闭合（此前三者都被改写成 {@code "}，凡原先能闭合的写法仍闭合），
+     *       定界符换成 {@code "}，内容不动；</li>
+     *   <li>字符串之外的其余弯引号照旧改写：{@code ”} → {@code "}、{@code ‘ ’} → {@code '}。</li>
+     * </ul>
+     * 词法表引号对（zh-CN 的「」）原样保留，由 {@link #convertCjkStringQuotes} 在最后一步换成 {@code "}。
+     */
+    private String normalizeQuoteDelimiters(String s) {
+        StringBuilder out = new StringBuilder(s.length());
+        char opener = 0;
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            if (opener != 0) {
+                boolean closes = quoteClosers(opener).indexOf(ch) >= 0 && !isEscaped(s, i);
+                out.append(closes && opener == '\u201C' ? '"' : ch);
+                if (closes) {
+                    opener = 0;
+                }
+            } else if (isQuoteOpener(ch) && !isEscaped(s, i)) {
+                opener = ch;
+                out.append(ch == '\u201C' ? '"' : ch);
+            } else if (ch == '\u201D') {
+                out.append('"');
+            } else if (ch == '\u2018' || ch == '\u2019') {
+                out.append('\'');
+            } else {
+                out.append(ch);
+            }
+        }
+        return out.toString();
+    }
+
+    /** 字符串之外能开启字符串的字符：词法表开引号（单字符）、ASCII {@code "}、左弯引号 {@code “}。 */
+    private boolean isQuoteOpener(char ch) {
+        return ch == '"' || ch == '\u201C' || (stringQuoteOpen.length() == 1 && stringQuoteOpen.charAt(0) == ch);
     }
 
     /**

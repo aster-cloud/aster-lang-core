@@ -11,6 +11,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -102,6 +103,36 @@ class LiteralMacroTest {
                 .addLiteral(bad, "注入").build().validate().valid(),
                 "含弯引号必须被拒（Canonicalizer:646 会把它归一化成 ASCII \"，"
                     + "放行则展开非幂等）: U+" + Integer.toHexString(q.codePointAt(0)).toUpperCase());
+        }
+    }
+
+    /**
+     * 冻结词汇不经 validate()（{@code PolicySourceCompiler.vocabularyScopesOf}），反斜杠与 ASCII 双引号可能到达展开。
+     * 展开时按词法器转义（aster-lang-ts#345）：读回的字符串值就是宏值本身。此前此处抛错、TS 原样拼接
+     * （{@code C:\new} 编译成 {@code C:} + 换行 + {@code ew}）。与 TS literal-macro.test.ts 对应。
+     */
+    @Test
+    void backslashAndDoubleQuoteAreEscapedOnExpansion() {
+        VocabularyScopes en = VocabularyScopes.build(DomainVocabulary.builder("p", "p", "en-US")
+            .addLiteral("C:\\new \"x\"", "pfad").build());
+        assertEquals("Return \"C:\\\\new \\\"x\\\"\".",
+            new Canonicalizer(LexiconRegistry.getInstance().getOrThrow("en-US"), en).canonicalize("Return pfad."));
+
+        VocabularyScopes zh = VocabularyScopes.build(DomainVocabulary.builder("p", "p", "zh-CN")
+            .addLiteral("C:\\new \"x\"", "路径").build());
+        assertEquals("Return \"C:\\\\new \\\"x\\\"\".",
+            new Canonicalizer(LexiconRegistry.getInstance().getOrThrow("zh-CN"), zh).canonicalize("返回 路径。"));
+    }
+
+    /** 写不成字面量的内容（空、控制字符、「」『』«»、当前 lexicon 的非 ASCII 引号）仍拒绝展开、大声抛错。 */
+    @Test
+    void unescapableLiteralContentStillThrows() {
+        for (String bad : new String[] { "a\nb", "a\tb", "\u300Cx\u300D", "a\u300Eb", "a\u00ABb" }) {
+            VocabularyScopes scopes = VocabularyScopes.build(DomainVocabulary.builder("p", "p", "en-US")
+                .addLiteral(bad, "pfad").build());
+            Canonicalizer canon = new Canonicalizer(LexiconRegistry.getInstance().getOrThrow("en-US"), scopes);
+            IllegalStateException e = assertThrows(IllegalStateException.class, () -> canon.canonicalize("Return pfad."));
+            assertTrue(e.getMessage().startsWith("Unsafe literal-macro content"), e.getMessage());
         }
     }
 

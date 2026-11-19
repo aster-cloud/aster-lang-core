@@ -3,6 +3,7 @@ package aster.core.canonicalizer;
 import aster.core.identifier.DomainVocabulary;
 import aster.core.identifier.VocabularyScopes;
 import aster.core.identifier.VocabularyRegistry;
+import aster.core.lexicon.LexiconRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -116,6 +117,50 @@ class CanonicalizerTest {
         String input = "Text with \u2018smart quotes\u2019";  // Unicode 智能单引号
         String expected = "Text with 'smart quotes'";
         assertEquals(expected, canonicalizer.canonicalize(input));
+    }
+
+    // aster-lang-ts#347：弯引号只在充当字符串定界符时改写，字符串字面量内容原样保留。
+    // 与 aster-lang-ts test/unit/canonicalizer/quote-delimiters.test.ts 逐条对应。
+    // ★字符一律写 Unicode 转义：编辑器的"智能引号"替换会把测试本身写歪。
+
+    @Test
+    void smartQuotesInsideStringLiteralArePreserved() {
+        String input = "Return \"it\u2019s \u2018q\u2019 and \u201Chi\u201D\".";
+        assertEquals(input, canonicalizer.canonicalize(input));
+    }
+
+    @Test
+    void curlyDelimitedStringKeepsItsContent() {
+        assertEquals("Return \"a \u2018b\u2019 c\".",
+            canonicalizer.canonicalize("Return \u201Ca \u2018b\u2019 c\u201D."));
+    }
+
+    @Test
+    void curlyOpenedStringClosesOnAnyDoubleQuote() {
+        // “…" 与 “…“ 此前都被整段改成 "…"，仍是合法字符串
+        assertEquals("Return \"abc\".", canonicalizer.canonicalize("Return \u201Cabc\"."));
+        assertEquals("Return \"abc\".", canonicalizer.canonicalize("Return \u201Cabc\u201C."));
+    }
+
+    @Test
+    void asciiOpenedStringIsNotClosedByCurlyQuote() {
+        // "abc” 的 ” 是内容：字符串不再闭合，交给词法器报未闭合（E051）
+        String input = "Return \"abc\u201D.";
+        assertEquals(input, canonicalizer.canonicalize(input));
+    }
+
+    @Test
+    void zhCjkStringKeepsQuotesAsContent() {
+        // zh-CN 由 aster-lang-locales 经 SPI 提供（与 ParseDiagnosticsParityTest 相同）；放在 core 而非语言包，
+        // 因为被测的是 core 的 convertCjkStringQuotes
+        Canonicalizer zh = new Canonicalizer(LexiconRegistry.getInstance().getOrThrow("zh-CN"));
+        // 「」换成 ASCII 引号时，内容里未转义的 " 转义成 \"，弯引号原样保留（关键词 返回 译成 Return）
+        assertEquals("Return \"他说\u201C好\u201D，a\\\"b，it\u2019s\".",
+            zh.canonicalize("返回 \u300C他说\u201C好\u201D，a\"b，it\u2019s\u300D。"));
+        // 已转义的 \" 不重复转义
+        assertEquals("Return \"a\\\"b\".", zh.canonicalize("返回 \u300Ca\\\"b\u300D。"));
+        // “…” 定界的字符串照常换成 ASCII 引号
+        assertEquals("Return \"中文\".", zh.canonicalize("返回 \u201C中文\u201D。"));
     }
 
     // ============================================================
