@@ -870,6 +870,66 @@
       "lexicon": "zh-CN",
       "source": "模块 m\u000b。\n\n规则 f 给定 x 作为 整数，产出 整数\f：\n  返回 x\u000b。\n",
       "codes": []
+    },
+    {
+      "name": "E050 令…定义为 中 令 后的 U+00A0（zh-CN，aster-lang-locales#143）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  令\u00a0总数 定义为 x。\n  返回 总数。\n",
+      "codes": [
+        [
+          "E050",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "E050 令…定义为 中 定义为 前的 U+00A0（zh-CN，aster-lang-locales#143）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  令 总数\u00a0定义为 x。\n  返回 总数。\n",
+      "codes": [
+        [
+          "E050",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "E050 令…定义为 中 定义为 后的 U+2003（zh-CN，aster-lang-locales#143）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  令 总数 定义为\u2003x。\n  返回 总数。\n",
+      "codes": [
+        [
+          "E050",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "令…定义为 中的 U+3000 与制表符照常是空白（zh-CN，aster-lang-locales#143）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f 给定 x 作为 整数，产出 整数：\n\u3000 令\u3000总数\t定义为\u3000x。\n  返回 总数。\n",
+      "codes": []
+    },
+    {
+      "name": "E051 \"…” 不闭合：ASCII 开引号只由 ASCII 引号闭合（aster-lang-ts#347）",
+      "source": "Module m.\n\nRule f given x as Int, produce Text:\n  Return \"abc”.\n",
+      "codes": [
+        [
+          "E051",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "字符串里的弯引号是内容，“…” 仍是字符串定界符（aster-lang-ts#347）",
+      "source": "Module m.\n\nRule f given x as Int, produce Text:\n  Return \"say “hi” it’s\".\n\nRule g given x as Int, produce Text:\n  Return “curly ‘inner’ x”.\n",
+      "codes": []
+    },
+    {
+      "name": "「」里的 ASCII 引号与弯引号是内容（zh-CN，aster-lang-ts#347）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f 给定 x 作为 整数，产出 文本：\n  返回 「他说“好”，a\"b，it’s」。\n",
+      "codes": []
     }
   ]
 }
