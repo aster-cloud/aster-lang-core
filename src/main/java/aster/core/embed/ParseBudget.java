@@ -56,7 +56,7 @@ public final class ParseBudget {
 
     /**
      * 仅供测试：设定每次周期检查前的停顿（null 或 ≤ 0 关闭）。包级可见：本包测试直接调用，宿主测试（aster-api）
-     * 经 {@link ParseBudgetTestHooks} 调用。测试结束必须恢复为 null，
+     * 经 test fixtures 里的 {@code ParseBudgetTestHooks} 调用。测试结束必须恢复为 null，
      * 否则同一 JVM 里后续的解析都会变慢（两个模块的测试任务都是 maxParallelForks = 1、类内串行）。
      */
     static void slowChecksForTesting(Duration delay) {
