@@ -930,6 +930,107 @@
       "lexicon": "zh-CN",
       "source": "模块 m。\n\n规则 f 给定 x 作为 整数，产出 文本：\n  返回 「他说“好”，a\"b，it’s」。\n",
       "codes": []
+    },
+    {
+      "name": "E055 裸小写类型名 text（ADR 0056 A4 §1.2，ts#338 第 2 项）",
+      "source": "Module m.\n\nRule f given x as text, produce Int:\n  Return 1.\n",
+      "codes": [
+        [
+          "E055",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E055 裸小写类型名 foo（ts#338 第 2 项）",
+      "source": "Module m.\n\nRule f given x as Int, produce foo:\n  Return 1.\n",
+      "codes": [
+        [
+          "E055",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E055 maybe 之后的裸小写类型名（ts#338 第 2 项）",
+      "source": "Module m.\n\nRule f given x as maybe int, produce Int:\n  Return 1.\n",
+      "codes": [
+        [
+          "E055",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E055 逗号之后的小写泛型 foo of（A4 §1.3，ts#338 第 3 项）",
+      "source": "Module m.\n\nDefine Pair has a as Int.\n\nRule f given x as Pair of Int, foo of Int, produce Int:\n  Return 1.\n",
+      "codes": [
+        [
+          "E055",
+          5
+        ]
+      ]
+    },
+    {
+      "name": "E055 逗号之后的小写 map（A4 §1.3，ts#338 第 4 项）",
+      "source": "Module m.\n\nDefine Pair has a as Int.\n\nRule f given x as Pair of Int, map Int to Int, produce Int:\n  Return 1.\n",
+      "codes": [
+        [
+          "E055",
+          5
+        ]
+      ]
+    },
+    {
+      "name": "E055 and 之后的小写 map（A4 §1.3）",
+      "source": "Module m.\n\nDefine Pair has a as Int.\n\nRule f given x as Pair of Int and map Int to Int, produce Int:\n  Return 1.\n",
+      "codes": [
+        [
+          "E055",
+          5
+        ]
+      ]
+    },
+    {
+      "name": "逗号之后的 Map 与 list of 照常是类型参数（A4 §1.3）",
+      "source": "Module m.\n\nDefine Pair has a as Int.\n\nRule f given x as Pair of Int, Map Int to Int, y as Pair of Int, list of Int, produce Int:\n  Return 1.\n",
+      "codes": []
+    },
+    {
+      "name": "E051 字符串里的原始换行（A4 §2，ts#357 第 1 行）",
+      "source": "Module m.\n\nRule f, produce Text:\n  Return \"a\nb\".\n",
+      "codes": [
+        [
+          "E051",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "E051 字符串里的原始换行（zh-CN）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 「a\nb」。\n",
+      "codes": [
+        [
+          "E051",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "块头冒号之后的空行（A4 §2，ts#357 第 2 行）",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n\n  If x greater than 1:\n\n    Return 1.\n  Return x.\n",
+      "codes": []
+    },
+    {
+      "name": "E062 规则头逗号之后换行（A4 §2，ts#357 第 3 行）",
+      "source": "Module m.\n\nRule f given x as Int,\n  produce Int:\n  Return x.\n",
+      "codes": [
+        [
+          "E062",
+          3
+        ]
+      ]
     }
   ]
 }
