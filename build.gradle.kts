@@ -1,6 +1,8 @@
 plugins {
     application
     `java-library`
+    // test fixtures：给宿主测试的接缝（ParseBudgetTestHooks），发布为 test-fixtures 分类器 jar，不进主 jar
+    `java-test-fixtures`
     antlr
     id("me.champeau.jmh") version "0.7.3"
     jacoco
