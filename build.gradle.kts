@@ -60,9 +60,11 @@ java {
 }
 
 dependencies {
-    // ANTLR4 工具链
+    // ANTLR4 工具链：只用于 generateGrammarSource，不进运行时（见下方 configurations.api）。
     antlr("org.antlr:antlr4:4.13.1")
-    implementation("org.antlr:antlr4-runtime:4.13.1")
+    // 生成的 AsterParser / AsterLexer 继承 ANTLR runtime 类型且是公开 API（下游 truffle、
+    // locales / hi 测试直接用 CharStreams 等），所以 runtime 必须是 api 而非 implementation。
+    api("org.antlr:antlr4-runtime:4.13.1")
 
     // JSON 序列化支持（用于黄金测试与跨语言对比）
     // 使用 api 而非 implementation，使依赖此模块的项目可以访问 Jackson 注解
@@ -93,6 +95,13 @@ dependencies {
 
     // 共享测试 corpus：双引擎等价 + 单端 fixture
     testImplementation(asterLibs.test)
+}
+
+// Gradle antlr 插件让 api 继承 antlr 配置，于是 ANTLR 工具链（antlr4 工具、ST4、antlr 3 runtime、
+// icu4j、treelayout，约 16 MiB）进了发布的 pom / module 与每个下游的运行时 classpath（core#279）。
+// 工具链只在本仓生成语法时需要：从 api 的继承里去掉 antlr，generateGrammarSource 仍用 antlr 配置。
+configurations.api {
+    setExtendsFrom(extendsFrom.filterNot { it.name == "antlr" })
 }
 
 tasks.test {
