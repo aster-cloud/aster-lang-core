@@ -27,8 +27,8 @@ class LayoutVectorsTest {
 
     /** 四个向量文件的 sha256（aster-lang-test#234）。 */
     static final Map<String, String> VECTOR_SHA256 = Map.of(
-        "layout.json", "3c29503be345ad26d39173139d7f6bf71743fd334c2c0048822cde18820d5ba7",
-        "display-reconstruct.json", "b100e823623ccd878253b5eacd06466f7ef87e7315b17c20a3b5103f23d16055",
+        "layout.json", "cc51f78a44f87d3cf0c03543eeeb9d68015fd922923094c0aad76fe64a8aa79b",
+        "display-reconstruct.json", "0aedb893caeb81923a895fdecf5c9983314a276a6d966e8801c009840d0d04a1",
         "display-padding.json", "294986f9fafc886bf478d3961233603d5ee9c40ac2f6485c88f550ae5763232f",
         "keyword-spellings.json", "467b1075dd67e2e7249d50ae3b47eb5c1f00a2f1827dcf501016e97ef906fd3f");
 
@@ -71,9 +71,14 @@ class LayoutVectorsTest {
                 String got = "ok";
                 PolicyLayout layout = null;
                 try {
-                    layout = PackageLayoutRules.checkPackage(layoutBytes, display.getBytes(StandardCharsets.UTF_8),
-                        c.path("source").textValue(), c.path("layoutVersion").asInt(1),
-                        strings(c.path("vocabularyLocalized")), strings(c.path("literalKeywords")), strings(c.path("operatorSpellings")));
+                    // sourceB64：policy.aster 的原始字节（非法 UTF-8），走字节入口；否则走已解码文本入口
+                    layout = c.has("sourceB64")
+                        ? PackageLayoutRules.checkPackage(layoutBytes, display.getBytes(StandardCharsets.UTF_8),
+                            java.util.Base64.getDecoder().decode(c.path("sourceB64").textValue()), c.path("layoutVersion").asInt(1),
+                            strings(c.path("vocabularyLocalized")), strings(c.path("literalKeywords")), strings(c.path("operatorSpellings")))
+                        : PackageLayoutRules.checkPackage(layoutBytes, display.getBytes(StandardCharsets.UTF_8),
+                            c.path("source").textValue(), c.path("layoutVersion").asInt(1),
+                            strings(c.path("vocabularyLocalized")), strings(c.path("literalKeywords")), strings(c.path("operatorSpellings")));
                 } catch (LayoutException e) {
                     got = e.rule();
                 }

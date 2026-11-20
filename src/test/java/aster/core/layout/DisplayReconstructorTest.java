@@ -72,7 +72,7 @@ class DisplayReconstructorTest {
                 }
             }));
         }
-        assertEquals(3, tests.size());
+        assertEquals(4, tests.size());
         return tests.stream();
     }
 

@@ -24,11 +24,36 @@ public final class LayoutLimits {
     private record Measure(String name, int limit, ToIntFunction<PolicyLayout> value) {
     }
 
-    /** L2：{@code source} 为规范源码文本（包的 policy.aster 或派生的 C′）。 */
+    /** L2：{@code source} 为规范源码文本（派生的 C′，或已解码的 policy.aster）。 */
     public static void check(PolicyLayout layout, String source) {
+        check(layout, utf8Length(source), lineCount(source));
+    }
+
+    /**
+     * L2：{@code source} 为 policy.aster 的原始字节。字节数与行数直接在字节上数（\r、\n 在 UTF-8 中只作单字节出现），
+     * 与解码无关：非法 UTF-8 的源码同样有确定结论（aster-lang-test 向量 {@code invalid-utf8-source-*}）。
+     */
+    public static void check(PolicyLayout layout, byte[] source) {
+        int breaks = 0;
+        for (int i = 0; i < source.length; i++) {
+            if (source[i] == '\n') {
+                breaks++;
+            } else if (source[i] == '\r') {
+                breaks++;
+                if (i + 1 < source.length && source[i + 1] == '\n') {
+                    i++;
+                }
+            }
+        }
+        int lines = source.length == 0 ? 0
+            : source[source.length - 1] == '\n' || source[source.length - 1] == '\r' ? breaks : breaks + 1;
+        check(layout, source.length, lines);
+    }
+
+    private static void check(PolicyLayout layout, int sourceBytes, int sourceLines) {
         List<Measure> measures = List.of(
-            new Measure("sourceBytes", SOURCE_BYTES, l -> utf8Length(source)),
-            new Measure("sourceLines", SOURCE_LINES, l -> lineCount(source)),
+            new Measure("sourceBytes", SOURCE_BYTES, l -> sourceBytes),
+            new Measure("sourceLines", SOURCE_LINES, l -> sourceLines),
             new Measure("spans", SPANS, LayoutLimits::storedSpanCount),
             new Measure("serializedBytes", SERIALIZED_BYTES, l -> utf8Length(LayoutFormat.serialize(l))),
             new Measure("displayBytes", DISPLAY_BYTES, l -> utf8Length(l.toDisplay())),

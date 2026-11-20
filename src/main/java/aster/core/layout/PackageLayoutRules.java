@@ -76,24 +76,32 @@ public final class PackageLayoutRules {
         } catch (IllegalArgumentException e) {
             source = null;
         }
-        return check(layoutJson, displayAster, source, layoutVersion, vocabularyLocalized, literalKeywords, operatorSpellings);
+        PolicyLayout layout = parseAndVersion(layoutJson, layoutVersion);
+        LayoutLimits.check(layout, policySource);
+        return afterLimits(layout, displayAster, source, vocabularyLocalized, literalKeywords, operatorSpellings);
     }
 
     /** 同上，{@code source} 为已解码的规范源码文本。 */
     public static PolicyLayout checkPackage(byte[] layoutJson, byte[] displayAster, String source, int layoutVersion,
                                             Collection<String> vocabularyLocalized, Collection<String> literalKeywords,
                                             Collection<String> operatorSpellings) {
-        return check(layoutJson, displayAster, source, layoutVersion, vocabularyLocalized, literalKeywords, operatorSpellings);
+        PolicyLayout layout = parseAndVersion(layoutJson, layoutVersion);
+        LayoutLimits.check(layout, source);
+        return afterLimits(layout, displayAster, source, vocabularyLocalized, literalKeywords, operatorSpellings);
     }
 
-    private static PolicyLayout check(byte[] layoutJson, byte[] displayAster, String source, int layoutVersion,
-                                      Collection<String> vocabularyLocalized, Collection<String> literalKeywords,
-                                      Collection<String> operatorSpellings) {
+    private static PolicyLayout parseAndVersion(byte[] layoutJson, int layoutVersion) {
         PolicyLayout layout = LayoutFormat.parseStrict(layoutJson);
         if (layoutVersion != 1) {
             throw new LayoutException("L1", "layout v 1 differs from manifest display.layoutVersion " + layoutVersion);
         }
-        LayoutLimits.check(layout, source == null ? "" : source);
+        return layout;
+    }
+
+    /** L3–L7（L1、L2 已过）；source 为 null 表示 policy.aster 不是合法 UTF-8。 */
+    private static PolicyLayout afterLimits(PolicyLayout layout, byte[] displayAster, String source,
+                                            Collection<String> vocabularyLocalized, Collection<String> literalKeywords,
+                                            Collection<String> operatorSpellings) {
         if (source == null || !layout.toCanonical().equals(source)) {
             throw new LayoutException("L3", "toCanonical(layout) differs from policy/policy.aster");
         }
@@ -216,33 +224,46 @@ public final class PackageLayoutRules {
     // L8 / L9 的字符串部分
     // ------------------------------------------------------------------
 
-    /** IR 中键为 {@code name} 或 {@code written} 的全部字符串值，按 JSON 文本中的出现顺序去重。 */
+    /**
+     * IR 中键为 {@code name} 或 {@code written} 的全部字符串值，按 JSON 文本中的出现顺序（先序、深度优先）去重。
+     * 用显式栈遍历，深层嵌套的输入不会耗尽调用栈。
+     */
     public static List<String> irNameStrings(String coreIrJson) {
-        LinkedHashSet<String> out = new LinkedHashSet<>();
+        JsonNode root;
         try {
-            walk(JSON.readTree(coreIrJson), out);
+            root = JSON.readTree(coreIrJson);
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new IllegalArgumentException("Core IR is not JSON", e);
+        }
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        java.util.ArrayDeque<Iterator<Map.Entry<String, JsonNode>>> stack = new java.util.ArrayDeque<>();
+        stack.push(children(root));
+        while (!stack.isEmpty()) {
+            Iterator<Map.Entry<String, JsonNode>> it = stack.peek();
+            if (!it.hasNext()) {
+                stack.pop();
+                continue;
+            }
+            Map.Entry<String, JsonNode> e = it.next();
+            if (("name".equals(e.getKey()) || "written".equals(e.getKey())) && e.getValue().isTextual()) {
+                out.add(e.getValue().textValue());
+            } else if (e.getValue().isContainerNode()) {
+                stack.push(children(e.getValue()));
+            }
         }
         return List.copyOf(out);
     }
 
-    private static void walk(JsonNode n, Set<String> out) {
-        if (n.isArray()) {
-            for (JsonNode x : n) {
-                walk(x, out);
-            }
-        } else if (n.isObject()) {
-            Iterator<Map.Entry<String, JsonNode>> it = n.fields();
-            while (it.hasNext()) {
-                Map.Entry<String, JsonNode> e = it.next();
-                if (("name".equals(e.getKey()) || "written".equals(e.getKey())) && e.getValue().isTextual()) {
-                    out.add(e.getValue().textValue());
-                } else {
-                    walk(e.getValue(), out);
-                }
-            }
+    /** 容器的子节点：对象为（键, 值），数组为（null, 元素）。 */
+    private static Iterator<Map.Entry<String, JsonNode>> children(JsonNode n) {
+        if (n.isObject()) {
+            return n.fields();
         }
+        List<Map.Entry<String, JsonNode>> items = new ArrayList<>();
+        for (JsonNode x : n) {
+            items.add(new java.util.AbstractMap.SimpleImmutableEntry<>(null, x));
+        }
+        return items.iterator();
     }
 
     /** L8：整词出现在任一结构 canonical 中的 IR 名字（按 irNames 顺序）；空表示通过。 */
