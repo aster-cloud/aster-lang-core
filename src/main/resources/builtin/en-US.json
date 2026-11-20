@@ -14,6 +14,7 @@
     "TYPE_WITH": "with",
     "TYPE_HAS": "has",
     "TYPE_ONE_OF": "as one of",
+    "TYPE_ALIAS": "Type",
     "FUNC_TO": "Rule",
     "FUNC_GIVEN": "given",
     "FUNC_PRODUCE": "produce",
