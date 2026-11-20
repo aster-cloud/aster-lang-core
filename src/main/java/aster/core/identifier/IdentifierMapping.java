@@ -102,8 +102,13 @@ public record IdentifierMapping(
     }
 
     /**
-     * 字面量宏内容校验：单行、无控制字符（0x00-0x1F/0x7F）、无裸双引号或反斜杠。
+     * 字面量宏内容校验：非空、单行、无控制字符（0x00-0x1F/0x7F）、不含无从转义的字符串定界符（「」『』«»）。
      * 与 aster-lang-ts validateVocabulary 的 LITERAL 分支逐条对齐（防编译期文本注入）。
+     *
+     * <p>反斜杠、ASCII 双引号与弯引号 “ ” ‘ ’ 允许（ADR 0060 修订 1 R18，aster-lang-ts#362 第 5 项）：展开时
+     * {@code \} 与 {@code "} 由 Canonicalizer 转义（aster-lang-ts#345），词法器读回的就是原值；弯引号只在充当
+     * 字符串定界符时才被引号归一改写（aster-lang-ts#347），展开出的字符串里它们是内容，重新规范化也不变。
+     * 「」『』«» 是各词法表的字符串定界符，词法器没有对应的转义，含它们的内容写不成字面量，照旧拒绝。
      */
     public boolean isValidLiteralContent() {
         if (canonical == null || canonical.isEmpty()) {
@@ -114,22 +119,7 @@ public record IdentifierMapping(
             if (c <= 0x1F || c == 0x7F) {
                 return false; // 控制字符/换行
             }
-            // 禁任何字符串定界符与反斜杠：内容会被包进 lexicon 引号，含引号字符可提前闭合
-            // 字符串逃逸出 token 注入源码（Codex 复审 P0）。ASCII " / \ / CJK「」『』/ 法式 «»。
-            //
-            // ★弯引号 “ ” ‘ ’ 同样必须拒（#119，与 TS 侧 types.ts:266 对齐）：
-            //   Canonicalizer:646 会把 “ ” 归一化成 ASCII "。放行的话，一段含 “ 的内容
-            //   在此处通过校验、却在展开后变成真正的引号——重编译 canonical 输出会因
-            //   unterminated-string 失败，即展开非幂等。
-            //   运行期虽有第二道网（Canonicalizer 的 isSafeLiteralContent 抛异常），
-            //   但那时已是**编译期爆炸**；正确位置是**注册时就拒绝**，让租户当场知道
-            //   自己的词汇非法，而不是让坏词条躺在 registry 里等某条策略用到才炸。
-            if (c == '"' || c == '\\'
-                || c == '「' || c == '」'   // 「 」
-                || c == '『' || c == '』'   // 『 』
-                || c == '«' || c == '»'    // « »
-                || c == '“' || c == '”'   // “ ”
-                || c == '‘' || c == '’') { // ‘ ’
+            if (c == '「' || c == '」' || c == '『' || c == '』' || c == '«' || c == '»') {
                 return false;
             }
         }
