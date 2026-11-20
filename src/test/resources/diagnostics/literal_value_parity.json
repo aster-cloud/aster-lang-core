@@ -1,0 +1,205 @@
+{
+  "description": "ADR 0060 修订 1 R18（aster-lang-ts#362 第 5 项）字面量宏内容的双引擎 parity 夹具。aster-lang-ts shared/literal_value_parity.json 与 aster-lang-core src/test/resources/diagnostics/literal_value_parity.json 必须 byte-identical。valid 为两引擎词汇校验（ts validateVocabulary、core DomainVocabulary.validate）的结论；valid=true 的用例另把 trigger 作字面量宏编译 source，Core IR 里 Return 的字符串值必须等于 content，且规范化结果再规范化一次不变（幂等）。",
+  "cases": [
+    {
+      "name": "en-US 允许 'C:\\\\new \"x\"'",
+      "lexicon": "en-US",
+      "source": "Module m.\n\nRule f, produce Text:\n  Return pfad.\n",
+      "trigger": "pfad",
+      "content": "C:\\new \"x\"",
+      "valid": true
+    },
+    {
+      "name": "en-US 允许 'a\\\\b'",
+      "lexicon": "en-US",
+      "source": "Module m.\n\nRule f, produce Text:\n  Return pfad.\n",
+      "trigger": "pfad",
+      "content": "a\\b",
+      "valid": true
+    },
+    {
+      "name": "en-US 允许 'say \"hi\"'",
+      "lexicon": "en-US",
+      "source": "Module m.\n\nRule f, produce Text:\n  Return pfad.\n",
+      "trigger": "pfad",
+      "content": "say \"hi\"",
+      "valid": true
+    },
+    {
+      "name": "en-US 允许 'say “hi”'",
+      "lexicon": "en-US",
+      "source": "Module m.\n\nRule f, produce Text:\n  Return pfad.\n",
+      "trigger": "pfad",
+      "content": "say “hi”",
+      "valid": true
+    },
+    {
+      "name": "en-US 允许 'it’s'",
+      "lexicon": "en-US",
+      "source": "Module m.\n\nRule f, produce Text:\n  Return pfad.\n",
+      "trigger": "pfad",
+      "content": "it’s",
+      "valid": true
+    },
+    {
+      "name": "en-US 允许 '‘a’'",
+      "lexicon": "en-US",
+      "source": "Module m.\n\nRule f, produce Text:\n  Return pfad.\n",
+      "trigger": "pfad",
+      "content": "‘a’",
+      "valid": true
+    },
+    {
+      "name": "en-US 允许 '\\\\'",
+      "lexicon": "en-US",
+      "source": "Module m.\n\nRule f, produce Text:\n  Return pfad.\n",
+      "trigger": "pfad",
+      "content": "\\",
+      "valid": true
+    },
+    {
+      "name": "en-US 允许 '\"'",
+      "lexicon": "en-US",
+      "source": "Module m.\n\nRule f, produce Text:\n  Return pfad.\n",
+      "trigger": "pfad",
+      "content": "\"",
+      "valid": true
+    },
+    {
+      "name": "zh-CN 允许 'C:\\\\new \"x\"'",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "C:\\new \"x\"",
+      "valid": true
+    },
+    {
+      "name": "zh-CN 允许 'a\\\\b'",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "a\\b",
+      "valid": true
+    },
+    {
+      "name": "zh-CN 允许 'say \"hi\"'",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "say \"hi\"",
+      "valid": true
+    },
+    {
+      "name": "zh-CN 允许 'say “hi”'",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "say “hi”",
+      "valid": true
+    },
+    {
+      "name": "zh-CN 允许 'it’s'",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "it’s",
+      "valid": true
+    },
+    {
+      "name": "zh-CN 允许 '‘a’'",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "‘a’",
+      "valid": true
+    },
+    {
+      "name": "zh-CN 允许 '\\\\'",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "\\",
+      "valid": true
+    },
+    {
+      "name": "zh-CN 允许 '\"'",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "\"",
+      "valid": true
+    },
+    {
+      "name": "zh-CN 拒绝 ''",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "",
+      "valid": false
+    },
+    {
+      "name": "zh-CN 拒绝 'a\\nb'",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "a\nb",
+      "valid": false
+    },
+    {
+      "name": "zh-CN 拒绝 'a\\tb'",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "a\tb",
+      "valid": false
+    },
+    {
+      "name": "zh-CN 拒绝 'a\\x7fb'",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "ab",
+      "valid": false
+    },
+    {
+      "name": "zh-CN 拒绝 '「注入'",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "「注入",
+      "valid": false
+    },
+    {
+      "name": "zh-CN 拒绝 'a」b'",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "a」b",
+      "valid": false
+    },
+    {
+      "name": "zh-CN 拒绝 'a『b'",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "a『b",
+      "valid": false
+    },
+    {
+      "name": "zh-CN 拒绝 'a』b'",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "a』b",
+      "valid": false
+    },
+    {
+      "name": "zh-CN 拒绝 '»x«'",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f，产出 文本：\n  返回 路径。\n",
+      "trigger": "路径",
+      "content": "»x«",
+      "valid": false
+    }
+  ]
+}
