@@ -81,6 +81,11 @@ public final class Canonicalizer {
     /** 预编译的多词关键字 Pattern 缓存（避免每次规范化时重新编译） */
     private final List<Map.Entry<String, Pattern>> multiWordKeywordPatterns;
     /**
+     * 顶层声明句首的本地化类型别名引导词（ADR 0058 修订 2）：行首（可带注解）的 TYPE_ALIAS 拼写后跟空白时改写成 {@code Type}。
+     * 词法表没有非英语拼写时为 null。
+     */
+    private final Pattern typeAliasKeywordPattern;
+    /**
      * 字面量宏：折叠键(触发词) → 字面量内容（来自 {@link VocabularyScopes#literals()}）。词汇中只有字面量宏在
      * 解析前处理（它决定 token 类别）；标识符按位置在解析后解析（ADR 0051），不在此替换。空表示无宏。
      */
@@ -312,6 +317,34 @@ public final class Canonicalizer {
         // compiledCustomRules 已在构造器开头预编译（供 applyCustomRulesToKey 复用，见上）。
         // 构建关键词词集合，供 customRules 转写限定使用
         this.keywordWordSet = buildKeywordWordSet(lexicon);
+        this.typeAliasKeywordPattern = buildTypeAliasKeywordPattern(lexicon);
+    }
+
+    /**
+     * TYPE_ALIAS 的非英语拼写（规范拼写与别名）在顶层声明句首的匹配式：行首、可选的注解（{@code @名字} 与可选的括号参数）之后，
+     * 拼写本身（不区分大小写）后跟空格或 tab。顶层声明不缩进，字段续行、语句都缩进，故不会改写名字位置的同形词。
+     */
+    private static Pattern buildTypeAliasKeywordPattern(Lexicon lexicon) {
+        List<String> spellings = new ArrayList<>();
+        String canonical = lexicon.getKeywords().get(SemanticTokenKind.TYPE_ALIAS);
+        if (canonical != null) spellings.add(canonical);
+        spellings.addAll(lexicon.getAliases().getOrDefault(SemanticTokenKind.TYPE_ALIAS, List.of()));
+        List<String> quoted = new ArrayList<>();
+        for (String sp : spellings) {
+            if (sp != null && !sp.isBlank() && !"type".equalsIgnoreCase(sp) && sp.chars().noneMatch(Character::isWhitespace)) {
+                quoted.add(Pattern.quote(sp));
+            }
+        }
+        if (quoted.isEmpty()) {
+            return null;
+        }
+        return Pattern.compile("^((?:@[^\\s(]+(?:\\([^)\\n]*\\))?[ \\t]+)*)(?:" + String.join("|", quoted) + ")(?=[ \\t])",
+                Pattern.MULTILINE | Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    }
+
+    /** 顶层声明句首的本地化类型别名引导词改写成 {@code Type}（ADR 0058 修订 2）。 */
+    private String rewriteTypeAliasKeyword(String s) {
+        return typeAliasKeywordPattern.matcher(s).replaceAll("$1Type");
     }
 
     /**
@@ -515,6 +548,12 @@ public final class Canonicalizer {
 
             // 跳过 compoundPatterns 的 contextualKeywords（由预翻译变换器处理）
             if (contextualTokens.contains(kind)) {
+                continue;
+            }
+
+            // 类型别名引导词不做全局翻译（ADR 0058 修订 2）：只在顶层声明句首改写（见 rewriteTypeAliasKeyword），
+            // 名字位置的同形词（如 zh 字段 类型）照常是名字，不被改名
+            if (kind == SemanticTokenKind.TYPE_ALIAS) {
                 continue;
             }
 
@@ -728,6 +767,12 @@ public final class Canonicalizer {
         // 必须在关键词翻译之前执行，确保翻译表中的关键词能匹配规范化后的文本
         if (!config.customRules().isEmpty()) {
             s = applyCustomRules(s);
+        }
+
+        // 7.9 顶层声明句首的本地化类型别名引导词（类型 / Typ / प्रकार）改写成 Type（ADR 0058 修订 2）；
+        //     它不进全局翻译表，名字位置的同形词不受影响
+        if (typeAliasKeywordPattern != null) {
+            s = rewriteTypeAliasKeyword(s);
         }
 
         // 8. 翻译关键词（非英语 → 英语，用于 ANTLR 解析）

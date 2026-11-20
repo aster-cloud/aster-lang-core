@@ -56,6 +56,12 @@ public enum SemanticTokenKind {
     /** 枚举类型 - "as one of" / "为以下之一" */
     TYPE_ONE_OF,
 
+    /**
+     * 类型别名引导词 - "Type" / "类型" / "Typ" / "प्रकार"（ADR 0058 修订 2，aster-lang-ts#346）。只在顶层声明句首当引导词
+     * （Canonicalizer 改写成 {@code Type}），不进全局关键词翻译：名字位置的同形词照常是名字。英文 {@code Type} 在所有 locale 永久保留。
+     */
+    TYPE_ALIAS,
+
     // ============================================================
     // 函数定义
     // ============================================================
@@ -349,7 +355,7 @@ public enum SemanticTokenKind {
      */
     public static final Map<String, List<SemanticTokenKind>> CATEGORIES = orderedCategories(
         Map.entry("module", Arrays.asList(MODULE_DECL, IMPORT, IMPORT_ALIAS, IMPORT_VERSION)),
-        Map.entry("type", Arrays.asList(TYPE_DEF, TYPE_WITH, TYPE_HAS, TYPE_ONE_OF)),
+        Map.entry("type", Arrays.asList(TYPE_DEF, TYPE_WITH, TYPE_HAS, TYPE_ONE_OF, TYPE_ALIAS)),
         Map.entry("function", Arrays.asList(FUNC_TO, FUNC_GIVEN, FUNC_PRODUCE, FUNC_PERFORMS, APPLY)),
         Map.entry("control", Arrays.asList(IF, OTHERWISE, THEN, MATCH, WHEN, RETURN, RESULT_IS, FOR_EACH, IN,
             PROFILE, ALLOW, DENY, ESCALATE, REQUIRE_APPROVAL_BY, BECAUSE)),

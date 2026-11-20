@@ -1,0 +1,87 @@
+{
+  "description": "ADR 0058 修订 2（aster-lang-ts#346）类型别名引导词 TYPE_ALIAS 的双引擎 parity 夹具。aster-lang-ts shared/type_alias_keyword_parity.json 与 aster-lang-core src/test/resources/diagnostics/type_alias_keyword_parity.json 必须 byte-identical。每例 source 两引擎都须编译成功；带 equivalent 的另须与 equivalent 得到相同的 positionFreeSha256（本地化引导词与英文 Type 同义），带 names 的另须在 Core IR 中原样保留这些名字（名字位置的同形词不被当关键词、不被改名）。",
+  "cases": [
+    {
+      "name": "zh-CN 类型 引导类型别名",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n类型 金额 作为 整数。\n\n规则 f 给定 x 作为 金额，产出 整数：\n  返回 x。\n",
+      "equivalent": "模块 p。\n\nType 金额 作为 整数。\n\n规则 f 给定 x 作为 金额，产出 整数：\n  返回 x。\n"
+    },
+    {
+      "name": "zh-CN 别名之间引用",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n类型 金额 作为 整数。\n类型 数量 作为 金额。\n",
+      "equivalent": "模块 p。\n\nType 金额 作为 整数。\nType 数量 作为 金额。\n"
+    },
+    {
+      "name": "zh-CN 英文 Type 永久保留",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\nType 金额 作为 整数。\n",
+      "equivalent": "模块 p。\n\ntype 金额 作为 整数。\n"
+    },
+    {
+      "name": "zh-CN 字段名 类型 照常是名字",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n定义 盒子 包含 类型 作为 文本。\n\n规则 f 给定 b 作为 盒子，产出 文本：\n  返回 b.类型。\n",
+      "names": [
+        "类型"
+      ]
+    },
+    {
+      "name": "zh-CN 多行字段表里的 类型 照常是名字",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n定义 盒子 包含\n  类型 作为 文本，\n  名字 作为 文本。\n",
+      "names": [
+        "类型"
+      ]
+    },
+    {
+      "name": "zh-CN 形参名 类型 照常是名字",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n规则 f 给定 类型 作为 文本，产出 文本：\n  返回 类型。\n",
+      "names": [
+        "类型"
+      ]
+    },
+    {
+      "name": "de-DE Typ 引导类型别名",
+      "lexicon": "de-DE",
+      "source": "Modul p.\n\nTyp Betrag als Ganzzahl.\n\nDefiniere Konto mit stand als Betrag.\n",
+      "equivalent": "Modul p.\n\nType Betrag als Ganzzahl.\n\nDefiniere Konto mit stand als Betrag.\n"
+    },
+    {
+      "name": "de-DE TYP 不区分大小写",
+      "lexicon": "de-DE",
+      "source": "Modul p.\n\nTYP Betrag als Ganzzahl.\n",
+      "equivalent": "Modul p.\n\nType Betrag als Ganzzahl.\n"
+    },
+    {
+      "name": "de-DE 字段名 typ 照常是名字",
+      "lexicon": "de-DE",
+      "source": "Modul p.\n\nDefiniere Box mit typ als Text.\n",
+      "names": [
+        "typ"
+      ]
+    },
+    {
+      "name": "hi-IN प्रकार 引导类型别名",
+      "lexicon": "hi-IN",
+      "source": "मॉड्यूल p।\n\nप्रकार राशि रूप में पूर्णांक।\n",
+      "equivalent": "मॉड्यूल p।\n\nType राशि रूप में पूर्णांक।\n"
+    },
+    {
+      "name": "hi-IN 字段名 प्रकार 照常是名字",
+      "lexicon": "hi-IN",
+      "source": "मॉड्यूल p।\n\nपरिभाषित खाता सहित प्रकार रूप में पाठ।\n",
+      "names": [
+        "प्रकार"
+      ]
+    },
+    {
+      "name": "en-US Type 不变",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nType Amount as Int.\n",
+      "equivalent": "Module p.\n\ntype Amount as Int.\n"
+    }
+  ]
+}
