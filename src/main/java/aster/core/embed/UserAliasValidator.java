@@ -83,6 +83,11 @@ public final class UserAliasValidator {
         SemanticTokenKind.AT_MOST
     );
 
+    /** 运算符档 kind 集合（只读）；显示排版 L7 的运算符 kind 与之同一份（ADR 0059 修订 4 §4）。 */
+    public static Set<SemanticTokenKind> operatorKinds() {
+        return OPERATOR_KINDS;
+    }
+
     /**
      * **结构词** kind（声明+函数签名+控制流+返回）：**仅当 allowStructural=true（管理员按用户授权）时**
      * 可自定义别名。红队 H3 默认排除（别名滥用误导审批）；放开需三重护栏（审批显规范结构 + 审计留痕 +
