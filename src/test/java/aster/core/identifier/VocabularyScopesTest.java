@@ -140,6 +140,19 @@ class VocabularyScopesTest {
             assertEquals(VocabularyScopeException.Code.LITERAL_CONFLICT, e.code());
         }
 
+        /** ADR 0060 修订 1 R16'：与关键词同形的触发词只在规范化器取用时丢弃，作用域本身与 canonicalJson 不变。 */
+        @Test
+        void keywordShadowedLiteralDroppedOnlyWhenTaken() {
+            DomainVocabulary v = base(List.of(), List.of(), List.of(),
+                List.of(IdentifierMapping.literal("T", "Text"), IdentifierMapping.literal("hi", "pfad")));
+            VocabularyScopes s = VocabularyScopes.build(v);
+            var en = aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow("en-US");
+            assertEquals(java.util.Map.of("pfad", "hi"), s.literalsVisibleUnder(en));
+            assertEquals(2, s.literals().size());
+            assertTrue(s.canonicalJson().contains("\"text\":\"T\""), s.canonicalJson());
+            assertEquals(s.literals(), s.literalsVisibleUnder(null));
+        }
+
         @Test
         void sameLiteralContentUnderSameFoldKeyAccepted() {
             DomainVocabulary v = base(List.of(), List.of(), List.of(),

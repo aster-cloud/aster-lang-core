@@ -307,7 +307,8 @@ public final class Canonicalizer {
             mwkPatterns.add(Map.entry(keyword, pattern));
         }
         this.multiWordKeywordPatterns = List.copyOf(mwkPatterns);  // 不可变视图
-        this.literalMacros = vocabulary == null ? Map.of() : vocabulary.literals();
+        // 触发词与关键词同形时关键词优先（ADR 0060 修订 1 R16'）：在本词法表下与关键词同形的触发词不展开
+        this.literalMacros = vocabulary == null ? Map.of() : vocabulary.literalsVisibleUnder(lexicon);
         // compiledCustomRules 已在构造器开头预编译（供 applyCustomRulesToKey 复用，见上）。
         // 构建关键词词集合，供 customRules 转写限定使用
         this.keywordWordSet = buildKeywordWordSet(lexicon);

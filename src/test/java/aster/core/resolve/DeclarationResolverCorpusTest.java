@@ -71,7 +71,13 @@ public class DeclarationResolverCorpusTest {
         "tier1-parity/vocab-en/literal-macro-escape.aster",
         "返回值只是字面量宏触发词 archivePath（aster-lang-ts#345）；无词汇时它是未声明的名字，R2 报 E802",
         "tier1-parity/vocab-zh/literal-macro-escape.aster",
-        "返回值只是字面量宏触发词 archivePath（zh-CN，aster-lang-ts#345）；无词汇时它是未声明的名字，R2 报 E802");
+        "返回值只是字面量宏触发词 archivePath（zh-CN，aster-lang-ts#345）；无词汇时它是未声明的名字，R2 报 E802",
+        "tier1-parity/vocab-en/literal-trigger-keyword.aster",
+        "返回值只是字面量宏触发词 greeting（ADR 0060 修订 1 R16'，aster-lang-core#290）；无词汇时它是未声明的名字，R2 报 E802",
+        "tier1-parity/vocab-zh/literal-trigger-keyword.aster",
+        "返回值只是字面量宏触发词 greeting（zh-CN，ADR 0060 修订 1 R16'）；无词汇时它是未声明的名字，R2 报 E802",
+        "tier1-parity/vocab-zh/literal-trigger-english-keyword.aster",
+        "返回值只是字面量宏触发词 greeting（zh-CN 词汇含 en-US 关键词同形触发词，ADR 0060 修订 1 R16'）；无词汇时 R2 报 E802");
 
     /**
      * 无词汇时 R2 仍按设计改写 IR 的语料（相对语料根路径 → 原因）：不产生诊断，但规范 IR 与直接 lower 不同。
