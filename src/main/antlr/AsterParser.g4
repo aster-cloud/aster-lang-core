@@ -107,6 +107,29 @@ import org.antlr.v4.runtime.atn.PredictionMode;
     private static final java.util.Set<String> LOWERCASE_TYPE_WORDS =
         java.util.Set.of("text", "int", "float", "bool", "maybe", "map");
 
+    /** 内建的小写 `X of` 泛型名：分隔符之后照旧是类型参数（ADR 0056 修订 A4 §1.3）。 */
+    private static final java.util.Set<String> OF_GENERIC_WORDS = java.util.Set.of("list", "option", "result");
+
+    /**
+     * 类型位置上的裸小写拉丁名字（ADR 0056 修订 A4 §1.2，aster-lang-ts#338 第 2 项）：小写字母开头、后面不是 `of` / `<`、
+     * 也不是 `maybe` / `map` 引导词。类型名以大写开头；与 ts 同码同位置报 E055。只在真正解析时报错，不参与预测。
+     */
+    protected boolean isBareLowercaseTypeName() {
+        Token t = _input.LT(1);
+        if (t == null || t.getType() != IDENT || t.getText().isEmpty()) return false;
+        String text = t.getText();
+        if (Character.getType(text.codePointAt(0)) != Character.LOWERCASE_LETTER) return false;
+        String lower = text.toLowerCase(java.util.Locale.ROOT);
+        if ("maybe".equals(lower) || "map".equals(lower)) return false;
+        int after = _input.LA(2);
+        return after != OF && after != LT;
+    }
+
+    protected void rejectBareLowercaseTypeName(Token t) {
+        throw new aster.core.parser.ParseDiagnosticException(aster.core.typecheck.ErrorCode.PARSE_EXPECTED,
+            java.util.Map.of("token", "token.typeName"), "Expected type name", t);
+    }
+
     /**
      * `X of A` 的分隔符之后是裸的小写拉丁名字（可带前置注解，后面不是 `of` / `<`，本身也不是内建类型关键词）时报 E055（aster-lang-ts#334）。
      *
@@ -132,12 +155,15 @@ import org.antlr.v4.runtime.atn.PredictionMode;
         Token t = _input.LT(i);
         if (t == null || t.getType() != IDENT || t.getText().isEmpty()) return;
         String text = t.getText();
-        if (Character.getType(text.codePointAt(0)) != Character.LOWERCASE_LETTER
-            || LOWERCASE_TYPE_WORDS.contains(text.toLowerCase(java.util.Locale.ROOT))) {
-            return;
-        }
+        if (Character.getType(text.codePointAt(0)) != Character.LOWERCASE_LETTER) return;
+        String lower = text.toLowerCase(java.util.Locale.ROOT);
         int after = _input.LA(i + 1);
-        if (after == OF || after == LT) return;
+        // 歧义分隔符（ADR 0056 修订 A4 §1.3）：小写 map（第 4 项）与小写名字 + of（第 3 项，内建 list / option / result 除外）
+        // 同样可能是下一个形参 / 字段，与裸小写名字同码报错
+        boolean ambiguous = "map".equals(lower)
+            || (after == OF && !OF_GENERIC_WORDS.contains(lower))
+            || (after != OF && after != LT && !LOWERCASE_TYPE_WORDS.contains(lower));
+        if (!ambiguous) return;
         throw new aster.core.parser.ParseDiagnosticException(aster.core.typecheck.ErrorCode.PARSE_EXPECTED,
             java.util.Map.of("token", "token.typeName"),
             "Expected type name: '" + text + "' would be read as another type argument; write '" + text
@@ -337,7 +363,9 @@ effectParamList
 // 翻成 \0BLOCK_END sentinel）收尾。抽成 funcBody 让普通 body 与 capability body 都复用，
 // 避免带 capability 的函数不能用显式块（双引擎不一致点，Codex 设计审）。
 funcBody
-    : COLON NEWLINE block
+    // 规则体与 If / Otherwise 的块头冒号之后可以先空行再写块（aster-lang-ts#357 第 2 行，ADR 0056 修订 A4 §2），与 ts 一致；
+    // Match / When / lambda / workflow 的块头 ts 同样不收空行，两引擎维持原状
+    : COLON NEWLINE+ block
     | COLON explicitBlock
     ;
 
@@ -660,6 +688,8 @@ type
     // 小写名字同样收（ts 对任何类型名后的 `<` 都报 E056）
     | (TYPE_IDENT | IDENT) LT typeList GT  # GenericType
     | typeIdent                           # TypeName
+    // 裸小写类型名（`as text`、`as foo`）：两引擎都在名字上报 E055（ADR 0056 修订 A4 §1.2），见 isBareLowercaseTypeName
+    | {isBareLowercaseTypeName()}? bare=IDENT {rejectBareLowercaseTypeName($bare);}  # BareLowercaseTypeName
     ;
 
 /**
@@ -849,7 +879,7 @@ sugarOutcome
  *     Return "yes".
  */
 ifStmt
-    : IF expr (COMMA | COLON)? NEWLINE block (NEWLINE? ELSE (COMMA | COLON)? NEWLINE block)?
+    : IF expr (COMMA | COLON)? NEWLINE+ block (NEWLINE? ELSE (COMMA | COLON)? NEWLINE+ block)?
     ;
 
 /**
