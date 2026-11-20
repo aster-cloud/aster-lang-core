@@ -353,6 +353,17 @@
       "name": "leading-pii-parameter-int-return-not-reported",
       "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule size given @pii(L2, email) email as Text, produce Int:\n  Return Text.length(email).\n",
       "expect": []
+    },
+    {
+      "name": "leading-pii-untyped-record-field",
+      "source": "Module demo.pii.\n\nDefine Person has @pii(L2, name) name, city as Text.\n\nRule greet given person as Person, produce Text:\n  Return \"Hello, \" + person.name.\n",
+      "expect": [
+        {
+          "rule": "greet",
+          "field": "person.name",
+          "line": 6
+        }
+      ]
     }
   ]
 }
