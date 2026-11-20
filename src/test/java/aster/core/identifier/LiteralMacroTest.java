@@ -72,37 +72,31 @@ class LiteralMacroTest {
     }
 
     @Test
-    void rejectsAnyQuoteDelimiterOrBackslash() {
-        // Codex 复审 P0：zh-CN 引号是「」，内容含它会提前闭合字符串逃逸注入。
-        for (String bad : new String[]{"say \"hi\"", "path\\x", "静夜思」. Return evil", "「注入", "a『b", "»x«"}) {
+    void rejectsQuoteDelimitersWithoutEscape() {
+        // Codex 复审 P0：zh-CN 引号是「」，内容含它会提前闭合字符串逃逸注入；词法器没有 \」 之类的转义。
+        for (String bad : new String[]{"静夜思」. Return evil", "「注入", "a『b", "a』b", "»x«"}) {
             assertFalse(DomainVocabulary.builder("b", "b", "zh-CN")
                 .addLiteral(bad, "注入").build().validate().valid(),
-                "含引号定界符/反斜杠必须被拒: " + bad);
+                "含无从转义的引号定界符必须被拒: " + bad);
         }
     }
 
     /**
-     * 弯引号 “ ” ‘ ’ 必须与 TS 侧同样被拒（#119）。
-     *
-     * <p>此前本引擎放行、TS 拒绝——双引擎分叉，且两边测试**都没覆盖**这四个字符，
-     * 所以分叉长期无人发现。用显式 codepoint 构造，避免源文件编码或编辑器
-     * 智能引号替换把测试本身写歪（那会让它测的不是想测的字符）。
-     *
-     * <p>危害不是注入（Canonicalizer 的 isSafeLiteralContent 是第二道网），
-     * 而是**防线位置错了**：应当注册时就拒，实际变成注册通过、编译时才炸。
+     * 反斜杠、ASCII 双引号与弯引号 “ ” ‘ ’ 允许（ADR 0060 修订 1 R18，aster-lang-ts#362 第 5 项）：展开时转义
+     * （aster-lang-ts#345），弯引号在展开出的字符串里是内容（aster-lang-ts#347）。与 TS 侧同一规则，两引擎的
+     * 读回值由共享夹具 {@code literal_value_parity.json} 锁定（见 LiteralValueParityTest）。
      */
     @Test
-    void rejectsCurlyQuotes() {
+    void acceptsBackslashAsciiAndCurlyQuotes() {
         // ★用 Unicode 转义而非直接写字符：源文件编码、编辑器的"智能引号"替换
         //   都可能把它悄悄换成别的字符，那样测试测的就不是想测的东西了。
         //   （注意：Java 连**注释里**的 backslash-u 也会当转义处理，故此处不写出该序列。）
-        String[] curly = { "\u201C", "\u201D", "\u2018", "\u2019" };
-        for (String q : curly) {
-            String bad = "静夜" + q + "思";
-            assertFalse(DomainVocabulary.builder("b", "b", "zh-CN")
-                .addLiteral(bad, "注入").build().validate().valid(),
-                "含弯引号必须被拒（Canonicalizer:646 会把它归一化成 ASCII \"，"
-                    + "放行则展开非幂等）: U+" + Integer.toHexString(q.codePointAt(0)).toUpperCase());
+        String[] ok = { "say \"hi\"", "path\\x", "C:\\new \"x\"",
+            "静夜\u201C思\u201D", "it\u2019s", "\u2018a\u2019" };
+        for (String content : ok) {
+            assertTrue(DomainVocabulary.builder("b", "b", "zh-CN")
+                .addLiteral(content, "宏").build().validate().valid(),
+                "反斜杠、ASCII 双引号与弯引号应允许: " + content);
         }
     }
 
