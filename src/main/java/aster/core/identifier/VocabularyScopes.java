@@ -1,11 +1,17 @@
 package aster.core.identifier;
 
+import aster.core.lexicon.Lexicon;
+import aster.core.lexicon.LexiconRegistry;
+
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 按角色与作用域组织的词汇视图（ADR 0051 §5）。构建时不覆盖：同折叠键的全部候选都保留，
@@ -96,6 +102,56 @@ public final class VocabularyScopes {
     /** 字面量宏：foldKey(触发词) → 字面量内容。 */
     public Map<String, String> literals() {
         return literals;
+    }
+
+    /**
+     * 在词法表 {@code lexicon} 下生效的字面量宏（ADR 0060 修订 1 R16'，aster-lang-core#290）：触发词与关键词同形时
+     * 关键词优先。丢弃折叠键等于下列任一拼写的触发词，其余原样保留：
+     * <ol>
+     *   <li>{@code lexicon} 每个 kind 的规范拼写、官方别名与块结束词。调用方传入叠加 aliasSet 之后的有效词法表
+     *       （{@code AliasOverlayLexicon}），aliasSet 中的别名由此计入；</li>
+     *   <li>en-US 词法表的规范拼写、别名与块结束词：非英语词法表先把关键词译成这些拼写再展开字面量宏，
+     *       aster-lang-ts 在 zh-CN 等词法表下也把英文拼写当关键词读，所以它们在所有 locale 都是关键词。</li>
+     * </ol>
+     * 比较整个拼写；多词关键词里的单个词不在其内（触发词只匹配单个标识符 token）。不改变 {@link #literals()} 与
+     * {@link #canonicalJson()}：envelope 记录的是编译输入。与 aster-lang-ts {@code literalsVisibleUnder} 同一规则。
+     *
+     * @param lexicon 有效词法表；null 时原样返回 {@link #literals()}
+     */
+    public Map<String, String> literalsVisibleUnder(Lexicon lexicon) {
+        if (literals.isEmpty() || lexicon == null) {
+            return literals;
+        }
+        Set<String> keywords = keywordFoldKeys(lexicon);
+        Map<String, String> visible = new LinkedHashMap<>();
+        literals.forEach((key, content) -> {
+            if (!keywords.contains(key)) {
+                visible.put(key, content);
+            }
+        });
+        return visible.size() == literals.size() ? literals : Collections.unmodifiableMap(visible);
+    }
+
+    /** {@code lexicon} 与 en-US 的全部关键词拼写（规范拼写、别名、块结束词）的折叠键。 */
+    static Set<String> keywordFoldKeys(Lexicon lexicon) {
+        Set<String> keys = new HashSet<>();
+        addSpellings(keys, lexicon);
+        addSpellings(keys, LexiconRegistry.getInstance().getOrThrow("en-US"));
+        return keys;
+    }
+
+    private static void addSpellings(Set<String> keys, Lexicon lexicon) {
+        addAll(keys, lexicon.getKeywords().values());
+        lexicon.getAliases().values().forEach(aliases -> addAll(keys, aliases));
+        addAll(keys, lexicon.getBlockEndWords());
+    }
+
+    private static void addAll(Set<String> keys, Collection<String> spellings) {
+        for (String spelling : spellings) {
+            if (spelling != null && !spelling.isEmpty()) {
+                keys.add(CaseFold.foldKey(CaseFold.nfc(spelling)));
+            }
+        }
     }
 
     /**

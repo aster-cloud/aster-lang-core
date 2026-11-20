@@ -1,0 +1,262 @@
+{
+  "description": "ADR 0060 修订 1 R16'（aster-lang-core#290、aster-lang-ts#368）字面量触发词与关键词同形时关键词优先的双引擎 parity 夹具。aster-lang-ts shared/literal_keyword_shadow_parity.json 与 aster-lang-core src/test/resources/diagnostics/literal_keyword_shadow_parity.json 必须 byte-identical。有效词法表 = lexicon 的内置词法表，叠加 officialAliases（模拟官方别名），再叠加 aliasSet；literals 为 [触发词, 内容]。两引擎的 literalsVisibleUnder(作用域, 有效词法表) 必须正好保留 expectVisible（按折叠键比较）。带 source 的用例另以有效词法表、不经别名校验编译 source（带词汇）与 equivalent（不带词汇），两者的 positionFreeSha256 必须相等：被丢弃的触发词按关键词读。",
+  "cases": [
+    {
+      "name": "en-US 规范拼写：Text、Return 与关键词同形，不展开",
+      "lexicon": "en-US",
+      "literals": [
+        [
+          "Text",
+          "T"
+        ],
+        [
+          "Return",
+          "R"
+        ],
+        [
+          "pfad",
+          "hi"
+        ]
+      ],
+      "expectVisible": [
+        "pfad"
+      ],
+      "source": "Module p.\n\nRule f given x as Int, produce Text:\n  Return pfad.\n",
+      "equivalent": "Module p.\n\nRule f given x as Int, produce Text:\n  Return \"hi\".\n"
+    },
+    {
+      "name": "en-US 规范拼写按折叠键比较：TEXT、rEtUrN 同样不展开",
+      "lexicon": "en-US",
+      "literals": [
+        [
+          "TEXT",
+          "T"
+        ],
+        [
+          "rEtUrN",
+          "R"
+        ],
+        [
+          "pfad",
+          "hi"
+        ]
+      ],
+      "expectVisible": [
+        "pfad"
+      ],
+      "source": "Module p.\n\nRule f given x as Int, produce Text:\n  Return pfad.\n",
+      "equivalent": "Module p.\n\nRule f given x as Int, produce Text:\n  Return \"hi\".\n"
+    },
+    {
+      "name": "zh-CN 规范拼写：文本、返回与关键词同形，不展开",
+      "lexicon": "zh-CN",
+      "literals": [
+        [
+          "文本",
+          "T"
+        ],
+        [
+          "返回",
+          "R"
+        ],
+        [
+          "路径",
+          "hi"
+        ]
+      ],
+      "expectVisible": [
+        "路径"
+      ],
+      "source": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 文本：\n  返回 路径。\n",
+      "equivalent": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 文本：\n  返回 「hi」。\n"
+    },
+    {
+      "name": "zh-CN 词汇里的 en-US 规范拼写：Return、Text、produce 不展开（core 先译成它们）",
+      "lexicon": "zh-CN",
+      "literals": [
+        [
+          "Return",
+          "R"
+        ],
+        [
+          "Text",
+          "T"
+        ],
+        [
+          "produce",
+          "P"
+        ],
+        [
+          "路径",
+          "hi"
+        ]
+      ],
+      "expectVisible": [
+        "路径"
+      ],
+      "source": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 文本：\n  返回 路径。\n",
+      "equivalent": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 文本：\n  返回 「hi」。\n"
+    },
+    {
+      "name": "de-DE 规范拼写与 en-US 规范拼写：Ganzzahl、Int 不展开",
+      "lexicon": "de-DE",
+      "literals": [
+        [
+          "Ganzzahl",
+          "G"
+        ],
+        [
+          "Int",
+          "I"
+        ],
+        [
+          "pfad",
+          "hi"
+        ]
+      ],
+      "expectVisible": [
+        "pfad"
+      ]
+    },
+    {
+      "name": "hi-IN 规范拼写：मॉड्यूल 不展开",
+      "lexicon": "hi-IN",
+      "literals": [
+        [
+          "मॉड्यूल",
+          "M"
+        ],
+        [
+          "पथ",
+          "hi"
+        ]
+      ],
+      "expectVisible": [
+        "पथ"
+      ]
+    },
+    {
+      "name": "en-US 官方别名：Yield（RETURN 的官方别名）不展开",
+      "lexicon": "en-US",
+      "officialAliases": {
+        "RETURN": [
+          "Yield"
+        ]
+      },
+      "literals": [
+        [
+          "Yield",
+          "Y"
+        ],
+        [
+          "pfad",
+          "hi"
+        ]
+      ],
+      "expectVisible": [
+        "pfad"
+      ]
+    },
+    {
+      "name": "zh-CN 官方别名：交回（RETURN 的官方别名）不展开",
+      "lexicon": "zh-CN",
+      "officialAliases": {
+        "RETURN": [
+          "交回"
+        ]
+      },
+      "literals": [
+        [
+          "交回",
+          "Y"
+        ],
+        [
+          "路径",
+          "hi"
+        ]
+      ],
+      "expectVisible": [
+        "路径"
+      ]
+    },
+    {
+      "name": "en-US 用户别名：Give（aliasSet 的 RETURN）不展开，Give 按 Return 读",
+      "lexicon": "en-US",
+      "aliasSet": {
+        "RETURN": [
+          "Give"
+        ]
+      },
+      "literals": [
+        [
+          "Give",
+          "G"
+        ],
+        [
+          "pfad",
+          "hi"
+        ]
+      ],
+      "expectVisible": [
+        "pfad"
+      ],
+      "source": "Module p.\n\nRule f given x as Int, produce Text:\n  Give pfad.\n",
+      "equivalent": "Module p.\n\nRule f given x as Int, produce Text:\n  Return \"hi\".\n"
+    },
+    {
+      "name": "zh-CN 用户别名：给出（aliasSet 的 RETURN）不展开，给出 按 返回 读",
+      "lexicon": "zh-CN",
+      "aliasSet": {
+        "RETURN": [
+          "给出"
+        ]
+      },
+      "literals": [
+        [
+          "给出",
+          "G"
+        ],
+        [
+          "路径",
+          "hi"
+        ]
+      ],
+      "expectVisible": [
+        "路径"
+      ],
+      "source": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 文本：\n  给出 路径。\n",
+      "equivalent": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 文本：\n  返回 「hi」。\n"
+    },
+    {
+      "name": "多词关键词里的单个词不算关键词拼写：greater、than 照常是触发词",
+      "lexicon": "en-US",
+      "literals": [
+        [
+          "greater",
+          "G"
+        ],
+        [
+          "than",
+          "T"
+        ]
+      ],
+      "expectVisible": [
+        "greater",
+        "than"
+      ]
+    },
+    {
+      "name": "别的 locale 的拼写不算：en-US 词汇里的 返回 照常是触发词",
+      "lexicon": "en-US",
+      "literals": [
+        [
+          "返回",
+          "R"
+        ]
+      ],
+      "expectVisible": [
+        "返回"
+      ]
+    }
+  ]
+}
