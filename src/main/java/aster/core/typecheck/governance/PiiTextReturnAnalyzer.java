@@ -5,6 +5,7 @@ import aster.core.ir.CoreModel;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -21,7 +22,9 @@ import java.util.TreeSet;
  * 已知的声明类型（用于继续选字段）、是否已知为 Text、以及它恰好对应的输入访问路径。
  * <ul>
  *   <li>来源：形参的声明类型（逐层解包 PiiType / Option / Maybe）带 {@code @pii}，或沿点分访问选到的模块内记录字段带
- *       {@code @pii}；从已带来源的值上选字段，来源原样保留（{@code @pii} 包住整个记录时报参数本身）。</li>
+ *       {@code @pii}；从已带来源的值上选字段，来源原样保留（{@code @pii} 包住整个记录时报参数本身）。
+ *       {@code @pii} 写在名字前（{@code given @pii(L1, name) name as Text}、{@code has @pii(L2, name) name as Text}）时
+ *       降级为形参 / 字段的注解而不是 PiiType，同样算来源（aster-lang-ts#336）；注解名与降级一样不区分大小写。</li>
  *   <li>传播只经过：变量引用、点分字段访问、{@code +} 与 {@code Text.concat} 的实参、if 表达式的两个分支、
  *       Let / Set 绑定。Set 覆盖原值；If / Match 各分支在环境副本上遍历，汇合处对未 Return 的分支取并；
  *       块内必然 Return 之后的语句不可达，不再分析。条件与 Match 主语不传播。</li>
@@ -35,7 +38,7 @@ import java.util.TreeSet;
  *       被调函数自己的 {@code @pii} 形参在被调函数内单独检查。</li>
  *   <li>不分析集合：List / Map 的元素、记录构造、Ok / Some 等包装都不带来源。</li>
  *   <li>Match 的模式变量、lambda 体与工作流步骤不分析；Scope 与外层共用环境。</li>
- *   <li>只看声明类型：未标注（{@code typeInferred}）的形参与字段不视为 PII，也不按名字猜测。</li>
+ *   <li>只看声明：类型未标注（{@code typeInferred}）且没有前置 {@code @pii} 注解的形参与字段不视为 PII，也不按名字猜测。</li>
  * </ul>
  */
 public final class PiiTextReturnAnalyzer {
@@ -81,7 +84,7 @@ public final class PiiTextReturnAnalyzer {
   private Val seed(CoreModel.Param p) {
     CoreModel.Type type = p.typeInferred ? null : p.type;
     SortedSet<String> pii = new TreeSet<>();
-    if (isPii(type)) pii.add(p.name);
+    if (isPii(type) || hasPiiAnnotation(p.annotations)) pii.add(p.name);
     return new Val(pii, type, isText(type), p.name);
   }
 
@@ -227,7 +230,7 @@ public final class PiiTextReturnAnalyzer {
     CoreModel.Field field = fieldOf(v.type, seg);
     CoreModel.Type type = field == null || field.typeInferred ? null : field.type;
     SortedSet<String> pii = new TreeSet<>(v.pii);
-    if (path != null && isPii(type)) pii.add(path);
+    if (path != null && (isPii(type) || (field != null && hasPiiAnnotation(field.annotations)))) pii.add(path);
     return new Val(pii, type, isText(type), path);
   }
 
@@ -271,6 +274,15 @@ public final class PiiTextReturnAnalyzer {
         }
       }
     }
+  }
+
+  /** 前置写法的 {@code @pii}：形参 / 字段注解里有名为 pii 的注解（不区分大小写，与 CoreLowering 的类型注解同一判定）。 */
+  private static boolean hasPiiAnnotation(List<CoreModel.Annotation> annotations) {
+    if (annotations == null) return false;
+    for (CoreModel.Annotation a : annotations) {
+      if (a != null && a.name != null && "pii".equals(a.name.toLowerCase(Locale.ROOT))) return true;
+    }
+    return false;
   }
 
   private static boolean isText(CoreModel.Type type) {

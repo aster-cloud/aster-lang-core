@@ -293,6 +293,77 @@
           "line": 6
         }
       ]
+    },
+    {
+      "name": "leading-pii-parameter",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule mailLine given @pii(L2, email) email as Text, produce Text:\n  Return \"Mail: \" + email.\n",
+      "expect": [
+        {
+          "rule": "mailLine",
+          "field": "email",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "name": "leading-and-type-pii-parameter-reported-once",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule mailLine given @pii(L2, email) email as @pii(L2, email) Text, produce Text:\n  Return \"Mail: \" + email.\n",
+      "expect": [
+        {
+          "rule": "mailLine",
+          "field": "email",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "name": "leading-pii-untyped-parameter",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule mailLine given @pii(L2, email) email, produce Text:\n  Return \"Mail: \" + email.\n",
+      "expect": [
+        {
+          "rule": "mailLine",
+          "field": "email",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "name": "leading-pii-annotation-case-insensitive",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule mailLine given @PII(L2, email) email as Text, produce Text:\n  Return \"Mail: \" + email.\n",
+      "expect": [
+        {
+          "rule": "mailLine",
+          "field": "email",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "name": "leading-pii-record-field",
+      "source": "Module demo.pii.\n\nDefine Person has @pii(L2, name) name as Text, city as Text.\n\nRule greet given person as Person, produce Text:\n  Return \"Hello, \" + person.name.\n\nRule where given person as Person, produce Text:\n  Return \"City: \" + person.city.\n",
+      "expect": [
+        {
+          "rule": "greet",
+          "field": "person.name",
+          "line": 6
+        }
+      ]
+    },
+    {
+      "name": "leading-pii-parameter-int-return-not-reported",
+      "source": "Module demo.pii.\n\nDefine Contact has email as @pii(L2, email) Text, city as Text.\nDefine Applicant has name as @pii(L2, name) Text, age as @pii(L1, age) Int, city as Text, contact as Contact.\n\nRule size given @pii(L2, email) email as Text, produce Int:\n  Return Text.length(email).\n",
+      "expect": []
+    },
+    {
+      "name": "leading-pii-untyped-record-field",
+      "source": "Module demo.pii.\n\nDefine Person has @pii(L2, name) name, city as Text.\n\nRule greet given person as Person, produce Text:\n  Return \"Hello, \" + person.name.\n",
+      "expect": [
+        {
+          "rule": "greet",
+          "field": "person.name",
+          "line": 6
+        }
+      ]
     }
   ]
 }
