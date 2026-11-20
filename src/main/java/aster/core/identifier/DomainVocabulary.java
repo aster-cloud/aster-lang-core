@@ -136,7 +136,7 @@ public record DomainVocabulary(
             }
             if (!mapping.isValidLiteralContent()) {
                 errors.add(context + ": 字面量宏内容 \"" + mapping.canonical()
-                    + "\" 须为单行、非空、无控制字符、无引号定界符或反斜杠（防编译期注入）");
+                    + "\" 须为单行、非空、无控制字符，且不含「」『』«»（防编译期注入）");
             }
         }
 
