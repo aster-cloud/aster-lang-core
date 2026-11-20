@@ -168,19 +168,25 @@ public class InProcessCnlParser {
         } catch (CnlParseException e) {
             // 解析失败：别名被当作名字、而 core 语法在该位置不收关键词时守卫跑不到，按同一算法归因为 E808（ADR 0060 §5.3）
             // 全部探测共享一份语法分析预算：失败路径的总耗时至多再加一个预算（core#254 的同一上限）
+            // 在请求级额度内时探测同样受额度约束，归因结束后把探测总耗时计入额度（aster-api#489）
             ParseBudget probeBudget = ParseBudget.startDefault();
-            AliasIdentifierGuard.AliasIdentifierCollision attributed = AliasIdentifierGuard.attributeParseFailure(
-                source, aliasSet, locale, e, new AliasIdentifierGuard.Prober() {
-                    @Override
-                    public boolean exhausted() {
-                        return isSpent(probeBudget);
-                    }
+            AliasIdentifierGuard.AliasIdentifierCollision attributed;
+            try {
+                attributed = AliasIdentifierGuard.attributeParseFailure(
+                    source, aliasSet, locale, e, new AliasIdentifierGuard.Prober() {
+                        @Override
+                        public boolean exhausted() {
+                            return isSpent(probeBudget);
+                        }
 
-                    @Override
-                    public boolean parses(String probe) {
-                        return parsesSyntactically(probe, locale, scopes, aliasSet, probeBudget);
-                    }
-                });
+                        @Override
+                        public boolean parses(String probe) {
+                            return parsesSyntactically(probe, locale, scopes, aliasSet, probeBudget);
+                        }
+                    });
+            } finally {
+                probeBudget.finish();
+            }
             throw attributed != null ? attributed : e;
         }
     }
@@ -239,8 +245,13 @@ public class InProcessCnlParser {
     static ParseResult parseUnsafeWithAliases(String source, String locale, VocabularyScopes scopes,
                                               Map<SemanticTokenKind, List<String>> aliasSet,
                                               NameResolver resolver) {
-        return parseUnsafeWithAliases(source, locale, scopes, aliasSet, resolver,
-            ParseBudget.startDefault(), PredictionMode.SLL);
+        ParseBudget budget = ParseBudget.startDefault();
+        try {
+            return parseUnsafeWithAliases(source, locale, scopes, aliasSet, resolver, budget, PredictionMode.SLL);
+        } finally {
+            // 本次解析耗时计入请求级额度（aster-api#489），成功与失败一样计
+            budget.finish();
+        }
     }
 
     /**
