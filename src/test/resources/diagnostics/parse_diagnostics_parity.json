@@ -75,6 +75,53 @@
       ]
     },
     {
+      "name": "可解析 Match 块头之后空行（Wave C 裁决 D3）",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Match x:\n\n    When 1, Return 1.\n    When y, Return y.\n",
+      "codes": []
+    },
+    {
+      "name": "可解析 When 分支块头之后空行",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Match x:\n    When 1,\n\n      Return 1.\n    When y, Return y.\n",
+      "codes": []
+    },
+    {
+      "name": "可解析 lambda 块头之后空行",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Let g be function with a, produce Int:\n\n    Return a.\n  Return g(x).\n",
+      "codes": []
+    },
+    {
+      "name": "可解析 workflow 块头之后空行",
+      "source": "Module m.\n\nRule saga, produce. It performs io:\n  workflow:\n\n    step a:\n      Return ok of 1.\n  .\n",
+      "codes": []
+    },
+    {
+      "name": "可解析 step 块头之后空行",
+      "source": "Module m.\n\nRule saga, produce. It performs io:\n  workflow:\n    step a:\n\n      Return ok of 1.\n  .\n",
+      "codes": []
+    },
+    {
+      "name": "可解析 compensate 块头之后空行",
+      "source": "Module m.\n\nRule saga, produce. It performs io:\n  workflow:\n    step a:\n      Return ok of 1.\n    compensate:\n\n      Return ok of 10.\n  .\n",
+      "codes": []
+    },
+    {
+      "name": "可解析 retry 块头之后空行",
+      "source": "Module m.\n\nRule saga, produce. It performs io:\n  workflow:\n    step a:\n      Return ok of 1.\n\n    retry:\n\n      max attempts: 5.\n      backoff: linear.\n\n  .\n",
+      "codes": []
+    },
+    {
+      "name": "可解析 匹配于 块头之后空行（zh-CN）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  匹配于 x：\n\n    当 1，返回 1。\n    当 y，返回 y。\n",
+      "codes": []
+    },
+    {
+      "name": "可解析 pruefe 块头之后空行（de-DE）",
+      "lexicon": "de-DE",
+      "source": "Modul m.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  pruefe x:\n\n    bei 1, gib zurueck 1.\n    bei y, gib zurueck y.\n",
+      "codes": []
+    },
+    {
       "name": "E053 Int 字面量越界",
       "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Return 99999999999.\n",
       "codes": [
