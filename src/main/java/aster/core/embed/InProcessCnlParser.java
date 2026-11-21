@@ -363,7 +363,14 @@ public class InProcessCnlParser {
             //    把预算用完时同样归为 E054（reason=time-budget），不悄悄超支请求级额度。名称解析在 16 KiB 内为
             //    数十毫秒但随语句数超线性增长（ParseStageLinearityTest），边界检查只能在它结束后报告超时。
             checkStageBudget(budget, errorListener, "构建 AST", source.length());
-            NameResolution.ResolvedCore resolved = resolver.resolve(module, scopes);
+            NameResolution.ResolvedCore resolved;
+            try {
+                resolved = resolver.resolve(module, scopes);
+            } catch (RuntimeException e) {
+                // 名称解析以诊断失败（E8xx、别名冲突等）时同样先看预算：超时优先归为 E054，与语法分析超时一致
+                checkStageBudget(budget, errorListener, "名称解析", source.length());
+                throw e;
+            }
             checkStageBudget(budget, errorListener, "名称解析", source.length());
             CoreModel.Module core = resolved.core();
 
