@@ -588,14 +588,20 @@ class DeclarationResolverTest {
             assertEquals(List.of(ErrorCode.DUPLICATE_DECLARATION), codes(DeclarationResolver.resolve(m, ctxOf(DRIVER))));
         }
 
-        /** Java 独有：别名右侧类型保留在 AST 中，但与 TS 一致不解析、不产生诊断。 */
+        /** ADR 0051 修订 1（aster-lang-test#174 第 5 项）：别名右侧在 TYPE 位置解析，查不到报 E800。 */
         @Test
-        void aliasRightHandSideIsNotResolved() {
+        void aliasRightHandSideUnknownReportsE800() {
             Module m = parse("Module m.\n\ntype Punktzahl as Unbekannt.\n");
+            assertEquals(List.of(ErrorCode.UNRESOLVED_TYPE), codes(DeclarationResolver.resolve(m, ctxOf(DRIVER))));
+        }
+
+        /** 别名右侧的词汇本地类型名写回规范名（与字段、形参类型同一路径），原写法保留。 */
+        @Test
+        void aliasRightHandSideResolvesVocabularyTypeName() {
+            Module m = parse("Module m.\n\ntype Lenker as Fahrer.\n");
             ResolutionResult<Module> r = DeclarationResolver.resolve(m, ctxOf(DRIVER));
             assertEquals(List.of(), codes(r));
-            Decl.TypeAlias alias = decl(r.value(), 0, Decl.TypeAlias.class);
-            assertSame(decl(m, 0, Decl.TypeAlias.class).type(), alias.type());
+            assertEquals(res("Driver", ResolvedRole.TYPE, "Fahrer"), typeResolved(decl(r.value(), 0, Decl.TypeAlias.class).type()));
         }
     }
 
