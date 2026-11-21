@@ -137,11 +137,14 @@ class SignatureSyntaxParityTest {
     assertEquals("Amount", alias.name());
   }
 
+  /** 声明级注解只能写在 Rule 前：别名前的注解与 ts 同码 E056、报在别名引导词处（aster-lang-ts#380，Wave C 裁决 D1）。 */
   @Test
-  void annotatedCapitalizedTypeAlias() {
+  void annotatedCapitalizedTypeAliasIsRejected() {
     var r = parse("Module m.\n\n@pii Type Email as Text.\n");
-    assertEquals(List.of(), r.diagnostics());
-    assertEquals(List.of("pii"), assertInstanceOf(Decl.TypeAlias.class, r.module().decls().get(0)).annotations());
+    assertEquals(1, r.diagnostics().size());
+    assertEquals(ErrorCode.PARSE_EXPECTED_AFTER, r.diagnostics().get(0).code());
+    assertEquals(3, r.diagnostics().get(0).line());
+    assertEquals(6, r.diagnostics().get(0).column());
   }
 
   @Test

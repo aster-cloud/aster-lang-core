@@ -515,23 +515,26 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         return new Decl.Enum(name, variants, spanFrom(ctx), variantSpans);
     }
 
+    /**
+     * 类型别名声明。声明级注解只能写在 Rule 前（aster-lang-ts#380，Wave C 裁决 D1）：别名前的注解此前被接受却不进 Core IR
+     * （{@code @pii(L1, email) Type Email as Text.} 与不带注解的 IR 相同），是静默无效的写法；现在与 ts 同码 E056、同位置
+     * （别名引导词处）拒绝。要标记 PII 请把注解写在字段或形参的类型上（{@code as @pii(L1, email) Text}）。文法仍收
+     * {@code annotation*}，以便在这里给出明确诊断而不是 ANTLR 的泛化报错。
+     */
     @Override
     public Decl.TypeAlias visitTypeDecl(AsterParser.TypeDeclContext ctx) {
-        List<AsterParser.AnnotationContext> annotationCtxs = ctx.annotation();
-        if (annotationCtxs == null) {
-            annotationCtxs = List.of();
+        if (ctx.annotation() != null && !ctx.annotation().isEmpty()) {
+            throw new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED_AFTER,
+                Map.of("token", "kw.rule", "after", "token.declarationAnnotations"),
+                "Expected 'Rule' after declaration annotations", ctx.typeAliasKeyword().getStart());
         }
-        List<String> annotations = annotationCtxs.stream()
-            .map(this::annotationName)
-            .collect(Collectors.toList());
-        List<String> finalAnnotations = annotations.isEmpty() ? List.of() : List.copyOf(annotations);
         // 名字是 TYPE_IDENT / IDENT，或软关键字（ADR 0019 G1：小写结构词），都是单 token
         String name = ctx.typeAliasName() == null ? null : ctx.typeAliasName().getText();
         if (name == null || name.isEmpty()) {
             throw new IllegalStateException("Type alias 缺失名称");
         }
         Type type = extractAnnotatedType(ctx.annotatedType()).type();
-        return new Decl.TypeAlias(finalAnnotations, name, type, spanFrom(ctx));
+        return new Decl.TypeAlias(List.of(), name, type, spanFrom(ctx));
     }
 
     @Override
