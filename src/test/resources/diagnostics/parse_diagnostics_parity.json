@@ -1031,6 +1031,159 @@
           3
         ]
       ]
+    },
+    {
+      "name": "E061 规则头无逗号、换行后同列写 produce（A4 §2，ts#357 第 3 行）",
+      "source": "Module m.\n\nRule f given x as Int\nproduce Int:\n  Return x.\n",
+      "codes": [
+        [
+          "E061",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E062 规则头无逗号、换行后缩进写 produce",
+      "source": "Module m.\n\nRule f given x as Int\n  produce Int:\n  Return x.\n",
+      "codes": [
+        [
+          "E062",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E062 规则头没写完就到了下一条声明",
+      "source": "Module m.\n\nRule f given x as Int\n\nRule g, produce Int:\n  Return 1.\n",
+      "codes": [
+        [
+          "E062",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E061 Rule 之后换行、同列写规则名",
+      "source": "Module m.\n\nRule\nf given x as Int, produce Int:\n  Return x.\n",
+      "codes": [
+        [
+          "E061",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E062 Rule 之后换行、下一行缩进",
+      "source": "Module m.\n\nRule\n  f given x as Int, produce Int:\n  Return x.\n",
+      "codes": [
+        [
+          "E062",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E061 Regel 之后换行（de-DE）",
+      "lexicon": "de-DE",
+      "source": "Modul m.\n\nRegel\nf gegeben x als Ganzzahl, liefert Ganzzahl:\n  Gib zurück x.\n",
+      "codes": [
+        [
+          "E061",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E061 规则头无逗号、换行后写 产出（zh-CN）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f 给定 x 作为 整数\n产出 整数：\n  返回 x。\n",
+      "codes": [
+        [
+          "E061",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E061 规则头逗号之后换行、同列写 produce",
+      "source": "Module m.\n\nRule f given x as Int,\nproduce Int:\n  Return x.\n",
+      "codes": [
+        [
+          "E061",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E061 given 之后换行",
+      "source": "Module m.\n\nRule f given\nx as Int, produce Int:\n  Return x.\n",
+      "codes": [
+        [
+          "E061",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E062 as 之后换行、下一行缩进",
+      "source": "Module m.\n\nRule f given x as\n  Int, produce Int:\n  Return x.\n",
+      "codes": [
+        [
+          "E062",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E061 produce 之后换行、同列写类型",
+      "source": "Module m.\n\nRule f given x as Int, produce\nInt:\n  Return x.\n",
+      "codes": [
+        [
+          "E061",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E063 Return 之后换行（Wave C 裁决 D4）",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Return\n  x.\n",
+      "codes": [
+        [
+          "E063",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "E063 返回 之后换行（zh-CN，D4）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  返回\n  x。\n",
+      "codes": [
+        [
+          "E063",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "E061 实参表逗号之后换行、同列写实参（D4）",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Return f(x,\n  x).\n",
+      "codes": [
+        [
+          "E061",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "E062 实参表逗号之后换行、下一行缩进（D4）",
+      "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Return f(x,\n    x).\n",
+      "codes": [
+        [
+          "E062",
+          4
+        ]
+      ]
     }
   ]
 }
