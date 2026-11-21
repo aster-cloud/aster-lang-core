@@ -363,8 +363,8 @@ effectParamList
 // 翻成 \0BLOCK_END sentinel）收尾。抽成 funcBody 让普通 body 与 capability body 都复用，
 // 避免带 capability 的函数不能用显式块（双引擎不一致点，Codex 设计审）。
 funcBody
-    // 规则体与 If / Otherwise 的块头冒号之后可以先空行再写块（aster-lang-ts#357 第 2 行，ADR 0056 修订 A4 §2），与 ts 一致；
-    // Match / When / lambda / workflow 的块头 ts 同样不收空行，两引擎维持原状
+    // 任何块头之后都可以先空行再写块（aster-lang-ts#357 第 2 行，ADR 0056 修订 A4 §2；Wave C 裁决 D3 推广到
+    // Match / When / lambda / workflow / Step / Compensate / Retry）：缩进之前的空行不影响结构，两引擎一致
     : COLON NEWLINE+ block
     | COLON explicitBlock
     ;
@@ -788,7 +788,7 @@ waitStmt
     ;
 
 workflowStmt
-    : WORKFLOW COLON NEWLINE INDENT workflowBody DEDENT DOT
+    : WORKFLOW COLON NEWLINE+ INDENT workflowBody DEDENT DOT
     ;
 
 /**
@@ -804,7 +804,7 @@ workflowBody
     ;
 
 workflowStep
-    : STEP nameIdent stepDependencies? COLON NEWLINE block (NEWLINE* compensateSection)?
+    : STEP nameIdent stepDependencies? COLON NEWLINE+ block (NEWLINE* compensateSection)?
     ;
 
 stepDependencies
@@ -816,11 +816,11 @@ stringList
     ;
 
 compensateSection
-    : COMPENSATE COLON NEWLINE block
+    : COMPENSATE COLON NEWLINE+ block
     ;
 
 retrySection
-    : RETRY COLON NEWLINE INDENT retryDirective (NEWLINE+ retryDirective)* NEWLINE* DEDENT
+    : RETRY COLON NEWLINE+ INDENT retryDirective (NEWLINE+ retryDirective)* NEWLINE* DEDENT
     ;
 
 retryDirective
@@ -931,7 +931,7 @@ inlineReturn
  */
 matchStmt
     // 分支间用 NEWLINE*：块体分支以 block 的 `NEWLINE* DEDENT` 收尾，下一个 When 前不再有 NEWLINE（同 #218）
-    : MATCH expr COLON NEWLINE INDENT matchCase (NEWLINE* matchCase)* NEWLINE* DEDENT
+    : MATCH expr COLON NEWLINE+ INDENT matchCase (NEWLINE* matchCase)* NEWLINE* DEDENT
     ;
 
 /**
@@ -940,7 +940,7 @@ matchStmt
  */
 matchCase
     // 块体：`When pat,` 后换行再缩进（与 TS 一致，产出 Block 分支体）；词法器在行尾先发 NEWLINE 再发 INDENT
-    : WHEN pattern COMMA (returnStmt | NEWLINE block)
+    : WHEN pattern COMMA (returnStmt | NEWLINE+ block)
     ;
 
 /**
@@ -1206,7 +1206,7 @@ listLiteral
  * 省略时 lower 为 Type.Name("Unknown")（与 TS Node.TypeName('Unknown') 对齐）。
  */
 lambdaExpr
-    : FUNCTION lambdaParamList? COMMA? PRODUCE annotatedType? COLON (returnStmt | (NEWLINE block))
+    : FUNCTION lambdaParamList? COMMA? PRODUCE annotatedType? COLON (returnStmt | (NEWLINE+ block))
     ;
 
 /**
