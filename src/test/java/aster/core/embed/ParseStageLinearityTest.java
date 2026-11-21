@@ -49,8 +49,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 预算的 {@value #SUPERLINEAR_BUDGET_SHARE_PERCENT}%（{@link ParseBudget#DEFAULT_BUDGET} 2 秒的 10%），并把增长率打印出来；
  * InProcessCnlParser 在名称解析前后各查一次预算。把名称解析改成线性后，应把它移回翻倍断言。
  *
- * <p>阶段与 {@link InProcessCnlParser#parseUnsafeWithAliases} 逐步相同（别名叠加 → 规范化 → 词法 → SLL 语法分析
- * → 构建 AST → 名称解析）；另测端到端耗时，确认两者一致。生成器覆盖 #594 列出的形态：长标识符、大量别名 /
+ * <p>阶段与 {@link InProcessCnlParser#parseUnsafeWithAliases} 的步骤相同（别名叠加 → 规范化 → 词法 → SLL 语法分析
+ * → 构建 AST → 名称解析），但只走合法输入的主路径：不挂错误监听器、不用带预算的预测器、不做嵌套守卫与
+ * {@code requireModule}；另测真实入口的端到端耗时作对照。生成器覆盖 #594 列出的形态：长标识符、大量别名 /
  * 词汇条目、混合文字、长字符串、大量短语句、汉字别名堆叠。jqwik 随机选取每种形态的内容（字母表、片段），
  * 规模按翻倍取，最大一档不超过 16 KiB（UTF-8）。
  *
