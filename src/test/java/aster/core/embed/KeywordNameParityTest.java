@@ -44,7 +44,7 @@ class KeywordNameParityTest {
         for (JsonNode c : fixture.get("cases")) {
             tests.add(DynamicTest.dynamicTest(c.get("name").asText(), () -> assertCase(c)));
         }
-        assertThat(fixture.get("cases")).hasSize(48);
+        assertThat(fixture.get("cases")).hasSize(58);
         return tests.stream();
     }
 
@@ -63,7 +63,16 @@ class KeywordNameParityTest {
         if (c.has("reject")) {
             assertThat(firstParseError(source, locale))
                 .isEqualTo(List.of(c.get("reject").get(0).asText(), c.get("reject").get(1).asInt()));
-            assertThrows(InProcessCnlParser.CnlParseException.class, () -> InProcessCnlParser.parse(source, locale));
+            var e = assertThrows(InProcessCnlParser.CnlParseException.class, () -> InProcessCnlParser.parse(source, locale));
+            if (c.has("params")) {
+                var first = e.getDiagnostics().get(0);
+                Map<String, String> want = new java.util.LinkedHashMap<>();
+                c.get("params").fields().forEachRemaining(p -> want.put(p.getKey(), p.getValue().asText()));
+                assertThat(first.params()).isEqualTo(want);
+                if (c.has("message")) {
+                    assertThat(first.message()).isEqualTo(c.get("message").asText());
+                }
+            }
             return;
         }
         assertThat(firstParseError(source, locale)).isNull();

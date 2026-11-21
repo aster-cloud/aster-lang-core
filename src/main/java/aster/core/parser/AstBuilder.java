@@ -97,7 +97,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                     declaredRecordTypeNames.add(typeName);  // 可构造
                 }
             } else if (declCtx.enumDecl() != null) {
-                AsterParser.TypeIdentContext typeName = declCtx.enumDecl().typeIdent();
+                AsterParser.DeclaredTypeNameContext typeName = declCtx.enumDecl().declaredTypeName();
                 if (typeName != null) {
                     declaredRecordTypeNames.add(typeName.getText());  // 可构造
                 }
@@ -389,12 +389,27 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
      */
     private static void rejectKeywordName(AsterParser.NameIdentContext ctx) {
         if (ctx == null) return;
-        StructuralKeyword keyword = STRUCTURAL_KEYWORD_NAMES.get(ctx.getText());
-        Token tok = ctx.getStart();
+        rejectStructuralKeyword(ctx.getText(), ctx.getStart());
+    }
+
+    /**
+     * 声明出的类型名与枚举成员（{@code declaredTypeName}）：结构关键词的规范拼写报 E901；文法为此收下的其它结构关键词写法
+     * （小写 {@code if}、{@code RETURN}）不是类型名，报 E055，与此前的语法错误同为拒绝。
+     */
+    private static void rejectKeywordTypeName(AsterParser.DeclaredTypeNameContext ctx) {
+        if (ctx == null || ctx.structuralKeyword() == null) return;
+        rejectStructuralKeyword(ctx.getText(), ctx.getStart());
+        throw new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED, Map.of("token", "token.typeName"),
+            "Expected type name", ctx.getStart());
+    }
+
+    /** 文本是结构关键词的规范拼写时报 E901；由本地化关键词还原出的标识符（OF 家族私有区标记）不在此列。 */
+    private static void rejectStructuralKeyword(String text, Token tok) {
+        StructuralKeyword keyword = STRUCTURAL_KEYWORD_NAMES.get(text);
         if (keyword == null || isRestoredKeywordIdent(tok)) return;
         throw new ParseDiagnosticException(ErrorCode.PARSE_KEYWORD_AS_NAME,
             Map.of("keyword", "kw." + keyword.slot(), "kind", keyword.kind()),
-            ctx.getText() + " is the keyword " + keyword.kind() + " and cannot be used as a name; rename it", tok);
+            "'" + text + "' is the keyword " + keyword.kind() + " and cannot be used as a name; rename it", tok);
     }
 
     /** AsterCustomLexer 由本地化关键词还原出的标识符：原文以私有区标记 U+E000 开头，token 文本是还原后的源词。 */
@@ -434,6 +449,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Decl.Data visitDataDecl(AsterParser.DataDeclContext ctx) {
+        rejectKeywordTypeName(ctx.declaredTypeName());
         String name = dataDeclName(ctx);
         List<Decl.Field> fields = ctx.fieldList().field().stream()
             .map(this::visitField)
@@ -443,7 +459,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     /** Define 形态的名字是 typeIdent（R53），省略 Define 的形态只收 TYPE_IDENT；缺失时返回 null。 */
     private static String dataDeclName(AsterParser.DataDeclContext ctx) {
-        if (ctx.typeIdent() != null) return ctx.typeIdent().getText();
+        if (ctx.declaredTypeName() != null) return ctx.declaredTypeName().getText();
         return ctx.TYPE_IDENT() != null ? ctx.TYPE_IDENT().getText() : null;
     }
 
@@ -544,11 +560,13 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Decl.Enum visitEnumDecl(AsterParser.EnumDeclContext ctx) {
-        String name = ctx.typeIdent().getText();
-        List<String> variants = ctx.variantList().typeIdent().stream()
-            .map(AsterParser.TypeIdentContext::getText)
+        rejectKeywordTypeName(ctx.declaredTypeName());
+        ctx.variantList().declaredTypeName().forEach(AstBuilder::rejectKeywordTypeName);
+        String name = ctx.declaredTypeName().getText();
+        List<String> variants = ctx.variantList().declaredTypeName().stream()
+            .map(AsterParser.DeclaredTypeNameContext::getText)
             .collect(Collectors.toList());
-        List<Span> variantSpans = ctx.variantList().typeIdent().stream()
+        List<Span> variantSpans = ctx.variantList().declaredTypeName().stream()
             .map(this::spanFrom)
             .toList();
         return new Decl.Enum(name, variants, spanFrom(ctx), variantSpans);
@@ -567,7 +585,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                 Map.of("token", "kw.rule", "after", "token.declarationAnnotations"),
                 "Expected 'Rule' after declaration annotations", ctx.typeAliasKeyword().getStart());
         }
-        // 名字是 TYPE_IDENT / IDENT，或软关键字（ADR 0019 G1：小写结构词），都是单 token
+        // 名字是 TYPE_IDENT / IDENT，或软关键字（ADR 0019 G1：小写结构词），都是单 token；结构关键词报 E901（修订 A6 K1）
+        if (ctx.typeAliasName() != null) rejectStructuralKeyword(ctx.typeAliasName().getText(), ctx.typeAliasName().getStart());
         String name = ctx.typeAliasName() == null ? null : ctx.typeAliasName().getText();
         if (name == null || name.isEmpty()) {
             throw new IllegalStateException("Type alias 缺失名称");
@@ -1271,6 +1290,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     @Override
     public Pattern visitPatternStructKeywordName(AsterParser.PatternStructKeywordNameContext ctx) {
         String name = ctx.structKeywordName().getText();
+        rejectStructuralKeyword(name, ctx.getStart());
         return new Pattern.PatternName(name, spanFrom(ctx));
     }
 
@@ -1627,6 +1647,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         String name;
         if (ctx.structKeywordName() != null) {
             name = ctx.structKeywordName().getText();
+            rejectStructuralKeyword(name, ctx.getStart());
         } else {
             name = ctx.IDENT() != null ? ctx.IDENT().getText() : ctx.TYPE_IDENT().getText();
         }

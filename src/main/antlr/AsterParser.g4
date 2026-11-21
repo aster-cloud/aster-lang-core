@@ -430,7 +430,7 @@ capabilityAnnotation
  *   age: Int.
  */
 dataDecl
-    : DEFINE article? typeIdent (HAS | WITH) fieldList DOT (NEWLINE* DEDENT)?
+    : DEFINE article? declaredTypeName (HAS | WITH) fieldList DOT (NEWLINE* DEDENT)?
     // 省略 Define 的写法是 Java 独有（TS 报 P005），R53 不扩展到这里：仍只收 TYPE_IDENT
     | article? TYPE_IDENT (HAS | WITH) fieldList DOT (NEWLINE* DEDENT)?
     ;
@@ -443,6 +443,26 @@ dataDecl
 typeIdent
     : TYPE_IDENT
     | {isCaselessScriptIdent()}? IDENT
+    ;
+
+/**
+ * 声明出的类型名与枚举成员名。ADR 0056 修订 A6 K1：结构关键词 token 在这里也收下，只为由 AstBuilder 报 E901
+ * （If / Return… 及其本地化拼写不能作名字），与 ts 同码；其它写法（小写 if、RETURN）报 E055，不会被收作名字。
+ */
+declaredTypeName
+    : typeIdent
+    | structuralKeyword
+    ;
+
+structuralKeyword
+    : DEFINE
+    | IF
+    | LET
+    | MATCH
+    | ELSE
+    | RETURN
+    | RULE
+    | WHEN
     ;
 
 /**
@@ -562,7 +582,7 @@ structKeywordName
  * 语法: Define Status as one of Success, Failure, Pending.
  */
 enumDecl
-    : DEFINE article? typeIdent AS ONE OF variantList DOT
+    : DEFINE article? declaredTypeName AS ONE OF variantList DOT
     ;
 
 article
@@ -574,7 +594,7 @@ article
  * 语法: Success, Failure, Pending
  */
 variantList
-    : typeIdent ((COMMA | OR | AND) typeIdent)*
+    : declaredTypeName ((COMMA | OR | AND) declaredTypeName)*
     ;
 
 /**

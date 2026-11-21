@@ -1,5 +1,5 @@
 {
-  "description": "关键词当名字的双引擎 parity 夹具（ADR 0056 修订 A6 K1–K3，产品裁决 2026-11-22）。aster-lang-ts shared/keyword_name_parity.json 与 aster-lang-core src/test/resources/diagnostics/keyword_name_parity.json 必须 byte-identical。collisionWords：各语言包的 W802 判据集合 W（升序），两引擎按各自的词法表算出的集合须与此相同。带 reject 的例：解析失败，[码, 行] 为第一条解析错误（core 取第一条非 E063 的诊断）。其余例：两引擎都须编译成功，Core IR 原样含 names 中的每个名字，W802 警告按行排序后恰为 warnings（只比较 W802 的 [码, 行]；名字所在源码行里有该英文拼写的整词出现时不报）。",
+  "description": "关键词当名字的双引擎 parity 夹具（ADR 0056 修订 A6 K1–K3，产品裁决 2026-11-22）。aster-lang-ts shared/keyword_name_parity.json 与 aster-lang-core src/test/resources/diagnostics/keyword_name_parity.json 必须 byte-identical。collisionWords：各语言包的 W802 判据集合 W（升序），两引擎按各自的词法表算出的集合须与此相同。带 reject 的例：解析失败，[码, 行] 为第一条解析错误（core 取第一条非 E063 的诊断）；E901 另须参数恰为 params，en-US 例的英文消息恰为 message。其余例：两引擎都须编译成功，Core IR 原样含 names 中的每个名字，W802 警告按行排序后恰为 warnings（只比较 W802 的 [码, 行]；名字所在源码行里有该英文拼写的整词出现时不报）。",
   "collisionWords": {
     "de-DE": [
       "Bool",
@@ -205,7 +205,11 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.return",
+        "kind": "RETURN"
+      }
     },
     {
       "name": "zh-CN 字段名 如果",
@@ -214,7 +218,11 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.if",
+        "kind": "IF"
+      }
     },
     {
       "name": "zh-CN 字段名 否则",
@@ -223,7 +231,11 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.otherwise",
+        "kind": "OTHERWISE"
+      }
     },
     {
       "name": "zh-CN 形参名 当",
@@ -232,7 +244,11 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.when",
+        "kind": "WHEN"
+      }
     },
     {
       "name": "zh-CN 形参名 规则",
@@ -241,7 +257,11 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.rule",
+        "kind": "FUNC_TO"
+      }
     },
     {
       "name": "zh-CN 规则名 如果",
@@ -250,7 +270,11 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.if",
+        "kind": "IF"
+      }
     },
     {
       "name": "zh-CN Let 名 返回",
@@ -259,7 +283,11 @@
       "reject": [
         "E901",
         4
-      ]
+      ],
+      "params": {
+        "keyword": "kw.return",
+        "kind": "RETURN"
+      }
     },
     {
       "name": "de-DE 字段名 wenn",
@@ -268,7 +296,11 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.if",
+        "kind": "IF"
+      }
     },
     {
       "name": "de-DE 字段名 bei",
@@ -277,7 +309,11 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.when",
+        "kind": "WHEN"
+      }
     },
     {
       "name": "de-DE 字段名 regel（小写也译成 Rule）",
@@ -286,7 +322,11 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.rule",
+        "kind": "FUNC_TO"
+      }
     },
     {
       "name": "de-DE 形参名 sei",
@@ -295,7 +335,11 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.let",
+        "kind": "LET"
+      }
     },
     {
       "name": "hi-IN 字段名 जब",
@@ -304,7 +348,11 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.when",
+        "kind": "WHEN"
+      }
     },
     {
       "name": "hi-IN 字段名 यदि",
@@ -313,7 +361,11 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.if",
+        "kind": "IF"
+      }
     },
     {
       "name": "hi-IN 形参名 नियम",
@@ -322,7 +374,11 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.rule",
+        "kind": "FUNC_TO"
+      }
     },
     {
       "name": "en-US 字段名 Return",
@@ -331,7 +387,12 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.return",
+        "kind": "RETURN"
+      },
+      "message": "'Return' is the keyword RETURN and cannot be used as a name; rename it"
     },
     {
       "name": "en-US 字段名 Otherwise",
@@ -340,7 +401,12 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.otherwise",
+        "kind": "OTHERWISE"
+      },
+      "message": "'Otherwise' is the keyword OTHERWISE and cannot be used as a name; rename it"
     },
     {
       "name": "en-US 形参名 If",
@@ -349,7 +415,12 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.if",
+        "kind": "IF"
+      },
+      "message": "'If' is the keyword IF and cannot be used as a name; rename it"
     },
     {
       "name": "en-US 规则名 When",
@@ -358,7 +429,12 @@
       "reject": [
         "E901",
         3
-      ]
+      ],
+      "params": {
+        "keyword": "kw.when",
+        "kind": "WHEN"
+      },
+      "message": "'When' is the keyword WHEN and cannot be used as a name; rename it"
     },
     {
       "name": "en-US Let 名 Match",
@@ -367,7 +443,147 @@
       "reject": [
         "E901",
         4
-      ]
+      ],
+      "params": {
+        "keyword": "kw.match",
+        "kind": "MATCH"
+      },
+      "message": "'Match' is the keyword MATCH and cannot be used as a name; rename it"
+    },
+    {
+      "name": "en-US 类型名 Return",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Return with x as Int.\n",
+      "reject": [
+        "E901",
+        3
+      ],
+      "params": {
+        "keyword": "kw.return",
+        "kind": "RETURN"
+      },
+      "message": "'Return' is the keyword RETURN and cannot be used as a name; rename it"
+    },
+    {
+      "name": "zh-CN 类型名 返回",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 返回 包含 x 作为 整数。\n",
+      "reject": [
+        "E901",
+        3
+      ],
+      "params": {
+        "keyword": "kw.return",
+        "kind": "RETURN"
+      }
+    },
+    {
+      "name": "de-DE 类型名 Wenn",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Wenn mit x als Ganzzahl.\n",
+      "reject": [
+        "E901",
+        3
+      ],
+      "params": {
+        "keyword": "kw.if",
+        "kind": "IF"
+      }
+    },
+    {
+      "name": "hi-IN 类型名 जब",
+      "lexicon": "hi-IN",
+      "source": "मॉड्यूल probe.sample.\n\nपरिभाषित जब सहित x रूप में पूर्णांक.\n",
+      "reject": [
+        "E901",
+        3
+      ],
+      "params": {
+        "keyword": "kw.when",
+        "kind": "WHEN"
+      }
+    },
+    {
+      "name": "en-US 枚举成员 If",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Status as one of If, Done.\n",
+      "reject": [
+        "E901",
+        3
+      ],
+      "params": {
+        "keyword": "kw.if",
+        "kind": "IF"
+      },
+      "message": "'If' is the keyword IF and cannot be used as a name; rename it"
+    },
+    {
+      "name": "zh-CN 枚举成员 如果",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 状态 为以下之一 如果、完成。\n",
+      "reject": [
+        "E901",
+        3
+      ],
+      "params": {
+        "keyword": "kw.if",
+        "kind": "IF"
+      }
+    },
+    {
+      "name": "en-US 类型别名名 When",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nType When as Int.\n",
+      "reject": [
+        "E901",
+        3
+      ],
+      "params": {
+        "keyword": "kw.when",
+        "kind": "WHEN"
+      },
+      "message": "'When' is the keyword WHEN and cannot be used as a name; rename it"
+    },
+    {
+      "name": "zh-CN 类型别名名 当",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n类型 当 作为 整数。\n",
+      "reject": [
+        "E901",
+        3
+      ],
+      "params": {
+        "keyword": "kw.when",
+        "kind": "WHEN"
+      }
+    },
+    {
+      "name": "en-US 构造字段 Return",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine S with x as Int.\n\nRule f, produce S:\n  Return S with Return set to 1.\n",
+      "reject": [
+        "E901",
+        6
+      ],
+      "params": {
+        "keyword": "kw.return",
+        "kind": "RETURN"
+      },
+      "message": "'Return' is the keyword RETURN and cannot be used as a name; rename it"
+    },
+    {
+      "name": "en-US 构造模式的绑定名 Return",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine S with x as Int.\n\nRule f given s as S, produce Int:\n  Match s:\n    When S(Return), Return 1.\n",
+      "reject": [
+        "E901",
+        7
+      ],
+      "params": {
+        "keyword": "kw.return",
+        "kind": "RETURN"
+      },
+      "message": "'Return' is the keyword RETURN and cannot be used as a name; rename it"
     },
     {
       "name": "en-US 字段名 Step（非结构关键词，大写名字照常 E055）",
