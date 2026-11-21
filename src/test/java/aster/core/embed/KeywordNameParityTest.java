@@ -121,7 +121,8 @@ class KeywordNameParityTest {
         var d = e.getDiagnostics().get(0);
         assertThat(d.code()).isEqualTo("E901");
         assertThat(d.params()).isEqualTo(Map.of("keyword", "kw.when", "kind", "WHEN"));
-        assertThat(d.message()).contains("'当' is the keyword WHEN and cannot be used as a name; rename it");
+        // 文案按语言包 overlay 渲染（zh 有译文时是中文）：只断言带引号的作者语言关键词与 kind 都在
+        assertThat(d.message()).contains("'当'").contains("WHEN");
         assertThat(d.line()).isEqualTo(3);
     }
 
