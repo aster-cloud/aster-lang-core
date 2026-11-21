@@ -678,9 +678,11 @@ public final class DeclarationResolver {
             case Decl.Data data -> rewriteData(data, resolved);
             case Decl.Enum en -> new Decl.Enum(en.name(), en.variants(), en.span(), resolved, variantNames.get(en),
                 en.variantSpans());
-            // 别名右侧与 TS 一致不解析（TS AST 不保留右侧），只写入别名名的 TYPE_DECL
-            case Decl.TypeAlias alias -> new Decl.TypeAlias(alias.annotations(), alias.name(), alias.type(),
-                alias.span(), resolved);
+            // 别名右侧在 TYPE 位置解析（ADR 0051 修订 1，aster-lang-test#174 第 5 项）：与字段、形参类型同一路径，
+            // 递归进泛型 / Maybe / Option / Result / List / Map / 函数类型，词汇类型名写回规范名，查不到报 E800。
+            // 别名之间的循环不在此检查（A1 §2.4）。
+            case Decl.TypeAlias alias -> new Decl.TypeAlias(alias.annotations(), alias.name(),
+                resolveType(rootScope(List.of()), alias.type()), alias.span(), resolved);
             case Decl.Func f -> rewriteFunc(f, resolved);
         };
     }
