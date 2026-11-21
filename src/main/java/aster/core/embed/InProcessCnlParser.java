@@ -331,7 +331,7 @@ public class InProcessCnlParser {
                 // 语法分析期递归先于守卫溢出：位置取溢出时的当前 token（仍在深嵌套表达式所在行）
                 throw codedFailure(errorListener, nestingOverflow(parser.getCurrentToken()));
             } catch (ParseBudget.Exceeded e) {
-                throw budgetExceeded(errorListener, e.budget(), parser.getCurrentToken(), source.length());
+                throw budgetExceeded(errorListener, e.budget(), parser.getCurrentToken(), "语法分析", source.length());
             }
 
             // 检查解析错误：抛给用户的是友好化的首个错误（根因），原始 ANTLR
@@ -358,7 +358,13 @@ public class InProcessCnlParser {
             // 6. 名称解析（R1 → lower → R2）：任一 E8xx 即失败，不产出 IR
             //    ★此后各阶段的 StackOverflowError 不再归为 E054：输入嵌套深度已由上面三个递归阶段守住
             //    （词法 / 语法分析 / 构建 AST），这里再溢出是实现缺陷，按内部故障记 ERROR 并返回，不伪装成用户源码错误。
+            //    ★预算只在语法分析的预测里检查（规范化与词法之后紧接着的第一次预测就会查到）；构建 AST 与名称解析
+            //    此前不受预算约束（aster-api#594）。在名称解析前后各查一次：预算已花完时不再开始名称解析，名称解析
+            //    把预算用完时同样归为 E054（reason=time-budget），不悄悄超支请求级额度。名称解析在 16 KiB 内为
+            //    数十毫秒但随语句数超线性增长（ParseStageLinearityTest），边界检查只能在它结束后报告超时。
+            checkStageBudget(budget, errorListener, "构建 AST", source.length());
             NameResolution.ResolvedCore resolved = resolver.resolve(module, scopes);
+            checkStageBudget(budget, errorListener, "名称解析", source.length());
             CoreModel.Module core = resolved.core();
 
             // 7. 提取函数名称（规范名，取自 Core）；@entry 唯一性由 TypeChecker 校验，此处取首个
@@ -418,10 +424,10 @@ public class InProcessCnlParser {
      * （{@link CnlErrorListener#TIME_BUDGET_KEY}，aster-lang-core#259），不显示「嵌套过深」。
      */
     private static BudgetExceededFailure budgetExceeded(CnlErrorListener listener, ParseBudget budget,
-                                                        org.antlr.v4.runtime.Token at, int sourceLength) {
+                                                        org.antlr.v4.runtime.Token at, String stage, int sourceLength) {
         ParseBudget.recordExceeded();
-        LOG.log(System.Logger.Level.WARNING, () -> String.format("CNL 语法分析超出时间预算 %dms，已中止（源码长度 %d，位置 %d:%d）",
-            budget.budgetMillis(), sourceLength,
+        LOG.log(System.Logger.Level.WARNING, () -> String.format("CNL %s超出时间预算 %dms，已中止（源码长度 %d，位置 %d:%d）",
+            stage, budget.budgetMillis(), sourceLength,
             at == null ? 0 : at.getLine(), at == null ? 0 : at.getCharPositionInLine() + 1));
         listener.report(new aster.core.parser.ParseDiagnosticException(
             aster.core.typecheck.ErrorCode.PARSE_NESTING_TOO_DEEP,
@@ -430,6 +436,15 @@ public class InProcessCnlParser {
                 "budgetMs", String.valueOf(budget.budgetMillis())),
             "解析超出时间预算 " + budget.budgetMillis() + "ms", at));
         return new BudgetExceededFailure(listener.getSummary(), listener.getDiagnostics());
+    }
+
+    /** 阶段边界上的预算检查（aster-api#594）：已超时则按 {@link #budgetExceeded} 归为 E054，位置未知。 */
+    private static void checkStageBudget(ParseBudget budget, CnlErrorListener listener, String stage, int sourceLength) {
+        try {
+            budget.check();
+        } catch (ParseBudget.Exceeded e) {
+            throw budgetExceeded(listener, e.budget(), null, stage + "之后", sourceLength);
+        }
     }
 
     private static String overflowMessage() {
