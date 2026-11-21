@@ -10,6 +10,10 @@ import java.util.regex.Pattern;
  * {@code The result is X} → {@code Return X} 重写变换器。
  * <p>
  * 必须在冠词移除之前执行，否则 "The" 会被先移除。
+ * <p>
+ * {@code the result is} 之后的分隔空白只认 ASCII 空格与 tab，不认 VT、FF 与换行（aster-lang-core#298，
+ * 与 aster-lang-ts#348 的空白规则一致）：分隔符跨行时不改写，由语法报错。翻译后的 de-DE {@code Ergebnis ist}
+ * 与 zh-CN {@code 结果为}（其 U+3000 在全角转半角时已成空格）走同一规则。
  */
 public final class ResultIsTransformer implements SyntaxTransformer {
 
@@ -24,13 +28,13 @@ public final class ResultIsTransformer implements SyntaxTransformer {
      * 缩进按定义只由空格与制表符构成，跨行吃掉换行本来就是错的。
      */
     private static final Pattern RESULT_IS_LINE_START = Pattern.compile(
-            "^([ \\t]*)The result is\\s+",
+            "^([ \\t]*)The result is[ \\t]+",
             Pattern.MULTILINE | Pattern.CASE_INSENSITIVE
     );
 
-    /** 内联形式（Match 分支等）: "When X, the result is Y." → "When X, Return Y." */
+    /** 内联形式（Match 分支等）: "When X, the result is Y." → "When X, Return Y."；逗号之后同样不跨行。 */
     private static final Pattern RESULT_IS_INLINE = Pattern.compile(
-            "(,\\s*)the result is\\s+",
+            "(,[ \\t]*)the result is[ \\t]+",
             Pattern.CASE_INSENSITIVE
     );
 
