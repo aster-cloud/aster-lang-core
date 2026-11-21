@@ -1,0 +1,283 @@
+{
+  "description": "`The result is` / `Ergebnis ist` / `结果为` 与英语所有格的双引擎 parity 夹具（aster-lang-core#298，Wave C N1/D2）。aster-lang-ts shared/result_is_parity.json 与 aster-lang-core src/test/resources/diagnostics/result_is_parity.json 必须 byte-identical。带 equivalent 的例子两引擎都须编译成功，且与 equivalent 得到相同的 positionFreeSha256；reject 为 true 的例子两引擎都须拒绝，且第一条错误在 errorLine 行。分隔空白只认 ASCII 空格与 tab（zh-CN 另认 U+3000），不认 VT、FF、换行与其他 Unicode 空白；行首与逗号之后两处改写，大小写不敏感。",
+  "cases": [
+    {
+      "name": "en-US 行首 The result is",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  The result is x.\n",
+      "equivalent": "Module p.\n\nRule f given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "en-US 行首小写",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  the result is x.\n",
+      "equivalent": "Module p.\n\nRule f given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "en-US 行首全大写",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  THE RESULT IS x.\n",
+      "equivalent": "Module p.\n\nRule f given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "en-US 分隔符为 tab",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  The result is\tx.\n",
+      "equivalent": "Module p.\n\nRule f given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "en-US 词间多个空格",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  The   result   is   x.\n",
+      "equivalent": "Module p.\n\nRule f given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "en-US 逗号之后（Match 分支）",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  Match x:\n    When 1, the result is 2.\n    When y, The Result Is y.\n",
+      "equivalent": "Module p.\n\nRule f given x as Int, produce Int:\n  Match x:\n    When 1, Return 2.\n    When y, Return y.\n"
+    },
+    {
+      "name": "en-US 逗号之后换行，分支块内行首",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  Match x:\n    When 1,\n      the result is 2.\n    When y, the result is y.\n",
+      "equivalent": "Module p.\n\nRule f given x as Int, produce Int:\n  Match x:\n    When 1,\n      Return 2.\n    When y, Return y.\n"
+    },
+    {
+      "name": "en-US If 块内",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  If x is greater than 1:\n    The result is 1.\n  The result is x.\n",
+      "equivalent": "Module p.\n\nRule f given x as Int, produce Int:\n  If x is greater than 1:\n    Return 1.\n  Return x.\n"
+    },
+    {
+      "name": "en-US 字符串里的 The result is 不改写",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f, produce Text:\n  The result is \"The result is x\".\n",
+      "equivalent": "Module p.\n\nRule f, produce Text:\n  Return \"The result is x\".\n"
+    },
+    {
+      "name": "en-US 所有格",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nDefine P with v as Int.\n\nRule f given p as P, produce Int:\n  Return p's v.\n",
+      "equivalent": "Module p.\n\nDefine P with v as Int.\n\nRule f given p as P, produce Int:\n  Return p.v.\n"
+    },
+    {
+      "name": "en-US 所有格接 The result is",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nDefine P with v as Int.\n\nRule f given p as P, produce Int:\n  The result is p's v.\n",
+      "equivalent": "Module p.\n\nDefine P with v as Int.\n\nRule f given p as P, produce Int:\n  Return p.v.\n"
+    },
+    {
+      "name": "en-US 链式所有格",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nDefine Q with w as Int.\n\nDefine P with q as Q.\n\nRule f given p as P, produce Int:\n  Return p's q's w.\n",
+      "equivalent": "Module p.\n\nDefine Q with w as Int.\n\nDefine P with q as Q.\n\nRule f given p as P, produce Int:\n  Return p.q.w.\n"
+    },
+    {
+      "name": "en-US The result is 后跟 VT",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  The result is\u000bx.\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "en-US The result is 后跟 FF",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  The result is\fx.\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "en-US The result is 后跟 LF",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  The result is\n  x.\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "en-US The result is 后跟 CRLF",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  The result is\r\n  x.\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "en-US The result is 后跟 U+0085",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  The result isx.\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "en-US The result is 后跟 U+2028",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  The result is x.\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "en-US The result is 后跟 NBSP",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  The result is x.\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "en-US The result is 后跟 U+3000",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  The result is　x.\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "en-US 逗号之后 the result is 后跟 VT",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  Match x:\n    When 1, the result is\u000b2.\n    When y, Return y.\n",
+      "reject": true,
+      "errorLine": 5
+    },
+    {
+      "name": "en-US 逗号之后 the result is 后换行",
+      "lexicon": "en-US",
+      "source": "Module p.\n\nRule f given x as Int, produce Int:\n  Match x:\n    When 1, the result is\n      2.\n    When y, Return y.\n",
+      "reject": true,
+      "errorLine": 5
+    },
+    {
+      "name": "de-DE 行首 Ergebnis ist",
+      "lexicon": "de-DE",
+      "source": "Modul p.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  Ergebnis ist x.\n",
+      "equivalent": "Modul p.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  Gib zurück x.\n"
+    },
+    {
+      "name": "de-DE 行首小写",
+      "lexicon": "de-DE",
+      "source": "Modul p.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  ergebnis ist x.\n",
+      "equivalent": "Modul p.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  Gib zurück x.\n"
+    },
+    {
+      "name": "de-DE 行首全大写",
+      "lexicon": "de-DE",
+      "source": "Modul p.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  ERGEBNIS IST x.\n",
+      "equivalent": "Modul p.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  Gib zurück x.\n"
+    },
+    {
+      "name": "de-DE 分隔符为 tab",
+      "lexicon": "de-DE",
+      "source": "Modul p.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  Ergebnis ist\tx.\n",
+      "equivalent": "Modul p.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  Gib zurück x.\n"
+    },
+    {
+      "name": "de-DE 英文规范拼写",
+      "lexicon": "de-DE",
+      "source": "Modul p.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  The result is x.\n",
+      "equivalent": "Modul p.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  Gib zurück x.\n"
+    },
+    {
+      "name": "de-DE 逗号之后（pruefe 分支）",
+      "lexicon": "de-DE",
+      "source": "Modul p.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  pruefe x:\n    bei 1, Ergebnis ist 2.\n    bei y, ergebnis ist y.\n",
+      "equivalent": "Modul p.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  pruefe x:\n    bei 1, gib zurueck 2.\n    bei y, gib zurueck y.\n"
+    },
+    {
+      "name": "de-DE Ergebnis ist 后跟 VT",
+      "lexicon": "de-DE",
+      "source": "Modul p.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  Ergebnis ist\u000bx.\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "de-DE Ergebnis ist 后跟 FF",
+      "lexicon": "de-DE",
+      "source": "Modul p.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  Ergebnis ist\fx.\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "de-DE Ergebnis ist 后跟 LF",
+      "lexicon": "de-DE",
+      "source": "Modul p.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  Ergebnis ist\n  x.\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "de-DE Ergebnis ist 后跟 NBSP",
+      "lexicon": "de-DE",
+      "source": "Modul p.\n\nRegel f gegeben x als Ganzzahl, liefert Ganzzahl:\n  Ergebnis ist x.\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "zh-CN 行首 结果为",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  结果为 x。\n",
+      "equivalent": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  返回 x。\n"
+    },
+    {
+      "name": "zh-CN 分隔符为 tab",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  结果为\tx。\n",
+      "equivalent": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  返回 x。\n"
+    },
+    {
+      "name": "zh-CN 分隔符为 U+3000",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  结果为　x。\n",
+      "equivalent": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  返回 x。\n"
+    },
+    {
+      "name": "zh-CN 逗号之后（匹配分支）",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  匹配于 x：\n    当 1，结果为 2。\n    当 y, 结果为 y。\n",
+      "equivalent": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  匹配于 x：\n    当 1，返回 2。\n    当 y, 返回 y。\n"
+    },
+    {
+      "name": "zh-CN 所有格",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n定义 P 包含 v 作为 整数。\n\n规则 f 给定 p 作为 P，产出 整数：\n  返回 p's v。\n",
+      "equivalent": "模块 p。\n\n定义 P 包含 v 作为 整数。\n\n规则 f 给定 p 作为 P，产出 整数：\n  返回 p.v。\n"
+    },
+    {
+      "name": "zh-CN 结果为 后跟 VT",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  结果为\u000bx。\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "zh-CN 结果为 后跟 FF",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  结果为\fx。\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "zh-CN 结果为 后跟 LF",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  结果为\n  x。\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "zh-CN 结果为 后跟 CRLF",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  结果为\r\n  x。\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "zh-CN 结果为 后跟 NBSP",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  结果为 x。\n",
+      "reject": true,
+      "errorLine": 4
+    },
+    {
+      "name": "zh-CN 结果为 后跟 U+2028",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  结果为 x。\n",
+      "reject": true,
+      "errorLine": 4
+    }
+  ]
+}
