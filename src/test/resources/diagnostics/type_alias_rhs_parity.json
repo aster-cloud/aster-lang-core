@@ -1,0 +1,130 @@
+{
+  "description": "类型别名右侧在 TYPE 位置解析（ADR 0051 修订 1，aster-lang-test#174 第 5 项）的双引擎 parity 夹具。aster-lang-ts shared/type_alias_rhs_parity.json 与 aster-lang-core src/test/resources/diagnostics/type_alias_rhs_parity.json 必须 byte-identical。判定同 parse_diagnostics_parity.json：每例都能解析，codes 为名称解析（R1）的全部 error [码, 行]，按报告顺序；structs 为可选的类型词汇 [[规范名, 本地名]]。别名右侧与字段、形参类型同一路径递归进各种复合类型，词汇本地类型名解析为规范名，查不到报 E800；别名之间的循环不在此检查（A1 §2.4）。",
+  "cases": [
+    {
+      "name": "E800 别名右侧是未知类型名",
+      "source": "Module p.\n\nType Amount as Unbekannt.\n",
+      "codes": [
+        [
+          "E800",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E800 别名右侧 list of 未知类型",
+      "source": "Module p.\n\nType Amounts as list of Unbekannt.\n",
+      "codes": [
+        [
+          "E800",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E800 别名右侧 maybe 未知类型",
+      "source": "Module p.\n\nType M as maybe Unbekannt.\n",
+      "codes": [
+        [
+          "E800",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E800 别名右侧 result 的失败类型未知",
+      "source": "Module p.\n\nType R as result of Int and Unbekannt.\n",
+      "codes": [
+        [
+          "E800",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E800 zh-CN 别名右侧未知",
+      "lexicon": "zh-CN",
+      "source": "模块 p。\n\n类型 金额 作为 未知类型。\n",
+      "codes": [
+        [
+          "E800",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E800 de-DE 别名右侧未知（有词汇也查不到）",
+      "lexicon": "de-DE",
+      "structs": [
+        [
+          "Customer",
+          "Kunde"
+        ]
+      ],
+      "source": "Modul p.\n\nTyp K als Lieferant.\n",
+      "codes": [
+        [
+          "E800",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E800 别名右侧与其他声明按源码顺序报告",
+      "source": "Module p.\n\nType A as X1.\n\nRule f given x as Y1, produce Int:\n  Return 1.\n\nType B as Z1.\n",
+      "codes": [
+        [
+          "E800",
+          3
+        ],
+        [
+          "E800",
+          5
+        ],
+        [
+          "E800",
+          8
+        ]
+      ]
+    },
+    {
+      "name": "别名右侧是内建类型",
+      "source": "Module p.\n\nType Amount as Int.\n",
+      "codes": []
+    },
+    {
+      "name": "别名右侧是后面声明的 Data",
+      "source": "Module p.\n\nType C as Customer.\n\nDefine Customer with age as Int.\n",
+      "codes": []
+    },
+    {
+      "name": "别名右侧是后面声明的别名",
+      "source": "Module p.\n\nType B as A.\nType A as list of Int.\n",
+      "codes": []
+    },
+    {
+      "name": "de-DE 别名右侧写词汇里的本地类型名",
+      "lexicon": "de-DE",
+      "structs": [
+        [
+          "Customer",
+          "Kunde"
+        ]
+      ],
+      "source": "Modul p.\n\nDefiniere Customer mit alter als Ganzzahl.\n\nTyp K als Kunde.\n",
+      "codes": []
+    },
+    {
+      "name": "zh-CN 别名右侧 可选 词汇本地类型名",
+      "lexicon": "zh-CN",
+      "structs": [
+        [
+          "Customer",
+          "客户"
+        ]
+      ],
+      "source": "模块 p。\n\n定义 Customer 包含 age 作为 整数。\n\n类型 可选客户 作为 可选 客户。\n",
+      "codes": []
+    }
+  ]
+}
