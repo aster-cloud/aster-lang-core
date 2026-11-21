@@ -1,0 +1,749 @@
+{
+  "description": "关键词当名字的双引擎 parity 夹具（ADR 0056 修订 A6 K1–K3，产品裁决 2026-11-22）。aster-lang-ts shared/keyword_name_parity.json 与 aster-lang-core src/test/resources/diagnostics/keyword_name_parity.json 必须 byte-identical。collisionWords：各语言包的 W802 判据集合 W（升序），两引擎按各自的词法表算出的集合须与此相同。带 reject 的例：解析失败，[码, 行] 为第一条解析错误（core 取第一条非 E063 的诊断）。其余例：两引擎都须编译成功，Core IR 原样含 names 中的每个名字，W802 警告按行排序后恰为 warnings（只比较 W802 的 [码, 行]；名字所在源码行里有该英文拼写的整词出现时不报）。",
+  "collisionWords": {
+    "de-DE": [
+      "Bool",
+      "Define",
+      "Float",
+      "If",
+      "Int",
+      "Let",
+      "Match",
+      "Module",
+      "Otherwise",
+      "Profile",
+      "Return",
+      "Rule",
+      "When",
+      "allow",
+      "and",
+      "apply",
+      "as",
+      "async",
+      "await",
+      "backoff",
+      "be",
+      "because",
+      "between",
+      "compensate",
+      "cpu",
+      "deny",
+      "depends",
+      "escalate",
+      "false",
+      "given",
+      "has",
+      "io",
+      "is",
+      "matching",
+      "maybe",
+      "none",
+      "not",
+      "on",
+      "or",
+      "over",
+      "pattern",
+      "produce",
+      "required",
+      "retry",
+      "scope",
+      "set",
+      "start",
+      "step",
+      "then",
+      "timeout",
+      "times",
+      "to",
+      "true",
+      "under",
+      "use",
+      "with",
+      "within",
+      "workflow"
+    ],
+    "en-US": [],
+    "hi-IN": [
+      "Bool",
+      "Define",
+      "Float",
+      "If",
+      "Int",
+      "Let",
+      "Match",
+      "Module",
+      "Otherwise",
+      "Profile",
+      "Return",
+      "Rule",
+      "Text",
+      "When",
+      "allow",
+      "and",
+      "apply",
+      "as",
+      "async",
+      "await",
+      "backoff",
+      "be",
+      "because",
+      "between",
+      "compensate",
+      "cpu",
+      "deny",
+      "depends",
+      "escalate",
+      "false",
+      "given",
+      "has",
+      "in",
+      "io",
+      "is",
+      "matching",
+      "maybe",
+      "minus",
+      "modulo",
+      "none",
+      "not",
+      "null",
+      "on",
+      "or",
+      "over",
+      "pattern",
+      "plus",
+      "produce",
+      "required",
+      "retry",
+      "scope",
+      "set",
+      "start",
+      "step",
+      "then",
+      "timeout",
+      "times",
+      "to",
+      "true",
+      "under",
+      "use",
+      "version",
+      "with",
+      "within",
+      "workflow"
+    ],
+    "zh-CN": [
+      "Bool",
+      "Define",
+      "Float",
+      "If",
+      "Int",
+      "Let",
+      "Match",
+      "Module",
+      "Otherwise",
+      "Profile",
+      "Return",
+      "Rule",
+      "Text",
+      "When",
+      "allow",
+      "and",
+      "apply",
+      "as",
+      "async",
+      "await",
+      "backoff",
+      "be",
+      "because",
+      "between",
+      "compensate",
+      "cpu",
+      "deny",
+      "depends",
+      "escalate",
+      "false",
+      "given",
+      "has",
+      "in",
+      "io",
+      "is",
+      "matching",
+      "maybe",
+      "minus",
+      "modulo",
+      "none",
+      "not",
+      "null",
+      "on",
+      "or",
+      "over",
+      "pattern",
+      "plus",
+      "produce",
+      "required",
+      "retry",
+      "scope",
+      "set",
+      "start",
+      "step",
+      "then",
+      "timeout",
+      "times",
+      "to",
+      "true",
+      "under",
+      "use",
+      "version",
+      "with",
+      "within",
+      "workflow"
+    ]
+  },
+  "cases": [
+    {
+      "name": "zh-CN 字段名 返回",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 返回 作为 整数。\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "zh-CN 字段名 如果",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 如果 作为 整数。\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "zh-CN 字段名 否则",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 否则 作为 整数。\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "zh-CN 形参名 当",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值 给定 当 作为 整数，产出 整数：\n  返回 当。\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "zh-CN 形参名 规则",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值 给定 规则 作为 整数，产出 整数：\n  返回 规则。\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "zh-CN 规则名 如果",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 如果 给定 x 作为 整数，产出 整数：\n  返回 x。\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "zh-CN Let 名 返回",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值 给定 x 作为 整数，产出 整数：\n  令 返回 定义为 x。\n  返回 x。\n",
+      "reject": [
+        "E901",
+        4
+      ]
+    },
+    {
+      "name": "de-DE 字段名 wenn",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Software mit wenn als Ganzzahl.\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "de-DE 字段名 bei",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Software mit bei als Ganzzahl.\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "de-DE 字段名 regel（小写也译成 Rule）",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Software mit regel als Ganzzahl.\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "de-DE 形参名 sei",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nRegel wert gegeben sei als Ganzzahl, liefert Ganzzahl:\n  gib zurueck sei.\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "hi-IN 字段名 जब",
+      "lexicon": "hi-IN",
+      "source": "मॉड्यूल probe.sample.\n\nपरिभाषित Software सहित जब रूप में पूर्णांक.\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "hi-IN 字段名 यदि",
+      "lexicon": "hi-IN",
+      "source": "मॉड्यूल probe.sample.\n\nपरिभाषित Software सहित यदि रूप में पूर्णांक.\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "hi-IN 形参名 नियम",
+      "lexicon": "hi-IN",
+      "source": "मॉड्यूल probe.sample.\n\nनियम get दिया गया नियम रूप में पूर्णांक, उत्पन्न पूर्णांक:\n  लौटाएं नियम.\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "en-US 字段名 Return",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Software with Return as Int.\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "en-US 字段名 Otherwise",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Software with Otherwise as Int.\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "en-US 形参名 If",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given If as Int, produce Int:\n  Return If.\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "en-US 规则名 When",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule When given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E901",
+        3
+      ]
+    },
+    {
+      "name": "en-US Let 名 Match",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Match be x.\n  Return x.\n",
+      "reject": [
+        "E901",
+        4
+      ]
+    },
+    {
+      "name": "en-US 字段名 Step（非结构关键词，大写名字照常 E055）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Software with Step as Int.\n",
+      "reject": [
+        "E055",
+        3
+      ]
+    },
+    {
+      "name": "en-US 形参名 Max（非结构关键词，大写名字照常 E055）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given Max as Int, produce Int:\n  Return Max.\n",
+      "reject": [
+        "E055",
+        3
+      ]
+    },
+    {
+      "name": "en-US 字段名 return / when 小写照旧是名字",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Software with return as Int, when as Int.\n\nRule get given s as Software, produce Int:\n  Return s.return.\n",
+      "names": [
+        "return",
+        "when"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "zh-CN 字段 版本：名字取 version，声明与成员访问各一条 W802",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 版本 作为 整数。\n\n规则 取值 给定 s 作为 软件，产出 整数：\n  返回 s.版本。\n",
+      "names": [
+        "version"
+      ],
+      "warnings": [
+        [
+          "W802",
+          3
+        ],
+        [
+          "W802",
+          6
+        ]
+      ]
+    },
+    {
+      "name": "zh-CN 字段 允许",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 允许 作为 整数。\n\n规则 取值 给定 s 作为 软件，产出 整数：\n  返回 s.允许。\n",
+      "names": [
+        "allow"
+      ],
+      "warnings": [
+        [
+          "W802",
+          3
+        ],
+        [
+          "W802",
+          6
+        ]
+      ]
+    },
+    {
+      "name": "zh-CN 字段 升级",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 升级 作为 整数。\n\n规则 取值 给定 s 作为 软件，产出 整数：\n  返回 s.升级。\n",
+      "names": [
+        "escalate"
+      ],
+      "warnings": [
+        [
+          "W802",
+          3
+        ],
+        [
+          "W802",
+          6
+        ]
+      ]
+    },
+    {
+      "name": "zh-CN 字段 属于",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 属于 作为 整数。\n\n规则 取值 给定 s 作为 软件，产出 整数：\n  返回 s.属于。\n",
+      "names": [
+        "in"
+      ],
+      "warnings": [
+        [
+          "W802",
+          3
+        ],
+        [
+          "W802",
+          6
+        ]
+      ]
+    },
+    {
+      "name": "zh-CN 字段 给定",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 给定 作为 整数。\n\n规则 取值 给定 s 作为 软件，产出 整数：\n  返回 s.给定。\n",
+      "names": [
+        "given"
+      ],
+      "warnings": [
+        [
+          "W802",
+          3
+        ],
+        [
+          "W802",
+          6
+        ]
+      ]
+    },
+    {
+      "name": "zh-CN 形参 版本：名字引用的首段不告警",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值 给定 版本 作为 整数，产出 整数：\n  返回 版本。\n",
+      "names": [
+        "version"
+      ],
+      "warnings": [
+        [
+          "W802",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "zh-CN Let 名 版本",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值 给定 x 作为 整数，产出 整数：\n  令 版本 定义为 x。\n  返回 x。\n",
+      "names": [
+        "version"
+      ],
+      "warnings": [
+        [
+          "W802",
+          4
+        ]
+      ]
+    },
+    {
+      "name": "zh-CN 规则名 允许",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 允许 给定 x 作为 整数，产出 整数：\n  返回 x。\n",
+      "names": [
+        "allow"
+      ],
+      "warnings": [
+        [
+          "W802",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "zh-CN 源码里直接写英文拼写 allow：名字就是所写的词，不告警",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 allow 作为 整数。\n\n规则 取值 给定 s 作为 软件，产出 整数：\n  返回 s.allow。\n",
+      "names": [
+        "allow"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "zh-CN 同一行写英文 version、另一行写 版本：只在 版本 所在行告警",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 version 作为 整数。\n\n规则 取值 给定 s 作为 软件，产出 整数：\n  返回 s.版本。\n",
+      "names": [
+        "version"
+      ],
+      "warnings": [
+        [
+          "W802",
+          6
+        ]
+      ]
+    },
+    {
+      "name": "zh-CN 字段 类型 不改名、不告警（TYPE_ALIAS 只在句首）",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 类型 作为 整数。\n\n规则 取值 给定 s 作为 软件，产出 整数：\n  返回 s.类型。\n",
+      "names": [
+        "类型"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "zh-CN 字段 结果 不改名、不告警（OF 家族还原原词）",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 结果 作为 整数。\n\n规则 取值 给定 s 作为 软件，产出 整数：\n  返回 s.结果。\n",
+      "names": [
+        "结果"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "zh-CN 普通名字 名称 不告警",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 名称 作为 整数。\n\n规则 取值 给定 s 作为 软件，产出 整数：\n  返回 s.名称。\n",
+      "names": [
+        "名称"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "de-DE 字段 erlauben",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Software mit erlauben als Ganzzahl.\n\nRegel wert gegeben s als Software, liefert Ganzzahl:\n  gib zurueck s.erlauben.\n",
+      "names": [
+        "allow"
+      ],
+      "warnings": [
+        [
+          "W802",
+          3
+        ],
+        [
+          "W802",
+          6
+        ]
+      ]
+    },
+    {
+      "name": "de-DE 字段 gleich",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Software mit gleich als Ganzzahl.\n\nRegel wert gegeben s als Software, liefert Ganzzahl:\n  gib zurueck s.gleich.\n",
+      "names": [
+        "be"
+      ],
+      "warnings": [
+        [
+          "W802",
+          3
+        ],
+        [
+          "W802",
+          6
+        ]
+      ]
+    },
+    {
+      "name": "de-DE 形参 erlauben",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nRegel wert gegeben erlauben als Ganzzahl, liefert Ganzzahl:\n  gib zurueck erlauben.\n",
+      "names": [
+        "allow"
+      ],
+      "warnings": [
+        [
+          "W802",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "de-DE 字段 version 与英文同拼写：不改名、不告警",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Software mit version als Ganzzahl.\n\nRegel wert gegeben s als Software, liefert Ganzzahl:\n  gib zurueck s.version.\n",
+      "names": [
+        "version"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "hi-IN 字段 अनुमति",
+      "lexicon": "hi-IN",
+      "source": "मॉड्यूल probe.sample.\n\nपरिभाषित Software सहित अनुमति रूप में पूर्णांक.\n\nनियम get दिया गया s रूप में Software, उत्पन्न पूर्णांक:\n  लौटाएं s.अनुमति.\n",
+      "names": [
+        "allow"
+      ],
+      "warnings": [
+        [
+          "W802",
+          3
+        ],
+        [
+          "W802",
+          6
+        ]
+      ]
+    },
+    {
+      "name": "hi-IN 字段 में",
+      "lexicon": "hi-IN",
+      "source": "मॉड्यूल probe.sample.\n\nपरिभाषित Software सहित में रूप में पूर्णांक.\n\nनियम get दिया गया s रूप में Software, उत्पन्न पूर्णांक:\n  लौटाएं s.में.\n",
+      "names": [
+        "in"
+      ],
+      "warnings": [
+        [
+          "W802",
+          3
+        ],
+        [
+          "W802",
+          6
+        ]
+      ]
+    },
+    {
+      "name": "hi-IN 形参 अनुमति",
+      "lexicon": "hi-IN",
+      "source": "मॉड्यूल probe.sample.\n\nनियम get दिया गया अनुमति रूप में पूर्णांक, उत्पन्न पूर्णांक:\n  लौटाएं अनुमति.\n",
+      "names": [
+        "allow"
+      ],
+      "warnings": [
+        [
+          "W802",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "en-US 字段 version（含成员访问）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Software with version as Int.\n\nRule get given s as Software, produce Int:\n  Return s.version.\n",
+      "names": [
+        "version"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "en-US 字段 type（含成员访问）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Software with type as Int.\n\nRule get given s as Software, produce Int:\n  Return s.type.\n",
+      "names": [
+        "type"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "en-US 字段 given（含成员访问）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Software with given as Int.\n\nRule get given s as Software, produce Int:\n  Return s.given.\n",
+      "names": [
+        "given"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "en-US 形参 type（含变量引用）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given type as Int, produce Int:\n  Return type.\n",
+      "names": [
+        "type"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "en-US 形参 version（含变量引用）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given version as Int, produce Int:\n  Return version.\n",
+      "names": [
+        "version"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "en-US 字段 module / be / required / between",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Software with module as Int, be as Int, required as Int, between as Int.\n\nRule get given s as Software, produce Int:\n  Return s.module + s.be + s.required + s.between.\n",
+      "names": [
+        "module",
+        "be",
+        "required",
+        "between"
+      ],
+      "warnings": []
+    }
+  ]
+}

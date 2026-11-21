@@ -487,10 +487,6 @@ rangeBound
 nameIdent
     : IDENT
     | TYPE_IDENT
-    | TYPE
-    | VERSION
-    | REQUIRED
-    | BETWEEN
     | structKeywordName
     ;
 
@@ -546,6 +542,19 @@ structKeywordName
     // ADR 0055 #4：约束关键词 matching 是 lexer 硬 token，在标识符位置（成员名、变量名、字段、参数）
     // 同样软关键字，`obj.matching` 等写法不受影响；约束位置仍按 MATCHING token 分派。
     | MATCHING
+    // ADR 0056 修订 A6 K2：声明与约束用词在标识符位置同样是软关键字。此前 TYPE / VERSION / REQUIRED / BETWEEN
+    // 只在 nameIdent 里放行，成员访问（`s.version`；zh `s.版本`、de `s.gleich` 规范化后是同一拼写）与变量引用
+    // （`Return type.`）被卡；given / be / module 在任何名字位置都被卡。ts 的上下文关键字模型
+    // 这些位置都收作名字。typeDecl / importDecl / givenParamList / Let 的 be / 约束的起点
+    // 仍按对应 token 分派。produce 不放行：函数头可省略返回类型（`…, produce:`），形参类型也可省略，
+    // 放行后 `, produce` 会被读成又一个形参。
+    | TYPE
+    | VERSION
+    | REQUIRED
+    | BETWEEN
+    | GIVEN
+    | BE
+    | MODULE
     ;
 
 /**

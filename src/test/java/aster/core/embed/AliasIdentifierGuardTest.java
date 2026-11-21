@@ -99,8 +99,9 @@ class AliasIdentifierGuardTest {
         assertEquals(E808, d.code());
         assertEquals("低头", d.params().get("alias"));
         assertEquals("RETURN", d.params().get("kind"));
-        // core 在文本层把别名译成英文关键词，名字位置得到的是 Return
-        assertEquals("Return", d.params().get("name"));
+        // core 在文本层把别名译成英文关键词 Return；形参位置的结构关键词解析期即报 E901（ADR 0056 修订 A6 K1），
+        // 于是由解析失败归因得到 E808，名字取源码里的别名写法——与 ts 同一条路径、同一参数
+        assertEquals("低头", d.params().get("name"));
         assertEquals(3, d.line());
     }
 

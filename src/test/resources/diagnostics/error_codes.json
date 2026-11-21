@@ -944,11 +944,25 @@
     "message": "Resolved '{written}' in {role} position without a known receiver type",
     "help": "Add a type annotation to the receiver so the name can be checked against its type."
   },
+  "KEYWORD_RENAMED_AS_NAME": {
+    "code": "W802",
+    "category": "scope",
+    "severity": "warning",
+    "message": "'{keyword}' is read as the keyword {kind}: the name becomes '{name}'",
+    "help": "Rename it to keep a name of your own; the name used at run time is '{name}'."
+  },
   "PARSE_DUPLICATE_ANNOTATION_ARG": {
     "code": "E900",
     "category": "syntax",
     "severity": "error",
     "message": "Annotation @{annotation} repeats the argument {name}",
     "help": "Give each named argument of an annotation at most once."
+  },
+  "PARSE_KEYWORD_AS_NAME": {
+    "code": "E901",
+    "category": "syntax",
+    "severity": "error",
+    "message": "{keyword} is the keyword {kind} and cannot be used as a name; rename it",
+    "help": "Choose a name that is not a keyword, for example by adding a word to it."
   }
 }

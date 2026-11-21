@@ -392,9 +392,12 @@ public class InProcessCnlParser {
 
             LOG.log(System.Logger.Level.INFO, String.format("CNL 解析成功: module=%s, function=%s", moduleName, firstFunctionName));
 
-            List<Diagnostic> warnings = resolved.diagnostics().stream()
+            List<Diagnostic> warnings = new java.util.ArrayList<>(resolved.diagnostics().stream()
                 .filter(d -> d.severity() != Diagnostic.Severity.ERROR)
-                .toList();
+                .toList());
+            // 关键词被改名为名字（W802，ADR 0056 修订 A6 K3）：按语言包本身判定，不含用户别名，与 ts 同一判据
+            warnings.addAll(KeywordNameGuard.check(module, getLexiconForLocale(locale), source));
+            warnings = List.copyOf(warnings);
             return new ParseResult(module, moduleName, firstFunctionName, functionNames, entryFunctionName,
                 core, warnings);
 
