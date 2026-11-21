@@ -281,6 +281,38 @@
       ]
     },
     {
+      "name": "E056 类型别名前的声明级注解（aster-lang-ts#380，Wave C 裁决 D1）",
+      "source": "Module m.\n\n@pii(L1, email) Type Email as Text.\n",
+      "codes": [
+        [
+          "E056",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E056 类型别名前的声明级注解（zh-CN 类型）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n@pii(L1, email) 类型 邮箱 作为 文本。\n",
+      "codes": [
+        [
+          "E056",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E056 类型别名前的多个声明级注解（de-DE Typ）",
+      "lexicon": "de-DE",
+      "source": "Modul m.\n\n@deprecated @pii(L1, email) Typ Email als Text.\n",
+      "codes": [
+        [
+          "E056",
+          3
+        ]
+      ]
+    },
+    {
       "name": "E055 大写形参名（aster-lang-ts#328）",
       "source": "Module m.\n\nRule f given Customer as Text, produce Text:\n  Return \"x\".\n",
       "codes": [
@@ -537,6 +569,47 @@
         [
           "E063",
           3
+        ]
+      ]
+    },
+    {
+      "name": "E063 模块头之后的第一条顶层声明缩进（aster-lang-ts#380，D1）",
+      "source": "Module m.\n\n  Type Email as Text.\n",
+      "codes": [
+        [
+          "E063",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E063 缩进的顶层 Rule",
+      "source": "Module m.\n\n  Rule f given x as Int, produce Int:\n    Return x.\n",
+      "codes": [
+        [
+          "E063",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E063 缩进的顶层声明（zh-CN）",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n  类型 邮箱 作为 文本。\n",
+      "codes": [
+        [
+          "E063",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E052 已有顶层声明之后再缩进的声明",
+      "source": "Module m.\n\nDefine P with v as Int.\n  Define Q with w as Int.\n",
+      "codes": [
+        [
+          "E052",
+          4
         ]
       ]
     },

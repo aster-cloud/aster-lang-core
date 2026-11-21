@@ -143,19 +143,15 @@ class AstBuilderTest {
         assertEquals("Text", target.name());
     }
 
+    /** 类型别名前的声明级注解不进 Core IR、静默无效，与 ts 同码 E056 拒绝（aster-lang-ts#380，Wave C 裁决 D1）。 */
     @Test
-    void testTypeAliasWithAnnotation() {
+    void testTypeAliasWithAnnotationIsRejected() {
         String input = """
             @pii type Email as Text.
             """;
 
-        aster.core.ast.Module module = parseAndBuild(input);
-
-        assertEquals(1, module.decls().size());
-        Decl.TypeAlias typeAlias = (Decl.TypeAlias) module.decls().get(0);
-        assertEquals("Email", typeAlias.name());
-        assertEquals(1, typeAlias.annotations().size());
-        assertEquals("pii", typeAlias.annotations().get(0));
+        ParseDiagnosticException e = assertThrows(ParseDiagnosticException.class, () -> parseAndBuild(input));
+        assertEquals(aster.core.typecheck.ErrorCode.PARSE_EXPECTED_AFTER, e.code());
     }
 
     @Test
