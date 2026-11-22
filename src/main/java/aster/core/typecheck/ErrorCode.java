@@ -170,7 +170,9 @@ public enum ErrorCode {
   ALIAS_IDENTIFIER_COLLISION("E808", Category.SCOPE, Severity.ERROR, "Alias '{alias}' ({kind}) is used as a name in the source: '{name}'", "Rename the name, or replace the alias with a multi-word phrase."),
   SHADOWED_VOCABULARY("W800", Category.SCOPE, Severity.WARNING, "Declaration '{written}' in {role} position shadows a vocabulary entry", "Rename the declaration if the shadowing is unintended; the declaration wins over the vocabulary entry."),
   RESOLVED_WITHOUT_TYPE("W801", Category.SCOPE, Severity.WARNING, "Resolved '{written}' in {role} position without a known receiver type", "Add a type annotation to the receiver so the name can be checked against its type."),
+  KEYWORD_RENAMED_AS_NAME("W802", Category.SCOPE, Severity.WARNING, "'{keyword}' is read as the keyword {kind}: the name becomes '{name}'", "Rename it to keep a name of your own; the name used at run time is '{name}'."),
   PARSE_DUPLICATE_ANNOTATION_ARG("E900", Category.SYNTAX, Severity.ERROR, "Annotation @{annotation} repeats the argument {name}", "Give each named argument of an annotation at most once."),
+  PARSE_KEYWORD_AS_NAME("E901", Category.SYNTAX, Severity.ERROR, "{keyword} is the keyword {kind} and cannot be used as a name; rename it", "Choose a name that is not a keyword, for example by adding a word to it."),
   ;
 
   private final String code;
