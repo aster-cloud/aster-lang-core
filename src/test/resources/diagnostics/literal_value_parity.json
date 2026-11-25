@@ -200,6 +200,22 @@
       "trigger": "路径",
       "content": "»x«",
       "valid": false
+    },
+    {
+      "name": "en-US 内容可以含反引号（ADR 0060 修订 2 X2：值在字符串里）",
+      "lexicon": "en-US",
+      "source": "Module m.\n\nRule f, produce Text:\n  Return pfad.\n",
+      "trigger": "pfad",
+      "content": "a`b`c",
+      "valid": true
+    },
+    {
+      "name": "en-US 触发词含反引号拒绝（ADR 0060 修订 2 X2）",
+      "lexicon": "en-US",
+      "source": "Module m.\n\nRule f, produce Text:\n  Return pfad.\n",
+      "trigger": "`pfad`",
+      "content": "x",
+      "valid": false
     }
   ]
 }

@@ -35,7 +35,7 @@ class LiteralValueParityTest {
         for (JsonNode c : fixture().get("cases")) {
             tests.add(DynamicTest.dynamicTest(c.get("name").asText(), () -> assertCase(c)));
         }
-        assertThat(tests).hasSize(25);
+        assertThat(tests).hasSize(27);
         return tests.stream();
     }
 
