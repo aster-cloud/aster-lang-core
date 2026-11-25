@@ -989,6 +989,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             if (token.getSymbol().getType() == AsterParser.STRING_LITERAL) {
                 shape.add("_");
                 args.add(new Expr.String(parseStringLiteral(token), spanFrom(token)));
+            } else if (EscapedToken.isEscaped(token.getSymbol())) {
+                // 转义名是名字不是结论词（ADR 0064 N3）：记为反引号，查表必然落空
+                shape.add("`");
             } else {
                 shape.add(token.getText().toLowerCase(Locale.ROOT));
             }
