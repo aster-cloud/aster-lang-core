@@ -161,7 +161,8 @@ public final class SyntaxErrorCollector extends BaseErrorListener {
         for (int i = bad.getTokenIndex() - 1; stream != null && i >= 0; i--) {
             Token prev = stream.get(i);
             if (prev.getChannel() == Token.DEFAULT_CHANNEL) {
-                return "is".equalsIgnoreCase(prev.getText());
+                // 转义的 `is` 是名字不是关键词（ADR 0064 N3），不给 is 提示
+                return !EscapedToken.isEscaped(prev) && "is".equalsIgnoreCase(prev.getText());
             }
         }
         return false;

@@ -20,8 +20,11 @@ import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 /**
- * 策略包显示排版规则 L1–L9 的字符串部分（ADR 0059 修订 4 §4）：CLI 与 aster-api 共用，与 ts {@code ./layout} 和
+ * 策略包显示排版规则 L1–L10 的字符串部分（ADR 0059 修订 4 §4、修订 5 §2）：CLI 与 aster-api 共用，与 ts {@code ./layout} 和
  * aster-lang-test 参照实现 {@code display.mjs} 跑同一组向量。
+ *
+ * <p>L10（隐藏转义符）：L10a 是形状检查（{@link #hiddenEscapeTriples}），L10b 是去反引号不变性（{@link #checkHiddenEscapes}，
+ * 需要编译）。不带 {@link L10bVerifier} 的 {@code checkPackage} 失败封闭：排版含转义三元组即拒绝（规则 L10b）。
  *
  * <p>只用字符串运算、{@link CaseFold#foldKey}（NFC + Unicode 15.1 简单折叠）与标识符字符类
  * {@code [\p{L}\p{M}\p{Nd}_]}；值是否被切进结构 span 由 L9 的补空格不变性交给编译器判定，这里不依赖任何词法器
@@ -69,6 +72,17 @@ public final class PackageLayoutRules {
     public static PolicyLayout checkPackage(byte[] layoutJson, byte[] displayAster, byte[] policySource, int layoutVersion,
                                             Collection<String> vocabularyLocalized, Collection<String> literalKeywords,
                                             Collection<String> operatorSpellings) {
+        return checkPackage(layoutJson, displayAster, policySource, layoutVersion, vocabularyLocalized, literalKeywords,
+            operatorSpellings, null);
+    }
+
+    /**
+     * 同上，另跑 L10（ADR 0059 修订 5）。{@code verifier} 为 null 时含转义三元组的排版一律拒绝（失败封闭）；为
+     * {@link L10bVerifier#DEFERRED} 时只跑 L10a，L10b 由调用方之后调用 {@link #checkHiddenEscapes}；否则此处一并跑 L10b。
+     */
+    public static PolicyLayout checkPackage(byte[] layoutJson, byte[] displayAster, byte[] policySource, int layoutVersion,
+                                            Collection<String> vocabularyLocalized, Collection<String> literalKeywords,
+                                            Collection<String> operatorSpellings, L10bVerifier verifier) {
         String source;
         try {
             source = LayoutFormat.decodeStrict(policySource);
@@ -77,16 +91,39 @@ public final class PackageLayoutRules {
         }
         PolicyLayout layout = parseAndVersion(layoutJson, layoutVersion);
         LayoutLimits.check(layout, policySource);
-        return afterLimits(layout, displayAster, source, vocabularyLocalized, literalKeywords, operatorSpellings);
+        return hiddenEscapes(afterLimits(layout, displayAster, source, vocabularyLocalized, literalKeywords, operatorSpellings),
+            verifier);
     }
 
-    /** 同上，{@code source} 为已解码的规范源码文本。 */
+    /** 同上，{@code source} 为已解码的规范源码文本；含转义三元组的排版拒绝（失败封闭）。 */
     public static PolicyLayout checkPackage(byte[] layoutJson, byte[] displayAster, String source, int layoutVersion,
                                             Collection<String> vocabularyLocalized, Collection<String> literalKeywords,
                                             Collection<String> operatorSpellings) {
+        return checkPackage(layoutJson, displayAster, source, layoutVersion, vocabularyLocalized, literalKeywords,
+            operatorSpellings, null);
+    }
+
+    /** 同上，{@code verifier} 的含义见字节入口。 */
+    public static PolicyLayout checkPackage(byte[] layoutJson, byte[] displayAster, String source, int layoutVersion,
+                                            Collection<String> vocabularyLocalized, Collection<String> literalKeywords,
+                                            Collection<String> operatorSpellings, L10bVerifier verifier) {
         PolicyLayout layout = parseAndVersion(layoutJson, layoutVersion);
         LayoutLimits.check(layout, source);
-        return afterLimits(layout, displayAster, source, vocabularyLocalized, literalKeywords, operatorSpellings);
+        return hiddenEscapes(afterLimits(layout, displayAster, source, vocabularyLocalized, literalKeywords, operatorSpellings),
+            verifier);
+    }
+
+    /** L10a，按 {@code verifier} 失败封闭、推迟或一并跑 L10b。 */
+    private static PolicyLayout hiddenEscapes(PolicyLayout layout, L10bVerifier verifier) {
+        List<HiddenEscape> triples = hiddenEscapeTriples(layout);
+        if (triples.isEmpty() || verifier == L10bVerifier.DEFERRED) {
+            return layout;
+        }
+        if (verifier == null) {
+            throw new LayoutException("L10b", "hidden escape delimiters need the L10b compile check, which this caller does not run");
+        }
+        checkHiddenEscapes(layout, verifier);
+        return layout;
     }
 
     private static PolicyLayout parseAndVersion(byte[] layoutJson, int layoutVersion) {
@@ -111,11 +148,131 @@ public final class PackageLayoutRules {
         return layout;
     }
 
-    /** 派生排版 L′（run --display / show --from-display）：L2、L5、L6、L7。 */
+    /**
+     * 派生排版 L′（run --display / show --from-display）：L2、L5、L6、L7 与 L10a（ADR 0059 修订 5 §4.4）。L10b 要编译 L′ 的
+     * 规范源码，由调用方在 L8 / L9 之后调用 {@link #checkHiddenEscapes}。
+     */
     public static void checkDerived(PolicyLayout layout, Collection<String> vocabularyLocalized,
                                     Collection<String> literalKeywords, Collection<String> operatorSpellings) {
         LayoutLimits.check(layout, layout.toCanonical());
         stringRules(layout, vocabularyLocalized, literalKeywords, operatorSpellings);
+        hiddenEscapeTriples(layout);
+    }
+
+    // ------------------------------------------------------------------
+    // L10 隐藏转义符（ADR 0059 修订 5）
+    // ------------------------------------------------------------------
+
+    /** 每个排版至多隐藏的转义对数（L10a 第 5 条）。 */
+    public static final int MAX_HIDDEN_ESCAPES = 4;
+
+    private static final String BACKTICK = "`";
+    private static final Pattern ESCAPE_CONTENT = Pattern.compile("[\\p{L}\\p{M}\\p{Nd}_]+");
+
+    /**
+     * 一个转义三元组：开反引号结构 span 的下标、内容 span 的名字、开 / 闭反引号在规范源码中的偏移（UTF-16）。
+     * {@code closeOffset = openOffset + 1 + name.length()}。
+     */
+    public record HiddenEscape(int spanIndex, String name, int openOffset, int closeOffset) {
+    }
+
+    /**
+     * L10a（不编译）：任何结构 span 的 display 不含反引号；canonical 含反引号的结构 span 恰为 {@code {"`",""}}，且从左到右
+     * 配成「反引号结构 span、内容 span、反引号结构 span」三元组；内容全由 {@code [\p{L}\p{M}\p{Nd}_]} 组成；至多
+     * {@value #MAX_HIDDEN_ESCAPES} 个。
+     *
+     * @return 按出现顺序的三元组；没有隐藏转义时为空
+     * @throws LayoutException 规则 {@code L10a}
+     */
+    public static List<HiddenEscape> hiddenEscapeTriples(PolicyLayout layout) {
+        List<LayoutSpan> spans = layout.spans();
+        List<HiddenEscape> out = new ArrayList<>();
+        int at = 0;
+        for (int i = 0; i < spans.size(); i++) {
+            LayoutSpan s = spans.get(i);
+            if (s instanceof LayoutSpan.Structural st) {
+                if (st.display().contains(BACKTICK)) {
+                    throw new LayoutException("L10a", "structural span " + i + " displays a backtick");
+                }
+                if (st.canonical().contains(BACKTICK)) {
+                    requireDelimiter(st, i);
+                    LayoutSpan content = i + 1 < spans.size() ? spans.get(i + 1) : null;
+                    LayoutSpan close = i + 2 < spans.size() ? spans.get(i + 2) : null;
+                    if (!(content instanceof LayoutSpan.Content c) || !(close instanceof LayoutSpan.Structural cl)
+                            || !cl.canonical().contains(BACKTICK)) {
+                        throw new LayoutException("L10a", "backtick structural span " + i + " is not part of an escape triple");
+                    }
+                    if (cl.display().contains(BACKTICK)) {
+                        throw new LayoutException("L10a", "structural span " + (i + 2) + " displays a backtick");
+                    }
+                    requireDelimiter(cl, i + 2);
+                    if (!ESCAPE_CONTENT.matcher(c.text()).matches()) {
+                        throw new LayoutException("L10a", "hidden escape content of span " + (i + 1) + " is not a single name");
+                    }
+                    out.add(new HiddenEscape(i, c.text(), at, at + 1 + c.text().length()));
+                    if (out.size() > MAX_HIDDEN_ESCAPES) {
+                        throw new LayoutException("L10a", "more than " + MAX_HIDDEN_ESCAPES + " hidden escapes");
+                    }
+                    at += 2 + c.text().length();
+                    i += 2;
+                    continue;
+                }
+            }
+            at += s.canonicalText().length();
+        }
+        return List.copyOf(out);
+    }
+
+    private static void requireDelimiter(LayoutSpan.Structural st, int index) {
+        if (!st.canonical().equals(BACKTICK) || !st.display().isEmpty()) {
+            throw new LayoutException("L10a", "backtick structural span " + index + " must be exactly {\"`\",\"\"}");
+        }
+    }
+
+    /**
+     * {@code C⁻(S)}：从 {@code source} 中删去子集 {@code subset}（第 k 位为 1 表示第 k 个三元组）里各三元组的两个反引号。
+     */
+    public static String stripHiddenEscapes(String source, List<HiddenEscape> triples, int subset) {
+        StringBuilder out = new StringBuilder(source);
+        for (int k = triples.size() - 1; k >= 0; k--) {
+            if ((subset & (1 << k)) != 0) {
+                HiddenEscape e = triples.get(k);
+                out.deleteCharAt(e.closeOffset());
+                out.deleteCharAt(e.openOffset());
+            }
+        }
+        return out.toString();
+    }
+
+    /**
+     * L10b（编译）：对三元组的每个非空子集 S，{@code C⁻(S)} 编译失败，或与 {@code C} 的 positionFreeSha256 相同。
+     * 没有隐藏转义时不编译。至多 15 次额外编译（加上 {@code C} 本身一次）。
+     *
+     * @throws LayoutException 规则 {@code L10b}：{@code C} 本身编译不了，或某个变体编译成另一个程序
+     */
+    public static void checkHiddenEscapes(PolicyLayout layout, L10bVerifier verifier) {
+        List<HiddenEscape> triples = hiddenEscapeTriples(layout);
+        if (triples.isEmpty()) {
+            return;
+        }
+        String canonical = layout.toCanonical();
+        String base = verifier.positionFreeSha256(canonical);
+        if (base == null) {
+            throw new LayoutException("L10b", "the canonical source does not compile");
+        }
+        for (int subset = 1; subset < (1 << triples.size()); subset++) {
+            String variant = stripHiddenEscapes(canonical, triples, subset);
+            String hash = verifier.positionFreeSha256(variant);
+            if (hash != null && !hash.equals(base)) {
+                List<String> names = new ArrayList<>();
+                for (int k = 0; k < triples.size(); k++) {
+                    if ((subset & (1 << k)) != 0) {
+                        names.add(triples.get(k).name());
+                    }
+                }
+                throw new LayoutException("L10b", "removing the hidden escapes around " + names + " compiles to a different program");
+            }
+        }
     }
 
     private static void stringRules(PolicyLayout layout, Collection<String> vocabularyLocalized,
@@ -289,6 +446,12 @@ public final class PackageLayoutRules {
      */
     public static String padStructural(PolicyLayout layout) {
         String c = layout.toCanonical();
+        // 转义三元组的两个内侧边界（开反引号之后、闭反引号之前）不补空格（ADR 0059 修订 5 §2.2）
+        java.util.Set<Integer> inner = new java.util.HashSet<>();
+        for (HiddenEscape e : hiddenEscapeTriplesOrEmpty(layout)) {
+            inner.add(e.openOffset() + 1);
+            inner.add(e.closeOffset());
+        }
         TreeSet<Integer> bounds = new TreeSet<>(Comparator.reverseOrder());
         int at = 0;
         for (LayoutSpan s : layout.spans()) {
@@ -299,6 +462,7 @@ public final class PackageLayoutRules {
             }
             at += len;
         }
+        bounds.removeAll(inner);
         StringBuilder out = new StringBuilder(c);
         for (int p : bounds) {
             if (eligible(c, p)) {
@@ -306,6 +470,15 @@ public final class PackageLayoutRules {
             }
         }
         return out.toString();
+    }
+
+    /** padStructural 只在 L10a 通过之后调用；形状不合规时不免除任何边界（照修订 4 补空格）。 */
+    private static List<HiddenEscape> hiddenEscapeTriplesOrEmpty(PolicyLayout layout) {
+        try {
+            return hiddenEscapeTriples(layout);
+        } catch (LayoutException e) {
+            return List.of();
+        }
     }
 
     private static boolean eligible(String c, int p) {

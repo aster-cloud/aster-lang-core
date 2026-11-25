@@ -33,6 +33,20 @@ class VocabularyTriggerCollisionTest {
     }
 
     @Test
+    @DisplayName("写法含反引号（本地名或同义词，任一角色）→ error（ADR 0060 修订 2 X2）")
+    void backtickInLocalizedOrAliasIsRejected() {
+        DomainVocabulary vocab = DomainVocabulary.builder("dom", "转义域", "zh-CN")
+            .addStruct("Order", "`订单`")
+            .addField("amount", "金额", "Order", "`数额`")
+            .build();
+
+        var result = vocab.validate();
+        assertFalse(result.valid());
+        assertTrue(result.errors().stream().anyMatch(e -> e.contains("写法 \"`订单`\" 含反引号")), "实际：" + result.errors());
+        assertTrue(result.errors().stream().anyMatch(e -> e.contains("写法 \"`数额`\" 含反引号")), "实际：" + result.errors());
+    }
+
+    @Test
     @DisplayName("同角色同作用域内写法相同但规范名不同 → error")
     void sameScopeConflictingCanonicalsAreRejected() {
         DomainVocabulary vocab = DomainVocabulary.builder("dom", "冲突域", "de-DE")

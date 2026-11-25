@@ -25,12 +25,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class LayoutVectorsTest {
 
-    /** 四个向量文件的 sha256（aster-lang-test#234）。 */
+    /** 五个向量文件的 sha256（aster-lang-test#234；display-escape.json 为 ADR 0059 修订 5）。 */
     static final Map<String, String> VECTOR_SHA256 = Map.of(
         "layout.json", "cc51f78a44f87d3cf0c03543eeeb9d68015fd922923094c0aad76fe64a8aa79b",
-        "display-reconstruct.json", "0aedb893caeb81923a895fdecf5c9983314a276a6d966e8801c009840d0d04a1",
-        "display-padding.json", "294986f9fafc886bf478d3961233603d5ee9c40ac2f6485c88f550ae5763232f",
-        "keyword-spellings.json", "467b1075dd67e2e7249d50ae3b47eb5c1f00a2f1827dcf501016e97ef906fd3f");
+        "display-reconstruct.json", "4e57005c1c69af329001537f2b043d492bcd4a1dc02a1f7ecaeba4c543e32537",
+        "display-padding.json", "9977a80d16d604cbb7de1bafa695799cb48a36c33ec9936aa2a61b7c324ee65d",
+        "keyword-spellings.json", "467b1075dd67e2e7249d50ae3b47eb5c1f00a2f1827dcf501016e97ef906fd3f",
+        "display-escape.json", "8e7b1e9afba5a443f74b16e154418fa2e3bb9a142322114165c63b5aac94d5fb");
 
     static byte[] resource(String name) throws Exception {
         try (InputStream in = LayoutVectorsTest.class.getResourceAsStream("/layout/" + name)) {
