@@ -35,7 +35,7 @@ class EscapeParityTest {
         for (JsonNode c : cases) {
             tests.add(DynamicTest.dynamicTest(c.get("group").asText() + " " + c.get("name").asText(), () -> assertCase(c)));
         }
-        assertThat(tests).hasSize(118);
+        assertThat(tests).hasSize(119);
         return tests.stream();
     }
 

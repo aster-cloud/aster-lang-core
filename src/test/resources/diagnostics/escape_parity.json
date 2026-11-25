@@ -828,6 +828,15 @@
       ]
     },
     {
+      "name": "`plus`(…) 是普通调用，不是运算符词前缀调用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule `plus` given a as Int, b as Int, produce Int:\n  Return a.\n\nRule f given x as Int, produce Int:\n  Return `plus`(x, 1).\n",
+      "names": [
+        "plus"
+      ]
+    },
+    {
       "name": "`ok` 是名字",
       "group": "F4",
       "lexicon": "en-US",
