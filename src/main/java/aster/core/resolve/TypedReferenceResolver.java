@@ -7,6 +7,7 @@ import aster.core.identifier.VocabularyScopes;
 import aster.core.ir.CoreModel;
 import aster.core.resolve.ResolutionChoice.Ambiguous;
 import aster.core.resolve.ResolutionChoice.Choice;
+import aster.core.resolve.ResolutionChoice.DeclTable;
 import aster.core.resolve.ResolutionChoice.Entry;
 import aster.core.resolve.ResolutionChoice.Hit;
 import aster.core.resolve.ResolutionChoice.Miss;
@@ -105,7 +106,7 @@ public final class TypedReferenceResolver {
     /** 本模块函数（规范名）。 */
     private final Map<String, CoreModel.Func> funcs = new HashMap<>();
     /** 值位置第 2 步：函数与类型声明（原写法取自 origin.written）。 */
-    private final List<Entry> valueDecls = new ArrayList<>();
+    private final DeclTable valueDecls = new DeclTable();
     /** PatCtor 的 Data 构造器（本模块 Data 与导入类型）。 */
     private final List<Entry> ctorDecls = new ArrayList<>();
 
@@ -202,8 +203,7 @@ public final class TypedReferenceResolver {
     }
 
     /** 源码声明优先；未命中再查词汇（含规范名直写）。 */
-    private Choice declThenVocab(List<Entry> decls, List<VocabMap> maps, String written) {
-        Choice fromDecl = ResolutionChoice.chooseDecl(decls, written);
+    private Choice declThenVocab(Choice fromDecl, List<VocabMap> maps, String written) {
         return fromDecl instanceof Miss ? choice.chooseVocab(maps, written) : fromDecl;
     }
 
@@ -213,7 +213,7 @@ public final class TypedReferenceResolver {
             .filter(x -> e == null || x.getKey().equals(e))
             .flatMap(x -> entriesOf(x.getValue(), ResolvedRole.MEMBER_REF).stream())
             .toList();
-        return declThenVocab(decls, scoped(VocabularyScopes::enumMembers, e, ResolvedRole.MEMBER_REF), written);
+        return declThenVocab(ResolutionChoice.chooseDecl(decls, written), scoped(VocabularyScopes::enumMembers, e, ResolvedRole.MEMBER_REF), written);
     }
 
     /** Data s 的字段；s 为 null 时为全部 Data 的字段（接收者类型未知）。 */
@@ -222,7 +222,7 @@ public final class TypedReferenceResolver {
             .filter(x -> s == null || x.getKey().equals(s))
             .flatMap(x -> entriesOf(x.getValue().keySet(), ResolvedRole.FIELD_REF).stream())
             .toList();
-        return declThenVocab(decls, scoped(VocabularyScopes::fields, s, ResolvedRole.FIELD_REF), written);
+        return declThenVocab(ResolutionChoice.chooseDecl(decls, written), scoped(VocabularyScopes::fields, s, ResolvedRole.FIELD_REF), written);
     }
 
     private boolean isEnum(String name) {
@@ -273,30 +273,25 @@ public final class TypedReferenceResolver {
 
     private record Local(String name, Static type) {}
 
-    private static final class Scope {
-        final Scope parent;
-        final List<Local> locals = new ArrayList<>();
-
-        Scope(Scope parent) {
-            this.parent = parent;
+    /** 局部名作用域（{@link LocalScope}，按名字与折叠键索引）。 */
+    private record Scope(LocalScope<Local> locals) {
+        static Scope root() {
+            return new Scope(new LocalScope<>(null));
         }
 
-        /** 由内向外、同层后声明者在前。 */
-        List<Local> visible() {
-            List<Local> out = new ArrayList<>();
-            for (Scope s = this; s != null; s = s.parent) out.addAll(s.locals.reversed());
-            return out;
+        Scope child() {
+            return new Scope(locals.child());
         }
     }
 
     /** 遍历上下文：作用域、所在函数 / lambda 的声明返回类型、各层 lambda 的捕获改写表、所在函数的类型参数。 */
     private record Frame(Scope scope, CoreModel.Type ret, List<Map<String, Set<String>>> captures, Set<String> typeParams) {
         Frame child() {
-            return new Frame(new Scope(scope), ret, captures, typeParams);
+            return new Frame(scope.child(), ret, captures, typeParams);
         }
 
         void declare(String name, Static type) {
-            scope.locals.add(new Local(name, type));
+            scope.locals().add(name, new Local(name, type));
         }
     }
 
@@ -304,12 +299,10 @@ public final class TypedReferenceResolver {
 
     /** LOCAL（§6.2 第 1 步）：精确命中最近声明，否则折叠唯一。 */
     private static LocalChoice findLocal(Scope scope, String written) {
-        List<Local> locals = scope.visible();
         String w = CaseFold.nfc(written);
-        Optional<Local> exact = locals.stream().filter(l -> l.name().equals(w)).findFirst();
-        if (exact.isPresent()) return new LocalChoice(new Hit(localEntry(exact.get())), exact.get());
-        String key = CaseFold.foldKey(w);
-        List<Local> folded = locals.stream().filter(l -> CaseFold.foldKey(l.name()).equals(key)).toList();
+        Local exact = scope.locals().nearest(w);
+        if (exact != null) return new LocalChoice(new Hit(localEntry(exact)), exact);
+        List<Local> folded = scope.locals().folded(CaseFold.foldKey(w));
         Choice picked = ResolutionChoice.choose(List.of(), folded.stream().map(TypedReferenceResolver::localEntry).toList());
         if (!(picked instanceof Hit h)) return new LocalChoice(picked, null);
         Local local = folded.stream().filter(l -> l.name().equals(h.entry().canonical())).findFirst().orElseThrow();
@@ -325,8 +318,8 @@ public final class TypedReferenceResolver {
     /** 规范名路径的类型：首段局部名的声明类型，逐段取字段声明类型；不产生诊断。 */
     private Static pathType(Scope scope, String name) {
         String[] parts = name.split("\\.", -1);
-        Static type = scope.visible().stream().filter(l -> l.name().equals(parts[0])).findFirst()
-            .map(Local::type).orElse(UNKNOWN);
+        Local head = scope.locals().nearest(parts[0]);
+        Static type = head == null ? UNKNOWN : head.type();
         for (int i = 1; i < parts.length; i++) {
             if (isOpaque(type)) return DYNAMIC;
             String s = dataOf(type);
@@ -338,7 +331,7 @@ public final class TypedReferenceResolver {
     /** 被调源码函数；同名局部名（如 lambda 绑定）遮蔽模块函数。 */
     private CoreModel.Func calleeOf(Scope scope, CoreModel.Expr target) {
         if (!(target instanceof CoreModel.Name n)) return null;
-        if (scope.visible().stream().anyMatch(l -> l.name().equals(n.name))) return null;
+        if (scope.locals().nearest(n.name) != null) return null;
         return funcs.get(n.name);
     }
 
@@ -464,7 +457,7 @@ public final class TypedReferenceResolver {
     private Choice chooseValue(Scope scope, String written) {
         Choice local = findLocal(scope, written).choice();
         if (!(local instanceof Miss)) return local;
-        return declThenVocab(valueDecls, vocabTypesAndFunctions(), written);
+        return declThenVocab(ResolutionChoice.chooseDecl(written, valueDecls), vocabTypesAndFunctions(), written);
     }
 
     /**
@@ -473,7 +466,7 @@ public final class TypedReferenceResolver {
      */
     private List<Entry> otherLayers(String written, String current, CoreModel.ResolutionMark mark) {
         List<Entry> found = Stream.concat(
-            choiceEntries(ResolutionChoice.chooseDecl(valueDecls, written)).stream(),
+            choiceEntries(ResolutionChoice.chooseDecl(written, valueDecls)).stream(),
             choiceEntries(choice.chooseVocab(vocabTypesAndFunctions(), written)).stream()).toList();
         boolean viaR1 = mark.r1Role() == ResolvedRole.FUNC_REF || mark.r1Role() == ResolvedRole.TYPE;
         return found.isEmpty() && viaR1 ? List.of(new Entry(written, current, mark.r1Role())) : found;
@@ -647,7 +640,7 @@ public final class TypedReferenceResolver {
         Map<String, Set<String>> renames = new LinkedHashMap<>();
         List<Map<String, Set<String>>> captures = new ArrayList<>(f.captures());
         captures.add(renames);
-        Frame inner = new Frame(new Scope(f.scope()), e.ret, captures, f.typeParams());
+        Frame inner = new Frame(f.scope().child(), e.ret, captures, f.typeParams());
         // 只有声明类型是类型来源（§4、裁决 R31）：未标注类型的参数视为未知
         e.params.forEach(p -> inner.declare(p.name, declared(declaredType(p), f.typeParams())));
         CoreModel.Block body = resolveBlock(inner, e.body);
@@ -856,7 +849,7 @@ public final class TypedReferenceResolver {
                 ErrorCode.AMBIGUOUS_NAME, ErrorCode.UNRESOLVED_PATTERN);
         }
         if (typeNameOf(subject) != null) {
-            return new CtorRule(declThenVocab(ctorDecls, vocabTypes(), written), ResolvedRole.TYPE, true,
+            return new CtorRule(declThenVocab(ResolutionChoice.chooseDecl(ctorDecls, written), vocabTypes(), written), ResolvedRole.TYPE, true,
                 ErrorCode.AMBIGUOUS_NAME, ErrorCode.UNRESOLVED_TYPE);
         }
         List<Entry> decls = Stream.concat(
@@ -864,7 +857,7 @@ public final class TypedReferenceResolver {
             ctorDecls.stream()).toList();
         List<VocabMap> maps = Stream.concat(
             scoped(VocabularyScopes::enumMembers, null, ResolvedRole.MEMBER_REF).stream(), vocabTypes().stream()).toList();
-        return new CtorRule(declThenVocab(decls, maps, written), ResolvedRole.TYPE, false,
+        return new CtorRule(declThenVocab(ResolutionChoice.chooseDecl(decls, written), maps, written), ResolvedRole.TYPE, false,
             ErrorCode.AMBIGUOUS_PATTERN, ErrorCode.UNRESOLVED_PATTERN);
     }
 
@@ -889,7 +882,7 @@ public final class TypedReferenceResolver {
     private CoreModel.Decl resolveDecl(CoreModel.Decl d) {
         if (!(d instanceof CoreModel.Func fn)) return d;
         Set<String> typeParams = typeParamsOf(fn);
-        Frame f = new Frame(new Scope(null), declaredRet(fn), List.of(), typeParams);
+        Frame f = new Frame(Scope.root(), declaredRet(fn), List.of(), typeParams);
         fn.params.forEach(p -> f.declare(p.name, declared(declaredType(p), typeParams)));
         return CoreCopies.func(fn, resolveBlock(f, fn.body));
     }

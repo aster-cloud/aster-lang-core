@@ -6,6 +6,7 @@ import aster.core.identifier.Candidate;
 import aster.core.identifier.VocabularyScopes;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -65,6 +66,41 @@ public final class ResolutionChoice {
         List<Entry> folded = decls.stream()
             .filter(d -> CaseFold.foldKey(d.written()).equals(key) || CaseFold.foldKey(d.canonical()).equals(key))
             .toList();
+        return choose(exact, folded);
+    }
+
+    /**
+     * 源码声明表：按原写法、规范名及两者的折叠键索引，{@link #chooseDecl(String, DeclTable...)} 与逐项比对的
+     * {@link #chooseDecl(List, String)} 结果相同（候选次序即加入次序），但查找代价与声明个数无关（aster-lang-core#312）。
+     */
+    public static final class DeclTable {
+        private final Map<String, List<Entry>> exact = new HashMap<>();
+        private final Map<String, List<Entry>> folded = new HashMap<>();
+
+        public void add(Entry e) {
+            put(exact, e.written(), e);
+            if (!e.canonical().equals(e.written())) put(exact, e.canonical(), e);
+            String a = CaseFold.foldKey(e.written());
+            String b = CaseFold.foldKey(e.canonical());
+            put(folded, a, e);
+            if (!b.equals(a)) put(folded, b, e);
+        }
+
+        private static void put(Map<String, List<Entry>> index, String key, Entry e) {
+            index.computeIfAbsent(key, k -> new ArrayList<>()).add(e);
+        }
+    }
+
+    /** 同 {@link #chooseDecl(List, String)}，候选取自依次排列的各张声明表。 */
+    public static Choice chooseDecl(String written, DeclTable... tables) {
+        String w = CaseFold.nfc(written);
+        String key = CaseFold.foldKey(w);
+        List<Entry> exact = new ArrayList<>();
+        List<Entry> folded = new ArrayList<>();
+        for (DeclTable t : tables) {
+            exact.addAll(t.exact.getOrDefault(w, List.of()));
+            folded.addAll(t.folded.getOrDefault(key, List.of()));
+        }
         return choose(exact, folded);
     }
 
