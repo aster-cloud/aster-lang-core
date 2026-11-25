@@ -1365,6 +1365,36 @@
         3
       ]
     ]
+  },
+  {
+    "name": "E062 `option of` 之后直接换行（aster-lang-ts#389）",
+    "source": "Module m.\n\nRule f given x as option of\n  Int, produce Int:\n  Return 1.\n",
+    "codes": [
+      [
+        "E062",
+        3
+      ]
+    ]
+  },
+  {
+    "name": "E062 `result of` 之后直接换行（aster-lang-ts#389）",
+    "source": "Module m.\n\nRule f given x as result of\n  Int and Text, produce Int:\n  Return 1.\n",
+    "codes": [
+      [
+        "E062",
+        3
+      ]
+    ]
+  },
+  {
+    "name": "E061 `of` 之后换行、下一行同列续写类型（aster-lang-ts#389）",
+    "source": "Module m.\n\nRule f given x as List of\nInt, produce Int:\n  Return 1.\n",
+    "codes": [
+      [
+        "E061",
+        3
+      ]
+    ]
   }
   ]
 }
