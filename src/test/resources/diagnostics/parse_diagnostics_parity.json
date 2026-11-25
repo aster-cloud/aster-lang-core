@@ -1325,6 +1325,46 @@
         3
       ]
     ]
+  },
+  {
+    "name": "E062 `of` 之后直接换行（aster-lang-ts#389）",
+    "source": "Module m.\n\nRule f given x as List of\n  Int, produce Int:\n  Return 1.\n",
+    "codes": [
+      [
+        "E062",
+        3
+      ]
+    ]
+  },
+  {
+    "name": "E062 泛型 `Pair of` 之后直接换行（aster-lang-ts#389）",
+    "source": "Module m.\n\nDefine Pair has a as Int.\n\nRule f given x as Pair of\n  Int, produce Int:\n  Return 1.\n",
+    "codes": [
+      [
+        "E062",
+        5
+      ]
+    ]
+  },
+  {
+    "name": "E055 句点后的 `It` 之后换行（aster-lang-ts#389）",
+    "source": "Module m.\n\nRule f given x as Int, produce Int. It\n  performs io:\n  Return 1.\n",
+    "codes": [
+      [
+        "E055",
+        3
+      ]
+    ]
+  },
+  {
+    "name": "E060 句点后的 `It` 之后不是 performs（aster-lang-ts#389）",
+    "source": "Module m.\n\nRule f given x as Int, produce Int. It does io:\n  Return 1.\n",
+    "codes": [
+      [
+        "E060",
+        3
+      ]
+    ]
   }
   ]
 }
