@@ -1325,6 +1325,47 @@
         3
       ]
     ]
+  },
+  {
+    "name": "E902 名字转义未闭合（ADR 0064 N1a）",
+    "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Return `x.\n",
+    "codes": [
+      [
+        "E902",
+        4
+      ]
+    ]
+  },
+  {
+    "name": "E902 名字转义为空（ADR 0064 N1a）",
+    "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Return ``.\n",
+    "codes": [
+      [
+        "E902",
+        4
+      ]
+    ]
+  },
+  {
+    "name": "E902 名字转义含非法字符（ADR 0064 N1a）",
+    "source": "Module m.\n\nRule f given x as Int, produce Int:\n  Return `a.b`.\n",
+    "codes": [
+      [
+        "E902",
+        4
+      ]
+    ]
+  },
+  {
+    "name": "E050 全角反引号不是名字转义（zh-CN，ADR 0064 Q2）",
+    "lexicon": "zh-CN",
+    "source": "模块 m。\n\n规则 f 给定 x 作为 整数，产出 整数：\n  返回 ｀x｀。\n",
+    "codes": [
+      [
+        "E050",
+        4
+      ]
+    ]
   }
   ]
 }

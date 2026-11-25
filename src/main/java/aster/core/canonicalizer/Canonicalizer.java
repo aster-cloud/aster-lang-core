@@ -1443,8 +1443,9 @@ public final class Canonicalizer {
             if (ch == '\u3000') {
                 result.append(' ');
             }
-            // 全角 ASCII 字符（！到～对应全角！到～）
-            else if (ch >= '\uFF01' && ch <= '\uFF5E') {
+            // 全角 ASCII 字符（！到～对应全角！到～）。全角反引号 ｀（U+FF40）除外：名字转义只认 ASCII 反引号
+            // （ADR 0064 Q2），折叠后 zh 的 ｀版本｀ 会静默成为合法转义；它照旧由词法器报 E050
+            else if (ch >= '\uFF01' && ch <= '\uFF5E' && ch != FULLWIDTH_BACKTICK) {
                 result.append((char) (ch - 0xFEE0));
             }
             else {
@@ -1463,8 +1464,8 @@ public final class Canonicalizer {
      * 处理行尾注释：如 {@code 若 条件 // 说明} 会被截断为 {@code 若 条件 }
      */
     private String removeLineComments(String s) {
-        // 使用 segmentString 保护字符串字面量（复用词法表引号配置）
-        List<Segment> segments = segmentString(s);
+        // 使用 segmentString 保护字符串字面量（复用词法表引号配置）；转义里的 # 不是注释，注释里的反引号不是转义
+        List<Segment> segments = segmentString(s, true);
 
         StringBuilder result = new StringBuilder();
         for (Segment segment : segments) {
@@ -1669,6 +1670,17 @@ public final class Canonicalizer {
 
         for (int i = 0; i < s.length(); i++) {
             char ch = s.charAt(i);
+            // 名字转义是不透明片段（ADR 0064 N2）：不折叠空白、不删标点前空格
+            int escapeClose = !inString ? escapeClose(s, i) : -1;
+            if (escapeClose > 0) {
+                if (current.length() > 0) {
+                    segments.add(new Segment(current.toString(), false));
+                    current = new StringBuilder();
+                }
+                segments.add(Segment.escape(s.substring(i, escapeClose + 1)));
+                i = escapeClose;
+                continue;
+            }
             current.append(ch);
 
             if (!inString) {
@@ -1895,6 +1907,13 @@ public final class Canonicalizer {
         char opener = 0;
         for (int i = 0; i < s.length(); i++) {
             char ch = s.charAt(i);
+            int escapeClose = opener == 0 ? escapeClose(s, i) : -1;
+            if (escapeClose > 0) {
+                // 名字转义原样保留（ADR 0064 N2）：里面的弯引号不是定界符，由词法器报 E902
+                out.append(s, i, escapeClose + 1);
+                i = escapeClose;
+                continue;
+            }
             if (opener != 0) {
                 boolean closes = quoteClosers(opener).indexOf(ch) >= 0 && !isEscaped(s, i);
                 out.append(closes && opener == '\u201C' ? '"' : ch);
@@ -1926,8 +1945,19 @@ public final class Canonicalizer {
      * 支持从词法表配置的引号以及 ASCII 双引号（作为通用回退）
      */
     private List<Segment> segmentString(String s) {
+        return segmentString(s, false);
+    }
+
+    /**
+     * 同 {@link #segmentString(String)}，另把名字转义 {@code `x`} 切成不透明片段（ADR 0064 N2 / N2a）。
+     *
+     * @param commentAware 为 true 时，行注释（{@code #}、{@code //}）开始之后到行末不识别转义：注释里的反引号只是字符
+     *                     （N1c）。只有删除注释那一步需要；之后的各步里注释已不存在，{@code //} 是整除运算符。
+     */
+    private List<Segment> segmentString(String s, boolean commentAware) {
         List<Segment> segments = new ArrayList<>();
         boolean inString = false;
+        boolean inComment = false;
         String expectedClose = null;
         StringBuilder current = new StringBuilder();
 
@@ -1944,6 +1974,23 @@ public final class Canonicalizer {
 
         for (int i = 0; i < s.length(); i++) {
             char ch = s.charAt(i);
+            if (ch == '\n') {
+                inComment = false;
+            } else if (commentAware && !inString && !inComment
+                    && (ch == '#' || (ch == '/' && i + 1 < s.length() && s.charAt(i + 1) == '/'))) {
+                inComment = true;
+            }
+            // 名字转义：字符串与注释之外，反引号到同一行的下一个反引号是一个不透明片段
+            int escapeClose = !inString && !inComment ? escapeClose(s, i) : -1;
+            if (escapeClose > 0) {
+                if (current.length() > 0) {
+                    segments.add(new Segment(current.toString(), false));
+                    current = new StringBuilder();
+                }
+                segments.add(Segment.escape(s.substring(i, escapeClose + 1)));
+                i = escapeClose;
+                continue;
+            }
             current.append(ch);
 
             // 检查字符串开始标记
@@ -2003,13 +2050,24 @@ public final class Canonicalizer {
         // 第一步：使用 segmentString 保护字符串字面量，只在代码部分清空空白行
         List<Segment> segments = segmentString(s);
         StringBuilder withoutBlankLines = new StringBuilder();
-        for (Segment segment : segments) {
+        for (int i = 0; i < segments.size(); i++) {
+            Segment segment = segments.get(i);
             if (segment.inString) {
                 withoutBlankLines.append(segment.text);
-            } else {
-                String cleaned = segment.text.replaceAll("(?m)^[ \\t]+$", "");
-                withoutBlankLines.append(cleaned);
+                continue;
             }
+            // 紧接名字转义的段：段尾的空白是转义所在行的缩进，不是空行（ADR 0064，与 ts clearBlankRuns 一致）
+            String text = segment.text;
+            String keep = "";
+            if (i + 1 < segments.size() && segments.get(i + 1).escape()) {
+                int end = text.length();
+                while (end > 0 && (text.charAt(end - 1) == ' ' || text.charAt(end - 1) == '\t')) {
+                    end--;
+                }
+                keep = text.substring(end);
+                text = text.substring(0, end);
+            }
+            withoutBlankLines.append(text.replaceAll("(?m)^[ \\t]+$", "")).append(keep);
         }
 
         // 第二步：使用状态跟踪的空白规范化
@@ -2026,5 +2084,40 @@ public final class Canonicalizer {
     /**
      * 源码片段（字符串内或字符串外）
      */
-    private static record Segment(String text, boolean inString) {}
+    /**
+     * 源码片段：字符串外的代码，或不透明片段（字符串字面量、名字转义）。名字转义的 {@code inString} 也为 true，
+     * 所以各步按 {@code inString} 跳过字符串的地方同样跳过转义（ADR 0064 N2）；{@code escape} 区分两者。
+     */
+    private record Segment(String text, boolean inString, boolean escape) {
+        Segment(String text, boolean inString) {
+            this(text, inString, false);
+        }
+
+        static Segment escape(String text) {
+            return new Segment(text, true, true);
+        }
+    }
+
+    /** 全角反引号 U+FF40：不折叠成 ASCII 反引号（ADR 0064 Q2）。 */
+    private static final char FULLWIDTH_BACKTICK = '\uFF40';
+
+    /**
+     * 名字转义片段的结束位置（ADR 0064 N2a）：{@code s[i]} 是反引号且同一行里还有一个反引号时，返回后者的下标；
+     * 否则返回 -1。未闭合的反引号不形成片段，留给词法器报 E902。只看字符，不判断内容是否合法。
+     */
+    static int escapeClose(String s, int i) {
+        if (s.charAt(i) != '`') {
+            return -1;
+        }
+        for (int j = i + 1; j < s.length(); j++) {
+            char c = s.charAt(j);
+            if (c == '`') {
+                return j;
+            }
+            if (c == '\n' || c == '\r') {
+                return -1;
+            }
+        }
+        return -1;
+    }
 }

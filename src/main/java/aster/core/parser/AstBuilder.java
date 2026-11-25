@@ -114,7 +114,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     // ADR 0046：Profile 声明——关键词文本须为 Profile（经 Canonicalizer 规范化后），id 须合形态
     private String profileId(AsterParser.ProfileDeclContext ctx) {
-        if (!"Profile".equals(ctx.TYPE_IDENT().getText())) {
+        if (!"Profile".equals(ctx.TYPE_IDENT().getText()) || EscapedToken.isEscaped(ctx.TYPE_IDENT().getSymbol())) {
             throw new ParseDiagnosticException(ErrorCode.PARSE_MISPLACED,
                 Map.of("construct", "token.profile", "position", "token.onceAfterModuleHeader"),
                 "Expected 'Profile' declaration after Module header", ctx);
@@ -384,8 +384,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
      * 结构关键词不能当名字（ADR 0056 修订 A6 K1，产品裁决 Q5）：名字位置上的 {@code If}/{@code Return}/{@code Rule}…
      * 以及译成它们的本地化拼写，两引擎都报 E901。此前 core 经 {@code structKeywordName} 软关键字把它们收作名字——
      * zh 形参 {@code 返回} 静默改名为 {@code Return}——而 ts 报 E055。英文小写写法（{@code return}、{@code when}）不是规范拼写，
-     * 照旧是名字（ADR 0019 G1）。
-     * <p>TODO(ADR 0064)：名字转义语法落地后，help 改为建议用转义写法保留原词。
+     * 照旧是名字（ADR 0019 G1）。名字转义 {@code `If`} 永远是名字（ADR 0064 N3），不报 E901；E901 的 help 建议的正是这种写法。
      */
     private static void rejectKeywordName(AsterParser.NameIdentContext ctx) {
         if (ctx == null) return;
@@ -406,10 +405,11 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     /** 文本是结构关键词的规范拼写时报 E901；由本地化关键词还原出的标识符（OF 家族私有区标记）不在此列。 */
     private static void rejectStructuralKeyword(String text, Token tok) {
         StructuralKeyword keyword = STRUCTURAL_KEYWORD_NAMES.get(text);
-        if (keyword == null || isRestoredKeywordIdent(tok)) return;
+        if (keyword == null || isRestoredKeywordIdent(tok) || EscapedToken.isEscaped(tok)) return;
         throw new ParseDiagnosticException(ErrorCode.PARSE_KEYWORD_AS_NAME,
             Map.of("keyword", "kw." + keyword.slot(), "kind", keyword.kind()),
-            "'" + text + "' is the keyword " + keyword.kind() + " and cannot be used as a name; rename it", tok);
+            "'" + text + "' is the keyword " + keyword.kind()
+                + " and cannot be used as a name; write it in backticks to use it as a name", tok);
     }
 
     /** AsterCustomLexer 由本地化关键词还原出的标识符：原文以私有区标记 U+E000 开头，token 文本是还原后的源词。 */
@@ -797,9 +797,11 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     @Override
     public Type visitOfGenericType(AsterParser.OfGenericTypeContext ctx) {
         String name = ctx.name.getText();
+        // 转义名（`list` of Int）是用户泛型的名字，不是内建的 maybe / list / option / result（ADR 0064 N3）
+        String builtin = EscapedToken.isEscaped(ctx.name) ? "" : name;
         // maybe 不带 of（`maybe T` / `T?`），`maybe of T` 两引擎都在 of 上报 E061（aster-lang-ts#328）；
         // 此前 core 把它读成名为 maybe 的泛型 TypeApp
-        if ("maybe".equalsIgnoreCase(name)) {
+        if ("maybe".equalsIgnoreCase(builtin)) {
             throw new ParseDiagnosticException(ErrorCode.PARSE_UNEXPECTED_TOKEN, Map.of("token", "'of'"),
                 MAYBE_OF_MESSAGE, ctx.OF().getSymbol());
         }
@@ -812,13 +814,13 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         // 元数已由文法（ofTypeArgs 的谓词）按名字限定：list / option 恰一个参数，result 至多两个。
         // 节点与 aster-lang-ts parseTypePrimary 一致（aster-lang-core#256）：list → List，option → Option，
         // result → Result（省略失败类型时为 Text，定位在 of 上，ts 取 `result of` 的末个记号），其余为 TypeApp。
-        if ("list".equalsIgnoreCase(name)) {
+        if ("list".equalsIgnoreCase(builtin)) {
             return new Type.List(args.get(0), List.of(), spanFrom(ctx));
         }
-        if ("option".equalsIgnoreCase(name)) {
+        if ("option".equalsIgnoreCase(builtin)) {
             return new Type.Option(args.get(0), List.of(), spanFrom(ctx));
         }
-        if ("result".equalsIgnoreCase(name)) {
+        if ("result".equalsIgnoreCase(builtin)) {
             Type err = args.size() > 1
                 ? args.get(1)
                 : new Type.TypeName("Text", List.of(), spanFrom(ctx.OF().getSymbol()));
@@ -1601,7 +1603,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
             current = applyTrailingMembers(current, pendingMembers);
         }
         if (ctx.postfixSuffix().isEmpty() && pendingMembers.isEmpty() && current instanceof Expr.Name name) {
-            if ("none".equalsIgnoreCase(name.name())) {
+            // 转义的 `none` 是名字，不是空值字面量（ADR 0064 N3）
+            if ("none".equalsIgnoreCase(name.name()) && !EscapedToken.isEscaped(ctx.getStart())) {
                 return new Expr.None(name.span());
             }
         }
@@ -1721,13 +1724,15 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         String name = ctx.IDENT().getText();
         Expr inner = (Expr) visit(ctx.expr());
         Span span = spanFrom(ctx);
-        if ("ok".equalsIgnoreCase(name)) {
+        // 转义的 `ok` / `err` / `some` 是普通函数名（ADR 0064 N3）
+        String builtin = EscapedToken.isEscaped(ctx.IDENT().getSymbol()) ? "" : name;
+        if ("ok".equalsIgnoreCase(builtin)) {
             return new Expr.Ok(inner, span);
         }
-        if ("err".equalsIgnoreCase(name)) {
+        if ("err".equalsIgnoreCase(builtin)) {
             return new Expr.Err(inner, span);
         }
-        if ("some".equalsIgnoreCase(name)) {
+        if ("some".equalsIgnoreCase(builtin)) {
             return new Expr.Some(inner, span);
         }
         Expr.Name target = new Expr.Name(name, spanFrom(ctx.IDENT()));

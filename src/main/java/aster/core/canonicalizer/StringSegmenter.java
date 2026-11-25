@@ -11,7 +11,8 @@ import java.util.regex.Pattern;
 /**
  * 字符串分段器 — 将源码文本分割为"字符串内"和"字符串外"片段。
  * <p>
- * 所有 SyntaxTransformer 实现通过此类保护字符串字面量内容不被修改。
+ * 所有 SyntaxTransformer 实现通过此类保护字符串字面量内容不被修改。名字转义 {@code `x`}（ADR 0064）同样是不透明片段：
+ * 它的 {@code inString()} 为 true，按 {@code inString()} 跳过字符串的变换器无需改动就跳过它。
  * <p>
  * 典型用法：
  * <pre>{@code
@@ -60,6 +61,17 @@ public final class StringSegmenter {
 
         for (int i = 0; i < s.length(); i++) {
             char ch = s.charAt(i);
+            // 名字转义 `x` 是不透明片段（ADR 0064 N2）：变换器与字符串字面量一样不碰它
+            int escapeClose = !inString ? Canonicalizer.escapeClose(s, i) : -1;
+            if (escapeClose > 0) {
+                if (current.length() > 0) {
+                    segments.add(new Segment(current.toString(), false));
+                    current = new StringBuilder();
+                }
+                segments.add(Segment.escape(s.substring(i, escapeClose + 1)));
+                i = escapeClose;
+                continue;
+            }
             current.append(ch);
 
             if (!inString) {
@@ -187,7 +199,16 @@ public final class StringSegmenter {
     }
 
     /**
-     * 源码片段（字符串内或字符串外）
+     * 源码片段：字符串外的代码，或不透明片段（字符串字面量、名字转义）。名字转义的 {@code inString} 也为 true，
+     * {@code escape} 区分两者。
      */
-    public record Segment(String text, boolean inString) {}
+    public record Segment(String text, boolean inString, boolean escape) {
+        public Segment(String text, boolean inString) {
+            this(text, inString, false);
+        }
+
+        static Segment escape(String text) {
+            return new Segment(text, true, true);
+        }
+    }
 }

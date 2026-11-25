@@ -228,7 +228,7 @@
     "category": "syntax",
     "severity": "error",
     "message": "Unrecognized character {char}",
-    "help": "Remove the character or replace it with valid Aster syntax."
+    "help": "Remove the character or replace it with valid Aster syntax; a name escape uses the ASCII backtick `."
   },
   "PARSE_UNTERMINATED_STRING": {
     "code": "E051",
@@ -928,7 +928,7 @@
     "category": "scope",
     "severity": "error",
     "message": "Alias '{alias}' ({kind}) is used as a name in the source: '{name}'",
-    "help": "Rename the name, or replace the alias with a multi-word phrase."
+    "help": "Write the name in backticks (`{name}`) to keep it as a name, rename it, or replace the alias with a multi-word phrase."
   },
   "SHADOWED_VOCABULARY": {
     "code": "W800",
@@ -949,7 +949,7 @@
     "category": "scope",
     "severity": "warning",
     "message": "'{keyword}' is read as the keyword {kind}: the name becomes '{name}'",
-    "help": "Rename it to keep a name of your own; the name used at run time is '{name}'."
+    "help": "Write it in backticks (`{keyword}`) to keep it as a name; otherwise the name used at run time is '{name}'."
   },
   "PARSE_DUPLICATE_ANNOTATION_ARG": {
     "code": "E900",
@@ -962,7 +962,14 @@
     "code": "E901",
     "category": "syntax",
     "severity": "error",
-    "message": "{keyword} is the keyword {kind} and cannot be used as a name; rename it",
-    "help": "Choose a name that is not a keyword, for example by adding a word to it."
+    "message": "{keyword} is the keyword {kind} and cannot be used as a name; write it in backticks to use it as a name",
+    "help": "Write the name in backticks, for example `name`, or choose a name that is not a keyword."
+  },
+  "PARSE_INVALID_ESCAPE": {
+    "code": "E902",
+    "category": "syntax",
+    "severity": "error",
+    "message": "Invalid name escape: {reason}",
+    "help": "Write one name between two ASCII backticks on the same line, for example `name`."
   }
 }
