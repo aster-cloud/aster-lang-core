@@ -1039,6 +1039,34 @@
       ]
     },
     {
+      "name": "转义名不是结论词：Otherwise `allow` 报 E056",
+      "group": "F6",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Req has action.\n\nRule f given r as Req, produce Verdict:\n  When r.action equals to \"x\", deny \"no\".\n  Otherwise `allow`.\n",
+      "reject": [
+        "E056",
+        7
+      ],
+      "params": {
+        "token": "token.verdictOutcome",
+        "after": "token.whenOrOtherwise"
+      }
+    },
+    {
+      "name": "转义名不是结论词：When … `deny` 报 E056",
+      "group": "F6",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Req has action.\n\nRule f given r as Req, produce Verdict:\n  When r.action equals to \"x\", `deny` \"no\".\n  Otherwise allow.\n",
+      "reject": [
+        "E056",
+        6
+      ],
+      "params": {
+        "token": "token.verdictOutcome",
+        "after": "token.whenOrOtherwise"
+      }
+    },
+    {
       "name": "附录 A zh 字段 `返回`",
       "group": "F7",
       "lexicon": "zh-CN",
