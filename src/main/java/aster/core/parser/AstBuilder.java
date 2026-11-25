@@ -518,7 +518,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                 out.add(new Constraint.Range(null, rangeBoundText(c.rangeBound(0)), span));
             } else {
                 // matching pattern "…" 与 matching "…" 同义（ts parseMatchingConstraint）；其余词报「matching 后需要正则字符串」
-                if (c.IDENT() != null && !"pattern".equals(c.IDENT().getText())) {
+                // 转义的 `pattern` 是名字，不是可省略的 pattern 关键词（ADR 0064 N3）
+                if (c.IDENT() != null && (EscapedToken.isEscaped(c.IDENT().getSymbol()) || !"pattern".equals(c.IDENT().getText()))) {
                     throw new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED_AFTER,
                         Map.of("token", "token.regexString", "after", "kw.matching"),
                         "Expected a regular expression string after 'matching'", c.IDENT().getSymbol());

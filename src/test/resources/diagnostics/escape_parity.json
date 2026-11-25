@@ -837,6 +837,20 @@
       ]
     },
     {
+      "name": "约束里转义的 `pattern` 不是可省略的 pattern 关键词",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine S with code as Text matching `pattern` \"^[a-z]+$\".\n",
+      "behavesAs": "Module probe.sample.\n\nDefine S with code as Text matching zzz \"^[a-z]+$\".\n"
+    },
+    {
+      "name": "效果位置的转义名 `return` 是效果名",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int. It performs `return`:\n  Return x.\n",
+      "behavesAs": "Module probe.sample.\n\nRule f given x as Int, produce Int. It performs zzz:\n  Return x.\n"
+    },
+    {
       "name": "`ok` 是名字",
       "group": "F4",
       "lexicon": "en-US",
