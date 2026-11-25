@@ -304,9 +304,8 @@ public final class TypedReferenceResolver {
         if (exact != null) return new LocalChoice(new Hit(localEntry(exact)), exact);
         List<Local> folded = scope.locals().folded(CaseFold.foldKey(w));
         Choice picked = ResolutionChoice.choose(List.of(), folded.stream().map(TypedReferenceResolver::localEntry).toList());
-        if (!(picked instanceof Hit h)) return new LocalChoice(picked, null);
-        Local local = folded.stream().filter(l -> l.name().equals(h.entry().canonical())).findFirst().orElseThrow();
-        return new LocalChoice(picked, local);
+        // 折叠唯一 = 这些局部名同名（候选按规范名去重），可见顺序中的第一个即最近声明
+        return new LocalChoice(picked, picked instanceof Hit ? folded.get(0) : null);
     }
 
     private static Entry localEntry(Local l) {

@@ -147,6 +147,14 @@ class TypedReferenceResolverTest {
         }
 
         @Test
+        void foldedLocalCarriesItsDeclaredType() {
+            // 只经折叠命中的局部名（写法 y，声明为 Y）取回的是该局部名本身，带着推得的类型 Fahrer：字段按 Fahrer 解析，不报 W801
+            Run r = run(MODULE + DRIVER_DECL + "Rule f given x as Fahrer, produce Int:\n  Let Y be x.\n  Return y.alter.\n", DRIVER);
+            assertEquals(List.of(), r.all());
+            assertEquals("Y.age", nameOf(returned(func(r.module(), "f"), 1)).name);
+        }
+
+        @Test
         void multiSegmentPathUsesDeclaredTypeOfEachSegment() {
             Run r = run(MODULE + "Define Halter has fahrer as Fahrer.\n\n" + DRIVER_DECL
                     + "Rule f given h as Halter, produce Int:\n  Return h.fahrer.alter.\n",
