@@ -62,7 +62,7 @@ public final class StringSegmenter {
         for (int i = 0; i < s.length(); i++) {
             char ch = s.charAt(i);
             // 名字转义 `x` 是不透明片段（ADR 0064 N2）：变换器与字符串字面量一样不碰它
-            int escapeClose = !inString ? Canonicalizer.escapeClose(s, i) : -1;
+            int escapeClose = !inString && ch == '`' ? Canonicalizer.escapeClose(s, i) : -1;
             if (escapeClose > 0) {
                 if (current.length() > 0) {
                     segments.add(new Segment(current.toString(), false));
@@ -179,17 +179,32 @@ public final class StringSegmenter {
     /**
      * 名字转义不透明（ADR 0064 N2）：匹配的两端都不得落在转义内部。整个包含转义的匹配可以改写（变换器的替换串按捕获组
      * 原样带上它），只覆盖转义一部分的匹配不改写，转义内容因此永远不被改动。
+     * <p>
+     * 「与某个转义相交却不整个包含它」恰好等价于「匹配的起点或终点严格落在某个转义内部」，所以只需二分查两个端点：
+     * 逐个转义比对会让每个匹配都扫一遍全部转义，转义与匹配都随输入线性增长时整体退化成平方。
      */
     private static boolean keepsEscapesWhole(java.util.regex.MatchResult m, List<RegexGuard.Region> escapes) {
-        for (RegexGuard.Region e : escapes) {
-            boolean overlaps = m.start() < e.end() && m.end() > e.start();
-            boolean whole = m.start() <= e.start() && m.end() >= e.end();
-            if (overlaps && !whole) {
-                return false;
+        return !strictlyInside(m.start(), escapes) && !strictlyInside(m.end(), escapes);
+    }
+
+    /** pos 是否严格落在某个转义内部（start &lt; pos &lt; end）；escapes 升序且互不重叠。 */
+    private static boolean strictlyInside(int pos, List<RegexGuard.Region> escapes) {
+        int lo = 0;
+        int hi = escapes.size() - 1;
+        while (lo <= hi) {
+            int mid = (lo + hi) >>> 1;
+            RegexGuard.Region e = escapes.get(mid);
+            if (pos <= e.start()) {
+                hi = mid - 1;
+            } else if (pos >= e.end()) {
+                lo = mid + 1;
+            } else {
+                return true;
             }
         }
-        return true;
+        return false;
     }
+
 
     /**
      * 便捷方法：对源码的非字符串部分应用字符串替换。
