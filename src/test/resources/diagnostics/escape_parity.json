@@ -427,6 +427,15 @@
       "behavesAs": "Module probe.sample.\n\nRule f given driver as Int, produce Int:\n  Return `driver` 's age.\n"
     },
     {
+      "name": "zh 令…定义为 句式变换整个带上转义名",
+      "group": "F3",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值，产出 整数：\n  令 `当` 定义为 1。\n  返回 `当`。\n",
+      "names": [
+        "当"
+      ]
+    },
+    {
       "name": "is 比较词：转义的 `is` 是名字",
       "group": "F3",
       "lexicon": "en-US",

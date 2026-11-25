@@ -129,24 +129,66 @@ public final class StringSegmenter {
      * @return 替换后的文本（字符串字面量内容不变）
      */
     public String replaceOutsideStrings(String source, Pattern pattern, String replacement, boolean guarded) {
-        List<RegexGuard.Region> regions = outsideStringRegions(source);
+        List<Segment> segments = segment(source);
+        List<RegexGuard.Region> regions = outsideStringRegions(segments);
+        List<RegexGuard.Region> escapes = escapeRegions(segments);
+        java.util.function.Predicate<java.util.regex.MatchResult> keepsEscapes = m -> keepsEscapesWhole(m, escapes);
         return guarded
-            ? RegexGuard.replaceRegionsWithTimeout(pattern, source, regions, replacement, RegexGuard.DEFAULT_TIMEOUT_MS)
-            : RegexGuard.replaceRegions(pattern, source, regions, replacement);
+            ? RegexGuard.replaceRegionsWithTimeout(pattern, source, regions, replacement, RegexGuard.DEFAULT_TIMEOUT_MS, keepsEscapes)
+            : RegexGuard.replaceRegions(pattern, source, regions, replacement, keepsEscapes);
     }
 
-    /** 字符串字面量之外的区间（升序、互不重叠）；分段拼接即原文，故偏移可累加得到。 */
-    private List<RegexGuard.Region> outsideStringRegions(String source) {
+    /**
+     * 字符串字面量之外的区间（升序、互不重叠）；分段拼接即原文，故偏移可累加得到。名字转义算在区间之内、相邻的代码段
+     * 合成一个区间：句式变换（zh {@code 令 `x` 定义为 …}）的匹配可以整个跨过转义名，见 {@link #keepsEscapesWhole}。
+     */
+    private static List<RegexGuard.Region> outsideStringRegions(List<Segment> segments) {
         List<RegexGuard.Region> regions = new ArrayList<>();
         int offset = 0;
-        for (Segment seg : segment(source)) {
+        int open = -1;
+        for (Segment seg : segments) {
             int end = offset + seg.text.length();
-            if (!seg.inString) {
-                regions.add(new RegexGuard.Region(offset, end));
+            boolean code = !seg.inString || seg.escape;
+            if (code && open < 0) {
+                open = offset;
+            } else if (!code && open >= 0) {
+                regions.add(new RegexGuard.Region(open, offset));
+                open = -1;
             }
             offset = end;
         }
+        if (open >= 0) {
+            regions.add(new RegexGuard.Region(open, offset));
+        }
         return regions;
+    }
+
+    private static List<RegexGuard.Region> escapeRegions(List<Segment> segments) {
+        List<RegexGuard.Region> out = new ArrayList<>();
+        int offset = 0;
+        for (Segment seg : segments) {
+            int end = offset + seg.text.length();
+            if (seg.escape) {
+                out.add(new RegexGuard.Region(offset, end));
+            }
+            offset = end;
+        }
+        return out;
+    }
+
+    /**
+     * 名字转义不透明（ADR 0064 N2）：匹配的两端都不得落在转义内部。整个包含转义的匹配可以改写（变换器的替换串按捕获组
+     * 原样带上它），只覆盖转义一部分的匹配不改写，转义内容因此永远不被改动。
+     */
+    private static boolean keepsEscapesWhole(java.util.regex.MatchResult m, List<RegexGuard.Region> escapes) {
+        for (RegexGuard.Region e : escapes) {
+            boolean overlaps = m.start() < e.end() && m.end() > e.start();
+            boolean whole = m.start() <= e.start() && m.end() >= e.end();
+            if (overlaps && !whole) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
