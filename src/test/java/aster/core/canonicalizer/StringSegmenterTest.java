@@ -22,6 +22,20 @@ class StringSegmenterTest {
   private final CanonicalizationConfig config = CanonicalizationConfig.defaults();
 
   @Test
+  void matchMayCoverWholeEscapesButNeverCutsOne() {
+    // ADR 0064 N2：整个包含转义的匹配可以改写；起点或终点落在转义内部的匹配原样保留。端点恰在转义边界上不算切开。
+    assertThat(segmenter.replaceOutsideStrings("a `b` c `d` e", Pattern.compile("a.*e"), "X")).isEqualTo("X");
+    assertThat(segmenter.replaceOutsideStrings("a `bc` d", Pattern.compile("b"), "X")).isEqualTo("a `bc` d");
+    assertThat(segmenter.replaceOutsideStrings("a `bc` d", Pattern.compile("c` d"), "X")).isEqualTo("a `bc` d");
+    assertThat(segmenter.replaceOutsideStrings("a `bc` d", Pattern.compile("a `b"), "X")).isEqualTo("a `bc` d");
+    assertThat(segmenter.replaceOutsideStrings("a `bc` d", Pattern.compile("a "), "X")).isEqualTo("X`bc` d");
+    assertThat(segmenter.replaceOutsideStrings("a `bc` d", Pattern.compile(" d"), "X")).isEqualTo("a `bc`X");
+    // 空匹配落在转义内部同样不改写，落在边界上照常改写
+    assertThat(segmenter.replaceOutsideStrings("`bc`", Pattern.compile("(?<=b)"), "X")).isEqualTo("`bc`");
+    assertThat(segmenter.replaceOutsideStrings("`bc`", Pattern.compile("^"), "X")).isEqualTo("X`bc`");
+  }
+
+  @Test
   void multilineAnchorDoesNotFireAfterStringLiteralOnSameLine() {
     // issue #189：逐段匹配时 "x" 之后的片段被当成新输入，^ 在行中触发。
     Pattern lineStart = Pattern.compile("^Set", Pattern.MULTILINE);

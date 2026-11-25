@@ -269,6 +269,18 @@ class CanonicalizerReDoSTest {
     }
 
     @Test
+    @DisplayName("★名字转义与句式变换都密集时 canonicalize 仍呈次二次增长（ADR 0064 N2）")
+    void escapeDenseTransformIsSubQuadratic() {
+        // StringSegmenter.replaceOutsideStrings 判断「匹配不切开转义」时，原写法让每个匹配逐个比对全部转义：
+        // 转义与 's 所有格匹配都随行数线性增长 → O(匹配×转义)。实测 8000→116ms、16000→362ms、32000→1291ms（×4）。
+        // 改为二分查端点后 32000 行 169ms。规模 5000→40000：撤掉修复实测 51.68ms→1912.76ms、指数 1.74，必红。
+        Canonicalizer c = new Canonicalizer();
+        assertSubQuadratic("canonicalize / 转义 + 所有格密集",
+            n -> "Let `x` be driver's age. ".repeat(n),
+            s -> c.canonicalize(s), 5000);
+    }
+
+    @Test
     @DisplayName("★结构守卫：Pattern 静态字段总数被钉死（挡「诱饵字段」）")
     void patternFieldCountIsPinned() {
         // ★这条补的是反射读字段的结构性盲区（独立审查者用变异证明）：
