@@ -41,7 +41,7 @@ class LiteralKeywordShadowParityTest {
         for (JsonNode c : fixture().get("cases")) {
             tests.add(DynamicTest.dynamicTest(c.get("name").asText(), () -> assertCase(c)));
         }
-        assertThat(tests).hasSize(12);
+        assertThat(tests).hasSize(14);
         return tests.stream();
     }
 

@@ -164,11 +164,11 @@ class LegacySyntaxCodesTest {
      * 旧英文句型，不进兼容表，旧句型补码也绝不能映射到它们。parseTimeBudget 是 E054 按 reason=time-budget
      * 选取的整句变体（aster-lang-core#259），同样只走带码路径。duplicateAnnotationArg 是 locales 1.0.46 随
      * Core IR v2 新增的 E900（注解参数重名，ADR 0055 #3），同理；keywordAsName 是 ADR 0056 修订 A6 新增的 E901
-     * （结构关键词当名字），同理。
+     * （结构关键词当名字），同理；invalidEscape 是 ADR 0064 新增的 E902（名字转义格式错误），同理。
      */
     private static final Set<String> CODED_ONLY_KEYS = Set.of("unterminatedString", "literalOutOfRange",
         "nestingTooDeep", "parseTimeBudget", "misplaced", "emptyBlock", "invalidValue", "callArity", "unknownName",
-        "duplicateAnnotationArg", "keywordAsName");
+        "duplicateAnnotationArg", "keywordAsName", "invalidEscape");
 
     /** 四语目录（locales 1.0.43）仍保留全部旧句型 key，且除诊断、外框、带码模板与 token.* 之外没有别的 key。 */
     @ParameterizedTest

@@ -67,6 +67,11 @@ import org.antlr.v4.runtime.atn.PredictionMode;
      * `X of A` 已有 {@code extra} 个追加参数时还能否再接一个（aster-lang-core#256，名字大小写不敏感，与 aster-lang-ts 一致）：
      * list / option 恰一个参数，result 至多一个失败类型，其余泛型不限。
      */
+    /** {@code X of} 的泛型名；转义名不是内建的 list / option / result（ADR 0064 N3），按用户泛型计参数个数。 */
+    protected static String genericName(Token t) {
+        return aster.core.parser.EscapedToken.isEscaped(t) ? "`" + t.getText() : t.getText();
+    }
+
     protected static boolean acceptsOfTypeArg(String generic, int extra) {
         if ("list".equalsIgnoreCase(generic) || "option".equalsIgnoreCase(generic)) {
             return false;
@@ -81,7 +86,20 @@ import org.antlr.v4.runtime.atn.PredictionMode;
      */
     protected boolean isTypeAliasKeyword() {
         Token t = _input.LT(1);
-        return t != null && t.getType() == TYPE_IDENT && "type".equalsIgnoreCase(t.getText());
+        return t != null && t.getType() == TYPE_IDENT && isKwText(t, "type");
+    }
+
+    /** 同 {@link #isKwText}，但区分大小写（软比较词 is / under / over 只认小写）。 */
+    protected static boolean isExactKwText(Token t, String word) {
+        return t != null && !aster.core.parser.EscapedToken.isEscaped(t) && word.equals(t.getText());
+    }
+
+    /**
+     * 记号文本是否（大小写不敏感地）等于关键词 {@code lower}。名字转义 {@code `x`} 永远是名字（ADR 0064 N3），
+     * 所以按文本识别关键词的谓词都经这里，转义记号一律返回 false。
+     */
+    protected static boolean isKwText(Token t, String lower) {
+        return t != null && !aster.core.parser.EscapedToken.isEscaped(t) && lower.equalsIgnoreCase(t.getText());
     }
 
     /**
@@ -90,7 +108,7 @@ import org.antlr.v4.runtime.atn.PredictionMode;
      */
     protected boolean isUseKeyword() {
         Token t = _input.LT(1);
-        return t != null && (t.getType() == TYPE_IDENT || t.getType() == IDENT) && "use".equalsIgnoreCase(t.getText());
+        return t != null && (t.getType() == TYPE_IDENT || t.getType() == IDENT) && isKwText(t, "use");
     }
 
     /**
@@ -100,7 +118,7 @@ import org.antlr.v4.runtime.atn.PredictionMode;
      */
     protected boolean isMaybeKeyword() {
         Token t = _input.LT(1);
-        return t != null && (t.getType() == IDENT || t.getType() == TYPE_IDENT) && "maybe".equalsIgnoreCase(t.getText());
+        return t != null && (t.getType() == IDENT || t.getType() == TYPE_IDENT) && isKwText(t, "maybe");
     }
 
     /** 小写开头、却只能读成类型名的词：内建类型关键词与 `maybe T` / `map K to V` 的引导词（与 aster-lang-ts 同表）。 */
@@ -120,7 +138,7 @@ import org.antlr.v4.runtime.atn.PredictionMode;
         String text = t.getText();
         if (Character.getType(text.codePointAt(0)) != Character.LOWERCASE_LETTER) return false;
         String lower = text.toLowerCase(java.util.Locale.ROOT);
-        if ("maybe".equals(lower) || "map".equals(lower)) return false;
+        if (isKwText(t, "maybe") || isKwText(t, "map")) return false;
         int after = _input.LA(2);
         return after != OF && after != LT;
     }
@@ -156,7 +174,8 @@ import org.antlr.v4.runtime.atn.PredictionMode;
         if (t == null || t.getType() != IDENT || t.getText().isEmpty()) return;
         String text = t.getText();
         if (Character.getType(text.codePointAt(0)) != Character.LOWERCASE_LETTER) return;
-        String lower = text.toLowerCase(java.util.Locale.ROOT);
+        // 转义名不是 map / list / option / result 等内建引导词（ADR 0064 N3）
+        String lower = aster.core.parser.EscapedToken.isEscaped(t) ? "`" : text.toLowerCase(java.util.Locale.ROOT);
         int after = _input.LA(i + 1);
         // 歧义分隔符（ADR 0056 修订 A4 §1.3）：小写 map（第 4 项）与小写名字 + of（第 3 项，内建 list / option / result 除外）
         // 同样可能是下一个形参 / 字段，与裸小写名字同码报错
@@ -712,7 +731,7 @@ type
     | MAP annotatedType TO_WORD annotatedType  # MapType
     // 前缀可空 `maybe T`（≡ `T?`），T 可带注解：`maybe @pii(L1, name) Text`。与 aster-lang-ts parseTypePrimary 一致
     | {isMaybeKeyword()}? name=(IDENT | TYPE_IDENT) annotatedType  # PrefixMaybeType
-    | name=(TYPE_IDENT | IDENT) OF annotatedType ofTypeArgs[$name.text]  # OfGenericType
+    | name=(TYPE_IDENT | IDENT) OF annotatedType ofTypeArgs[genericName($name)]  # OfGenericType
     // 尖括号泛型不是 Aster 语法，保留分支只为让 AstBuilder 报 E056 并提示 `X of A and B`（aster-lang-ts#328）；
     // 小写名字同样收（ts 对任何类型名后的 `<` 都报 E056）
     | (TYPE_IDENT | IDENT) LT typeList GT  # GenericType
@@ -1064,9 +1083,9 @@ comparisonExpr
 // 软比较词：`under` / `over`，前置可选 `is`。用语义谓词匹配 IDENT 文本，使
 // 这些词只在比较位置充当运算符；其余位置（变量名、字段名）仍是普通标识符。
 softComparator
-    : ( {_input.LT(1).getText().equals("is")}? isKw=IDENT )?
+    : ( {isExactKwText(_input.LT(1), "is")}? isKw=IDENT )?
       word=IDENT
-      { $word.getText().equals("under") || $word.getText().equals("over") }?
+      { isExactKwText($word, "under") || isExactKwText($word, "over") }?
     ;
 
 additiveExpr

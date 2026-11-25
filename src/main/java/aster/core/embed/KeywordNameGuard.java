@@ -46,7 +46,8 @@ import java.util.function.Consumer;
  * 内置类型（{@code 整数} → {@code Int}）与运算形式的调用（{@code 不是(x)} → {@code not(x)}）在这些位置本来就是关键词。
  * 与 aster-lang-ts {@code keyword-name-guard.ts} 逐项对应。
  *
- * <p>TODO(ADR 0064)：名字转义语法落地后，help 改为建议用转义写法保留原词，转义的名字不再命中。
+ * <p>名字转义（ADR 0064）不需要额外判定：{@code `版本`} 不经翻译，名字就是 {@code 版本}，不等于 W 中任何拼写；
+ * {@code `version`} 的英文拼写整词出现在本行（反引号不是标识符字符），同样不命中。help 建议的正是转义写法。
  */
 public final class KeywordNameGuard {
 

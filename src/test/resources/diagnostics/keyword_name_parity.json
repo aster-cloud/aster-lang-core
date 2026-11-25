@@ -392,7 +392,7 @@
         "keyword": "kw.return",
         "kind": "RETURN"
       },
-      "message": "'Return' is the keyword RETURN and cannot be used as a name; rename it"
+      "message": "'Return' is the keyword RETURN and cannot be used as a name; write it in backticks to use it as a name"
     },
     {
       "name": "en-US 字段名 Otherwise",
@@ -406,7 +406,7 @@
         "keyword": "kw.otherwise",
         "kind": "OTHERWISE"
       },
-      "message": "'Otherwise' is the keyword OTHERWISE and cannot be used as a name; rename it"
+      "message": "'Otherwise' is the keyword OTHERWISE and cannot be used as a name; write it in backticks to use it as a name"
     },
     {
       "name": "en-US 形参名 If",
@@ -420,7 +420,7 @@
         "keyword": "kw.if",
         "kind": "IF"
       },
-      "message": "'If' is the keyword IF and cannot be used as a name; rename it"
+      "message": "'If' is the keyword IF and cannot be used as a name; write it in backticks to use it as a name"
     },
     {
       "name": "en-US 规则名 When",
@@ -434,7 +434,7 @@
         "keyword": "kw.when",
         "kind": "WHEN"
       },
-      "message": "'When' is the keyword WHEN and cannot be used as a name; rename it"
+      "message": "'When' is the keyword WHEN and cannot be used as a name; write it in backticks to use it as a name"
     },
     {
       "name": "en-US Let 名 Match",
@@ -448,7 +448,7 @@
         "keyword": "kw.match",
         "kind": "MATCH"
       },
-      "message": "'Match' is the keyword MATCH and cannot be used as a name; rename it"
+      "message": "'Match' is the keyword MATCH and cannot be used as a name; write it in backticks to use it as a name"
     },
     {
       "name": "en-US 类型名 Return",
@@ -462,7 +462,7 @@
         "keyword": "kw.return",
         "kind": "RETURN"
       },
-      "message": "'Return' is the keyword RETURN and cannot be used as a name; rename it"
+      "message": "'Return' is the keyword RETURN and cannot be used as a name; write it in backticks to use it as a name"
     },
     {
       "name": "zh-CN 类型名 返回",
@@ -515,7 +515,7 @@
         "keyword": "kw.if",
         "kind": "IF"
       },
-      "message": "'If' is the keyword IF and cannot be used as a name; rename it"
+      "message": "'If' is the keyword IF and cannot be used as a name; write it in backticks to use it as a name"
     },
     {
       "name": "zh-CN 枚举成员 如果",
@@ -542,7 +542,7 @@
         "keyword": "kw.when",
         "kind": "WHEN"
       },
-      "message": "'When' is the keyword WHEN and cannot be used as a name; rename it"
+      "message": "'When' is the keyword WHEN and cannot be used as a name; write it in backticks to use it as a name"
     },
     {
       "name": "zh-CN 类型别名名 当",
@@ -569,7 +569,7 @@
         "keyword": "kw.return",
         "kind": "RETURN"
       },
-      "message": "'Return' is the keyword RETURN and cannot be used as a name; rename it"
+      "message": "'Return' is the keyword RETURN and cannot be used as a name; write it in backticks to use it as a name"
     },
     {
       "name": "en-US 构造模式的绑定名 Return",
@@ -583,7 +583,7 @@
         "keyword": "kw.return",
         "kind": "RETURN"
       },
-      "message": "'Return' is the keyword RETURN and cannot be used as a name; rename it"
+      "message": "'Return' is the keyword RETURN and cannot be used as a name; write it in backticks to use it as a name"
     },
     {
       "name": "en-US 字段名 Step（非结构关键词，大写名字照常 E055）",

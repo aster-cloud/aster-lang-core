@@ -125,6 +125,14 @@ class CnlErrorCodeTest {
         assertThat(e.getMessage()).contains("`is` cannot be followed directly by a symbol");
     }
 
+    @Test
+    void escapedIsBeforeSymbol_hasNoIsHint() {
+        String src = "Module m.\n\nRule r given `is` as Int, produce Bool:\n  If x `is` < 18 then Return true.\n  Return false.\n";
+        InProcessCnlParser.CnlParseException e = parseFailure(src, "en-US");
+        assertThat(e.getDiagnostics()).isNotEmpty();
+        assertThat(e.getDiagnostics()).noneSatisfy(d -> assertThat(d.params()).containsEntry("hint", "hint.isBeforeSymbol"));
+    }
+
     // ---------------------------------------------------------------- 渲染（参数 → 文案）
 
     @Test

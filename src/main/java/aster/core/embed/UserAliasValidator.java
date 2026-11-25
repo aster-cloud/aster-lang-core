@@ -33,6 +33,8 @@ import java.util.Set;
  *       同形名字被软关键字静默改名的风险由 {@link AliasIdentifierGuard} 在解析后拦截。</li>
  * </ol>
  *
+ * <p>别名不得含反引号 U+0060（ADR 0060 修订 2 X2）：反引号是名字转义的定界符（ADR 0064）。
+ *
  * <p>另复用 core {@code LexiconValidator} 的不遮蔽语义：别名不得撞规范拼写/其它别名；
  * 也不得撞有效词汇的任一写法，含字面量宏触发词（ADR 0060 §5.3 第 1 条）。
  */
@@ -219,6 +221,13 @@ public final class UserAliasValidator {
                 if (!alias.equals(norm)) {
                     errors.add("别名 '" + alias + "'（" + kind + "）含非规范空白/大小写；"
                         + "请提交规范形 '" + norm + "'（前后无空格、词间单个空格、小写）");
+                    continue;
+                }
+
+                // 别名不得含反引号（ADR 0060 修订 2 X2）：规范化器把反引号到反引号当作名字转义的不透明片段，
+                // 含反引号的别名可能被一个转义片段整体覆盖，读法不确定
+                if (norm.indexOf('`') >= 0) {
+                    errors.add("别名 '" + alias + "'（" + kind + "）含反引号 `，与名字转义冲突，禁止");
                     continue;
                 }
 

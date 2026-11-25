@@ -227,6 +227,9 @@ public class CnlErrorListener extends BaseErrorListener {
         if (isTimeBudget(code, params) && text.has(TIME_BUDGET_KEY)) {
             return text.text(TIME_BUDGET_KEY, "budgetMs", params.get("budgetMs"));
         }
+        if (code == ErrorCode.PARSE_INVALID_ESCAPE) {
+            return text.diagnostic(code, "reason", escapeReason(params, text));
+        }
         List<String> args = new ArrayList<>();
         for (Map.Entry<String, String> p : params.entrySet()) {
             String value;
@@ -242,6 +245,24 @@ public class CnlErrorListener extends BaseErrorListener {
             args.add(value);
         }
         return text.diagnostic(code, args.toArray(String[]::new));
+    }
+
+    /** E902 的 {@code reason} → 语法目录的 {@code token.escape*} 名词句（ADR 0064 N1a）；目录未收录时用英文。 */
+    private static final Map<String, String[]> ESCAPE_REASONS = Map.of(
+        "unterminated", new String[] {"escapeUnterminated", "the closing backtick is missing"},
+        "empty", new String[] {"escapeEmpty", "nothing is written between the backticks"},
+        "invalid_char", new String[] {"escapeInvalidChar", "{char} cannot be part of a name"});
+
+    /**
+     * E902 的原因片段。{@code char} 是源码里的原字符，原样显示（不按作者语言换标点：{@code '.'} 不能显示成 {@code '。'}）。
+     * 与 aster-lang-ts {@code invalidEscapeIssue} 的英文逐字相同。
+     */
+    static String escapeReason(Map<String, String> params, SyntaxMessages text) {
+        String[] reason = ESCAPE_REASONS.getOrDefault(params.get("reason"), ESCAPE_REASONS.get("invalid_char"));
+        String ch = params.getOrDefault("char", "");
+        String key = "token." + reason[0];
+        return text.has(key) ? text.text(key, "char", ch)
+            : aster.core.lexicon.ErrorMessages.format(reason[1], "char", ch);
     }
 
     /**

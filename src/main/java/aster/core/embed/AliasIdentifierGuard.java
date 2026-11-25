@@ -67,11 +67,22 @@ public final class AliasIdentifierGuard {
      * @throws AliasIdentifierCollision 任一名字折叠后属于 K
      */
     public static void check(Module ast, Map<SemanticTokenKind, List<String>> aliasSet, String locale) {
+        check(ast, aliasSet, locale, null);
+    }
+
+    /**
+     * 同 {@link #check(Module, Map, String)}，另跳过名字转义（ADR 0060 修订 2，ADR 0064 N6）：转义名按构造就是显式的名字。
+     * AST 跨度指向规范化文本，规范化文本保留反引号，所以名字某一段在规范化文本中以 {@code `} 开头即为转义。
+     *
+     * @param canonical 与解析同一规范化的文本（只在 aliasSet 含汉字单词别名时才取）；null 时不识别转义
+     */
+    public static void check(Module ast, Map<SemanticTokenKind, List<String>> aliasSet, String locale,
+                             java.util.function.Supplier<String> canonical) {
         Map<String, Hit> forbidden = forbiddenKeys(aliasSet, locale);
         if (forbidden.isEmpty() || ast == null) {
             return;
         }
-        Collector collector = new Collector(forbidden);
+        Collector collector = new Collector(forbidden, canonical == null ? null : canonical.get());
         collector.module(ast);
         if (!collector.diagnostics.isEmpty()) {
             String summary = "别名名字守卫失败 — " + String.join("; ",
@@ -186,7 +197,10 @@ public final class AliasIdentifierGuard {
             }
             String alias = hit.alias();
             for (int i = text.indexOf(alias); i >= 0; i = text.indexOf(alias, i + 1)) {
-                if (!isIdentChar(text, i - 1) && !isIdentChar(text, i + alias.length())) {
+                // 名字转义里的出现不是别名（ADR 0060 修订 2）：不作归因候选
+                boolean escaped = i > 0 && text.charAt(i - 1) == '`'
+                    && i + alias.length() < text.length() && text.charAt(i + alias.length()) == '`';
+                if (!escaped && !isIdentChar(text, i - 1) && !isIdentChar(text, i + alias.length())) {
                     out.add(new Occurrence(i, hit));
                 }
             }
@@ -233,21 +247,78 @@ public final class AliasIdentifierGuard {
         private final List<CnlErrorListener.Diagnostic> diagnostics = new ArrayList<>();
         private final java.util.Set<String> reported = new java.util.HashSet<>();
 
+        /** 规范化文本及其各行（识别名字转义用）；null 表示不识别。 */
+        private final String canonical;
+        private final String[] canonicalLines;
+
         Collector(Map<String, Hit> forbidden) {
-            this.forbidden = forbidden;
+            this(forbidden, null);
         }
 
-        /** 点号分隔的名字逐段检查（模块名、导入路径、成员访问、限定调用目标）。 */
+        Collector(Map<String, Hit> forbidden, String canonical) {
+            this.forbidden = forbidden;
+            this.canonical = canonical;
+            this.canonicalLines = canonical == null ? null : canonical.split("\n", -1);
+        }
+
+        /** 点号分隔的名字逐段检查（模块名、导入路径、成员访问、限定调用目标）；转义的段跳过。 */
         void name(String written, Span span) {
             if (written == null || written.isEmpty()) {
                 return;
             }
-            for (String segment : written.split("\\.", -1)) {
-                Hit hit = forbidden.get(CaseFold.foldKey(segment));
+            String[] segments = written.split("\\.", -1);
+            boolean[] escaped = escapedSegments(segments, span);
+            for (int i = 0; i < segments.length; i++) {
+                Hit hit = escaped[i] ? null : forbidden.get(CaseFold.foldKey(segments[i]));
                 if (hit != null) {
-                    report(segment, hit, span);
+                    report(segments[i], hit, span);
                 }
             }
+        }
+
+        /**
+         * 各段在规范化文本里是否写成转义：从跨度起点逐段对照（{@code `a`.b}、{@code s.`版本`}）。跨度不指向名字本身时
+         * （声明跨度从关键词起）退回按全文判定：该段的转义写法在规范化文本里出现即算转义。与 aster-lang-ts 同一判定。
+         */
+        private boolean[] escapedSegments(String[] segments, Span span) {
+            boolean[] out = new boolean[segments.length];
+            if (canonical == null) {
+                return out;
+            }
+            int line = span == null || span.start() == null ? -1 : span.start().line() - 1;
+            if (line < 0 || line >= canonicalLines.length) {
+                return anywhere(segments);
+            }
+            String text = canonicalLines[line];
+            int at = span.start().col() - 1;
+            boolean[] found = new boolean[segments.length];
+            for (int i = 0; i < segments.length; i++) {
+                if (i > 0) {
+                    if (at < 0 || at >= text.length() || text.charAt(at) != '.') {
+                        return anywhere(segments);
+                    }
+                    at++;
+                }
+                String plain = segments[i];
+                String quoted = "`" + plain + "`";
+                if (at >= 0 && text.startsWith(quoted, at)) {
+                    found[i] = true;
+                    at += quoted.length();
+                } else if (at >= 0 && text.startsWith(plain, at)) {
+                    at += plain.length();
+                } else {
+                    return anywhere(segments);
+                }
+            }
+            return found;
+        }
+
+        private boolean[] anywhere(String[] segments) {
+            boolean[] out = new boolean[segments.length];
+            for (int i = 0; i < segments.length; i++) {
+                out[i] = canonical.contains("`" + segments[i] + "`");
+            }
+            return out;
         }
 
         private void report(String segment, Hit hit, Span span) {
