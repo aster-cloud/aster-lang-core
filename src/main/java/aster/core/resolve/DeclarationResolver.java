@@ -16,6 +16,7 @@ import aster.core.identifier.VocabularyScopes;
 import aster.core.ir.CoreModel;
 import aster.core.resolve.ResolutionChoice.Ambiguous;
 import aster.core.resolve.ResolutionChoice.Choice;
+import aster.core.resolve.ResolutionChoice.DeclTable;
 import aster.core.resolve.ResolutionChoice.Entry;
 import aster.core.resolve.ResolutionChoice.Hit;
 import aster.core.resolve.ResolutionChoice.Miss;
@@ -63,8 +64,8 @@ public final class DeclarationResolver {
     private final DiagnosticBuilder diags = new DiagnosticBuilder();
 
     // ---- 模块符号表：本模块与导入模块已解析的声明，供引用位置的 §6.2 第 2 步使用 ----
-    private final List<Entry> types = new ArrayList<>();
-    private final List<Entry> functions = new ArrayList<>();
+    private final DeclTable types = new DeclTable();
+    private final DeclTable functions = new DeclTable();
     private final Set<String> enums = new HashSet<>();
     private final Map<String, List<Entry>> members = new HashMap<>();
     private final Map<String, List<Entry>> fields = new HashMap<>();
@@ -99,45 +100,29 @@ public final class DeclarationResolver {
     private record LocalChoice(Choice choice, Local local) {}
 
     /** 局部名链，按父链向外查找；typeParams 为所在函数保留下来的类型参数名（不查词汇）。 */
-    private static final class Scope {
-        final Scope parent;
-        final List<Local> locals = new ArrayList<>();
-        final Set<String> typeParams;
-
-        Scope(Scope parent, Set<String> typeParams) {
-            this.parent = parent;
-            this.typeParams = typeParams;
-        }
-
+    private record Scope(LocalScope<Local> locals, Set<String> typeParams) {
         Scope child() {
-            return new Scope(this, typeParams);
+            return new Scope(locals.child(), typeParams);
         }
 
         void add(String name) {
-            locals.add(new Local(CaseFold.nfc(name), null));
+            declare(new Local(CaseFold.nfc(name), null));
         }
 
-        /** 由内向外、同层后声明者在前。 */
-        List<Local> visible() {
-            List<Local> out = new ArrayList<>();
-            for (Scope s = this; s != null; s = s.parent) {
-                out.addAll(s.locals.reversed());
-            }
-            return out;
+        void declare(Local local) {
+            locals.add(local.name(), local);
         }
     }
 
     private static Scope rootScope(List<String> typeParams) {
-        return new Scope(null, Set.copyOf(typeParams));
+        return new Scope(new LocalScope<>(null), Set.copyOf(typeParams));
     }
 
     private static LocalChoice findLocal(Scope scope, String written) {
-        List<Local> locals = scope.visible();
         String w = CaseFold.nfc(written);
-        Optional<Local> exact = locals.stream().filter(l -> l.name().equals(w)).findFirst();
-        if (exact.isPresent()) return new LocalChoice(new Hit(localEntry(exact.get().name())), exact.get());
-        String key = CaseFold.foldKey(w);
-        List<Local> folded = locals.stream().filter(l -> CaseFold.foldKey(l.name()).equals(key)).toList();
+        Local exact = scope.locals().nearest(w);
+        if (exact != null) return new LocalChoice(new Hit(localEntry(exact.name())), exact);
+        List<Local> folded = scope.locals().folded(CaseFold.foldKey(w));
         Choice picked = ResolutionChoice.choose(List.of(), folded.stream().map(l -> localEntry(l.name())).toList());
         return new LocalChoice(picked, picked instanceof Hit ? folded.get(0) : null);
     }
@@ -356,8 +341,7 @@ public final class DeclarationResolver {
     private record RefSite(String written, ResolvedRole role, Span span, ErrorCode ambiguous) {}
 
     /** 源码声明 → 词汇 → 规范名直写；歧义在此报告并视为已处理，未命中交给调用方。 */
-    private RefResult resolveRef(RefSite ref, List<Entry> decls, List<VocabMap> maps) {
-        Choice fromDecl = ResolutionChoice.chooseDecl(decls, ref.written());
+    private RefResult resolveRef(RefSite ref, Choice fromDecl, List<VocabMap> maps) {
         if (fromDecl instanceof Hit h) {
             Entry winner = new Entry(h.entry().written(), h.entry().canonical(), ref.role());
             warnShadow(ref.written(), winner, maps, ref.span());
@@ -385,7 +369,7 @@ public final class DeclarationResolver {
     /** 同 resolveTypeName，另返回是否已报 E800（供调用方抑制级联诊断）。 */
     private TypeResolution resolveTypeNameChecked(String written, Span span) {
         RefSite site = new RefSite(written, ResolvedRole.TYPE, span, ErrorCode.AMBIGUOUS_NAME);
-        RefResult ref = resolveRef(site, types, vocabTypes());
+        RefResult ref = resolveRef(site, ResolutionChoice.chooseDecl(written, types), vocabTypes());
         boolean unresolved = !ref.found() && !isBuiltinType(ref.canonical());
         if (unresolved) reportUnresolved(ErrorCode.UNRESOLVED_TYPE, written, ResolvedRole.TYPE, span);
         return new TypeResolution(new Resolved(ref.canonical(), ResolvedRole.TYPE, written), unresolved);
@@ -397,7 +381,7 @@ public final class DeclarationResolver {
 
     /** 不产生诊断地探测一个名字在 TYPE 位置对源码声明或词汇的命中情况。 */
     private Choice probeTypeChoice(String written) {
-        Choice fromDecl = ResolutionChoice.chooseDecl(types, written);
+        Choice fromDecl = ResolutionChoice.chooseDecl(written, types);
         return fromDecl instanceof Miss ? choice.chooseVocab(vocabTypes(), written) : fromDecl;
     }
 
@@ -411,7 +395,7 @@ public final class DeclarationResolver {
         LocalChoice local = findLocal(scope, written);
         boolean notLocal = local.choice() instanceof Miss;
         Choice decl = notLocal
-            ? ResolutionChoice.chooseDecl(Stream.concat(functions.stream(), types.stream()).toList(), written)
+            ? ResolutionChoice.chooseDecl(written, functions, types)
             : local.choice();
         Choice picked = decl instanceof Miss ? choice.chooseVocab(maps, written) : decl;
         ResolvedRole role = notLocal ? ResolvedRole.FUNC_REF : ResolvedRole.LOCAL;
@@ -428,7 +412,7 @@ public final class DeclarationResolver {
     /** 首段是否为局部名或函数（源码 / 词汇）：是则不是 {@code E.M} 形式，整体留给 R2。 */
     private boolean headIsValue(Scope scope, String head) {
         if (!(findLocal(scope, head).choice() instanceof Miss)) return true;
-        if (!(ResolutionChoice.chooseDecl(functions, head) instanceof Miss)) return true;
+        if (!(ResolutionChoice.chooseDecl(head, functions) instanceof Miss)) return true;
         return !(choice.chooseVocab(vocabFunctions(), head) instanceof Miss);
     }
 
@@ -447,7 +431,7 @@ public final class DeclarationResolver {
     private RefResult resolveMember(String enumName, String written, Span span) {
         List<VocabMap> maps = scopedVocab(VocabularyScopes::enumMembers, enumName, ResolvedRole.MEMBER_REF);
         RefSite site = new RefSite(written, ResolvedRole.MEMBER_REF, span, ErrorCode.AMBIGUOUS_NAME);
-        return resolveRef(site, members.getOrDefault(enumName, List.of()), maps);
+        return resolveRef(site, ResolutionChoice.chooseDecl(members.getOrDefault(enumName, List.of()), written), maps);
     }
 
     private Expr.Name resolveName(Scope scope, Expr.Name n) {
@@ -487,7 +471,7 @@ public final class DeclarationResolver {
     private Decl.Parameter resolveParam(Scope scope, Decl.Parameter p) {
         Type type = resolveType(scope, p.type());
         String typeName = type instanceof Type.TypeName tn && tn.resolved() != null ? tn.resolved().canonical() : null;
-        scope.locals.add(new Local(CaseFold.nfc(p.name()), typeName));
+        scope.declare(new Local(CaseFold.nfc(p.name()), typeName));
         Resolved resolved = new Resolved(p.name(), ResolvedRole.LOCAL, p.name());
         return new Decl.Parameter(p.name(), type, p.annotations(), p.span(), resolved, p.typeInferred(), p.constraints());
     }
@@ -540,7 +524,7 @@ public final class DeclarationResolver {
         Expr expr = resolveExpr(scope, f.expr());
         if (decls == null) return new Expr.Construct.ConstructField(f.name(), expr, null, f.span());
         RefSite site = new RefSite(f.name(), ResolvedRole.FIELD_REF, span, ErrorCode.AMBIGUOUS_FIELD);
-        RefResult ref = resolveRef(site, decls, maps);
+        RefResult ref = resolveRef(site, ResolutionChoice.chooseDecl(decls, f.name()), maps);
         if (!ref.found()) reportUnresolved(ErrorCode.UNRESOLVED_FIELD, f.name(), ResolvedRole.FIELD_REF, span);
         return new Expr.Construct.ConstructField(f.name(), expr,
             new Resolved(ref.canonical(), ResolvedRole.FIELD_REF, f.name()), f.span());

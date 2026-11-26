@@ -41,13 +41,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>{@link ParseBudget} 只在语法分析的预测里协作式检查；规范化、词法 {@code tokens.fill()}、构建 AST 与名称解析
  * （R1 → lower → R2）不检查预算。它们只要随源码长度线性增长，在 aster-api 的 16 KiB 源码上限内就只占毫秒级，
  * 阶段边界上的一次 {@code check()} 足以把「最后一个阶段超时」及时归为 E054；若某阶段呈超线性，边界检查拦不住
- * 它本身，需要在其循环里检查。本测试按阶段计时：规范化、词法、语法分析与构建 AST 断言源码长度每翻倍一次耗时增长
- * 不超过 {@value #MAX_DOUBLING_RATIO} 倍（线性为 2，二次为 4；取两次翻倍的几何平均）。
- *
- * <p><b>已知超线性：名称解析</b>（R1 与 R2 都随局部名 / 词汇条目数呈二次增长，大量短语句与大量词汇条目两种形态
- * 翻倍约 ×3.4–3.8）。在 16 KiB 上限内它仍只要数十毫秒，所以这里对名称解析与端到端只断言绝对耗时不超过
- * 预算的 {@value #SUPERLINEAR_BUDGET_SHARE_PERCENT}%（{@link ParseBudget#DEFAULT_BUDGET} 2 秒的 10%），并把增长率打印出来；
- * InProcessCnlParser 在名称解析前后各查一次预算。把名称解析改成线性后，应把它移回翻倍断言。
+ * 它本身，需要在其循环里检查。本测试按阶段计时：规范化、词法、语法分析、构建 AST、名称解析与端到端都断言源码长度
+ * 每翻倍一次耗时增长不超过 {@value #MAX_DOUBLING_RATIO} 倍（线性为 2，二次为 4；取两次翻倍的几何平均）。
+ * 名称解析的局部名与源码声明查找按名字 / 折叠键索引（aster-lang-core#312），大量短语句与大量词汇条目两种形态也是线性。
  *
  * <p>阶段与 {@link InProcessCnlParser#parseUnsafeWithAliases} 的步骤相同（别名叠加 → 规范化 → 词法 → SLL 语法分析
  * → 构建 AST → 名称解析），但只走合法输入的主路径：不挂错误监听器、不用带预算的预测器、不做嵌套守卫与
@@ -66,10 +62,6 @@ class ParseStageLinearityTest {
     static final double MAX_DOUBLING_RATIO = 2.5;
     /** 低于此耗时（纳秒）的阶段不比增长率：比值由计时噪声主导，而这种量级对 2 秒预算无影响。 */
     static final long NOISE_FLOOR_NANOS = 2_000_000L;
-    /** 已知超线性阶段在最大一档允许占用的默认预算百分比。 */
-    static final int SUPERLINEAR_BUDGET_SHARE_PERCENT = 10;
-    /** 已知超线性的阶段（下标对应 {@link #STAGES}）：名称解析与包含它的端到端。 */
-    static final java.util.Set<String> KNOWN_SUPERLINEAR = java.util.Set.of("resolve", "end-to-end");
     private static final int WARMUP = 3;
     private static final int RUNS = 7;
 
@@ -225,7 +217,7 @@ class ParseStageLinearityTest {
 
     /**
      * 断言：取最大一档与其 1/4（两次翻倍），每个阶段每次翻倍的平均增长 √(t(4n)/t(n)) 不超过 {@value #MAX_DOUBLING_RATIO}
-     * （跨两次翻倍取几何平均，抗单次计时噪声；最大一档低于噪声下限的阶段跳过）。已知超线性的阶段改为断言绝对耗时。
+     * （跨两次翻倍取几何平均，抗单次计时噪声；最大一档低于噪声下限的阶段跳过）。
      * 返回逐阶段的报告，便于失败时定位。
      */
     static Map<String, String> assertLinear(String name, IntFunction<Input> gen) {
@@ -242,12 +234,7 @@ class ParseStageLinearityTest {
         }
         System.out.printf("[parse-stage-linearity] %s scale %d→%d (%d→%d bytes): %s%n", name, small, big,
             bytes(gen.apply(small).source()), bytes(gen.apply(big).source()), report);
-        long superlinearCapNanos = ParseBudget.DEFAULT_BUDGET.toNanos() * SUPERLINEAR_BUDGET_SHARE_PERCENT / 100;
         for (int s = 0; s < STAGES.length; s++) {
-            if (KNOWN_SUPERLINEAR.contains(STAGES[s])) {
-                assertThat(b[s]).as("%s 阶段 %s 在 16 KiB 内的耗时 %s", name, STAGES[s], report).isLessThanOrEqualTo(superlinearCapNanos);
-                continue;
-            }
             if (b[s] < NOISE_FLOOR_NANOS) {
                 continue;
             }
