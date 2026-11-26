@@ -1671,7 +1671,7 @@ public final class Canonicalizer {
         for (int i = 0; i < s.length(); i++) {
             char ch = s.charAt(i);
             // 名字转义是不透明片段（ADR 0064 N2）：不折叠空白、不删标点前空格
-            int escapeClose = !inString ? escapeClose(s, i) : -1;
+            int escapeClose = !inString && ch == '`' ? escapeClose(s, i) : -1;
             if (escapeClose > 0) {
                 if (current.length() > 0) {
                     segments.add(new Segment(current.toString(), false));
@@ -1907,7 +1907,7 @@ public final class Canonicalizer {
         char opener = 0;
         for (int i = 0; i < s.length(); i++) {
             char ch = s.charAt(i);
-            int escapeClose = opener == 0 ? escapeClose(s, i) : -1;
+            int escapeClose = opener == 0 && ch == '`' ? escapeClose(s, i) : -1;
             if (escapeClose > 0) {
                 // 名字转义原样保留（ADR 0064 N2）：里面的弯引号不是定界符，由词法器报 E902
                 out.append(s, i, escapeClose + 1);
@@ -1981,7 +1981,7 @@ public final class Canonicalizer {
                 inComment = true;
             }
             // 名字转义：字符串与注释之外，反引号到同一行的下一个反引号是一个不透明片段
-            int escapeClose = !inString && !inComment ? escapeClose(s, i) : -1;
+            int escapeClose = !inString && !inComment && ch == '`' ? escapeClose(s, i) : -1;
             if (escapeClose > 0) {
                 if (current.length() > 0) {
                     segments.add(new Segment(current.toString(), false));
