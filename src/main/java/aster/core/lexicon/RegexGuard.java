@@ -226,6 +226,15 @@ public final class RegexGuard {
      * @return 替换后的文本
      */
     public static String replaceRegions(Pattern pattern, CharSequence input, List<Region> regions, String replacement) {
+        return replaceRegions(pattern, input, regions, replacement, m -> true);
+    }
+
+    /**
+     * 同 {@link #replaceRegions(Pattern, CharSequence, List, String)}，另由 {@code accept} 逐个决定匹配是否改写；
+     * 不接受的匹配原样保留。
+     */
+    public static String replaceRegions(Pattern pattern, CharSequence input, List<Region> regions, String replacement,
+                                        java.util.function.Predicate<java.util.regex.MatchResult> accept) {
         Matcher matcher = pattern.matcher(input)
             .useAnchoringBounds(false)
             .useTransparentBounds(true);
@@ -234,6 +243,9 @@ public final class RegexGuard {
         for (Region region : regions) {
             matcher.region(region.start(), region.end());
             while (matcher.find()) {
+                if (!accept.test(matcher)) {
+                    continue;
+                }
                 out.append(input, copied, matcher.start());
                 appendExpandedReplacement(matcher, replacement, out);
                 copied = matcher.end();
@@ -324,6 +336,14 @@ public final class RegexGuard {
         Pattern pattern, String input, List<Region> regions, String replacement, long timeoutMs
     ) {
         return replaceRegions(pattern, new DeadlineCharSequence(input, pattern, timeoutMs), regions, replacement);
+    }
+
+    /** 同上，另由 {@code accept} 逐个决定匹配是否改写。 */
+    public static String replaceRegionsWithTimeout(
+        Pattern pattern, String input, List<Region> regions, String replacement, long timeoutMs,
+        java.util.function.Predicate<java.util.regex.MatchResult> accept
+    ) {
+        return replaceRegions(pattern, new DeadlineCharSequence(input, pattern, timeoutMs), regions, replacement, accept);
     }
 
     /**

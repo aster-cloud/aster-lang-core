@@ -43,7 +43,7 @@ public enum ErrorCode {
   DECIMAL_DOUBLE_MIXING("E031", Category.TYPE, Severity.ERROR, "Cannot combine Decimal and Double in '{operator}'. Double is binary floating-point and would inject rounding error into an exact Decimal. Use Decimal literals (e.g. 1.08m) on both sides, or Int/Long (exact promotion).", "Make both operands Decimal (suffix m), or use Int/Long which promote exactly to Decimal."),
   CALL_ARITY_MISMATCH("E032", Category.TYPE, Severity.ERROR, "Function '{func}' expects {expected} argument(s), got {actual}.", "Adjust the call to pass exactly the declared number of arguments."),
   // ADR 0051 §16 R56：解析诊断码（category=syntax）。
-  PARSE_UNEXPECTED_CHARACTER("E050", Category.SYNTAX, Severity.ERROR, "Unrecognized character {char}", "Remove the character or replace it with valid Aster syntax."),
+  PARSE_UNEXPECTED_CHARACTER("E050", Category.SYNTAX, Severity.ERROR, "Unrecognized character {char}", "Remove the character or replace it with valid Aster syntax; a name escape uses the ASCII backtick `."),
   PARSE_UNTERMINATED_STRING("E051", Category.SYNTAX, Severity.ERROR, "Unterminated string literal", "Close the string with a matching quote on the same line."),
   PARSE_INDENTATION("E052", Category.SYNTAX, Severity.ERROR, "Incorrect indentation: one level too deep or inconsistent. Indent with 2 spaces", "Indent each nested block by exactly 2 spaces and dedent back to an enclosing level."),
   PARSE_LITERAL_OUT_OF_RANGE("E053", Category.SYNTAX, Severity.ERROR, "{kind} literal {literal} is out of range", "Use a smaller value, add the 'L' suffix for Long, or write a Decimal literal."),
@@ -167,12 +167,13 @@ public enum ErrorCode {
   AMBIGUOUS_FIELD("E805", Category.SCOPE, Severity.ERROR, "Field '{written}' in {role} position is ambiguous between: {candidates}", "Add a type annotation to the receiver (parameter or Let) so the field resolves against its declared type, or rename one of the conflicting fields."),
   AMBIGUOUS_PATTERN("E806", Category.SCOPE, Severity.ERROR, "Pattern '{written}' in {role} position is ambiguous between: {candidates}", "Write a qualified name (e.g. Stufe.Hoch) or add a type annotation."),
   DUPLICATE_DECLARATION("E807", Category.SCOPE, Severity.ERROR, "Duplicate declaration of '{written}' in {role} position", "Rename one of the declarations or remove the duplicate."),
-  ALIAS_IDENTIFIER_COLLISION("E808", Category.SCOPE, Severity.ERROR, "Alias '{alias}' ({kind}) is used as a name in the source: '{name}'", "Rename the name, or replace the alias with a multi-word phrase."),
+  ALIAS_IDENTIFIER_COLLISION("E808", Category.SCOPE, Severity.ERROR, "Alias '{alias}' ({kind}) is used as a name in the source: '{name}'", "Write the name in backticks (`{name}`) to keep it as a name, rename it, or replace the alias with a multi-word phrase."),
   SHADOWED_VOCABULARY("W800", Category.SCOPE, Severity.WARNING, "Declaration '{written}' in {role} position shadows a vocabulary entry", "Rename the declaration if the shadowing is unintended; the declaration wins over the vocabulary entry."),
   RESOLVED_WITHOUT_TYPE("W801", Category.SCOPE, Severity.WARNING, "Resolved '{written}' in {role} position without a known receiver type", "Add a type annotation to the receiver so the name can be checked against its type."),
-  KEYWORD_RENAMED_AS_NAME("W802", Category.SCOPE, Severity.WARNING, "'{keyword}' is read as the keyword {kind}: the name becomes '{name}'", "Rename it to keep a name of your own; the name used at run time is '{name}'."),
+  KEYWORD_RENAMED_AS_NAME("W802", Category.SCOPE, Severity.WARNING, "'{keyword}' is read as the keyword {kind}: the name becomes '{name}'", "Write it in backticks (`{keyword}`) to keep it as a name; otherwise the name used at run time is '{name}'."),
   PARSE_DUPLICATE_ANNOTATION_ARG("E900", Category.SYNTAX, Severity.ERROR, "Annotation @{annotation} repeats the argument {name}", "Give each named argument of an annotation at most once."),
-  PARSE_KEYWORD_AS_NAME("E901", Category.SYNTAX, Severity.ERROR, "{keyword} is the keyword {kind} and cannot be used as a name; rename it", "Choose a name that is not a keyword, for example by adding a word to it."),
+  PARSE_KEYWORD_AS_NAME("E901", Category.SYNTAX, Severity.ERROR, "{keyword} is the keyword {kind} and cannot be used as a name; write it in backticks to use it as a name", "Write the name in backticks, for example `name`, or choose a name that is not a keyword."),
+  PARSE_INVALID_ESCAPE("E902", Category.SYNTAX, Severity.ERROR, "Invalid name escape: {reason}", "Write one name between two ASCII backticks on the same line, for example `name`."),
   ;
 
   private final String code;

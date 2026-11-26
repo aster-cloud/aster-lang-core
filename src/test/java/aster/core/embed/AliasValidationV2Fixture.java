@@ -23,7 +23,7 @@ import java.util.Map;
 final class AliasValidationV2Fixture {
 
     static final String RESOURCE = "/diagnostics/alias_validation_v2_parity.json";
-    static final String SHA256 = "721ab90b1f847ce7e3806d32360db1157d6a1ac5368ef5d15f99e402464765c4";
+    static final String SHA256 = "409aaafdd4c9c5a5fd4da137fd60b8956d4cf31335687a4ed025add3e2ef5e74";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -79,6 +79,7 @@ final class AliasValidationV2Fixture {
             {" 的别名不能为空", "empty"},
             {" 的别名长度 ", "tooLong"},
             {"含非规范空白", "nonCanonical"},
+            {"含反引号", "containsBacktick"},
             {"必须是多词短语", "singleWord"},
             {"与某规范关键词或已有别名同形", "shadowsKeyword"},
             {"在多个 kind 间重复定义", "duplicate"},

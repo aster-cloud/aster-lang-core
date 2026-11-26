@@ -160,7 +160,9 @@ public class InProcessCnlParser {
         }
         try {
             return parseUnsafeWithAliases(source, locale, scopes, aliasSet, (ast, s) -> {
-                AliasIdentifierGuard.check(ast, aliasSet, locale);
+                // 名字转义跳过 E808（ADR 0060 修订 2）：AST 跨度指向规范化文本，按需与解析同样规范化一次
+                AliasIdentifierGuard.check(ast, aliasSet, locale, () -> new Canonicalizer(
+                    AliasOverlayLexicon.wrap(getLexiconForLocale(locale), aliasSet), s).canonicalize(source));
                 return resolveNames(ast, s);
             });
         } catch (AliasIdentifierGuard.AliasIdentifierCollision | NameResolutionFailure | BudgetExceededFailure e) {

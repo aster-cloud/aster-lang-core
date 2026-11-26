@@ -1,0 +1,1231 @@
+{
+  "description": "ADR 0064 名字转义两引擎共享夹具（§10 F1–F7）。reject 为第一条诊断 [码, 行]（forged 表示规范化入口拒绝私有区标记）；column 只在该行之前没有规范化列偏移时给出；names 为 Core IR 必须含的名字；samePf 为 positionFreeSha256 必须相同的源码；behavesAs 为结果必须相同的源码（都编译时 pf 相同，都失败时第一条诊断 [码, 行] 相同）；warnings 为 W802 [码, 行]。aster-lang-core src/test/resources/diagnostics/ 与 aster-lang-ts shared/ 的两份逐字节相同。",
+  "cases": [
+    {
+      "name": "en-US 小写首字符转义名（IDENT）",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `amount` as Int, produce Int:\n  Return `amount`.\n",
+      "names": [
+        "amount"
+      ]
+    },
+    {
+      "name": "en-US 大写首字符转义名（TYPE_IDENT）作类型名与类型引用",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine `Order` with amount as Int.\n\nRule f given o as `Order`, produce Int:\n  Return o.amount.\n",
+      "names": [
+        "Order"
+      ]
+    },
+    {
+      "name": "en-US 拉丁扩展字符",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `größe` as Int, produce Int:\n  Return `größe`.\n",
+      "names": [
+        "größe"
+      ]
+    },
+    {
+      "name": "de-DE 拉丁扩展字符",
+      "group": "F1",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nRegel f gegeben `größe` als Int, liefert Int:\n  gib zurück `größe`.\n",
+      "names": [
+        "größe"
+      ]
+    },
+    {
+      "name": "zh-CN 汉字转义名",
+      "group": "F1",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值 给定 `金额` 作为 整数，产出 整数：\n  返回 `金额`。\n",
+      "names": [
+        "金额"
+      ]
+    },
+    {
+      "name": "hi-IN 天城文转义名",
+      "group": "F1",
+      "lexicon": "hi-IN",
+      "source": "मॉड्यूल probe.sample।\n\nपरिभाषित Software सहित `राशि` रूप में Int।\n",
+      "names": [
+        "राशि"
+      ]
+    },
+    {
+      "name": "en-US 数字与下划线续字符",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `x1_y` as Int, produce Int:\n  Return `x1_y`.\n",
+      "names": [
+        "x1_y"
+      ]
+    },
+    {
+      "name": "E902 unterminated：行末没有闭合反引号",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Return `x.\n",
+      "reject": [
+        "E902",
+        4
+      ],
+      "column": 10,
+      "params": {
+        "reason": "unterminated"
+      },
+      "message": "Invalid name escape: the closing backtick is missing"
+    },
+    {
+      "name": "E902 unterminated：文件末没有闭合反引号",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Return `x",
+      "reject": [
+        "E902",
+        4
+      ],
+      "column": 10,
+      "params": {
+        "reason": "unterminated"
+      }
+    },
+    {
+      "name": "E902 unterminated 优先于其前的非法字符",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Return `a.b c.\n",
+      "reject": [
+        "E902",
+        4
+      ],
+      "column": 10,
+      "params": {
+        "reason": "unterminated"
+      }
+    },
+    {
+      "name": "E902 empty",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Return ``.\n",
+      "reject": [
+        "E902",
+        4
+      ],
+      "column": 10,
+      "params": {
+        "reason": "empty"
+      },
+      "message": "Invalid name escape: nothing is written between the backticks"
+    },
+    {
+      "name": "E902 invalid_char：点号",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Return `a.b`.\n",
+      "reject": [
+        "E902",
+        4
+      ],
+      "column": 10,
+      "params": {
+        "reason": "invalid_char",
+        "char": "'.'"
+      },
+      "message": "Invalid name escape: '.' cannot be part of a name"
+    },
+    {
+      "name": "E902 invalid_char：空格",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Return `a b`.\n",
+      "reject": [
+        "E902",
+        4
+      ],
+      "column": 10,
+      "params": {
+        "reason": "invalid_char",
+        "char": "' '"
+      }
+    },
+    {
+      "name": "E902 invalid_char：引号",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Return `\"x`.\n",
+      "reject": [
+        "E902",
+        4
+      ],
+      "column": 10,
+      "params": {
+        "reason": "invalid_char",
+        "char": "'\"'"
+      }
+    },
+    {
+      "name": "E902 invalid_char：数字开头",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Return `1a`.\n",
+      "reject": [
+        "E902",
+        4
+      ],
+      "column": 10,
+      "params": {
+        "reason": "invalid_char",
+        "char": "'1'"
+      }
+    },
+    {
+      "name": "E902 invalid_char：下划线开头",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Return `_a`.\n",
+      "reject": [
+        "E902",
+        4
+      ],
+      "column": 10,
+      "params": {
+        "reason": "invalid_char",
+        "char": "'_'"
+      }
+    },
+    {
+      "name": "E902 invalid_char：私有区字符 U+E000",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Return `a`.\n",
+      "reject": [
+        "forged",
+        4
+      ]
+    },
+    {
+      "name": "E902 invalid_char：全角字母",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Return `ａb`.\n",
+      "reject": [
+        "E902",
+        4
+      ],
+      "column": 10,
+      "params": {
+        "reason": "invalid_char",
+        "char": "'ａ'"
+      }
+    },
+    {
+      "name": "E902 invalid_char：转义里的 # 不是注释",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Return `a#b`.\n",
+      "reject": [
+        "E902",
+        4
+      ],
+      "column": 10,
+      "params": {
+        "reason": "invalid_char",
+        "char": "'#'"
+      }
+    },
+    {
+      "name": "E902 invalid_char：zh 句号在转义里不归一",
+      "group": "F1",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值 给定 x 作为 整数，产出 整数：\n  返回 `x。`\n",
+      "reject": [
+        "E902",
+        4
+      ],
+      "params": {
+        "reason": "invalid_char",
+        "char": "'。'"
+      }
+    },
+    {
+      "name": "E902：闭合的转义之后同一行有未闭合的",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `x` as Int, produce Int:\n  Return `x` plus `y.\n",
+      "reject": [
+        "E902",
+        4
+      ],
+      "column": 19,
+      "params": {
+        "reason": "unterminated"
+      }
+    },
+    {
+      "name": "全角反引号 ｀ 照旧是 E050（zh-CN 不折叠）",
+      "group": "F1",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 ｀版本｀ 作为 整数。\n",
+      "reject": [
+        "E050",
+        3
+      ],
+      "params": {
+        "char": "'｀'"
+      }
+    },
+    {
+      "name": "全角反引号 ｀ 照旧是 E050（en-US）",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Return ｀x｀.\n",
+      "reject": [
+        "E050",
+        4
+      ],
+      "column": 10,
+      "params": {
+        "char": "'｀'"
+      }
+    },
+    {
+      "name": "字符串里的反引号只是字符",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Text:\n  Return \"a`b`c\".\n",
+      "names": [
+        "f"
+      ]
+    },
+    {
+      "name": "zh-CN 「」字符串里的反引号只是字符",
+      "group": "F1",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值 给定 x 作为 整数，产出 文本：\n  返回 「a`版本`c」。\n",
+      "names": [
+        "取值"
+      ]
+    },
+    {
+      "name": "注释里的反引号只是字符",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\n# note `x` here\nRule f given x as Int, produce Int:\n  Return x. # see `y`\n",
+      "samePf": "Module probe.sample.\n\n# note x here\nRule f given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "注释里未闭合的反引号",
+      "group": "F1",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Return x. # unclosed ` here\n",
+      "samePf": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "en-US 形参：转义与不转义 pf 相同",
+      "group": "F2",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `amount` as Int, produce Int:\n  Return `amount`.\n",
+      "samePf": "Module probe.sample.\n\nRule f given amount as Int, produce Int:\n  Return amount.\n"
+    },
+    {
+      "name": "zh-CN 字段：转义与不转义 pf 相同",
+      "group": "F2",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 `名称` 作为 文本。\n",
+      "samePf": "模块 探针.样例。\n\n定义 软件 包含 名称 作为 文本。\n"
+    },
+    {
+      "name": "de-DE 字段：转义与不转义 pf 相同",
+      "group": "F2",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Antrag mit `betrag` als Int.\n",
+      "samePf": "Modul probe.beispiel.\n\nDefiniere Antrag mit betrag als Int.\n"
+    },
+    {
+      "name": "只转义一处使用：pf 相同",
+      "group": "F2",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given amount as Int, produce Int:\n  Return `amount`.\n",
+      "samePf": "Module probe.sample.\n\nRule f given amount as Int, produce Int:\n  Return amount.\n"
+    },
+    {
+      "name": "关键词翻译：zh `版本` 不译成 version",
+      "group": "F3",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 `版本` 作为 整数。\n",
+      "names": [
+        "版本"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "对照：zh 版本 不转义译成 version 并报 W802",
+      "group": "F3",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 版本 作为 整数。\n",
+      "names": [
+        "version"
+      ],
+      "warnings": [
+        [
+          "W802",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "de 冠词：`Der` 不删",
+      "group": "F3",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere `Der` mit a als Int.\n\nDefiniere Antrag mit x als `Der`.\n",
+      "names": [
+        "Der"
+      ]
+    },
+    {
+      "name": "de customRules：`hoechstens` 不转写成关键词 höchstens",
+      "group": "F3",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Antrag mit `hoechstens` als Int.\n",
+      "names": [
+        "hoechstens"
+      ]
+    },
+    {
+      "name": "zh 结果（OF 家族关键词）转义是名字",
+      "group": "F3",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值 给定 `结果` 作为 整数，产出 整数：\n  返回 `结果`。\n",
+      "names": [
+        "结果"
+      ]
+    },
+    {
+      "name": "set-to 变换器不改写转义名",
+      "group": "F3",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Set `y` to 2.\n  Return x.\n",
+      "behavesAs": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Set y to 2.\n  Return x.\n"
+    },
+    {
+      "name": "空白归一照常作用于转义之外",
+      "group": "F3",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Let y be `x` .\n  Return y.\n",
+      "samePf": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Let y be x.\n  Return y.\n"
+    },
+    {
+      "name": "所有格变换器不改写转义名",
+      "group": "F3",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given driver as Int, produce Int:\n  Return `driver`'s age.\n",
+      "behavesAs": "Module probe.sample.\n\nRule f given driver as Int, produce Int:\n  Return `driver` 's age.\n"
+    },
+    {
+      "name": "zh 令…定义为 句式变换整个带上转义名",
+      "group": "F3",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值，产出 整数：\n  令 `当` 定义为 1。\n  返回 `当`。\n",
+      "names": [
+        "当"
+      ]
+    },
+    {
+      "name": "is 比较词：转义的 `is` 是名字",
+      "group": "F3",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `is` as Int, produce Int:\n  Return `is`.\n",
+      "names": [
+        "is"
+      ]
+    },
+    {
+      "name": "软关键词 `let` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `let` as Int, produce Int:\n  Return `let`.\n",
+      "names": [
+        "let"
+      ]
+    },
+    {
+      "name": "软关键词 `match` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `match` as Int, produce Int:\n  Return `match`.\n",
+      "names": [
+        "match"
+      ]
+    },
+    {
+      "name": "软关键词 `if` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `if` as Int, produce Int:\n  Return `if`.\n",
+      "names": [
+        "if"
+      ]
+    },
+    {
+      "name": "软关键词 `return` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `return` as Int, produce Int:\n  Return `return`.\n",
+      "names": [
+        "return"
+      ]
+    },
+    {
+      "name": "软关键词 `rule` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `rule` as Int, produce Int:\n  Return `rule`.\n",
+      "names": [
+        "rule"
+      ]
+    },
+    {
+      "name": "软关键词 `define` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `define` as Int, produce Int:\n  Return `define`.\n",
+      "names": [
+        "define"
+      ]
+    },
+    {
+      "name": "软关键词 `when` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `when` as Int, produce Int:\n  Return `when`.\n",
+      "names": [
+        "when"
+      ]
+    },
+    {
+      "name": "软关键词 `start` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `start` as Int, produce Int:\n  Return `start`.\n",
+      "names": [
+        "start"
+      ]
+    },
+    {
+      "name": "软关键词 `wait` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `wait` as Int, produce Int:\n  Return `wait`.\n",
+      "names": [
+        "wait"
+      ]
+    },
+    {
+      "name": "软关键词 `otherwise` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `otherwise` as Int, produce Int:\n  Return `otherwise`.\n",
+      "names": [
+        "otherwise"
+      ]
+    },
+    {
+      "name": "软关键词 `then` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `then` as Int, produce Int:\n  Return `then`.\n",
+      "names": [
+        "then"
+      ]
+    },
+    {
+      "name": "软关键词 `max` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `max` as Int, produce Int:\n  Return `max`.\n",
+      "names": [
+        "max"
+      ]
+    },
+    {
+      "name": "软关键词 `attempts` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `attempts` as Int, produce Int:\n  Return `attempts`.\n",
+      "names": [
+        "attempts"
+      ]
+    },
+    {
+      "name": "软关键词 `apply` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `apply` as Int, produce Int:\n  Return `apply`.\n",
+      "names": [
+        "apply"
+      ]
+    },
+    {
+      "name": "软关键词 `workflow` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `workflow` as Int, produce Int:\n  Return `workflow`.\n",
+      "names": [
+        "workflow"
+      ]
+    },
+    {
+      "name": "软关键词 `step` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `step` as Int, produce Int:\n  Return `step`.\n",
+      "names": [
+        "step"
+      ]
+    },
+    {
+      "name": "软关键词 `retry` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `retry` as Int, produce Int:\n  Return `retry`.\n",
+      "names": [
+        "retry"
+      ]
+    },
+    {
+      "name": "软关键词 `timeout` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `timeout` as Int, produce Int:\n  Return `timeout`.\n",
+      "names": [
+        "timeout"
+      ]
+    },
+    {
+      "name": "软关键词 `depends` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `depends` as Int, produce Int:\n  Return `depends`.\n",
+      "names": [
+        "depends"
+      ]
+    },
+    {
+      "name": "软关键词 `compensate` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `compensate` as Int, produce Int:\n  Return `compensate`.\n",
+      "names": [
+        "compensate"
+      ]
+    },
+    {
+      "name": "软关键词 `backoff` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `backoff` as Int, produce Int:\n  Return `backoff`.\n",
+      "names": [
+        "backoff"
+      ]
+    },
+    {
+      "name": "软关键词 `seconds` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `seconds` as Int, produce Int:\n  Return `seconds`.\n",
+      "names": [
+        "seconds"
+      ]
+    },
+    {
+      "name": "软关键词 `matching` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `matching` as Int, produce Int:\n  Return `matching`.\n",
+      "names": [
+        "matching"
+      ]
+    },
+    {
+      "name": "软关键词 `type` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `type` as Int, produce Int:\n  Return `type`.\n",
+      "names": [
+        "type"
+      ]
+    },
+    {
+      "name": "软关键词 `version` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `version` as Int, produce Int:\n  Return `version`.\n",
+      "names": [
+        "version"
+      ]
+    },
+    {
+      "name": "软关键词 `required` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `required` as Int, produce Int:\n  Return `required`.\n",
+      "names": [
+        "required"
+      ]
+    },
+    {
+      "name": "软关键词 `between` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `between` as Int, produce Int:\n  Return `between`.\n",
+      "names": [
+        "between"
+      ]
+    },
+    {
+      "name": "软关键词 `given` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `given` as Int, produce Int:\n  Return `given`.\n",
+      "names": [
+        "given"
+      ]
+    },
+    {
+      "name": "软关键词 `be` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `be` as Int, produce Int:\n  Return `be`.\n",
+      "names": [
+        "be"
+      ]
+    },
+    {
+      "name": "软关键词 `module` 作形参与引用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `module` as Int, produce Int:\n  Return `module`.\n",
+      "names": [
+        "module"
+      ]
+    },
+    {
+      "name": "关键词位置上的 `given` 与普通名字一样不是关键词",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f `given` x as Int, produce Int:\n  Return x.\n",
+      "behavesAs": "Module probe.sample.\n\nRule f zzz x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "关键词位置上的 `produce`",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, `produce` Int:\n  Return x.\n",
+      "behavesAs": "Module probe.sample.\n\nRule f given x as Int, zzz Int:\n  Return x.\n"
+    },
+    {
+      "name": "语句首的 `Return` 不是语句关键词",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  `Return` x.\n",
+      "behavesAs": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Zzz x.\n"
+    },
+    {
+      "name": "声明首的 `Define` 不是声明关键词",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\n`Define` S with a as Int.\n",
+      "behavesAs": "Module probe.sample.\n\nZzz S with a as Int.\n"
+    },
+    {
+      "name": "声明句首的 `类型` 不是类型别名引导词",
+      "group": "F4",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n`类型` 金额 别名 整数。\n",
+      "behavesAs": "模块 探针.样例。\n\n金额 金额 别名 整数。\n"
+    },
+    {
+      "name": "`If` 作类型名不报 E901",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine `If` with a as Int.\n",
+      "names": [
+        "If"
+      ]
+    },
+    {
+      "name": "对照：If 作类型名报 E901",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine If with a as Int.\n",
+      "reject": [
+        "E901",
+        3
+      ],
+      "params": {
+        "keyword": "kw.if",
+        "kind": "IF"
+      },
+      "message": "'If' is the keyword IF and cannot be used as a name; write it in backticks to use it as a name"
+    },
+    {
+      "name": "`Return` 作枚举成员不报 E901",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Flag as one of `Return`, Other.\n",
+      "names": [
+        "Return"
+      ]
+    },
+    {
+      "name": "`none` 是名字，不是空值",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `none` as Int, produce Int:\n  Return `none`.\n",
+      "names": [
+        "none"
+      ]
+    },
+    {
+      "name": "`true` 是名字，不是布尔字面量",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `true` as Bool, produce Bool:\n  Return `true`.\n",
+      "names": [
+        "true"
+      ]
+    },
+    {
+      "name": "`null` 是名字，不是空值字面量",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `null` as Int, produce Int:\n  Return `null`.\n",
+      "names": [
+        "null"
+      ]
+    },
+    {
+      "name": "`and` 是名字，不是运算符",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `and` as Bool, produce Bool:\n  Return `and`.\n",
+      "names": [
+        "and"
+      ]
+    },
+    {
+      "name": "`under` 是名字，不是软比较词",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Let `under` be 1.\n  Return `under`.\n",
+      "names": [
+        "under"
+      ]
+    },
+    {
+      "name": "`plus`(…) 是普通调用，不是运算符词前缀调用",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule `plus` given a as Int, b as Int, produce Int:\n  Return a.\n\nRule f given x as Int, produce Int:\n  Return `plus`(x, 1).\n",
+      "names": [
+        "plus"
+      ]
+    },
+    {
+      "name": "约束里转义的 `pattern` 不是可省略的 pattern 关键词",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine S with code as Text matching `pattern` \"^[a-z]+$\".\n",
+      "behavesAs": "Module probe.sample.\n\nDefine S with code as Text matching zzz \"^[a-z]+$\".\n"
+    },
+    {
+      "name": "效果位置的转义名 `return` 是效果名",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int. It performs `return`:\n  Return x.\n",
+      "behavesAs": "Module probe.sample.\n\nRule f given x as Int, produce Int. It performs zzz:\n  Return x.\n"
+    },
+    {
+      "name": "`ok` 是名字",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `ok` as Int, produce Int:\n  Return `ok`.\n",
+      "names": [
+        "ok"
+      ]
+    },
+    {
+      "name": "`Profile` 作类型名",
+      "group": "F4",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine `Profile` with a as Int.\n",
+      "names": [
+        "Profile"
+      ]
+    },
+    {
+      "name": "§4 zh 字段 `版本`",
+      "group": "F5",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 `版本` 作为 整数。\n",
+      "names": [
+        "版本"
+      ]
+    },
+    {
+      "name": "§4 zh 形参 `如果`",
+      "group": "F5",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值 给定 `如果` 作为 整数，产出 整数：\n  返回 `如果`。\n",
+      "names": [
+        "如果"
+      ]
+    },
+    {
+      "name": "§4 zh 形参 `低头`（RETURN=低头）",
+      "group": "F5",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值 给定 `低头` 作为 整数，产出 整数：\n  返回 `低头`。\n",
+      "aliasSet": {
+        "RETURN": [
+          "低头"
+        ]
+      },
+      "names": [
+        "低头"
+      ]
+    },
+    {
+      "name": "§4 de 字段 `wenn`",
+      "group": "F5",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Antrag mit `wenn` als Int.\n",
+      "names": [
+        "wenn"
+      ]
+    },
+    {
+      "name": "§4 de 类型引用 `Der`",
+      "group": "F5",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere `Der` mit a als Int.\n\nDefiniere Antrag mit x als `Der`.\n",
+      "names": [
+        "Der"
+      ]
+    },
+    {
+      "name": "§4 hi 字段 `अनुमति`",
+      "group": "F5",
+      "lexicon": "hi-IN",
+      "source": "मॉड्यूल probe.sample।\n\nपरिभाषित Software सहित `अनुमति` रूप में Int।\n",
+      "names": [
+        "अनुमति"
+      ]
+    },
+    {
+      "name": "§4 en 形参 `type`",
+      "group": "F5",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f given `type` as Int, produce Int:\n  Return `type`.\n",
+      "names": [
+        "type"
+      ]
+    },
+    {
+      "name": "§4 en 成员 s.`given`",
+      "group": "F5",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine S with `given` as Int.\n\nRule f given s as S, produce Int:\n  Return s.`given`.\n",
+      "names": [
+        "given"
+      ]
+    },
+    {
+      "name": "限定名 `s`.`version`",
+      "group": "F5",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine S with `version` as Int.\n\nRule f given `s` as S, produce Int:\n  Return `s`.`version`.\n",
+      "samePf": "Module probe.sample.\n\nDefine S with version as Int.\n\nRule f given s as S, produce Int:\n  Return s.version.\n"
+    },
+    {
+      "name": "限定名 s.`版本`",
+      "group": "F5",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 `版本` 作为 整数。\n\n规则 取值 给定 s 作为 软件，产出 整数：\n  返回 s.`版本`。\n",
+      "names": [
+        "版本"
+      ]
+    },
+    {
+      "name": "E808 跳过转义名",
+      "group": "F6",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值 给定 `低头` 作为 整数，产出 整数：\n  返回 `低头`。\n",
+      "aliasSet": {
+        "RETURN": [
+          "低头"
+        ]
+      },
+      "names": [
+        "低头"
+      ]
+    },
+    {
+      "name": "对照：不转义的别名作名字报 E808",
+      "group": "F6",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值 给定 低头 作为 整数，产出 整数：\n  返回 低头。\n",
+      "aliasSet": {
+        "RETURN": [
+          "低头"
+        ]
+      },
+      "reject": [
+        "E808",
+        3
+      ]
+    },
+    {
+      "name": "W802：转义名不报",
+      "group": "F6",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Antrag mit `erlauben` als Int.\n",
+      "names": [
+        "erlauben"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "对照：W802 照报",
+      "group": "F6",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Antrag mit erlauben als Int.\n",
+      "names": [
+        "allow"
+      ],
+      "warnings": [
+        [
+          "W802",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "E901 的 help 建议转义：zh 形参 当",
+      "group": "F6",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值 给定 当 作为 整数，产出 整数：\n  返回 1。\n",
+      "reject": [
+        "E901",
+        3
+      ],
+      "params": {
+        "keyword": "kw.when",
+        "kind": "WHEN"
+      }
+    },
+    {
+      "name": "E901 改写为转义后通过",
+      "group": "F6",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 取值 给定 `当` 作为 整数，产出 整数：\n  返回 `当`。\n",
+      "names": [
+        "当"
+      ]
+    },
+    {
+      "name": "转义名不是结论词：Otherwise `allow` 报 E056",
+      "group": "F6",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Req has action.\n\nRule f given r as Req, produce Verdict:\n  When r.action equals to \"x\", deny \"no\".\n  Otherwise `allow`.\n",
+      "reject": [
+        "E056",
+        7
+      ],
+      "params": {
+        "token": "token.verdictOutcome",
+        "after": "token.whenOrOtherwise"
+      }
+    },
+    {
+      "name": "转义名不是结论词：When … `deny` 报 E056",
+      "group": "F6",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Req has action.\n\nRule f given r as Req, produce Verdict:\n  When r.action equals to \"x\", `deny` \"no\".\n  Otherwise allow.\n",
+      "reject": [
+        "E056",
+        6
+      ],
+      "params": {
+        "token": "token.verdictOutcome",
+        "after": "token.whenOrOtherwise"
+      }
+    },
+    {
+      "name": "附录 A zh 字段 `返回`",
+      "group": "F7",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 `返回` 作为 整数。\n",
+      "names": [
+        "返回"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "附录 A zh 字段 `如果`",
+      "group": "F7",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 `如果` 作为 整数。\n",
+      "names": [
+        "如果"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "附录 A zh 字段 `升级`",
+      "group": "F7",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 `升级` 作为 整数。\n",
+      "names": [
+        "升级"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "附录 A zh 字段 `允许`",
+      "group": "F7",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 `允许` 作为 整数。\n",
+      "names": [
+        "允许"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "附录 A zh 字段 `属于`",
+      "group": "F7",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n定义 软件 包含 `属于` 作为 整数。\n",
+      "names": [
+        "属于"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "附录 A de 字段 `bei`",
+      "group": "F7",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Antrag mit `bei` als Int.\n",
+      "names": [
+        "bei"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "附录 A de 字段 `wenn`",
+      "group": "F7",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Antrag mit `wenn` als Int.\n",
+      "names": [
+        "wenn"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "附录 A de 字段 `sei`",
+      "group": "F7",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Antrag mit `sei` als Int.\n",
+      "names": [
+        "sei"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "附录 A de 字段 `gleich`",
+      "group": "F7",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Antrag mit `gleich` als Int.\n",
+      "names": [
+        "gleich"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "附录 A de 字段 `erlauben`",
+      "group": "F7",
+      "lexicon": "de-DE",
+      "source": "Modul probe.beispiel.\n\nDefiniere Antrag mit `erlauben` als Int.\n",
+      "names": [
+        "erlauben"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "附录 A hi 字段 `जब`",
+      "group": "F7",
+      "lexicon": "hi-IN",
+      "source": "मॉड्यूल probe.sample।\n\nपरिभाषित Software सहित `जब` रूप में Int।\n",
+      "names": [
+        "जब"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "附录 A hi 字段 `नियम`",
+      "group": "F7",
+      "lexicon": "hi-IN",
+      "source": "मॉड्यूल probe.sample।\n\nपरिभाषित Software सहित `नियम` रूप में Int।\n",
+      "names": [
+        "नियम"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "附录 A hi 字段 `अनुमति`",
+      "group": "F7",
+      "lexicon": "hi-IN",
+      "source": "मॉड्यूल probe.sample।\n\nपरिभाषित Software सहित `अनुमति` रूप में Int।\n",
+      "names": [
+        "अनुमति"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "附录 A hi 字段 `में`",
+      "group": "F7",
+      "lexicon": "hi-IN",
+      "source": "मॉड्यूल probe.sample।\n\nपरिभाषित Software सहित `में` रूप में Int।\n",
+      "names": [
+        "में"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "附录 A en 字段 version / type / given",
+      "group": "F7",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Software with `version` as Int, `type` as Int, `given` as Int.\n",
+      "names": [
+        "version",
+        "type",
+        "given"
+      ]
+    },
+    {
+      "name": "诗句：形参 `当`",
+      "group": "F7",
+      "lexicon": "zh-CN",
+      "source": "模块 探针.样例。\n\n规则 床前 给定 `当` 作为 文本，产出 文本：\n  返回 `当`。\n",
+      "names": [
+        "床前",
+        "当"
+      ]
+    }
+  ]
+}

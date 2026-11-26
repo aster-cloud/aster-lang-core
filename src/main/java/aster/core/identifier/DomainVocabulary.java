@@ -121,6 +121,10 @@ public record DomainVocabulary(
             triggers.add(mapping.localized());
             if (mapping.aliases() != null) triggers.addAll(mapping.aliases());
             for (String trigger : triggers) {
+                // 写法不得含反引号（ADR 0060 修订 2 X2）：反引号是名字转义的定界符，规范化器把它当作不透明片段
+                if (trigger != null && trigger.indexOf('`') >= 0) {
+                    errors.add(context + ": 写法 \"" + trigger + "\" 含反引号 `，与名字转义冲突（ADR 0060 修订 2）");
+                }
                 checkScopeConflict(mapping, context, CaseFold.nfc(trigger));
                 checkTrigger(mapping, context, trigger);
             }

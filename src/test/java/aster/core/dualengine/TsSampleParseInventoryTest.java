@@ -83,16 +83,15 @@ class TsSampleParseInventoryTest {
                 lexer.addErrorListener(listener);
 
                 CommonTokenStream tokens = new CommonTokenStream(lexer);
-                tokens.fill();
-                tokens.seek(0);
-
-                AsterParser parser = new AsterParser(tokens);
-                parser.removeErrorListeners();
-                parser.addErrorListener(listener);
-                // 解析期由文法动作直接报出的诊断（E054 嵌套过深、E055 `X of A` 后的裸小写名字，aster-lang-ts#334）
-                // 与 AstBuilder 阶段的一样是解析错误，与 ParseDiagnostics.parse 同样处理，不算崩溃
+                // 解析期由词法器或文法动作直接报出的诊断（E902 名字转义格式错误、E054 嵌套过深、E055 `X of A` 后的
+                // 裸小写名字，aster-lang-ts#334）与 AstBuilder 阶段的一样是解析错误，与 ParseDiagnostics.parse 同样处理，不算崩溃
                 AsterParser.ModuleContext module = null;
                 try {
+                    tokens.fill();
+                    tokens.seek(0);
+                    AsterParser parser = new AsterParser(tokens);
+                    parser.removeErrorListeners();
+                    parser.addErrorListener(listener);
                     module = parser.module();
                 } catch (ParseDiagnosticException e) {
                     listener.errors.add(describe(e));

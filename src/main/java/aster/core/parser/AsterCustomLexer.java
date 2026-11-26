@@ -370,7 +370,8 @@ public class AsterCustomLexer extends AsterLexer {
             return;
         }
         String txt = t.getText();
-        prevMeaningfulLower = txt == null ? null : txt.toLowerCase(java.util.Locale.ROOT);
+        // 转义名永远是名字（ADR 0064 N3）：不让 `define` / `given` 这样的转义名开启标识符声明列表
+        prevMeaningfulLower = txt == null || EscapedToken.isEscaped(t) ? null : txt.toLowerCase(java.util.Locale.ROOT);
 
         // 维护"标识符声明列表"状态：结构关键词进入；`.`/`:`/`(`/`as`/`produce` 等结束；
         // 其余（字段名/逗号/and）延续。`as`/`produce` 之后是【类型】(OF 家族在该位置是
@@ -576,6 +577,98 @@ public class AsterCustomLexer extends AsterLexer {
                 indentStack.push(spaces);
             }
         }
+    }
+
+    /**
+     * 名字转义（ADR 0064 §3）：合法转义改写成带 {@code escaped} 标志的 IDENT / TYPE_IDENT；
+     * 其余以反引号开头的写法报 E902（N1a）。在 {@code emit} 这一层处理，所以 {@code nextToken} 与
+     * OF 家族判定的预读（{@link #peekNextRealToken}）拿到的都是改写后的 token。
+     */
+    @Override
+    public Token emit() {
+        if (_type == ESCAPED_NAME) {
+            String raw = getText();
+            String name = raw.substring(1, raw.length() - 1);
+            EscapedToken t = new EscapedToken(_tokenFactorySourcePair, escapedNameType(name), _channel,
+                _tokenStartCharIndex, getCharIndex() - 1);
+            t.setText(name);
+            t.setLine(_tokenStartLine);
+            t.setCharPositionInLine(_tokenStartCharPositionInLine);
+            emit(t);
+            return t;
+        }
+        if (_type == ESCAPE_BAD) {
+            throw invalidEscape(getText(), _tokenStartLine, _tokenStartCharPositionInLine + 1);
+        }
+        return super.emit();
+    }
+
+    /** 转义名的 token 类：与不转义时同一规则（AsterLexer.g4 TYPE_IDENT / IDENT 的首字符）。 */
+    static int escapedNameType(String name) {
+        char c = name.charAt(0);
+        boolean upper = (c >= 'A' && c <= 'Z') || (c >= '\u00C0' && c <= '\u00D6') || (c >= '\u00D8' && c <= '\u00DE')
+            || (c >= '\u0100' && c <= '\u017F') || isCjk(c);
+        return upper ? AsterParser.TYPE_IDENT : AsterParser.IDENT;
+    }
+
+    /**
+     * E902 的分类（ADR 0064 N1a），按优先级：同一行没有闭合的反引号 → unterminated；两个反引号之间
+     * 什么都没有 → empty；否则 invalid_char，{@code char} 是第一个不能作标识符首字符（位置 0）或续字符的字符。
+     * 位置总是开头的反引号。
+     *
+     * @param text ESCAPE_BAD 匹配到的原文（含反引号）
+     */
+    static ParseDiagnosticException invalidEscape(String text, int line, int column) {
+        if (text.length() < 2 || text.charAt(text.length() - 1) != '`') {
+            return escapeError("unterminated", null, "名字转义缺少闭合的反引号", line, column);
+        }
+        String content = text.substring(1, text.length() - 1);
+        if (content.isEmpty()) {
+            return escapeError("empty", null, "名字转义为空", line, column);
+        }
+        int i = 0;
+        while (i < content.length()) {
+            int cp = content.codePointAt(i);
+            boolean ok = i == 0 ? isEscapeStart(cp) : isEscapeContinue(cp);
+            if (!ok) {
+                String ch = new String(Character.toChars(cp));
+                return escapeError("invalid_char", ch, "名字转义含非法字符 " + ch, line, column);
+            }
+            i += Character.charCount(cp);
+        }
+        // ESCAPE_BAD 只在 ESCAPED_NAME 匹配不上时出现，内容逐字合法却走到这里说明两边字符集不一致
+        throw new IllegalStateException("名字转义字符集与词法规则不一致: " + text);
+    }
+
+    private static ParseDiagnosticException escapeError(String reason, String ch, String message, int line, int column) {
+        Map<String, String> params = new java.util.LinkedHashMap<>();
+        params.put("reason", reason);
+        if (ch != null) {
+            params.put("char", "'" + ch + "'");
+        }
+        return new ParseDiagnosticException(ErrorCode.PARSE_INVALID_ESCAPE, params, message, line, column);
+    }
+
+    /** 标识符首字符（AsterLexer.g4 EscIdentStart）。 */
+    static boolean isEscapeStart(int cp) {
+        return (cp >= 'A' && cp <= 'Z') || (cp >= 'a' && cp <= 'z')
+            || (cp >= 0x00C0 && cp <= 0x00D6) || (cp >= 0x00D8 && cp <= 0x00DE) || (cp >= 0x0100 && cp <= 0x017F)
+            || (cp >= 0x00DF && cp <= 0x00F6) || (cp >= 0x00F8 && cp <= 0x00FF)
+            || isCjk(cp) || isDevanagari(cp);
+    }
+
+    /** 标识符续字符（AsterLexer.g4 EscIdentContinue，不含私有区标记）。 */
+    static boolean isEscapeContinue(int cp) {
+        return (cp >= 'A' && cp <= 'Z') || (cp >= 'a' && cp <= 'z') || (cp >= '0' && cp <= '9') || cp == '_'
+            || (cp >= 0x00C0 && cp <= 0x017F) || isCjk(cp) || isDevanagari(cp);
+    }
+
+    private static boolean isCjk(int cp) {
+        return (cp >= 0x4E00 && cp <= 0x9FFF) || (cp >= 0x3400 && cp <= 0x4DBF);
+    }
+
+    private static boolean isDevanagari(int cp) {
+        return (cp >= 0x0900 && cp <= 0x0963) || (cp >= 0x0966 && cp <= 0x097F);
     }
 
     /**
