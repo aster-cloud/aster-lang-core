@@ -239,6 +239,7 @@ public class AsterCustomLexer extends AsterLexer {
 
         t = mergeOperatorPhrase(t);
         retypePrefixKeyword(t);
+        retypeConstraintKeyword(t);
         recordMeaningful(t);
         return t;
     }
@@ -469,6 +470,106 @@ public class AsterCustomLexer extends AsterLexer {
     }
 
     /**
+     * 是否处在字段 / 形参列表里（K-d，约束词判定用）：见过 given / with / has（任意大小写）之后为真，到括号外的冒号或语句末尾的
+     * 句点（其后不紧跟名字字符，区别于限定名里的点）为止。多行字段列表跨越换行，故换行不结束。语句里（`Return x == "a" Required.`）
+     * 的约束词同形词因此不改记号，出错时的诊断照旧显示原文。
+     */
+    private boolean inDeclarationList = false;
+
+    /** 字段 / 形参列表里未闭合的左括号数：注解参数里的冒号（`@source(form: "loan")`）不结束列表。 */
+    private int declarationListParens = 0;
+
+    private void trackDeclarationList(Token t, int type) {
+        if (type == AsterParser.LPAREN) {
+            declarationListParens++;
+        } else if (type == AsterParser.RPAREN && declarationListParens > 0) {
+            declarationListParens--;
+        }
+        if ((type == AsterParser.COLON && declarationListParens == 0) || (type == AsterParser.DOT && !followedByNameChar(t))) {
+            inDeclarationList = false;
+            declarationListParens = 0;
+        } else if (type == AsterParser.GIVEN || type == AsterParser.WITH || type == AsterParser.HAS
+                || ((type == AsterParser.IDENT || type == AsterParser.TYPE_IDENT) && !EscapedToken.isEscaped(t)
+                    && t.getText() != null && DECLARATION_LIST_WORDS.contains(t.getText().toLowerCase(java.util.Locale.ROOT)))) {
+            inDeclarationList = true;
+        }
+    }
+
+    /** 字段 / 形参列表的引导词（任意大小写；小写拼写是 GIVEN / WITH / HAS 记号）。 */
+    private static final Set<String> DECLARATION_LIST_WORDS = Set.of("given", "with", "has");
+
+    /** 记号之后的下一个字符是否是名字字符（限定名 `io.Http` 里的点之后紧跟名字）。 */
+    private boolean followedByNameChar(Token t) {
+        int next = t.getStopIndex() + 1;
+        CharStream in = getInputStream();
+        if (next >= in.size()) {
+            return false;
+        }
+        int c = in.getText(org.antlr.v4.runtime.misc.Interval.of(next, next)).codePointAt(0);
+        return Character.isLetterOrDigit(c) || c == '_' || c == '`';
+    }
+
+    /** 约束关键词（K-d，小写）→ 记号类型。小写拼写本来就是这些记号。 */
+    private static final java.util.Map<String, Integer> CONSTRAINT_KEYWORDS = java.util.Map.of(
+        "required", AsterParser.REQUIRED, "between", AsterParser.BETWEEN, "matching", AsterParser.MATCHING);
+
+    /**
+     * 约束关键词 required / between / matching 的其余大小写拼写（Required、BETWEEN、mATCHING…，K-d）在词法上是名字记号；
+     * 处在约束位置时改成 REQUIRED / BETWEEN / MATCHING 记号，文本与位置不变：前一个记号能结束字段 / 形参的名字或类型，或是上一个
+     * 约束的结尾（同一行，{@link #endsConstraintSubject}），且下一个记号是该约束之后才能出现的记号（{@link #followsConstraint}）。
+     * 这两个条件同时成立的「名字 名字 …」在文法里不能走通（同 K-c 的运算符短语），名字读法因此不受影响；万一出现在名字位置，
+     * REQUIRED / BETWEEN / MATCHING 也在 structKeywordName 里。
+     *
+     * <p>为什么不用关键词辅助规则：辅助规则的名字分支在外层决策的预测深处一律当作成立，类型之后的任何名字都能读成约束，
+     * `Type With AS Int.` 因而也能读成省略 Define 的数据类型（with = With，字段 AS，约束 Int），分支序号更小而被误选；
+     * 出错源码的诊断也随之漂移。名字转义永远是名字（ADR 0064 N3）。
+     */
+    private void retypeConstraintKeyword(Token t) {
+        int type = t.getType();
+        if ((type != AsterParser.TYPE_IDENT && type != AsterParser.IDENT) || EscapedToken.isEscaped(t)
+                || t.getText() == null || !(t instanceof WritableToken w) || !inDeclarationList || lineBreakSincePrev
+                || !endsConstraintSubject(prevMeaningful)) {
+            return;
+        }
+        String lower = t.getText().toLowerCase(java.util.Locale.ROOT);
+        Integer keyword = CONSTRAINT_KEYWORDS.get(lower);
+        if (keyword != null && followsConstraint(lower, peekNextRealToken())) {
+            w.setType(keyword);
+        }
+    }
+
+    /** 记号能结束约束之前的部分：字段 / 形参名或类型的末尾（名字、右括号、问号），或上一个约束的末尾（约束词、数值、字符串）。 */
+    private static boolean endsConstraintSubject(Token p) {
+        if (p == null) {
+            return false;
+        }
+        int type = p.getType();
+        return endsOperand(p) || type == AsterParser.QUESTION || type == AsterParser.REQUIRED;
+    }
+
+    /** 下一个记号只能出现在该约束之后：required 之后是分隔符、句末、冒号或下一个约束；between 之后是数值；matching 之后是字符串或 pattern。 */
+    private static boolean followsConstraint(String keyword, Token n) {
+        if (n == null) {
+            return false;
+        }
+        int type = n.getType();
+        return switch (keyword) {
+            case "between" -> type == AsterParser.INT_LITERAL || type == AsterParser.FLOAT_LITERAL || type == AsterParser.MINUS;
+            case "matching" -> type == AsterParser.STRING_LITERAL || type == AsterParser.IDENT;
+            default -> type == AsterParser.COMMA || type == AsterParser.DOT || type == AsterParser.COLON
+                || type == AsterParser.RPAREN || type == Token.EOF || type == NEWLINE
+                || type == AsterParser.REQUIRED || type == AsterParser.BETWEEN || type == AsterParser.MATCHING
+                || type == AsterParser.AND || type == AsterParser.PRODUCE
+                || type == AsterParser.GREATER_THAN_OR_EQUAL_WORD || type == AsterParser.LESS_THAN_OR_EQUAL_WORD
+                || ((type == AsterParser.IDENT || type == AsterParser.TYPE_IDENT) && !EscapedToken.isEscaped(n)
+                    && n.getText() != null && FOLLOWS_REQUIRED_WORDS.contains(n.getText().toLowerCase(java.util.Locale.ROOT)));
+        };
+    }
+
+    /** required 之后可以出现的关键词文本（任意大小写）：下一个约束、and、produce。 */
+    private static final Set<String> FOLLOWS_REQUIRED_WORDS = Set.of("required", "between", "matching", "and", "produce");
+
+    /**
      * {@code Not(x)} / {@code NOT (x > 1)}（K-c，产品裁决 D3）：not 后接左括号读作 not，与 aster-lang-ts 一致，此前 core 读作
      * 调用名为 Not 的函数。名字读法照旧的位置：成员调用 {@code x.Not(y)}（前一个记号是点）、注解 {@code @Not(…)}、Match 分支的
      * 构造器模式 {@code When Not(a),}（{@link #inPattern}）。要调用名为 Not 的函数请写 {@code `Not`(x)}（名字转义）。
@@ -677,6 +778,7 @@ public class AsterCustomLexer extends AsterLexer {
             return;
         }
         trackPattern(type);
+        trackDeclarationList(t, type);
         prevIsMember = prevMeaningful != null && prevMeaningful.getType() == AsterParser.DOT && !lineBreakSincePrev;
         prevMeaningful = t;
         lineBreakSincePrev = false;

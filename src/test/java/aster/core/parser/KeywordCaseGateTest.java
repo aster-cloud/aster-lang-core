@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 这里在规范拼写的记号序列上逐个求值门控方法（解析器停在门控所在的位置），再在 K-b 的其余拼写与名字读法上验证取舍。
  *
  * <p>K-c 的运算符短语（AsterCustomLexer.mergeOperatorPhrase）与 not 后接左括号（产品裁决 D3，isNotCall）也在词法器里判定：
- * 改写后的记号序列与小写拼写逐个相同，名字读法照旧的位置不改。
+ * 改写后的记号序列与小写拼写逐个相同，名字读法照旧的位置不改。K-d 的约束词（retypeConstraintKeyword）同理。
  */
 class KeywordCaseGateTest {
 
@@ -202,6 +202,75 @@ class KeywordCaseGateTest {
     void operatorHomographsStayNames(String source, String text, String expected) {
         Token t = tokenWithText(source.replace("\\n", "\n"), text);
         assertThat(AsterParser.VOCABULARY.getSymbolicName(t.getType())).isEqualTo(expected);
+    }
+
+    /**
+     * K-d：约束词 required / between / matching 的其余大小写拼写在约束位置（前一个记号结束名字 / 类型 / 上一个约束，下一个记号
+     * 只能接在该约束之后）改成 REQUIRED / BETWEEN / MATCHING 记号；名字位置与条件不成立时照旧是名字。
+     */
+    @ParameterizedTest(name = "{0} → {2}")
+    @CsvSource(delimiter = '|', value = {
+        "Define S with a as Int Required. | Required | REQUIRED",
+        "Define S with a as Int REQUIRED, b as Text. | REQUIRED | REQUIRED",
+        "Define S with a as Int rEQUIRED and b as Text. | rEQUIRED | REQUIRED",
+        "Define S with a as Int? Required. | Required | REQUIRED",
+        "Define S with a as Int at least 1 Required. | Required | REQUIRED",
+        "Define S with a as Text matching \"x\" Required. | Required | REQUIRED",
+        "Define S with a as Int Required Between 1 and 2. | Between | BETWEEN",
+        "Define S with a as Int BETWEEN -5 and 5. | BETWEEN | BETWEEN",
+        "Define S with a as Float Between 0.5 and 1.5. | Between | BETWEEN",
+        "Define S with a as Text MATCHING \"^x$\". | MATCHING | MATCHING",
+        "Define S with a as Text Matching pattern \"^x$\". | Matching | MATCHING",
+        "Rule f given p as Int Required, produce Int: | Required | REQUIRED",
+        "Rule f given p as Int Required produce Int: | Required | REQUIRED",
+        "Rule f given n Required, produce Int: | Required | REQUIRED",
+        // 名字位置与条件不成立：照旧是名字
+        "Define S with a as Int, rEQUIRED as Int. | rEQUIRED | IDENT",
+        "Define S with a as Int, rEQUIRED. | rEQUIRED | IDENT",
+        "Define a Required with x as Int. | Required | TYPE_IDENT",
+        "Define REQUIRED with x as Int. | REQUIRED | TYPE_IDENT",
+        "Type Required as Int. | Required | TYPE_IDENT",
+        "Return x.Required. | Required | TYPE_IDENT",
+        "Define S with a as Int REQUIRED 18. | REQUIRED | TYPE_IDENT",
+        "Define S with a as Int BETWEEN and 5. | BETWEEN | TYPE_IDENT",
+        "Define S with a as Text MATCHING. | MATCHING | TYPE_IDENT",
+        "Define S with a as Int `REQUIRED`. | REQUIRED | TYPE_IDENT",
+        "Define S with a as Int\\n  Required. | Required | TYPE_IDENT",
+        "Rule f given x As Required, produce Int: | Required | TYPE_IDENT",
+        "Let x Be Required. | Required | TYPE_IDENT",
+        // 字段 / 形参列表之外（语句里）不改：出错时诊断照旧显示原文
+        "Return x == \"a\" Required. | Required | TYPE_IDENT",
+        "Return g(x) Required. | Required | TYPE_IDENT",
+        // 注解参数里的冒号不结束列表；限定类型名里的点不结束列表；语句末尾的句点结束列表
+        "Define S has @source(form: \"loan\") a as Int Between 1 and 100. | Between | BETWEEN",
+        "Define S has a as io.Money Required. | Required | REQUIRED",
+        "Define S with a as Int.\\nReturn x Required. | Required | TYPE_IDENT",
+    })
+    void constraintKeywordsAreRetypedOnlyInConstraintPosition(String source, String text, String expected) {
+        Token t = tokenWithText(source.replace("\\n", "\n"), text);
+        assertThat(AsterParser.VOCABULARY.getSymbolicName(t.getType())).isEqualTo(expected);
+    }
+
+    /** K-d：约束词改写后的记号序列与小写拼写逐个相同（只比较记号种类；名字记号连同文本）。 */
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', value = {
+        "Define S has a as Int REQUIRED BETWEEN 1 and 9, b as Text Required Matching pattern \"x\". | Define S has a as Int required between 1 and 9, b as Text required matching pattern \"x\".",
+        "Rule f given a as Int Required and b as Int Between 1 and 2, produce Int: | Rule f given a as Int required and b as Int between 1 and 2, produce Int:",
+    })
+    void constraintKeywordsMatchLowercaseTokens(String mixed, String lower) {
+        assertThat(tokenTypes(mixed)).isEqualTo(tokenTypes(lower));
+    }
+
+    private static java.util.List<String> tokenTypes(String source) {
+        CommonTokenStream tokens = new CommonTokenStream(new AsterCustomLexer(CharStreams.fromString(source)));
+        tokens.fill();
+        return tokens.getTokens().stream()
+            .filter(t -> t.getChannel() == Token.DEFAULT_CHANNEL)
+            .map(t -> {
+                String name = AsterParser.VOCABULARY.getSymbolicName(t.getType());
+                return t.getType() == AsterParser.IDENT || t.getType() == AsterParser.TYPE_IDENT ? name + ":" + t.getText() : name;
+            })
+            .toList();
     }
 
     /**

@@ -1,0 +1,598 @@
+{
+  "description": "关键词大小写 K-d（workflow 与约束关键词：workflow、step、depends on、compensate、retry、max attempts、backoff、timeout、seconds / second、required、between、matching；aster-lang-ts#338 第 1 部分，ADR 0056 修订 A4 §1.1、修订 A7 D1）的 core 夹具。accept：source 能解析，且与把关键词改回小写的 canonical Core IR 位置无关哈希相同，每例 aster-lang-ts 同样接受且同义（首字母大写、全大写、小写开头的混合拼写）。names：同形词作名字照常解析，Core IR 含 names 中的每个名字：Let 名 STEP、成员 config.TIMEOUT、字段 / 形参 / 变量 / 规则名 rEQUIRED / bETWEEN / mATCHING / rETRY、类型名 REQUIRED、类型别名 TIMEOUT 与 With、冠词之后的类型名 Required、枚举成员 Seconds、转义的步骤名、构造字段与 workflow 步骤里的 Let 名（与 K-d 之前相同）。reject：第一条诊断恰为 [码, 行, 列]，与 K-d 之前的 core（aster-lang-core 85f891f）相同：转义的关键词是名字，pattern 只认小写（aster-lang-ts 同样只认小写），required 之后接数值、between 之后缺数值、matching 之后缺字符串时约束词照旧是名字，行首的 STEP 不是语句。",
+  "accept": [
+    {
+      "name": "wf-single/Cap",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  Workflow:\n    Step only:\n      Return ok of 1.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step only:\n      Return ok of 1.\n  .\n"
+    },
+    {
+      "name": "wf-single/UPPER",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  WORKFLOW:\n    STEP only:\n      Return ok of 1.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step only:\n      Return ok of 1.\n  .\n"
+    },
+    {
+      "name": "wf-single/mixed",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  wORKFLOW:\n    sTEP only:\n      Return ok of 1.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step only:\n      Return ok of 1.\n  .\n"
+    },
+    {
+      "name": "wf-backoff-first/Cap",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  Workflow:\n    Step a:\n      Return ok of 1.\n    Retry:\n      Backoff: exponential.\n      Max Attempts: 2.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step a:\n      Return ok of 1.\n    retry:\n      backoff: exponential.\n      max attempts: 2.\n  .\n"
+    },
+    {
+      "name": "wf-backoff-first/UPPER",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  WORKFLOW:\n    STEP a:\n      Return ok of 1.\n    RETRY:\n      BACKOFF: exponential.\n      MAX ATTEMPTS: 2.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step a:\n      Return ok of 1.\n    retry:\n      backoff: exponential.\n      max attempts: 2.\n  .\n"
+    },
+    {
+      "name": "wf-backoff-first/mixed",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  wORKFLOW:\n    sTEP a:\n      Return ok of 1.\n    rETRY:\n      bACKOFF: exponential.\n      mAX aTTEMPTS: 2.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step a:\n      Return ok of 1.\n    retry:\n      backoff: exponential.\n      max attempts: 2.\n  .\n"
+    },
+    {
+      "name": "wf-timeout-only/Cap",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  Workflow:\n    Step a:\n      Return ok of 1.\n    Timeout: 1 Second.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step a:\n      Return ok of 1.\n    timeout: 1 second.\n  .\n"
+    },
+    {
+      "name": "wf-timeout-only/UPPER",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  WORKFLOW:\n    STEP a:\n      Return ok of 1.\n    TIMEOUT: 1 SECOND.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step a:\n      Return ok of 1.\n    timeout: 1 second.\n  .\n"
+    },
+    {
+      "name": "wf-timeout-only/mixed",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  wORKFLOW:\n    sTEP a:\n      Return ok of 1.\n    tIMEOUT: 1 sECOND.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step a:\n      Return ok of 1.\n    timeout: 1 second.\n  .\n"
+    },
+    {
+      "name": "wf-blank-lines/Cap",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  Workflow:\n\n    Step a:\n\n      Return ok of 1.\n\n    Compensate:\n\n      Return ok of 2.\n\n    Step b Depends On [\"a\"]:\n      Return ok of 3.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n\n    step a:\n\n      Return ok of 1.\n\n    compensate:\n\n      Return ok of 2.\n\n    step b depends on [\"a\"]:\n      Return ok of 3.\n  .\n"
+    },
+    {
+      "name": "wf-blank-lines/UPPER",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  WORKFLOW:\n\n    STEP a:\n\n      Return ok of 1.\n\n    COMPENSATE:\n\n      Return ok of 2.\n\n    STEP b DEPENDS ON [\"a\"]:\n      Return ok of 3.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n\n    step a:\n\n      Return ok of 1.\n\n    compensate:\n\n      Return ok of 2.\n\n    step b depends on [\"a\"]:\n      Return ok of 3.\n  .\n"
+    },
+    {
+      "name": "wf-blank-lines/mixed",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  wORKFLOW:\n\n    sTEP a:\n\n      Return ok of 1.\n\n    cOMPENSATE:\n\n      Return ok of 2.\n\n    sTEP b dEPENDS oN [\"a\"]:\n      Return ok of 3.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n\n    step a:\n\n      Return ok of 1.\n\n    compensate:\n\n      Return ok of 2.\n\n    step b depends on [\"a\"]:\n      Return ok of 3.\n  .\n"
+    },
+    {
+      "name": "wf-depends-multi/Cap",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  Workflow:\n    Step a:\n      Return ok of 1.\n    Step b:\n      Return ok of 2.\n    Step c Depends On [\"a\", \"b\"]:\n      Return ok of 3.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step a:\n      Return ok of 1.\n    step b:\n      Return ok of 2.\n    step c depends on [\"a\", \"b\"]:\n      Return ok of 3.\n  .\n"
+    },
+    {
+      "name": "wf-depends-multi/UPPER",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  WORKFLOW:\n    STEP a:\n      Return ok of 1.\n    STEP b:\n      Return ok of 2.\n    STEP c DEPENDS ON [\"a\", \"b\"]:\n      Return ok of 3.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step a:\n      Return ok of 1.\n    step b:\n      Return ok of 2.\n    step c depends on [\"a\", \"b\"]:\n      Return ok of 3.\n  .\n"
+    },
+    {
+      "name": "wf-depends-multi/mixed",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  wORKFLOW:\n    sTEP a:\n      Return ok of 1.\n    sTEP b:\n      Return ok of 2.\n    sTEP c dEPENDS oN [\"a\", \"b\"]:\n      Return ok of 3.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step a:\n      Return ok of 1.\n    step b:\n      Return ok of 2.\n    step c depends on [\"a\", \"b\"]:\n      Return ok of 3.\n  .\n"
+    },
+    {
+      "name": "wf-depends-empty/Cap",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  Workflow:\n    Step first Depends On []:\n      Return ok of 1.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step first depends on []:\n      Return ok of 1.\n  .\n"
+    },
+    {
+      "name": "wf-depends-empty/UPPER",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  WORKFLOW:\n    STEP first DEPENDS ON []:\n      Return ok of 1.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step first depends on []:\n      Return ok of 1.\n  .\n"
+    },
+    {
+      "name": "wf-depends-empty/mixed",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  wORKFLOW:\n    sTEP first dEPENDS oN []:\n      Return ok of 1.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step first depends on []:\n      Return ok of 1.\n  .\n"
+    },
+    {
+      "name": "wf-in-if/Cap",
+      "source": "Module probe.sample.\n\nRule run given f as Bool, produce. It performs io:\n  If f:\n    Workflow:\n      Step a:\n        Return ok of 1.\n    .\n  Return ok of 0.\n",
+      "canonical": "Module probe.sample.\n\nRule run given f as Bool, produce. It performs io:\n  If f:\n    workflow:\n      step a:\n        Return ok of 1.\n    .\n  Return ok of 0.\n"
+    },
+    {
+      "name": "wf-in-if/UPPER",
+      "source": "Module probe.sample.\n\nRule run given f as Bool, produce. It performs io:\n  If f:\n    WORKFLOW:\n      STEP a:\n        Return ok of 1.\n    .\n  Return ok of 0.\n",
+      "canonical": "Module probe.sample.\n\nRule run given f as Bool, produce. It performs io:\n  If f:\n    workflow:\n      step a:\n        Return ok of 1.\n    .\n  Return ok of 0.\n"
+    },
+    {
+      "name": "wf-in-if/mixed",
+      "source": "Module probe.sample.\n\nRule run given f as Bool, produce. It performs io:\n  If f:\n    wORKFLOW:\n      sTEP a:\n        Return ok of 1.\n    .\n  Return ok of 0.\n",
+      "canonical": "Module probe.sample.\n\nRule run given f as Bool, produce. It performs io:\n  If f:\n    workflow:\n      step a:\n        Return ok of 1.\n    .\n  Return ok of 0.\n"
+    },
+    {
+      "name": "wf-step-named-like-kw/Cap",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  Workflow:\n    Step retry:\n      Return ok of 1.\n    Step tIMEOUT Depends On [\"retry\"]:\n      Return ok of 2.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step retry:\n      Return ok of 1.\n    step tIMEOUT depends on [\"retry\"]:\n      Return ok of 2.\n  .\n"
+    },
+    {
+      "name": "wf-step-named-like-kw/UPPER",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  WORKFLOW:\n    STEP retry:\n      Return ok of 1.\n    STEP tIMEOUT DEPENDS ON [\"retry\"]:\n      Return ok of 2.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step retry:\n      Return ok of 1.\n    step tIMEOUT depends on [\"retry\"]:\n      Return ok of 2.\n  .\n"
+    },
+    {
+      "name": "wf-step-named-like-kw/mixed",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  wORKFLOW:\n    sTEP retry:\n      Return ok of 1.\n    sTEP tIMEOUT dEPENDS oN [\"retry\"]:\n      Return ok of 2.\n  .\n",
+      "canonical": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step retry:\n      Return ok of 1.\n    step tIMEOUT depends on [\"retry\"]:\n      Return ok of 2.\n  .\n"
+    },
+    {
+      "name": "cn-field-required/Cap",
+      "source": "Module probe.sample.\n\nDefine S with a as Int Required, b as Text.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int required, b as Text.\n"
+    },
+    {
+      "name": "cn-field-required/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with a as Int REQUIRED, b as Text.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int required, b as Text.\n"
+    },
+    {
+      "name": "cn-field-required/mixed",
+      "source": "Module probe.sample.\n\nDefine S with a as Int rEQUIRED, b as Text.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int required, b as Text.\n"
+    },
+    {
+      "name": "cn-field-required-and/Cap",
+      "source": "Module probe.sample.\n\nDefine S with a as Int Required and b as Text.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int required and b as Text.\n"
+    },
+    {
+      "name": "cn-field-required-and/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with a as Int REQUIRED and b as Text.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int required and b as Text.\n"
+    },
+    {
+      "name": "cn-field-required-and/mixed",
+      "source": "Module probe.sample.\n\nDefine S with a as Int rEQUIRED and b as Text.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int required and b as Text.\n"
+    },
+    {
+      "name": "cn-field-last-required/Cap",
+      "source": "Module probe.sample.\n\nDefine S with a as Int, b as Text Required.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int, b as Text required.\n"
+    },
+    {
+      "name": "cn-field-last-required/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with a as Int, b as Text REQUIRED.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int, b as Text required.\n"
+    },
+    {
+      "name": "cn-field-last-required/mixed",
+      "source": "Module probe.sample.\n\nDefine S with a as Int, b as Text rEQUIRED.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int, b as Text required.\n"
+    },
+    {
+      "name": "cn-field-between-neg/Cap",
+      "source": "Module probe.sample.\n\nDefine S with a as Int Between -5 and 5.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int between -5 and 5.\n"
+    },
+    {
+      "name": "cn-field-between-neg/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with a as Int BETWEEN -5 and 5.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int between -5 and 5.\n"
+    },
+    {
+      "name": "cn-field-between-neg/mixed",
+      "source": "Module probe.sample.\n\nDefine S with a as Int bETWEEN -5 and 5.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int between -5 and 5.\n"
+    },
+    {
+      "name": "cn-field-between-float/Cap",
+      "source": "Module probe.sample.\n\nDefine S with a as Float Between 0.5 and 1.5 Required.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Float between 0.5 and 1.5 required.\n"
+    },
+    {
+      "name": "cn-field-between-float/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with a as Float BETWEEN 0.5 and 1.5 REQUIRED.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Float between 0.5 and 1.5 required.\n"
+    },
+    {
+      "name": "cn-field-between-float/mixed",
+      "source": "Module probe.sample.\n\nDefine S with a as Float bETWEEN 0.5 and 1.5 rEQUIRED.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Float between 0.5 and 1.5 required.\n"
+    },
+    {
+      "name": "cn-field-matching/Cap",
+      "source": "Module probe.sample.\n\nDefine S with a as Text Matching \"^x$\".\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Text matching \"^x$\".\n"
+    },
+    {
+      "name": "cn-field-matching/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with a as Text MATCHING \"^x$\".\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Text matching \"^x$\".\n"
+    },
+    {
+      "name": "cn-field-matching/mixed",
+      "source": "Module probe.sample.\n\nDefine S with a as Text mATCHING \"^x$\".\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Text matching \"^x$\".\n"
+    },
+    {
+      "name": "cn-field-matching-pattern/Cap",
+      "source": "Module probe.sample.\n\nDefine S with a as Text Required Matching pattern \"^x$\".\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Text required matching pattern \"^x$\".\n"
+    },
+    {
+      "name": "cn-field-matching-pattern/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with a as Text REQUIRED MATCHING pattern \"^x$\".\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Text required matching pattern \"^x$\".\n"
+    },
+    {
+      "name": "cn-field-matching-pattern/mixed",
+      "source": "Module probe.sample.\n\nDefine S with a as Text rEQUIRED mATCHING pattern \"^x$\".\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Text required matching pattern \"^x$\".\n"
+    },
+    {
+      "name": "cn-field-at-least-required/Cap",
+      "source": "Module probe.sample.\n\nDefine S with a as Int at least 1 Required.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int at least 1 required.\n"
+    },
+    {
+      "name": "cn-field-at-least-required/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with a as Int at least 1 REQUIRED.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int at least 1 required.\n"
+    },
+    {
+      "name": "cn-field-at-least-required/mixed",
+      "source": "Module probe.sample.\n\nDefine S with a as Int at least 1 rEQUIRED.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int at least 1 required.\n"
+    },
+    {
+      "name": "cn-field-maybe/Cap",
+      "source": "Module probe.sample.\n\nDefine S with a as Int? Required.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int? required.\n"
+    },
+    {
+      "name": "cn-field-maybe/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with a as Int? REQUIRED.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int? required.\n"
+    },
+    {
+      "name": "cn-field-maybe/mixed",
+      "source": "Module probe.sample.\n\nDefine S with a as Int? rEQUIRED.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as Int? required.\n"
+    },
+    {
+      "name": "cn-field-list/Cap",
+      "source": "Module probe.sample.\n\nDefine S with a as List of Int Required.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as List of Int required.\n"
+    },
+    {
+      "name": "cn-field-list/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with a as List of Int REQUIRED.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as List of Int required.\n"
+    },
+    {
+      "name": "cn-field-list/mixed",
+      "source": "Module probe.sample.\n\nDefine S with a as List of Int rEQUIRED.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as List of Int required.\n"
+    },
+    {
+      "name": "cn-field-has/Cap",
+      "source": "Module probe.sample.\n\nDefine S has a as Int Required, b as Int Between 1 and 2.\n",
+      "canonical": "Module probe.sample.\n\nDefine S has a as Int required, b as Int between 1 and 2.\n"
+    },
+    {
+      "name": "cn-field-has/UPPER",
+      "source": "Module probe.sample.\n\nDefine S has a as Int REQUIRED, b as Int BETWEEN 1 and 2.\n",
+      "canonical": "Module probe.sample.\n\nDefine S has a as Int required, b as Int between 1 and 2.\n"
+    },
+    {
+      "name": "cn-field-has/mixed",
+      "source": "Module probe.sample.\n\nDefine S has a as Int rEQUIRED, b as Int bETWEEN 1 and 2.\n",
+      "canonical": "Module probe.sample.\n\nDefine S has a as Int required, b as Int between 1 and 2.\n"
+    },
+    {
+      "name": "cn-param-required/Cap",
+      "source": "Module probe.sample.\n\nRule f given a as Int Required, produce Int:\n  Return a.\n",
+      "canonical": "Module probe.sample.\n\nRule f given a as Int required, produce Int:\n  Return a.\n"
+    },
+    {
+      "name": "cn-param-required/UPPER",
+      "source": "Module probe.sample.\n\nRule f given a as Int REQUIRED, produce Int:\n  Return a.\n",
+      "canonical": "Module probe.sample.\n\nRule f given a as Int required, produce Int:\n  Return a.\n"
+    },
+    {
+      "name": "cn-param-required/mixed",
+      "source": "Module probe.sample.\n\nRule f given a as Int rEQUIRED, produce Int:\n  Return a.\n",
+      "canonical": "Module probe.sample.\n\nRule f given a as Int required, produce Int:\n  Return a.\n"
+    },
+    {
+      "name": "cn-param-between-last/Cap",
+      "source": "Module probe.sample.\n\nRule f given a as Int, b as Int Between 1 and 9, produce Int:\n  Return b.\n",
+      "canonical": "Module probe.sample.\n\nRule f given a as Int, b as Int between 1 and 9, produce Int:\n  Return b.\n"
+    },
+    {
+      "name": "cn-param-between-last/UPPER",
+      "source": "Module probe.sample.\n\nRule f given a as Int, b as Int BETWEEN 1 and 9, produce Int:\n  Return b.\n",
+      "canonical": "Module probe.sample.\n\nRule f given a as Int, b as Int between 1 and 9, produce Int:\n  Return b.\n"
+    },
+    {
+      "name": "cn-param-between-last/mixed",
+      "source": "Module probe.sample.\n\nRule f given a as Int, b as Int bETWEEN 1 and 9, produce Int:\n  Return b.\n",
+      "canonical": "Module probe.sample.\n\nRule f given a as Int, b as Int between 1 and 9, produce Int:\n  Return b.\n"
+    },
+    {
+      "name": "cn-param-and/Cap",
+      "source": "Module probe.sample.\n\nRule f given a as Int Required and b as Int, produce Int:\n  Return a.\n",
+      "canonical": "Module probe.sample.\n\nRule f given a as Int required and b as Int, produce Int:\n  Return a.\n"
+    },
+    {
+      "name": "cn-param-and/UPPER",
+      "source": "Module probe.sample.\n\nRule f given a as Int REQUIRED and b as Int, produce Int:\n  Return a.\n",
+      "canonical": "Module probe.sample.\n\nRule f given a as Int required and b as Int, produce Int:\n  Return a.\n"
+    },
+    {
+      "name": "cn-param-and/mixed",
+      "source": "Module probe.sample.\n\nRule f given a as Int rEQUIRED and b as Int, produce Int:\n  Return a.\n",
+      "canonical": "Module probe.sample.\n\nRule f given a as Int required and b as Int, produce Int:\n  Return a.\n"
+    },
+    {
+      "name": "cn-param-untyped/Cap",
+      "source": "Module probe.sample.\n\nRule f given n Required, produce Int:\n  Return 1.\n",
+      "canonical": "Module probe.sample.\n\nRule f given n required, produce Int:\n  Return 1.\n"
+    },
+    {
+      "name": "cn-param-untyped/UPPER",
+      "source": "Module probe.sample.\n\nRule f given n REQUIRED, produce Int:\n  Return 1.\n",
+      "canonical": "Module probe.sample.\n\nRule f given n required, produce Int:\n  Return 1.\n"
+    },
+    {
+      "name": "cn-param-untyped/mixed",
+      "source": "Module probe.sample.\n\nRule f given n rEQUIRED, produce Int:\n  Return 1.\n",
+      "canonical": "Module probe.sample.\n\nRule f given n required, produce Int:\n  Return 1.\n"
+    },
+    {
+      "name": "cn-lambda-param/Cap",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Let g be function given a as Int Required, produce Int: Return a.\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Let g be function given a as Int required, produce Int: Return a.\n  Return x.\n"
+    },
+    {
+      "name": "cn-lambda-param/UPPER",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Let g be function given a as Int REQUIRED, produce Int: Return a.\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Let g be function given a as Int required, produce Int: Return a.\n  Return x.\n"
+    },
+    {
+      "name": "cn-lambda-param/mixed",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Let g be function given a as Int rEQUIRED, produce Int: Return a.\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Let g be function given a as Int required, produce Int: Return a.\n  Return x.\n"
+    },
+    {
+      "name": "cn-multiline-fields/Cap",
+      "source": "Module probe.sample.\n\nDefine S with\n  a as Int Required,\n  b as Text Matching \"x\".\n",
+      "canonical": "Module probe.sample.\n\nDefine S with\n  a as Int required,\n  b as Text matching \"x\".\n"
+    },
+    {
+      "name": "cn-multiline-fields/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with\n  a as Int REQUIRED,\n  b as Text MATCHING \"x\".\n",
+      "canonical": "Module probe.sample.\n\nDefine S with\n  a as Int required,\n  b as Text matching \"x\".\n"
+    },
+    {
+      "name": "cn-multiline-fields/mixed",
+      "source": "Module probe.sample.\n\nDefine S with\n  a as Int rEQUIRED,\n  b as Text mATCHING \"x\".\n",
+      "canonical": "Module probe.sample.\n\nDefine S with\n  a as Int required,\n  b as Text matching \"x\".\n"
+    },
+    {
+      "name": "cn-param-required-produce-nocomma/Cap",
+      "source": "Module probe.sample.\n\nRule f given p as Int Required produce Int:\n  Return p.\n",
+      "canonical": "Module probe.sample.\n\nRule f given p as Int required produce Int:\n  Return p.\n"
+    },
+    {
+      "name": "cn-param-required-produce-nocomma/UPPER",
+      "source": "Module probe.sample.\n\nRule f given p as Int REQUIRED produce Int:\n  Return p.\n",
+      "canonical": "Module probe.sample.\n\nRule f given p as Int required produce Int:\n  Return p.\n"
+    },
+    {
+      "name": "cn-param-required-produce-nocomma/mixed",
+      "source": "Module probe.sample.\n\nRule f given p as Int rEQUIRED produce Int:\n  Return p.\n",
+      "canonical": "Module probe.sample.\n\nRule f given p as Int required produce Int:\n  Return p.\n"
+    },
+    {
+      "name": "cn-pii-field/Cap",
+      "source": "Module probe.sample.\n\nDefine S with a as @pii(L1, email) Text Required.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as @pii(L1, email) Text required.\n"
+    },
+    {
+      "name": "cn-pii-field/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with a as @pii(L1, email) Text REQUIRED.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as @pii(L1, email) Text required.\n"
+    },
+    {
+      "name": "cn-pii-field/mixed",
+      "source": "Module probe.sample.\n\nDefine S with a as @pii(L1, email) Text rEQUIRED.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with a as @pii(L1, email) Text required.\n"
+    }
+  ],
+  "names": [
+    {
+      "name": "let-STEP",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  Let STEP be x.\n  Return STEP.\n",
+      "names": [
+        "STEP"
+      ]
+    },
+    {
+      "name": "member-TIMEOUT",
+      "source": "Module probe.sample.\n\nRule f given config as Int, produce Int:\n  Return config.TIMEOUT.\n",
+      "names": [
+        "config.TIMEOUT"
+      ]
+    },
+    {
+      "name": "field-rEQUIRED",
+      "source": "Module probe.sample.\n\nDefine S with p as Int, rEQUIRED as Int.\n",
+      "names": [
+        "rEQUIRED"
+      ]
+    },
+    {
+      "name": "field-rEQUIRED-untyped",
+      "source": "Module probe.sample.\n\nDefine S with p as Int, rEQUIRED.\n",
+      "names": [
+        "rEQUIRED"
+      ]
+    },
+    {
+      "name": "param-bETWEEN",
+      "source": "Module probe.sample.\n\nRule f given bETWEEN as Int, produce Int:\n  Return bETWEEN.\n",
+      "names": [
+        "bETWEEN"
+      ]
+    },
+    {
+      "name": "var-mATCHING-compare",
+      "source": "Module probe.sample.\n\nRule f given mATCHING as Int, produce Bool:\n  Return mATCHING less than 5.\n",
+      "names": [
+        "mATCHING"
+      ]
+    },
+    {
+      "name": "call-rETRY",
+      "source": "Module probe.sample.\n\nRule rETRY given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Return rETRY(x).\n",
+      "names": [
+        "rETRY"
+      ]
+    },
+    {
+      "name": "type-REQUIRED",
+      "source": "Module probe.sample.\n\nDefine REQUIRED with x as Int.\n\nRule f given r as REQUIRED, produce Int:\n  Return r.x.\n",
+      "names": [
+        "REQUIRED"
+      ]
+    },
+    {
+      "name": "escaped-step-name",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step `STEP`:\n      Return ok of 1.\n  .\n",
+      "names": [
+        "STEP"
+      ]
+    },
+    {
+      "name": "article-Required",
+      "source": "Module probe.sample.\n\nDefine a Required with x as Int.\n",
+      "names": [
+        "Required"
+      ]
+    },
+    {
+      "name": "enum-Seconds",
+      "source": "Module probe.sample.\n\nDefine Unit as one of Seconds, Minutes.\n",
+      "names": [
+        "Seconds"
+      ]
+    },
+    {
+      "name": "alias-Timeout",
+      "source": "Module probe.sample.\n\nType TIMEOUT as Int.\n\nRule f given t as TIMEOUT, produce Int:\n  Return t.\n",
+      "names": [
+        "TIMEOUT"
+      ]
+    },
+    {
+      "name": "field-rEQUIRED-after-type",
+      "source": "Module probe.sample.\n\nDefine S with p as Int, rEQUIRED as Int, q as Text.\n",
+      "names": [
+        "rEQUIRED"
+      ]
+    },
+    {
+      "name": "construct-rEQUIRED",
+      "source": "Module probe.sample.\n\nDefine S with rEQUIRED as Int.\n\nRule f, produce S:\n  Return S with rEQUIRED set to 1.\n",
+      "names": [
+        "rEQUIRED"
+      ]
+    },
+    {
+      "name": "let-sECONDS-wf",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step first:\n      Let sECONDS be 1.\n      Return ok of sECONDS.\n    timeout: 3 seconds.\n  .\n",
+      "names": [
+        "sECONDS"
+      ]
+    },
+    {
+      "name": "type-alias-With-AS",
+      "source": "Module probe.sample.\n\nType With AS Int.\n\nRule f given t as With, produce Int:\n  Return t.\n",
+      "names": [
+        "With"
+      ]
+    }
+  ],
+  "reject": [
+    {
+      "name": "pattern-upper",
+      "source": "Module probe.sample.\n\nDefine S with a as Text matching PATTERN \"x\".\n",
+      "reject": [
+        "E061",
+        3,
+        34
+      ]
+    },
+    {
+      "name": "escaped-workflow",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  `WORKFLOW`:\n    step a:\n      Return ok of 1.\n  .\n",
+      "reject": [
+        "E062",
+        4,
+        13
+      ]
+    },
+    {
+      "name": "escaped-required",
+      "source": "Module probe.sample.\n\nDefine S with a as Int `REQUIRED`.\n",
+      "reject": [
+        "E061",
+        3,
+        24
+      ]
+    },
+    {
+      "name": "required-before-number",
+      "source": "Module probe.sample.\n\nDefine S with a as Int REQUIRED 18.\n",
+      "reject": [
+        "E060",
+        3,
+        24
+      ]
+    },
+    {
+      "name": "between-missing-number",
+      "source": "Module probe.sample.\n\nDefine S with a as Int BETWEEN and 5.\n",
+      "reject": [
+        "E063",
+        3,
+        20
+      ]
+    },
+    {
+      "name": "matching-no-string",
+      "source": "Module probe.sample.\n\nDefine S with a as Text MATCHING.\n",
+      "reject": [
+        "E061",
+        3,
+        25
+      ]
+    },
+    {
+      "name": "seconds-plural-upper-name",
+      "source": "Module probe.sample.\n\nRule run, produce. It performs io:\n  workflow:\n    step a:\n      Return ok of 1.\n    timeout: 30 MINUTES.\n  .\n",
+      "reject": [
+        "E055",
+        7,
+        17
+      ]
+    },
+    {
+      "name": "kw-on-line-start-expr",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int:\n  STEP x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        9
+      ]
+    }
+  ]
+}
