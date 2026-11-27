@@ -604,6 +604,24 @@
       ]
     },
     {
+      "name": "en-US 字段名 IF（E901 只认精确拼写 If；大写开头的名字照常 E055，关键词大小写 K 不改变）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Software with IF as Int.\n",
+      "reject": [
+        "E055",
+        3
+      ]
+    },
+    {
+      "name": "en-US 字段名 iF（小写开头的 iF 不是 E901，照旧是名字；关键词大小写 K 不改变）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Software with iF as Int.\n\nRule get given s as Software, produce Int:\n  Return s.iF.\n",
+      "names": [
+        "iF"
+      ],
+      "warnings": []
+    },
+    {
       "name": "en-US 字段名 return / when 小写照旧是名字",
       "lexicon": "en-US",
       "source": "Module probe.sample.\n\nDefine Software with return as Int, when as Int.\n\nRule get given s as Software, produce Int:\n  Return s.return.\n",

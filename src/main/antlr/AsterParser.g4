@@ -22,6 +22,33 @@ import org.antlr.v4.runtime.atn.PredictionMode;
 }
 
 @parser::members {
+    // 关键词大小写（K）的诊断兼容层：出错路径上的预测、sync 与期望集合按 K 之前的文法计算，见 KeywordCaseCompat
+    {
+        setErrorHandler(new aster.core.parser.KeywordCaseCompat.ErrorStrategy());
+    }
+
+    /**
+     * 生成的构造器装的是 ANTLR 默认预测器；第一次取用时换成 K 的兼容预测器（同一 ATN、DFA 与上下文缓存，预测模式照旧）。
+     * 调用方自己装的预测器（带时间预算的预测器本身就是兼容预测器；性能剖析用的预测器）原样保留。
+     */
+    @Override
+    public ParserATNSimulator getInterpreter() {
+        ParserATNSimulator current = super.getInterpreter();
+        if (current == null || current.getClass() != ParserATNSimulator.class) {
+            return current;
+        }
+        aster.core.parser.KeywordCaseCompat.Simulator compat = new aster.core.parser.KeywordCaseCompat.Simulator(
+            this, current.atn, current.decisionToDFA, current.getSharedContextCache());
+        compat.setPredictionMode(current.getPredictionMode());
+        setInterpreter(compat);
+        return compat;
+    }
+
+    @Override
+    public org.antlr.v4.runtime.misc.IntervalSet getExpectedTokens() {
+        return aster.core.parser.KeywordCaseCompat.expectedTokens(getState(), getContext());
+    }
+
     /** 由 stmt 按关键词独占分派的语句头；exprStmt 不得以它们开头。 */
     private static final java.util.Set<Integer> STATEMENT_HEADS =
         java.util.Set.of(RETURN, LET, SET, IF, MATCH, WHEN, ELSE, WORKFLOW);
@@ -89,6 +116,16 @@ import org.antlr.v4.runtime.atn.PredictionMode;
         return t != null && t.getType() == TYPE_IDENT && isKwText(t, "type");
     }
 
+    /**
+     * 第 {@code i} 个前瞻记号（1 起）是否为关键词 {@code lower}（大小写不敏感，转义名除外）。K（ADR 0056 修订 A4 §1.1）的关键词
+     * 辅助规则（kwWith 等）把名字记号按文本读作关键词；其谓词只有处在预测决策的左边缘时才会被 ANTLR 求值。关键词落在决策的
+     * 第二个及以后的记号上、而名字读法与关键词读法又都能走通时（如 {@code x under 5} 的 under 也能读成 {@code with}），
+     * 调用方在分支的左边缘用本方法按偏移量判定，使预测与 aster-lang-ts「先判关键词」的递归下降一致。
+     */
+    protected boolean isKwAt(int i, String lower) {
+        return isKwText(_input.LT(i), lower);
+    }
+
     /** 同 {@link #isKwText}，但区分大小写（软比较词 is / under / over 只认小写）。 */
     protected static boolean isExactKwText(Token t, String word) {
         return t != null && !aster.core.parser.EscapedToken.isEscaped(t) && word.equals(t.getText());
@@ -140,7 +177,7 @@ import org.antlr.v4.runtime.atn.PredictionMode;
         String lower = text.toLowerCase(java.util.Locale.ROOT);
         if (isKwText(t, "maybe") || isKwText(t, "map")) return false;
         int after = _input.LA(2);
-        return after != OF && after != LT;
+        return !isKwAt(2, "of") && after != LT;
     }
 
     protected void rejectBareLowercaseTypeName(Token t) {
@@ -177,11 +214,12 @@ import org.antlr.v4.runtime.atn.PredictionMode;
         // 转义名不是 map / list / option / result 等内建引导词（ADR 0064 N3）
         String lower = aster.core.parser.EscapedToken.isEscaped(t) ? "`" : text.toLowerCase(java.util.Locale.ROOT);
         int after = _input.LA(i + 1);
+        boolean ofAfter = isKwAt(i + 1, "of");
         // 歧义分隔符（ADR 0056 修订 A4 §1.3）：小写 map（第 4 项）与小写名字 + of（第 3 项，内建 list / option / result 除外）
         // 同样可能是下一个形参 / 字段，与裸小写名字同码报错
         boolean ambiguous = "map".equals(lower)
-            || (after == OF && !OF_GENERIC_WORDS.contains(lower))
-            || (after != OF && after != LT && !LOWERCASE_TYPE_WORDS.contains(lower));
+            || (ofAfter && !OF_GENERIC_WORDS.contains(lower))
+            || (!ofAfter && after != LT && !LOWERCASE_TYPE_WORDS.contains(lower));
         if (!ambiguous) return;
         throw new aster.core.parser.ParseDiagnosticException(aster.core.typecheck.ErrorCode.PARSE_EXPECTED,
             java.util.Map.of("token", "token.typeName"),
@@ -305,7 +343,7 @@ profileDecl
  *   Module app.
  */
 moduleHeader
-    : MODULE_KW qualifiedName DOT
+    : kwModule qualifiedName DOT
     ;
 
 /**
@@ -365,7 +403,7 @@ topLevelDecl
  *     ...
  */
 funcDecl
-    : (annotation NEWLINE*)* RULE nameIdent typeParamList? effectParamList? givenParamList? COMMA? (PRODUCE annotatedType?)? (DOT capabilityAnnotation? funcBody | funcBody | DOT)
+    : (annotation NEWLINE*)* RULE nameIdent typeParamList? effectParamList? givenParamList? COMMA? (kwProduce annotatedType?)? (DOT capabilityAnnotation? funcBody | funcBody | DOT)
     ;
 
 /**
@@ -393,7 +431,7 @@ funcBody
  * 语法: of T and U / of T, U
  */
 typeParamList
-    : OF typeParam ((AND | COMMA) typeParam)*
+    : kwOf typeParam ((AND | {!isKwAt(2, "produce")}? COMMA) typeParam)*
     ;
 
 /**
@@ -410,8 +448,11 @@ typeParam
  * 语法: given x: Int and y: Text
  *       given x: Int, y: Text
  */
+// 逗号之后是 produce（任意大小写）时形参表结束（K，与 aster-lang-ts parseParamList 先判 produce 一致）：
+// 否则 `, Produce maybe Int` 在预测里也能读成形参 Produce 带类型 maybe Int，分支序号更小而被误选。
+// 小写开头的 pRODUCE 此前可作形参名，K 之后在逗号后是关键词，含义随 ts（门禁见 PR 说明）。
 givenParamList
-    : GIVEN param ((AND | COMMA) param)*
+    : kwGiven param ((AND | {!isKwAt(2, "produce")}? COMMA) param)*
     ;
 
 /**
@@ -420,7 +461,7 @@ givenParamList
  *       x（隐式类型，基于参数名推断）
  */
 param
-    : annotation* nameIdent (AS annotatedType)? fieldConstraint*
+    : annotation* nameIdent (kwAs annotatedType)? fieldConstraint*
     ;
 
 /**
@@ -432,9 +473,9 @@ param
  * 已声明的效应参数是效应变量，其余大写名字是能力。
  */
 capabilityAnnotation
-    : IT PERFORMS effect=(IDENT | TYPE_IDENT)
+    : kwIt kwPerforms effect=(IDENT | TYPE_IDENT)
       ( LBRACKET caps+=TYPE_IDENT (COMMA caps+=TYPE_IDENT)* RBRACKET
-      | (WITH | AND) caps+=(IDENT | TYPE_IDENT) (AND caps+=(IDENT | TYPE_IDENT))*
+      | (kwWith | AND) caps+=(IDENT | TYPE_IDENT) (AND caps+=(IDENT | TYPE_IDENT))*
       )?
     ;
 
@@ -449,9 +490,9 @@ capabilityAnnotation
  *   age: Int.
  */
 dataDecl
-    : DEFINE article? declaredTypeName (HAS | WITH) fieldList DOT (NEWLINE* DEDENT)?
+    : DEFINE article? declaredTypeName (kwHas | kwWith) fieldList DOT (NEWLINE* DEDENT)?
     // 省略 Define 的写法是 Java 独有（TS 报 P005），R53 不扩展到这里：仍只收 TYPE_IDENT
-    | article? TYPE_IDENT (HAS | WITH) fieldList DOT (NEWLINE* DEDENT)?
+    | article? TYPE_IDENT (kwHas | kwWith) fieldList DOT (NEWLINE* DEDENT)?
     ;
 
 /**
@@ -501,7 +542,7 @@ fieldList
  *       name（隐式类型，基于字段名推断）
  */
 field
-    : annotation* nameIdent (AS annotatedType)? fieldConstraint*
+    : annotation* nameIdent (kwAs annotatedType)? fieldConstraint*
     ;
 
 /**
@@ -601,7 +642,7 @@ structKeywordName
  * 语法: Define Status as one of Success, Failure, Pending.
  */
 enumDecl
-    : DEFINE article? declaredTypeName AS ONE OF variantList DOT
+    : DEFINE article? declaredTypeName kwAs kwOne kwOf variantList DOT
     ;
 
 article
@@ -624,7 +665,7 @@ variantList
  *   Use io.Http version 2 as HttpClient.
  */
 importDecl
-    : importKeyword qualifiedName (VERSION INT_LITERAL)? (AS importAlias)? DOT
+    : importKeyword qualifiedName (kwVersion INT_LITERAL)? (kwAs importAlias)? DOT
     ;
 
 /**
@@ -651,7 +692,7 @@ importAlias
  * 关键词大小写不敏感，与 Define / Rule / Use 等其它声明关键词、以及 aster-lang-ts 一致（aster-lang-ts#328）。
  */
 typeDecl
-    : annotation* typeAliasKeyword typeAliasName AS annotatedType DOT
+    : annotation* typeAliasKeyword typeAliasName kwAs annotatedType DOT
     ;
 
 typeAliasKeyword
@@ -731,7 +772,8 @@ type
     | MAP annotatedType TO_WORD annotatedType  # MapType
     // 前缀可空 `maybe T`（≡ `T?`），T 可带注解：`maybe @pii(L1, name) Text`。与 aster-lang-ts parseTypePrimary 一致
     | {isMaybeKeyword()}? name=(IDENT | TYPE_IDENT) annotatedType  # PrefixMaybeType
-    | name=(TYPE_IDENT | IDENT) OF annotatedType ofTypeArgs[genericName($name)]  # OfGenericType
+    // 左边缘谓词判 of（K）：不判时名字读法的 of 在预测里被当作成立，`given x as Int Produce Int` 会被误读成 `Int of …`
+    | {isKwAt(2, "of")}? name=(TYPE_IDENT | IDENT) kwOf annotatedType ofTypeArgs[genericName($name)]  # OfGenericType
     // 尖括号泛型不是 Aster 语法，保留分支只为让 AstBuilder 报 E056 并提示 `X of A and B`（aster-lang-ts#328）；
     // 小写名字同样收（ts 对任何类型名后的 `<` 都报 E056）
     | (TYPE_IDENT | IDENT) LT typeList GT  # GenericType
@@ -815,7 +857,7 @@ letStmt
     ;
 
 defineStmt
-    : DEFINE nameIdent AS expr DOT
+    : DEFINE nameIdent kwAs expr DOT
     ;
 
 /**
@@ -828,7 +870,7 @@ setStmt
     ;
 
 startStmt
-    : START nameIdent AS ASYNC? expr DOT
+    : START nameIdent kwAs ASYNC? expr DOT
     ;
 
 waitStmt
@@ -1153,8 +1195,10 @@ argumentList
 primaryExpr
     : lambdaExpr                           # LambdaExprAlt
     | operatorCall                         # OperatorCallExpr
-    | constructExpr                        # ConstructExprAlt
-    | wrapExpr                             # WrapExprAlt
+    // 构造与 wrap 的引导词（with / has / of）是第二个记号，按偏移量在左边缘判定（K）：否则名字后接名字的合法写法
+    // （软比较 `x under 5`）在预测里也能读成构造或 wrap，二者分支序号更小而被误选
+    | {isKwAt(2, "with") || isKwAt(2, "has")}? constructExpr  # ConstructExprAlt
+    | {isKwAt(2, "of")}? wrapExpr          # WrapExprAlt
     | listLiteral                          # ListLiteralExpr
     | IDENT                                # VarExpr
     // ADR 0019 G1：结构关键词的小写形式在表达式位置（如 `Return let.`）当变量引用，
@@ -1185,7 +1229,7 @@ primaryExpr
  * 代价是英文 `X has f set to v` 在 Java 上仍被接受而 TS 拒绝，待规范化确定后再收紧。
  */
 constructExpr
-    : constructHead (WITH | HAS) constructBody
+    : constructHead (kwWith | kwHas) constructBody
     ;
 
 /**
@@ -1238,7 +1282,7 @@ operatorCall
     ;
 
 wrapExpr
-    : IDENT OF expr
+    : IDENT kwOf expr
     ;
 
 listLiteral
@@ -1254,14 +1298,14 @@ listLiteral
  * 省略时 lower 为 Type.Name("Unknown")（与 TS Node.TypeName('Unknown') 对齐）。
  */
 lambdaExpr
-    : FUNCTION lambdaParamList? COMMA? PRODUCE annotatedType? COLON (returnStmt | (NEWLINE+ block))
+    : FUNCTION lambdaParamList? COMMA? kwProduce annotatedType? COLON (returnStmt | (NEWLINE+ block))
     ;
 
 /**
  * Lambda 参数列表：with 或 given 引导（同义）
  */
 lambdaParamList
-    : (GIVEN | WITH) param ((AND | COMMA) param)*
+    : (kwGiven | kwWith) param ((AND | {!isKwAt(2, "produce")}? COMMA) param)*
     ;
 
 // ============================================================
@@ -1274,3 +1318,68 @@ lambdaParamList
 // 关键字列表（参考）:
 // - MODULE, RULE, GIVEN, WITH, AND, PRODUCE, DEFINE, HAS, AS, ONE, OF
 // - USE, LET, BE, RETURN, IF, ELSE
+
+// ============================================================
+// 关键词大小写（K，ADR 0056 修订 A4 §1.1 / 修订 A7 D1，aster-lang-ts#338 第 1 部分）
+// ============================================================
+//
+// 词法 token 只认既有拼写；其余大小写拼写（GIVEN、As、wITH…）在词法上仍是 TYPE_IDENT / IDENT，只在下列关键词位置
+// 按文本（Locale.ROOT 小写）判定为关键词，不升为硬关键词：`Define Given with major as Int.`、`given v as Version`
+// 这类同形词在名字位置照旧是名字（与 aster-lang-ts 一致）。名字转义 `given` 永远是名字（isKwText，ADR 0064 N3）。
+// 谓词只在预测决策的左边缘求值；关键词不在左边缘、两种读法又都能走通的决策，由调用方另加 isKwAt 偏移判定。
+
+kwModule
+    : MODULE_KW
+    | MODULE
+    | {isKwAt(1, "module")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwGiven
+    : GIVEN
+    | {isKwAt(1, "given")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwAs
+    : AS
+    | {isKwAt(1, "as")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwProduce
+    : PRODUCE
+    | {isKwAt(1, "produce")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwWith
+    : WITH
+    | {isKwAt(1, "with")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwHas
+    : HAS
+    | {isKwAt(1, "has")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwOne
+    : ONE
+    | {isKwAt(1, "one")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwOf
+    : OF
+    | {isKwAt(1, "of")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwVersion
+    : VERSION
+    | {isKwAt(1, "version")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwIt
+    : IT
+    | {isKwAt(1, "it")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwPerforms
+    : PERFORMS
+    | {isKwAt(1, "performs")}? (TYPE_IDENT | IDENT)
+    ;

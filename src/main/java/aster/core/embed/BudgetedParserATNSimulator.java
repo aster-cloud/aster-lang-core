@@ -1,11 +1,15 @@
 package aster.core.embed;
 
+import aster.core.parser.KeywordCaseCompat;
 import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.TokenStream;
+import org.antlr.v4.runtime.atn.ATN;
 import org.antlr.v4.runtime.atn.ATNConfig;
 import org.antlr.v4.runtime.atn.ATNConfigSet;
 import org.antlr.v4.runtime.atn.ParserATNSimulator;
+import org.antlr.v4.runtime.atn.PredictionContextCache;
+import org.antlr.v4.runtime.dfa.DFA;
 
 import java.util.Set;
 
@@ -20,7 +24,7 @@ import java.util.Set;
  * <p>中途抛出不会污染与其它解析共享的 DFA 缓存：closure 只往本次调用的局部配置集里加东西，
  * DFA 边与状态在 reach 集算完之后才登记；{@code adaptivePredict} 的 finally 负责复位输入流。
  */
-final class BudgetedParserATNSimulator extends ParserATNSimulator {
+final class BudgetedParserATNSimulator extends KeywordCaseCompat.Simulator {
 
     /** 每多少次 closure 调用检查一次时钟（2 的幂，用位与取模）。 */
     private static final int CHECK_INTERVAL = 1 << 10;
@@ -37,9 +41,21 @@ final class BudgetedParserATNSimulator extends ParserATNSimulator {
     private int predictions;
 
     BudgetedParserATNSimulator(Parser parser, ParserATNSimulator base, ParseBudget budget) {
-        super(parser, base.atn, base.decisionToDFA, base.getSharedContextCache());
-        this.budget = budget;
+        this(parser, base.atn, base.decisionToDFA, base.getSharedContextCache(), budget, true);
         setPredictionMode(base.getPredictionMode());
+    }
+
+    private BudgetedParserATNSimulator(Parser parser, ATN atn, DFA[] decisionToDFA,
+                                       PredictionContextCache sharedContextCache, ParseBudget budget, boolean fallback) {
+        super(parser, atn, decisionToDFA, sharedContextCache, fallback);
+        this.budget = budget;
+    }
+
+    /** 出错路径上按 K 之前的文法重新预测（KeywordCaseCompat）时同样受本预算约束。 */
+    @Override
+    protected KeywordCaseCompat.Simulator oldGrammarSimulator(Parser parser, ATN atn, DFA[] decisionToDFA,
+                                                              PredictionContextCache sharedContextCache) {
+        return new BudgetedParserATNSimulator(parser, atn, decisionToDFA, sharedContextCache, budget, false);
     }
 
     @Override

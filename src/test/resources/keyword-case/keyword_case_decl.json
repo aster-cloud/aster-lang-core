@@ -1,0 +1,462 @@
+{
+  "description": "关键词大小写 K-a（声明与句首关键词：module、given、as、produce、with、has、one、of、use、version、it / performs；aster-lang-ts#338 第 1 部分，ADR 0056 修订 A4 §1.1、修订 A7 D1）的 core 夹具。accept：source 能解析，且与把关键词改回规范拼写的 canonical Core IR 位置无关哈希相同。names：关键词同形词作名字照常解析，Core IR 含 names 中的每个名字。reject：第一条诊断恰为 [码, 行, 列]（有 params 时参数也须相同）——转义的关键词永远是名字；非关键词名字的诊断与 K 之前相同（KeywordCaseCompat）。",
+  "accept": [
+    {
+      "name": "module/MODULE",
+      "source": "MODULE probe.sample.\n\nRule get given x as Int, produce Int:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "module/mODULE",
+      "source": "mODULE probe.sample.\n\nRule get given x as Int, produce Int:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "module/lower",
+      "source": "module probe.sample.\n\nRule get given x as Int, produce Int:\n  Return x.\n",
+      "canonical": "module probe.sample.\n\nRule get given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "given/GIVEN",
+      "source": "Module probe.sample.\n\nRule get GIVEN x as Int, produce Int:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "given-lambda/GIVEN",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function GIVEN v as Int, produce Int: Return v.\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given v as Int, produce Int: Return v.\n  Return x.\n"
+    },
+    {
+      "name": "given/Given",
+      "source": "Module probe.sample.\n\nRule get Given x as Int, produce Int:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "given-lambda/Given",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function Given v as Int, produce Int: Return v.\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given v as Int, produce Int: Return v.\n  Return x.\n"
+    },
+    {
+      "name": "given/gIVEN",
+      "source": "Module probe.sample.\n\nRule get gIVEN x as Int, produce Int:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "given-lambda/gIVEN",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function gIVEN v as Int, produce Int: Return v.\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given v as Int, produce Int: Return v.\n  Return x.\n"
+    },
+    {
+      "name": "as-param/AS",
+      "source": "Module probe.sample.\n\nRule get given x AS Int, produce Int:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "as-field/AS",
+      "source": "Module probe.sample.\n\nDefine S with x AS Int.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with x as Int.\n"
+    },
+    {
+      "name": "as-alias/AS",
+      "source": "Module probe.sample.\n\nType Money AS Int.\n",
+      "canonical": "Module probe.sample.\n\nType Money as Int.\n"
+    },
+    {
+      "name": "as-import/AS",
+      "source": "Module probe.sample.\n\nUse io.Http AS H.\n",
+      "canonical": "Module probe.sample.\n\nUse io.Http as H.\n"
+    },
+    {
+      "name": "as-param/As",
+      "source": "Module probe.sample.\n\nRule get given x As Int, produce Int:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "as-field/As",
+      "source": "Module probe.sample.\n\nDefine S with x As Int.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with x as Int.\n"
+    },
+    {
+      "name": "as-alias/As",
+      "source": "Module probe.sample.\n\nType Money As Int.\n",
+      "canonical": "Module probe.sample.\n\nType Money as Int.\n"
+    },
+    {
+      "name": "as-import/As",
+      "source": "Module probe.sample.\n\nUse io.Http As H.\n",
+      "canonical": "Module probe.sample.\n\nUse io.Http as H.\n"
+    },
+    {
+      "name": "as-param/aS",
+      "source": "Module probe.sample.\n\nRule get given x aS Int, produce Int:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "as-field/aS",
+      "source": "Module probe.sample.\n\nDefine S with x aS Int.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with x as Int.\n"
+    },
+    {
+      "name": "as-alias/aS",
+      "source": "Module probe.sample.\n\nType Money aS Int.\n",
+      "canonical": "Module probe.sample.\n\nType Money as Int.\n"
+    },
+    {
+      "name": "as-import/aS",
+      "source": "Module probe.sample.\n\nUse io.Http aS H.\n",
+      "canonical": "Module probe.sample.\n\nUse io.Http as H.\n"
+    },
+    {
+      "name": "produce/PRODUCE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, PRODUCE Int:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "produce-nocomma/PRODUCE",
+      "source": "Module probe.sample.\n\nRule get given x as Int PRODUCE Int:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "produce-noparam/PRODUCE",
+      "source": "Module probe.sample.\n\nRule get, PRODUCE Int:\n  Return 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get, produce Int:\n  Return 1.\n"
+    },
+    {
+      "name": "produce-notype/PRODUCE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, PRODUCE:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce:\n  Return x.\n"
+    },
+    {
+      "name": "produce-lambda/PRODUCE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given v as Int, PRODUCE Int: Return v.\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given v as Int, produce Int: Return v.\n  Return x.\n"
+    },
+    {
+      "name": "produce/Produce",
+      "source": "Module probe.sample.\n\nRule get given x as Int, Produce Int:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "produce-nocomma/Produce",
+      "source": "Module probe.sample.\n\nRule get given x as Int Produce Int:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "produce-noparam/Produce",
+      "source": "Module probe.sample.\n\nRule get, Produce Int:\n  Return 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get, produce Int:\n  Return 1.\n"
+    },
+    {
+      "name": "produce-notype/Produce",
+      "source": "Module probe.sample.\n\nRule get given x as Int, Produce:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce:\n  Return x.\n"
+    },
+    {
+      "name": "produce-lambda/Produce",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given v as Int, Produce Int: Return v.\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given v as Int, produce Int: Return v.\n  Return x.\n"
+    },
+    {
+      "name": "produce/pRODUCE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, pRODUCE Int:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "produce-nocomma/pRODUCE",
+      "source": "Module probe.sample.\n\nRule get given x as Int pRODUCE Int:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int produce Int:\n  Return x.\n"
+    },
+    {
+      "name": "produce-noparam/pRODUCE",
+      "source": "Module probe.sample.\n\nRule get, pRODUCE Int:\n  Return 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get, produce Int:\n  Return 1.\n"
+    },
+    {
+      "name": "produce-lambda/pRODUCE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given v as Int, pRODUCE Int: Return v.\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given v as Int, produce Int: Return v.\n  Return x.\n"
+    },
+    {
+      "name": "with-data/WITH",
+      "source": "Module probe.sample.\n\nDefine S WITH x as Int.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with x as Int.\n"
+    },
+    {
+      "name": "with-construct/WITH",
+      "source": "Module probe.sample.\n\nDefine S with x as Int.\n\nRule get, produce S:\n  Return S WITH x set to 1.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with x as Int.\n\nRule get, produce S:\n  Return S with x set to 1.\n"
+    },
+    {
+      "name": "with-lambda/WITH",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function WITH v as Int, produce Int: Return v.\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function with v as Int, produce Int: Return v.\n  Return x.\n"
+    },
+    {
+      "name": "with-cap/WITH",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int. It performs io WITH Http:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int. It performs io with Http:\n  Return x.\n"
+    },
+    {
+      "name": "with-data/With",
+      "source": "Module probe.sample.\n\nDefine S With x as Int.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with x as Int.\n"
+    },
+    {
+      "name": "with-construct/With",
+      "source": "Module probe.sample.\n\nDefine S with x as Int.\n\nRule get, produce S:\n  Return S With x set to 1.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with x as Int.\n\nRule get, produce S:\n  Return S with x set to 1.\n"
+    },
+    {
+      "name": "with-lambda/With",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function With v as Int, produce Int: Return v.\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function with v as Int, produce Int: Return v.\n  Return x.\n"
+    },
+    {
+      "name": "with-cap/With",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int. It performs io With Http:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int. It performs io with Http:\n  Return x.\n"
+    },
+    {
+      "name": "with-data/wITH",
+      "source": "Module probe.sample.\n\nDefine S wITH x as Int.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with x as Int.\n"
+    },
+    {
+      "name": "with-construct/wITH",
+      "source": "Module probe.sample.\n\nDefine S with x as Int.\n\nRule get, produce S:\n  Return S wITH x set to 1.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with x as Int.\n\nRule get, produce S:\n  Return S with x set to 1.\n"
+    },
+    {
+      "name": "with-lambda/wITH",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function wITH v as Int, produce Int: Return v.\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function with v as Int, produce Int: Return v.\n  Return x.\n"
+    },
+    {
+      "name": "with-cap/wITH",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int. It performs io wITH Http:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int. It performs io with Http:\n  Return x.\n"
+    },
+    {
+      "name": "has-data/HAS",
+      "source": "Module probe.sample.\n\nDefine S HAS x as Int.\n",
+      "canonical": "Module probe.sample.\n\nDefine S has x as Int.\n"
+    },
+    {
+      "name": "has-data/Has",
+      "source": "Module probe.sample.\n\nDefine S Has x as Int.\n",
+      "canonical": "Module probe.sample.\n\nDefine S has x as Int.\n"
+    },
+    {
+      "name": "has-data/hAS",
+      "source": "Module probe.sample.\n\nDefine S hAS x as Int.\n",
+      "canonical": "Module probe.sample.\n\nDefine S has x as Int.\n"
+    },
+    {
+      "name": "of-type/OF",
+      "source": "Module probe.sample.\n\nRule get given x as List OF Int, produce Int:\n  Return 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as List of Int, produce Int:\n  Return 1.\n"
+    },
+    {
+      "name": "of-type-lower/OF",
+      "source": "Module probe.sample.\n\nRule get given x as list OF Int, produce Int:\n  Return 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as list of Int, produce Int:\n  Return 1.\n"
+    },
+    {
+      "name": "of-type/Of",
+      "source": "Module probe.sample.\n\nRule get given x as List Of Int, produce Int:\n  Return 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as List of Int, produce Int:\n  Return 1.\n"
+    },
+    {
+      "name": "of-type-lower/Of",
+      "source": "Module probe.sample.\n\nRule get given x as list Of Int, produce Int:\n  Return 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as list of Int, produce Int:\n  Return 1.\n"
+    },
+    {
+      "name": "of-type/oF",
+      "source": "Module probe.sample.\n\nRule get given x as List oF Int, produce Int:\n  Return 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as List of Int, produce Int:\n  Return 1.\n"
+    },
+    {
+      "name": "of-type-lower/oF",
+      "source": "Module probe.sample.\n\nRule get given x as list oF Int, produce Int:\n  Return 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as list of Int, produce Int:\n  Return 1.\n"
+    },
+    {
+      "name": "version/VERSION",
+      "source": "Module probe.sample.\n\nUse io.Http VERSION 2 as H.\n",
+      "canonical": "Module probe.sample.\n\nUse io.Http version 2 as H.\n"
+    },
+    {
+      "name": "version/Version",
+      "source": "Module probe.sample.\n\nUse io.Http Version 2 as H.\n",
+      "canonical": "Module probe.sample.\n\nUse io.Http version 2 as H.\n"
+    },
+    {
+      "name": "version/vERSION",
+      "source": "Module probe.sample.\n\nUse io.Http vERSION 2 as H.\n",
+      "canonical": "Module probe.sample.\n\nUse io.Http version 2 as H.\n"
+    },
+    {
+      "name": "produce-notype/pRODUCE（逗号后小写开头的 pRODUCE 是 produce，含义随 ts）",
+      "source": "Module probe.sample.\n\nRule get given x as Int, pRODUCE:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce:\n  Return x.\n"
+    },
+    {
+      "name": "zh-CN 源码里的英文 Given",
+      "lexicon": "zh-CN",
+      "source": "模块 m。\n\n规则 r Given x 作为 整数 产出 整数：\n  返回 x。",
+      "canonical": "模块 m。\n\n规则 r given x 作为 整数 产出 整数：\n  返回 x。"
+    },
+    {
+      "name": "整句大写声明（K-a 范围）",
+      "source": "MODULE probe.sample.\n\nDEFINE S WITH x AS Int and y AS Text.\n\nDefine E AS ONE OF A, B.\n\nUSE io.Http VERSION 2 AS H.\n\nRULE get GIVEN s AS S, PRODUCE Int. IT PERFORMS io WITH Http:\n  Return s.x.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with x as Int and y as Text.\n\nDefine E as one of A, B.\n\nUse io.Http version 2 as H.\n\nRule get given s as S, produce Int. It performs io with Http:\n  Return s.x.\n"
+    }
+  ],
+  "names": [
+    {
+      "name": "同形词作名字：Define Given with major as Int.",
+      "source": "Module probe.sample.\n\nDefine Given with major as Int.\n",
+      "names": [
+        "Given",
+        "major"
+      ]
+    },
+    {
+      "name": "同形词作名字：Define With with major as Int.",
+      "source": "Module probe.sample.\n\nDefine With with major as Int.\n",
+      "names": [
+        "With",
+        "major"
+      ]
+    },
+    {
+      "name": "同形词作名字：Define As has major as Int.",
+      "source": "Module probe.sample.\n\nDefine As has major as Int.\n",
+      "names": [
+        "As",
+        "major"
+      ]
+    },
+    {
+      "name": "同形词作名字：Type Produce as Int、given v as Version",
+      "source": "Module probe.sample.\n\nType Produce as Int.\n\nDefine Version with major as Produce.\n\nRule get given v as Version, produce Produce:\n  Return v.major.\n",
+      "names": [
+        "Version",
+        "major"
+      ]
+    },
+    {
+      "name": "同形词作名字：枚举成员 One、Of、Performs、Given、Produce",
+      "source": "Module probe.sample.\n\nDefine E as one of One, Of, Performs, Given, Produce.\n",
+      "names": [
+        "One",
+        "Of",
+        "Performs",
+        "Given",
+        "Produce"
+      ]
+    },
+    {
+      "name": "同形词作名字：and 之后的 pRODUCE 仍是形参",
+      "source": "Module probe.sample.\n\nRule get given x as Int and pRODUCE as Int, produce Int:\n  Return pRODUCE.\n",
+      "names": [
+        "pRODUCE"
+      ]
+    },
+    {
+      "name": "软比较词不被读成构造 / wrap：x under 5、x is over 5",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Bool:\n  Return x under 5 and x is over 1.\n",
+      "names": [
+        "x"
+      ]
+    }
+  ],
+  "reject": [
+    {
+      "name": "转义的关键词是名字：`GIVEN`",
+      "source": "Module probe.sample.\n\nRule get `GIVEN` x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E062",
+        3,
+        10
+      ]
+    },
+    {
+      "name": "转义的关键词是名字：`given`",
+      "source": "Module probe.sample.\n\nRule get `given` x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E062",
+        3,
+        10
+      ]
+    },
+    {
+      "name": "转义的关键词是名字：`As`",
+      "source": "Module probe.sample.\n\nRule get given x `As` Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E062",
+        3,
+        18
+      ]
+    },
+    {
+      "name": "转义的关键词是名字：`WITH`（构造）",
+      "source": "Module probe.sample.\n\nDefine S with x as Int.\n\nRule get, produce S:\n  Return S `WITH` x set to 1.\n",
+      "reject": [
+        "E060",
+        6,
+        12
+      ]
+    },
+    {
+      "name": "转义的关键词是名字：`Produce`",
+      "source": "Module probe.sample.\n\nRule get given x as Int, `Produce` Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        36
+      ]
+    },
+    {
+      "name": "逗号后小写开头的 pRODUCE 是 produce：后接 as 不再是形参（随 ts 拒绝）",
+      "source": "Module probe.sample.\n\nRule get given x as Int, pRODUCE as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E063",
+        3,
+        24
+      ]
+    },
+    {
+      "name": "K 不改变非关键词名字的诊断：Rule r Version x（E062 及期望集合与 K 之前相同）",
+      "source": "Module probe.sample.\n\nRule r Version x as Int, produce Int:\n  Return x.\n",
+      "params": {
+        "token": "'Version'",
+        "expected": "'.' | ':' | ',' | '<' | kw.given | kw.produce | kw.of"
+      },
+      "reject": [
+        "E062",
+        3,
+        8
+      ]
+    },
+    {
+      "name": "K 不改变非关键词名字的诊断：It does io（E060，与 K 之前相同）",
+      "source": "Module probe.sample.\n\nRule f given x as Int, produce Int. It does io:\n  Return 1.\n",
+      "reject": [
+        "E060",
+        3,
+        40
+      ]
+    },
+    {
+      "name": "词法期嵌套守卫认大小写不同的 As / OF（与小写同码同位置 E054）",
+      "source": "Module m.\n\nRule f given x As List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF List OF Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E054",
+        3,
+        535
+      ]
+    }
+  ]
+}

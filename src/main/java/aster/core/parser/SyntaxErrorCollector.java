@@ -177,7 +177,8 @@ public final class SyntaxErrorCollector extends BaseErrorListener {
     }
 
     private static List<String> expectedSet(Recognizer<?, ?> recognizer, Vocabulary vocab, RecognitionException e) {
-        IntervalSet set = e != null ? e.getExpectedTokens()
+        // 期望集合按 K 之前的文法计算（KeywordCaseCompat）：K 的关键词谓词分支不让名字记号混进「期望 …」
+        IntervalSet set = e != null ? KeywordCaseCompat.expectedTokens(e)
             : recognizer instanceof Parser p ? p.getExpectedTokens() : null;
         List<String> out = new ArrayList<>();
         if (set == null) {

@@ -1,0 +1,1921 @@
+{
+  "description": "关键词大小写（K）诊断兼容层的回归夹具：变异自 aster-lang-test tier1 语料的错误源码（en-US），ParseDiagnostics 给出的全部诊断（码、行、列、参数），期望值取自 K 之前的 core（aster-lang-core f431a6b）。K 只放宽关键词位置，这些错误源码的诊断与错误恢复必须逐条相同。",
+  "cases": [
+    {
+      "name": "mut/22-let-shadowing.aster/2/del",
+      "source": "Module dual.engine.let.shadowing.\n\nRule normalize given raw_value produce:\n  Let value be raw_value.\n  If value less than 0:\n    Let value be 0.\n     value.\n  Otherwise:\n    Return value.\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 7,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 7,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 8,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 9,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 10,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_caps_parse_brackets.aster/0/del",
+      "source": "Module demo.capcaps.brackets.\n\nRule ping, produce. It performs io [Http, Sql, Time]\n  Return \"ok\".\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 3,
+          "column": 53,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 5,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/03-if-else.aster/2/rep",
+      "source": "Module dual.engine.control.ifelse.\n\nRule grade given score, produce:\n  If score greater than 90:\n    Return \"A\".\n  If score greater than 80:\n    Return \"B\".\n  Otherwise:\n    Return \"C\"GIVEN\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 9,
+          "column": 15,
+          "params": {
+            "before": "'GIVEN'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E059",
+          "line": 9,
+          "column": 20,
+          "params": {
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/01-arithmetic-add.aster/3/del",
+      "source": "Module dual.engine.arithmetic.add.\n\nRule add  x, y, produce:\n  Return x plus y.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 3,
+          "column": 10,
+          "params": {
+            "token": "'x'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 13,
+          "params": {
+            "expected": "'.' | ':' | kw.produce",
+            "token": "'y'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 5,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/05-comparison.aster/3/del",
+      "source": "Module dual.engine.comparison.\n\nRule is_adult given age, produce\n  Return age greater than 17.\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 33,
+          "params": {
+            "expected": "'.' | ':' | '(' | '@' | kw.map | token.typeName | token.identifier",
+            "token": "token.newline"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 5,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/01-arithmetic-add.aster/1/del",
+      "source": "Module dual.engine.arithmetic.add.\n\nRule add given x, y, produce:\n  Return x  y.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 3,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 13,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/28-business-insurance-premium.aster/3/del",
+      "source": "Module dual.engine.business.insurance.\n\nRule premium given age, claims, produce:\n   base be 100.\n  Let age_factor be age divided by 10.\n  Let claim_factor be claims times 50.\n  Return base plus age_factor plus claim_factor.\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 9,
+          "params": {
+            "before": "kw.be",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 12,
+          "params": {
+            "token": "'100'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 5,
+          "column": 1,
+          "params": {}
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_custom_prefix.aster/0/del",
+      "source": "Module test.eff.custom_prefix.\n\nRule fetch_with_custom_client, produce:\n  Return MyHttpClient.get(\"/api/data\").\n\nRule fetch_with_declared_io, produce. It performs io\n  Return MyHttpClient.get(\"/api/data\").\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 6,
+          "column": 53,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 7,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 8,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/24-if-guard-clause.aster/1/rep",
+      "source": "Module dual.engine.control.guard.\n\nRule absolute_value given x produce:\n  If x less than 0:\n    Return 0 Has x.\n  Return x.\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 5,
+          "column": 14,
+          "params": {
+            "before": "'Has'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 5,
+          "column": 19,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/08-arithmetic-divide.aster/5/ins",
+      "source": "Module dual.engine.has arithmetic.divide.\n\nRule divide given x, y, produce:\n  Return x divided by y.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 1,
+          "column": 20,
+          "params": {
+            "token": "kw.has"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 1,
+          "column": 34,
+          "params": {
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/08-arithmetic-divide.aster/2/rep",
+      "source": "Module dual.engine.arithmetic.divide.\n\nRule divide given x, y, producefoo\n  Return x divided by y.\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 35,
+          "params": {
+            "expected": "'.' | ':' | ',' | kw.produce",
+            "token": "token.newline"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 5,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/04-let-binding.aster/0/ins",
+      "source": "Module dual.engine.let.binding.\n\nRule discounted_price given price, produce:\n  Let discount be : price divided by 10.\n  Return price minus discount.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 18,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 16,
+          "params": {
+            "before": "kw.be",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 4,
+          "column": 18,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/cross_compiler_ops.aster/3/del",
+      "source": "Module ops.cross_compiler.\n\nRule kwLessThan given x, y, produce:\n  Return x less than y.\n\nRule kwGreaterThan given x, y, produce:\n  Return x greater than y.\n\nRule kwEqualsTo given x, y, produce:\n  Return x equals to y.\n\nRule kwNotEqualTo given x, y, produce:\n  Return x not equal to y.\n\nRule kwAtLeast given x, y, produce:\n  Return x at least y.\n\nRule kwAtMost given x, y, produce:\n  Return x at most y.\n\nRule synUnder given x, y, produce:\n  Return x under y.\n\nRule synOver given x, y, produce:\n  Return x over y.\n\nRule synMoreThan given x, y, produce:\n  Return x more than y.\n\nRule symLt given x, y, produce:\n  Return x < y.\n\nRule symGt given x, y, produce:\n  Return x > y.\n\nRule symLe given x, y, produce:\n  Return x <= y.\n\nRule symGe given x, y, produce:\n  Return x >= y.\n\n symNe given x, y, produce:\n  Return x != y.\n\nRule symEqEq given x, y, produce:\n  Return x == y.\n\nRule symEqSingle given x, y, produce:\n  Return x = y.\n\nRule kwPlus given x, y, produce:\n  Return x plus y.\n\nRule kwMinus given x, y, produce:\n  Return x minus y.\n\nRule kwTimes given x, y, produce:\n  Return x times y.\n\nRule kwDividedBy given x, y, produce:\n  Return x divided by y.\n\nRule symAdd given x, y, produce:\n  Return x + y.\n\nRule symSub given x, y, produce:\n  Return x - y.\n\nRule symMul given x, y, produce:\n  Return x * y.\n\nRule symDiv given x, y, produce:\n  Return x / y.\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 42,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E063",
+          "line": 42,
+          "column": 2,
+          "params": {
+            "token": "'symNe'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 43,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 45,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_infer_wrapper_io.aster/3/del",
+      "source": "Module demo.eff_infer_wrapper_io.\n\nRule helperWithIO, produce. It performs io:\n  Return Http.get(\"https://example.com\").\n\nRule wrapperWithIO, produce. It performs io\n  Return helperWithIO().\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 6,
+          "column": 44,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 7,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 8,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/credit-pilot.aster/5/rep",
+      "source": "Module aster.pilot.credit.\n\nDefine Applicant has\n  creditScore as Int,\n  monthlyIncome as Decimal,\n  monthlyDebt as Decimal,\n  requestedAmount as Decimal,\n  activeDefaults as Int.\n\n@id(\"CP-DECIDE\")\n@control(\"EU_AI_ACT:ART14\")\n@control(\"GDPR:ART22\")\nRule decide given applicant as Applicant, produce Verdict:\n  If applicant.activeDefaults at least 1:\n    Return Verdict.denyone\"active_default\").\n  If applicant.monthlyDebt greater than applicant.monthlyIncome times 0.45m:\n    Return Verdict.deny(\"dti_exceeds_limit\").\n  If applicant.requestedAmount at least 50000m:\n    Return Verdict.require_approval(\"Credit Officer\", \"large_exposure\").\n  If applicant.creditScore at least 620 and applicant.creditScore at most 679:\n    Return Verdict.escalate(\"borderline_credit_score\").\n  Return Verdict.allow().\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 15,
+          "column": 27,
+          "params": {
+            "before": "'\"active_default\"'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 15,
+          "column": 43,
+          "params": {
+            "token": "')'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/10-arithmetic-negate.aster/3/del",
+      "source": "Module dual.engine..negate.\n\nRule negate given x produce:\n  Return 0 minus x.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 1,
+          "column": 20,
+          "params": {
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 1,
+          "column": 27,
+          "params": {
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/09-arithmetic-modulo.aster/0/del",
+      "source": "Module dual.engine.arithmetic.evencheck.\n\nRule is_even given n produce\n  Return n modulo 2 equals to 0.\n\nRule mod given n, d, produce:\n  Return n modulo d.\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 29,
+          "params": {
+            "expected": "'.' | ':' | '(' | '@' | kw.map | token.typeName | token.identifier",
+            "token": "token.newline"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 6,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/21-comparison-is-prefix.aster/5/ins",
+      "source": "Module dual.engine.comparison.isprefix.\n\nRule at_least_check given score, produce:\n  Return score is at least 700.\n\nRule at_most_check given score, produce:\n  Return score is at most 700.\n\nRule greater_check given score, produce:\n  Return score is greater than 700.\n\nRule less_check given score, produce:\n  Return score is less than 700.\n\nRule more_check given score, produce:\n  Return score is more than 700.\n\nRule under_check given score, produce:\n  Return score is under 700.\n\nRule over_check given score, produce:\n  Return score is under over 700.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 22,
+          "column": 19,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'under'"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 22,
+          "column": 25,
+          "params": {
+            "before": "'over'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 22,
+          "column": 30,
+          "params": {
+            "token": "'700'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/enum_exhaustiveness.aster/4/del",
+      "source": "Define AuthErr as one of InvalidCreds, Locked.\n\n show given e, produce:\n  Match e:\n    When InvalidCreds, Return \"bad\".\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 3,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 5,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 6,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_valid_http_sql.aster/5/rep",
+      "source": "Module test.eff.valid.http_sql.\n\nRule fetch_user, produce. It performs io [Http, under]:\n  Let data be Http.get(\"/api/user\").\n  Return Db.insert(\"users\", data).\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 3,
+          "column": 49,
+          "params": {
+            "token": "token.typeName"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 5,
+          "column": 3,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 6,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_alias_import.aster/2/rep",
+      "source": "Module test.eff.alias_import.\n\nUse Http as H.\n\nUse Db as D.\n\nUse Time as T.\n\nRule fetch_with_alias, produce:\n  Return H.get(\"/api/data\").\n\nRule query_with_alias, produce:\n  Return D.query(\"SELECT * FROM users\").\n\nRule time_alias_test, produce:\n  Return T.format(\"2024-01-01\").\n\nRule mixed_alias_and_direct, produce:\n  Return Http.get(\"/direct\").\n\nRule declared_effect_with_alias, produce. It performs io:\n  Return H.getfoo\"/api/data\").\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 22,
+          "column": 18,
+          "params": {
+            "before": "'\"/api/data\"'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 22,
+          "column": 29,
+          "params": {
+            "token": "')'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/10-arithmetic-negate.aster/5/del",
+      "source": "Module dual..arithmetic.negate.\n\nRule negate given x produce:\n  Return 0 minus x.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 1,
+          "column": 13,
+          "params": {
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 1,
+          "column": 24,
+          "params": {
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/14-boolean-short-circuit.aster/3/rep",
+      "source": "Module dual.engine.boolean.shortcircuit.\n\nRule guard given enabled, value, produce:\n  Return enabled and value and than 0.\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 4,
+          "column": 28,
+          "params": {
+            "expected": "'.' | kw.or | token.newline",
+            "token": "kw.and"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 37,
+          "params": {
+            "token": "'0'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/21-let-conditional.aster/4/del",
+      "source": "Module dual.engine.let.conditional.\n\nRule shipping given weight produce:\n  Let base_rate  10.\n  If weight greater than 100:\n    Return base_rate plus weight divided by 10.\n  Otherwise:\n    Return base_rate.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 3,
+          "params": {
+            "token": "kw.let"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 17,
+          "params": {
+            "token": "'10'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/enum_wildcard.aster/5/del",
+      "source": "Define AuthErr as one of InvalidCreds, Locked.\n\nRule show2 given e, produce:\n  Match e:\n     InvalidCreds, Return \"bad\".\n    When x, Return \"other\".\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 5,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E060",
+          "line": 5,
+          "column": 6,
+          "params": {
+            "before": "'InvalidCreds'",
+            "token": "kw.when"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 6,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 7,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_violation_files_calls_secrets.aster/2/ins",
+      "source": "Module test.eff.violation.files_calls_secrets.\n\nRule write_log, produce. It performs Given io [Files]:\n  Let key be Secrets.get(\"API_KEY\").\n  Return Files.write(\"/tmp/log.txt\", key).\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 3,
+          "column": 44,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 5,
+          "column": 3,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 6,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_caps_enforce_missing_ai_model.aster/5/rep",
+      "source": "Module demo.capcaps.enforce_missing_ai.\n\nRule bad, produce. It performs io [Http]:\n  Return Ai.predictOf\"hello\").\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 22,
+          "params": {
+            "before": "'\"hello\"'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 29,
+          "params": {
+            "token": "')'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/11-boolean-and.aster/1/del",
+      "source": "Module dual.engine.boolean.and.\n\nRule both  x, y, produce:\n  Return x and y.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 3,
+          "column": 11,
+          "params": {
+            "token": "'x'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 14,
+          "params": {
+            "expected": "'.' | ':' | kw.produce",
+            "token": "'y'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 5,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/18-comparison-chained.aster/0/ins",
+      "source": "Module dual.engine.comparison.chained.\n\nRule classify given score produce:\n  If score less than 60:\n    Return \"fail\".\n  If score less than 80:\n    Return \"pass\".\n  Otherwisegiven :\n    Return \"excellent\".\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 8,
+          "column": 17,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 9,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 10,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/22-let-shadowing.aster/1/del",
+      "source": "Module dual.engine.let.shadowing.\n\nRule normalize given raw_value produce:\n  Let  be raw_value.\n  If value less than 0:\n    Let value be 0.\n    Return value.\n  Otherwise:\n    Return value.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 10,
+          "params": {
+            "token": "'raw_value'"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 19,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/g2b-if-expression.aster/5/del",
+      "source": "Module dual.engine.if.expression.\n\nRule classify given amount, produce:\n  Return if amount greater than 10000 then \"large\" else if amount greater than 1000 then \"medium\" else \"small\".\n\nRule gradeWithLet given score, produce:\n   tier be if score greater than 90 then \"A\" else if score greater than 70 then \"B\" else \"C\".\n  Return tier.\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 7,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E060",
+          "line": 7,
+          "column": 9,
+          "params": {
+            "before": "kw.be",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 7,
+          "column": 12,
+          "params": {
+            "before": "kw.if",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 7,
+          "column": 37,
+          "params": {
+            "before": "kw.then",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 7,
+          "column": 42,
+          "params": {
+            "before": "'\"A\"'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 7,
+          "column": 46,
+          "params": {
+            "before": "kw.else",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 8,
+          "column": 1,
+          "params": {}
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_violation_missing_http.aster/0/ins",
+      "source": "Module test.eff.violation.missing_http.\n\nRule api_call, produce. It performs Foo io [Sql]:\n  Return Http.get(\"/health\").\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 3,
+          "column": 41,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 5,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_caps_enforce_unused_extra.aster/0/rep",
+      "source": "Module demo.capcaps.enforce_unused.\n\nRule onlyHttp, produce. It performs io [Http, Sql]:\n  Return Http.getWITH\"/ping\").\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 22,
+          "params": {
+            "before": "'\"/ping\"'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 29,
+          "params": {
+            "token": "')'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/11-boolean-and.aster/5/del",
+      "source": "Module dual..boolean.and.\n\nRule both given x, y, produce:\n  Return x and y.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 1,
+          "column": 13,
+          "params": {
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 1,
+          "column": 21,
+          "params": {
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/19-comparison-is-not-equal.aster/0/rep",
+      "source": "Module dual.engine.comparison.isnotequal.\n\nRule different given x, produce, produce:\n  Return x is not equal to y.\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 32,
+          "params": {
+            "expected": "'.' | ':' | '(' | '@' | kw.map | token.typeName | token.identifier",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 5,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/22-let-shadowing.aster/4/ins",
+      "source": "Module dual.engine.let.shadowing.\n\nRule normalize given raw_value produce:\n  Let value AS be raw_value.\n  If value less than 0:\n    Let value be 0.\n    Return value.\n  Otherwise:\n    Return value.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 3,
+          "params": {
+            "token": "kw.let"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 13,
+          "params": {
+            "before": "'AS'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 16,
+          "params": {
+            "before": "kw.be",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 28,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-adr-05-map-literal-key.aster/1/del",
+      "source": "Module governance.input.refs.case05.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  If Maybe.withDefault(Map.get(req.context.meta, \"region\"), \"\") equals to \"EU\":\n    Return Verdict.escalate(\"eu\").\n   Verdict.allow().\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 12,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 13,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/enum_exhaustiveness.aster/0/rep",
+      "source": "Define AuthErr as one of InvalidCreds, Locked.\n\nRule show given e, produce:\n  Match e:\n    as InvalidCreds, Return \"bad\".\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 5,
+          "column": 5,
+          "params": {
+            "token": "kw.when"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 5,
+          "column": 20,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 6,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_caps_parse_brackets.aster/4/rep",
+      "source": "Module demo.capcaps.brackets.\n\nRule ping, produce. It OF io [Http, Sql, Time]:\n  Return \"ok\".\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 3,
+          "column": 24,
+          "params": {
+            "before": "'OF'",
+            "token": "kw.performs"
+          }
+        },
+        {
+          "code": "E055",
+          "line": 3,
+          "column": 27,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 5,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/12-boolean-or.aster/3/rep",
+      "source": "Module dual.engine.boolean.or.\n\nRule . given x, y, produce:\n  Return x or y.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 3,
+          "column": 5,
+          "params": {
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 3,
+          "column": 13,
+          "params": {
+            "token": "'x'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 16,
+          "params": {
+            "expected": "'.' | ':' | kw.produce",
+            "token": "'y'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 5,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/22-let-shadowing.aster/0/del",
+      "source": "Module dual.engine.let.shadowing.\n\nRule normalize given raw_value produce\n  Let value be raw_value.\n  If value less than 0:\n    Let value be 0.\n    Return value.\n  Otherwise:\n    Return value.\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 39,
+          "params": {
+            "expected": "'.' | ':' | '(' | '@' | kw.map | token.typeName | token.identifier",
+            "token": "token.newline"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 5,
+          "column": 3,
+          "params": {
+            "token": "kw.if"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 6,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 7,
+          "column": 5,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 8,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 9,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 10,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/25-if-multi-branch.aster/3/rep",
+      "source": "Module dual.engine.control.multibranch.\n\nRule pricing_tier given monthly_spend produce:\n  If monthly_spend less than 100has\n    Return \"free\".\n  If monthly_spend less than 1000:\n    Return \"pro\".\n  If monthly_spend less than 10000:\n    Return \"team\".\n  Otherwise:\n    Return \"enterprise\".\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 33,
+          "params": {
+            "token": "kw.has"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 4,
+          "column": 33,
+          "params": {
+            "expected": "'.' | '(' | '+' | '*' | '-' | '/' | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.newline",
+            "token": "kw.has"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 5,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 6,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 7,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 8,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 9,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 10,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 11,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 12,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-alias-same-name-as-local-function.aster/0/del",
+      "source": "Module governance.input.refs.case29.\nProfile \"eu-ai-act-high-risk\".\n\nUse other.lib as isBig.\n\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n isBig given c as GuardContext, produce Bool:\n  Return c.amount at least 50000.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let local be isBig(req.context).\n  Let remote be isBig.check(req.context.tier).\n  If local and remote:\n    Return Verdict.deny(\"both\").\n  Return Verdict.allow().\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 10,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 11,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 13,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/fetch_dashboard.aster/5/rep",
+      "source": "Define User has id, name.\n\nDefine Dash has profile, timeline.\n\nDefine AuthErr as one of InvalidCreds, Locked.\n\nRule fetchDashboard given u, produce. It performs io.\n  Start profile as async ProfileSvc.load(u.id).\n  Start timeline as async FeedSvc.timeline(u.id).\n  Wait for profile and timeline.\n  Return ok of Dash with profile set to profile and timeline set to timeline.\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 7,
+          "column": 53,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 8,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 9,
+          "column": 3,
+          "params": {
+            "token": "kw.start"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 10,
+          "column": 3,
+          "params": {
+            "token": "kw.wait"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 11,
+          "column": 3,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 11,
+          "column": 34,
+          "params": {
+            "expected": "'.' | ',' | kw.less than or equal word | kw.greater than or equal word | kw.and | kw.as | kw.required | kw.between | kw.matching | token.newline",
+            "token": "kw.set"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 12,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_valid_exact_match.aster/3/del",
+      "source": "Module test.eff.valid.exact_match.\n\nRule exact, produce. It performs io [Http, Sql]:\n  Let resp be Http.get\"/users\").\n  Return Db.insert(\"cache\", resp).\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 23,
+          "params": {
+            "before": "'\"/users\"'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 31,
+          "params": {
+            "token": "')'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/16-comparison-equals.aster/1/del",
+      "source": "Module dual.engine.comparison.equals.\n\nRule  given x, y, produce:\n  Return x equals to y.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 3,
+          "column": 12,
+          "params": {
+            "token": "'x'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 15,
+          "params": {
+            "expected": "'.' | ':' | kw.produce",
+            "token": "'y'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 5,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/22-let-shadowing.aster/5/ins",
+      "source": "Module dual.engine.let.shadowing.\n\nRule normalize given raw_value produce:\n  Let value be raw_value.\n  If value less than 0:\n    Let value be 0.\n    Return value.\n  OtherwiseOf :\n    Return value.\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 8,
+          "column": 14,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 9,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 10,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/31-arithmetic-intdiv.aster/2/rep",
+      "source": "Module dual.engine.arithmetic.intdiv.\n\nRule intdiv given x, y, produce:\n  Return x integer divided has y.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 20,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'divided'"
+          }
+        },
+        {
+          "code": "E057",
+          "line": 4,
+          "column": 33,
+          "params": {
+            "context": "token.construction",
+            "token": "kw.set"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-function-value-passed-to-builtin.aster/5/del",
+      "source": "Module governance.input.refs.case43.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule isOps given r as Text, produce Bool:\n  Return r equals to \"ops\".\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let marks be List.map(req.principal_roles, isOps).\n   List.contains(marks, true):\n    Return Verdict.allow().\n  Return Verdict.deny(\"role\").\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 14,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 14,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 15,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 16,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 17,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-lambda-parameter-applied.aster/5/rep",
+      "source": "Module governance.input.refs:case35.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let f be function with x, produce:\n    Return x greater than 0.\n  Let v be apply f to req.context.amount.\n  If v:\n    Return Verdict.deny(\"positive\").\n  Return Verdict.allow().\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 1,
+          "column": 29,
+          "params": {
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 2,
+          "column": 9,
+          "params": {
+            "token": "'\"eu-ai-act-high-risk\"'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_valid_subset_declared.aster/5/rep",
+      "source": "Module test.eff.valid.subset_declared.\n\nRule simple_query, produce. It performs io [Http, Sql, Time]:\n  Return Db.queryproduce\"SELECT NOW()\").\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 25,
+          "params": {
+            "before": "'\"SELECT NOW()\"'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 39,
+          "params": {
+            "token": "')'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/18-comparison-chained.aster/1/del",
+      "source": "Module dual.engine.comparison.chained.\n\nRule classify given score produce:\n  If score less than 60:\n    Return \"fail\".\n  If score less than 80:\n    Return \"pass\".\n  Otherwise:\n     \"excellent\".\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 9,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 9,
+          "column": 1,
+          "params": {
+            "expected": "token.eof | '@' | kw.rule | kw.define | kw.type | kw.use | token.typeName | token.identifier | token.newline",
+            "token": "'\"excellent\"'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/24-if-guard-clause.aster/5/rep",
+      "source": "Module dual.engine.control.guard.\n\nRule absolute_value module x produce:\n  If x less than 0:\n    Return 0 minus x.\n  Return x.\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 21,
+          "params": {
+            "expected": "'.' | ':' | ',' | '<' | kw.given | kw.produce | kw.of",
+            "token": "kw.module"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 5,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 6,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 7,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/45-text-equals.aster/1/del",
+      "source": "Module dual.engine.text.equals.\n\nRule sameOwner given ownerId, userId, produce:\n  Return Text.equals(ownerId, userId)\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 5,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E059",
+          "line": 4,
+          "column": 38,
+          "params": {
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-map-contains-literal-key.aster/5/del",
+      "source": "Module governance.input.refs.case40.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n   Map.contains(req.context.meta, \"region\"):\n    Return Verdict.escalate(\"region\").\n  Return Verdict.allow().\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 10,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E063",
+          "line": 10,
+          "column": 44,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 10,
+          "column": 44,
+          "params": {
+            "expected": "'.' | ',' | '(' | ')' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 11,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 12,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 13,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-map-literal-key-control-char.aster/4/del",
+      "source": "Module governance.input.refs.case49.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  If Maybe.withDefault(Map.getreq.context.meta, \"bell\u0007key\"), \"\") equals to \"x\":\n    Return Verdict.deny(\"ctl\").\n  Return Verdict.allow().\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 10,
+          "column": 62,
+          "params": {
+            "token": "token.newline"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 10,
+          "column": 64,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "')'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 10,
+          "column": 79,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 11,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 12,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 13,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_violation_files_only.aster/4/rep",
+      "source": "Module test.eff.violation.files_only.\n\nRule read_file, produce. It performs io [Files]:\n  Return Files.readwith\"/tmp/data.txt\").\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 24,
+          "params": {
+            "before": "'\"/tmp/data.txt\"'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 39,
+          "params": {
+            "token": "')'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/18-comparison-is-equal.aster/1/del",
+      "source": "Module dual..comparison.isequal.\n\nRule same given x, y, produce:\n  Return x is equal to y.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 1,
+          "column": 13,
+          "params": {
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 1,
+          "column": 24,
+          "params": {
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/26-if-bool-condition.aster/3/ins",
+      "source": "Module dual.engine.control.boolcondition.\n\nRule discount given is_member, has_coupon, base, produce:\n  If is_member and has_coupon:\n    Return base divided by 2.\n  If is_member or has_coupon:\n    Return base minus base divided by 5.\n  OtherwiseWITH :\n    Return base.\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 8,
+          "column": 16,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 9,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 10,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/45-text-equals.aster/3/del",
+      "source": "Module dual.engine.text.equals.\n\nRule sameOwner given ownerId, userId, produce:\n  Return Text.equals(ownerId, userId)\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 5,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E059",
+          "line": 4,
+          "column": 38,
+          "params": {
+            "token": "'.'"
+          }
+        }
+      ]
+    }
+  ]
+}

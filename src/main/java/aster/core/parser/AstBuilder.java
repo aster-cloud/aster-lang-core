@@ -425,8 +425,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
      * 取形参列表及其后可选逗号之后的第一个 token（{@code .}、{@code :} 等），与 ts decl-parser 相同。
      */
     private Span inferredRetSpan(AsterParser.FuncDeclContext ctx) {
-        if (ctx.PRODUCE() != null) {
-            return spanFrom(ctx.PRODUCE());
+        if (ctx.kwProduce() != null) {
+            return spanFrom(ctx.kwProduce().getStart());
         }
         // 函数头最后一个组成部分之后的第一个子节点
         org.antlr.v4.runtime.tree.ParseTree last = ctx.COMMA() != null ? ctx.COMMA()
@@ -804,7 +804,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         // 此前 core 把它读成名为 maybe 的泛型 TypeApp
         if ("maybe".equalsIgnoreCase(builtin)) {
             throw new ParseDiagnosticException(ErrorCode.PARSE_UNEXPECTED_TOKEN, Map.of("token", "'of'"),
-                MAYBE_OF_MESSAGE, ctx.OF().getSymbol());
+                MAYBE_OF_MESSAGE, ctx.kwOf().getStart());
         }
         rejectAmbiguousCommaInTypeList(ctx);
         List<Type> args = new ArrayList<>();
@@ -824,7 +824,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         if ("result".equalsIgnoreCase(builtin)) {
             Type err = args.size() > 1
                 ? args.get(1)
-                : new Type.TypeName("Text", List.of(), spanFrom(ctx.OF().getSymbol()));
+                : new Type.TypeName("Text", List.of(), spanFrom(ctx.kwOf().getStart()));
             return new Type.Result(args.get(0), err, List.of(), spanFrom(ctx));
         }
         return new Type.TypeApp(name, List.of(), args, spanFrom(ctx));
@@ -1798,7 +1798,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         // 提取返回类型：produce 后类型可省，省略时为占位 Unknown，锚定在 produce 关键词（ADR 0056 §3.3）
         Type retType = ctx.annotatedType() != null
             ? extractAnnotatedType(ctx.annotatedType()).type()
-            : new Type.TypeName("Unknown", List.of(), spanFrom(ctx.PRODUCE()));
+            : new Type.TypeName("Unknown", List.of(), spanFrom(ctx.kwProduce().getStart()));
 
         // 提取函数体
         Block body;

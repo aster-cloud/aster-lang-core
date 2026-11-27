@@ -359,11 +359,30 @@ public class AsterCustomLexer extends AsterLexer {
     }
 
     /**
+     * 词法期守卫按记号种类判断类型位置的起止（as / produce 之后是类型，X of 开启泛型参数）。K（ADR 0056 修订 A4 §1.1）
+     * 让这些词的其余大小写拼写（As、PRODUCE、Of…）在解析器的关键词位置也算关键词，而它们在词法上仍是 TYPE_IDENT / IDENT；
+     * 这里按文本把它们折回关键词种类，守卫才会与解析器同样识别类型位置。名字转义永远是名字（ADR 0064 N3），不折。
+     * 折错（同形词作名字）只会让守卫多一次复位或多数一个 X of 帧，不会对合法源码报错：深度上限仍由解析器层守卫兜底。
+     */
+    private static int caseFoldedKeywordType(Token t) {
+        int type = t.getType();
+        if ((type != AsterParser.TYPE_IDENT && type != AsterParser.IDENT) || EscapedToken.isEscaped(t) || t.getText() == null) {
+            return type;
+        }
+        return switch (t.getText().toLowerCase(java.util.Locale.ROOT)) {
+            case "as" -> AsterParser.AS;
+            case "produce" -> AsterParser.PRODUCE;
+            case "of" -> AsterParser.OF;
+            default -> type;
+        };
+    }
+
+    /**
      * 记录上一个有意义 token 的小写文本（用于标记位置判定）。
      * 跳过 NEWLINE/INDENT/DEDENT/EOF/隐藏通道——它们不影响"前驱是否结构关键词"判定。
      */
     private void recordMeaningful(Token t) {
-        int type = t.getType();
+        int type = caseFoldedKeywordType(t);
         trackNestingDepth(type, t.getText());
         if (type == NEWLINE || type == AsterParser.INDENT || type == AsterParser.DEDENT
                 || type == Token.EOF || t.getChannel() == Token.HIDDEN_CHANNEL) {

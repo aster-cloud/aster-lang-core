@@ -44,7 +44,7 @@ class KeywordNameParityTest {
         for (JsonNode c : fixture.get("cases")) {
             tests.add(DynamicTest.dynamicTest(c.get("name").asText(), () -> assertCase(c)));
         }
-        assertThat(fixture.get("cases")).hasSize(58);
+        assertThat(fixture.get("cases")).hasSize(60);
         return tests.stream();
     }
 
