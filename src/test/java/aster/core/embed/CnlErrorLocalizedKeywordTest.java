@@ -115,10 +115,10 @@ class CnlErrorLocalizedKeywordTest {
 
     @Test
     void zh_typeIdentSameAsKeyword_isNotRewritten() {
-        // Given 是 TYPE_IDENT（GIVEN 规则是区分大小写的 'given'），小写后与规范关键词同形，
-        // 但它是用户写的名字，必须原样显示
-        String err = parseErr("模块 m。\n\n规则 r Given x 作为 整数 产出 整数：\n  返回 x。", "zh-CN");
-        assertThat(err).contains("'Given'").doesNotContain("'给定'");
+        // Version 是 TYPE_IDENT（VERSION 规则是区分大小写的 'version'），小写后与规范关键词同形，
+        // 但规则名之后不是关键词位置（K 只在关键词位置按文本认关键词），它是用户写的名字，必须原样显示
+        String err = parseErr("模块 m。\n\n规则 r Version x 作为 整数 产出 整数：\n  返回 x。", "zh-CN");
+        assertThat(err).contains("'Version'").doesNotContain("'版本'");
     }
 
     // ---------------------------------------------------------------- 文案格式化单元

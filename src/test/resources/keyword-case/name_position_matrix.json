@@ -1,0 +1,3378 @@
+{
+  "description": "关键词大小写（K，aster-lang-ts#338 第 1 部分，ADR 0056 修订 A4 §1.1 / 修订 A7）的名字位置回归矩阵：K-a 引入、K-b..K-d 每个 PR 原样重跑。每例是一份 en-US 源码：关键词同形词（type、version、required、between、given、be、module，以及 K-a 改写的 with、as、of、one、has、produce、use、it、performs）按小写、首字母大写、全大写三种拼写放进各个名字位置（字段、形参、Let 名、成员访问、变量引用、类型别名名、枚举成员、导入别名、数据类型名、规则名），外加结构关键词 If / IF / iF / if 的 E901 行。期望值取自 K 之前的 core（aster-lang-core f431a6b）：pf 是 Core IR 的位置无关 sha256，reject 是第一条诊断的 [码, 行, 列]。K 只放宽关键词位置，名字位置的结论必须与 K 之前逐例相同。",
+  "baseline": "aster-lang-core f431a6b (eco-1.0.56)",
+  "cases": [
+    {
+      "name": "field/type/lower",
+      "source": "Module probe.sample.\n\nDefine S with type as Int.\n",
+      "pf": "5728617ff61b9a2f2a75cfeda5c90376404769eeb0571119a4ddb443783b5c91"
+    },
+    {
+      "name": "param/type/lower",
+      "source": "Module probe.sample.\n\nRule get given type as Int, produce Int:\n  Return 1.\n",
+      "pf": "029163c29eb7e2a8404092073e255d295ab7bd8cb3b365945e023603d2a6a371"
+    },
+    {
+      "name": "let/type/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let type be x.\n  Return x.\n",
+      "pf": "909c870c2941e1437bd73654699323fc36709a34b83ceaddde90a03af95bef9e"
+    },
+    {
+      "name": "member/type/lower",
+      "source": "Module probe.sample.\n\nDefine S with type as Int.\n\nRule get given v as S, produce Int:\n  Return v.type.\n",
+      "pf": "e9366fe817fa536be4b899197b6001aa698a8afc6b65b9c7b717e1016762f149"
+    },
+    {
+      "name": "varref/type/lower",
+      "source": "Module probe.sample.\n\nRule get given type as Int, produce Int:\n  Return type.\n",
+      "pf": "c0d5289c3de168664ccf3898a46a2e3e2747f7c992dcacb011dc2b9294776688"
+    },
+    {
+      "name": "alias/type/lower",
+      "source": "Module probe.sample.\n\nType type as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "import/type/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as type.\n",
+      "pf": "cab990ddc4890b0fd5c8f4a9ec7a760d7dd4946c0325198b5764171a2c84703c"
+    },
+    {
+      "name": "rulename/type/lower",
+      "source": "Module probe.sample.\n\nRule type given x as Int, produce Int:\n  Return x.\n",
+      "pf": "a703ec58e598a1e1289c360bd7745ab63f3f9deff62e75d9ad4824a4fe25a475"
+    },
+    {
+      "name": "field/type/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Type as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/type/Cap",
+      "source": "Module probe.sample.\n\nRule get given Type as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/type/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Type be x.\n  Return x.\n",
+      "pf": "12da81bc4bde376c79110b09dc5a79af84f0b211d9cc9aa54c23aa987955197f"
+    },
+    {
+      "name": "member/type/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Type as Int.\n\nRule get given v as S, produce Int:\n  Return v.Type.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/type/Cap",
+      "source": "Module probe.sample.\n\nRule get given Type as Int, produce Int:\n  Return Type.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/type/Cap",
+      "source": "Module probe.sample.\n\nType Type as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/type/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Type, Other.\n",
+      "pf": "6720a31ea279247cdf875b432fb76e51001abe56dac949d7ca93512957a96de7"
+    },
+    {
+      "name": "import/type/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Type.\n",
+      "pf": "fb1c67549daf9fbc7ecaee26ab5034fcefc75f5635a8b080bc282f6fe01241ba"
+    },
+    {
+      "name": "typename/type/Cap",
+      "source": "Module probe.sample.\n\nDefine Type with x as Int.\n",
+      "pf": "0e911ebd3d6e6d3611233b11e9edf49a5d3cd74085be54b0fe5ca80198f167c3"
+    },
+    {
+      "name": "rulename/type/Cap",
+      "source": "Module probe.sample.\n\nRule Type given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/type/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with TYPE as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/type/UPPER",
+      "source": "Module probe.sample.\n\nRule get given TYPE as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/type/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let TYPE be x.\n  Return x.\n",
+      "pf": "032c019c9418c8d95b9e286eba47f3687a9ab553c2d4fc568b9bf798a0a911bc"
+    },
+    {
+      "name": "member/type/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with TYPE as Int.\n\nRule get given v as S, produce Int:\n  Return v.TYPE.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/type/UPPER",
+      "source": "Module probe.sample.\n\nRule get given TYPE as Int, produce Int:\n  Return TYPE.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/type/UPPER",
+      "source": "Module probe.sample.\n\nType TYPE as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/type/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of TYPE, Other.\n",
+      "pf": "648fd1aaf30c046ce4c50a036b13d5fad065dd1b5bca47388b015301b7f01392"
+    },
+    {
+      "name": "import/type/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as TYPE.\n",
+      "pf": "9f2a187f86e41590bf2154686e0a2ca4eafc3f7626517292d5d5dc6488b4a75a"
+    },
+    {
+      "name": "typename/type/UPPER",
+      "source": "Module probe.sample.\n\nDefine TYPE with x as Int.\n",
+      "pf": "0914ca00ed5665e1463562beb6e3d91fef50298dd5f1f43bbb762f1ce60892e7"
+    },
+    {
+      "name": "rulename/type/UPPER",
+      "source": "Module probe.sample.\n\nRule TYPE given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/version/lower",
+      "source": "Module probe.sample.\n\nDefine S with version as Int.\n",
+      "pf": "13eaec6c98c9b27b33bf7d82a0fad79a7749e38a1e23f2f9f27a73209b831dcc"
+    },
+    {
+      "name": "param/version/lower",
+      "source": "Module probe.sample.\n\nRule get given version as Int, produce Int:\n  Return 1.\n",
+      "pf": "69ae9f03352bafdc172430ff7949261e4fb38c4059582fb0be33705e19ee2946"
+    },
+    {
+      "name": "let/version/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let version be x.\n  Return x.\n",
+      "pf": "3b3b9cb5b5fff1223226841b83c20deed83b03269257f18d73500e47172f0d59"
+    },
+    {
+      "name": "member/version/lower",
+      "source": "Module probe.sample.\n\nDefine S with version as Int.\n\nRule get given v as S, produce Int:\n  Return v.version.\n",
+      "pf": "018659f0f781b3359a2d053cda4ceb4bd316a6ec04282d6d7dba04c88adb5bd0"
+    },
+    {
+      "name": "varref/version/lower",
+      "source": "Module probe.sample.\n\nRule get given version as Int, produce Int:\n  Return version.\n",
+      "pf": "178abce923b3f9000db066218db90684072508c8063c3ee352dda414a8dc984c"
+    },
+    {
+      "name": "alias/version/lower",
+      "source": "Module probe.sample.\n\nType version as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "import/version/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as version.\n",
+      "pf": "3da15f67418ee6ebdd636929bf1fc0974e2989a1c6a6d7e9b3f2408f10fc60aa"
+    },
+    {
+      "name": "rulename/version/lower",
+      "source": "Module probe.sample.\n\nRule version given x as Int, produce Int:\n  Return x.\n",
+      "pf": "0f0b4064bb519fd5f82d0be628899dbb8cc0aecd229a71a00ee8a9229fe6de77"
+    },
+    {
+      "name": "field/version/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Version as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/version/Cap",
+      "source": "Module probe.sample.\n\nRule get given Version as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/version/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Version be x.\n  Return x.\n",
+      "pf": "30743285ba8786c934cd3a9c05070d232ce7f21ef048cc0d70dd785b64a7eb05"
+    },
+    {
+      "name": "member/version/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Version as Int.\n\nRule get given v as S, produce Int:\n  Return v.Version.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/version/Cap",
+      "source": "Module probe.sample.\n\nRule get given Version as Int, produce Int:\n  Return Version.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/version/Cap",
+      "source": "Module probe.sample.\n\nType Version as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/version/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Version, Other.\n",
+      "pf": "98d0c1591e03805f7c55d7472be36f0cb609598b668749e127b5f3fbc791f3e7"
+    },
+    {
+      "name": "import/version/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Version.\n",
+      "pf": "1d5355edda12f77578b89a883da3afabf2fceb76cf40ac8163190dc221c48cf7"
+    },
+    {
+      "name": "typename/version/Cap",
+      "source": "Module probe.sample.\n\nDefine Version with x as Int.\n",
+      "pf": "1af103ce820eb7f0c7c4347bd3ed46749081a152ab61621755eb188b6295c9fb"
+    },
+    {
+      "name": "rulename/version/Cap",
+      "source": "Module probe.sample.\n\nRule Version given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/version/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with VERSION as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/version/UPPER",
+      "source": "Module probe.sample.\n\nRule get given VERSION as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/version/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let VERSION be x.\n  Return x.\n",
+      "pf": "6900a5e6868f40fa90ea4af1953ace02cfeb8ee5b88e8538f85e3631855e6cd0"
+    },
+    {
+      "name": "member/version/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with VERSION as Int.\n\nRule get given v as S, produce Int:\n  Return v.VERSION.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/version/UPPER",
+      "source": "Module probe.sample.\n\nRule get given VERSION as Int, produce Int:\n  Return VERSION.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/version/UPPER",
+      "source": "Module probe.sample.\n\nType VERSION as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/version/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of VERSION, Other.\n",
+      "pf": "fe74100ca61eb5b37614e41f5a41bd3cde865fa71fec88e8194d562d73a29272"
+    },
+    {
+      "name": "import/version/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as VERSION.\n",
+      "pf": "1084de82d2a7c93a89655688de4452a452a236067078b86467803e7f364050eb"
+    },
+    {
+      "name": "typename/version/UPPER",
+      "source": "Module probe.sample.\n\nDefine VERSION with x as Int.\n",
+      "pf": "d6186d25b052be524e2a42efb638c8ed6da9c3d46f4312992fabe8ccebee08eb"
+    },
+    {
+      "name": "rulename/version/UPPER",
+      "source": "Module probe.sample.\n\nRule VERSION given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/required/lower",
+      "source": "Module probe.sample.\n\nDefine S with required as Int.\n",
+      "pf": "94d23e0d9189dd40d16c58009d3b3cc686614f948a0b3a39e1ff78a461a2807d"
+    },
+    {
+      "name": "param/required/lower",
+      "source": "Module probe.sample.\n\nRule get given required as Int, produce Int:\n  Return 1.\n",
+      "pf": "452ee4595f4c8a51030cefb73b7fcfae02937655392db61adb0c0dae072b53e8"
+    },
+    {
+      "name": "let/required/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let required be x.\n  Return x.\n",
+      "pf": "ff036106dc010a4ebc44b73054396a62113930791b60c9b497e886438b4470f1"
+    },
+    {
+      "name": "member/required/lower",
+      "source": "Module probe.sample.\n\nDefine S with required as Int.\n\nRule get given v as S, produce Int:\n  Return v.required.\n",
+      "pf": "2b2743e87b554eefd862b09784545c7ce8e381e3ba212647bbdfef310082b241"
+    },
+    {
+      "name": "varref/required/lower",
+      "source": "Module probe.sample.\n\nRule get given required as Int, produce Int:\n  Return required.\n",
+      "pf": "e9bfa28e9c7d526ec982c75db5360a2cc98fae7af289805cccd404035f837081"
+    },
+    {
+      "name": "alias/required/lower",
+      "source": "Module probe.sample.\n\nType required as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "import/required/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as required.\n",
+      "pf": "a131d9bf108bda52bb97403536fb95b8472588521c28916dcf3435f4d1d8fddc"
+    },
+    {
+      "name": "rulename/required/lower",
+      "source": "Module probe.sample.\n\nRule required given x as Int, produce Int:\n  Return x.\n",
+      "pf": "e05bd8d779d8fa97a121cf197ddc7e88432588ed36f0a14b187f4aba8176ed20"
+    },
+    {
+      "name": "field/required/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Required as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/required/Cap",
+      "source": "Module probe.sample.\n\nRule get given Required as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/required/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Required be x.\n  Return x.\n",
+      "pf": "1c9ddefc81b1a727caf9dc3856a91e151ddabbc672abc8fa5ffabffce8852d4c"
+    },
+    {
+      "name": "member/required/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Required as Int.\n\nRule get given v as S, produce Int:\n  Return v.Required.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/required/Cap",
+      "source": "Module probe.sample.\n\nRule get given Required as Int, produce Int:\n  Return Required.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/required/Cap",
+      "source": "Module probe.sample.\n\nType Required as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/required/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Required, Other.\n",
+      "pf": "53be9208263ddf4bea8f9050d5465dba10b019e1d0fc0820a0a2e6e331537dab"
+    },
+    {
+      "name": "import/required/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Required.\n",
+      "pf": "a355e1043c7280c2403823c88f355cc38eeb82c1a4fe8129a97cc5939e41028c"
+    },
+    {
+      "name": "typename/required/Cap",
+      "source": "Module probe.sample.\n\nDefine Required with x as Int.\n",
+      "pf": "c5c28b104d015355a4e31a8442f99ff7817229a4713a22f3b1e5a76290d8d9d9"
+    },
+    {
+      "name": "rulename/required/Cap",
+      "source": "Module probe.sample.\n\nRule Required given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/required/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with REQUIRED as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/required/UPPER",
+      "source": "Module probe.sample.\n\nRule get given REQUIRED as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/required/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let REQUIRED be x.\n  Return x.\n",
+      "pf": "dcc526ac429a999b624f1acde3920dd90107b03fccf2e9dd51e5494507a74fc0"
+    },
+    {
+      "name": "member/required/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with REQUIRED as Int.\n\nRule get given v as S, produce Int:\n  Return v.REQUIRED.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/required/UPPER",
+      "source": "Module probe.sample.\n\nRule get given REQUIRED as Int, produce Int:\n  Return REQUIRED.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/required/UPPER",
+      "source": "Module probe.sample.\n\nType REQUIRED as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/required/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of REQUIRED, Other.\n",
+      "pf": "cee4aab0bf404878548d6881e2861be865789d002fa3565405f2fe5a5cab054b"
+    },
+    {
+      "name": "import/required/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as REQUIRED.\n",
+      "pf": "b6055f14105c233a390dc49e7b52ffb6ad04a8e991d8cb2986b7fe1a9e48c9d6"
+    },
+    {
+      "name": "typename/required/UPPER",
+      "source": "Module probe.sample.\n\nDefine REQUIRED with x as Int.\n",
+      "pf": "c251795d4a6dd276df18c1f788bfd44b174744def203fab05056d2caeddc3e41"
+    },
+    {
+      "name": "rulename/required/UPPER",
+      "source": "Module probe.sample.\n\nRule REQUIRED given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/between/lower",
+      "source": "Module probe.sample.\n\nDefine S with between as Int.\n",
+      "pf": "18182d4de864f0381b201bdc29d3b080f952e10d30893a59b5a1fd50bd340dd6"
+    },
+    {
+      "name": "param/between/lower",
+      "source": "Module probe.sample.\n\nRule get given between as Int, produce Int:\n  Return 1.\n",
+      "pf": "4db8b40468bf14981a5988de032618951107b5f12ebd51b03676fb39d56673fa"
+    },
+    {
+      "name": "let/between/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let between be x.\n  Return x.\n",
+      "pf": "7bcefed6fe1e32c3d46f74f63680cea696eb786f9ac09398567e71bae5b576fd"
+    },
+    {
+      "name": "member/between/lower",
+      "source": "Module probe.sample.\n\nDefine S with between as Int.\n\nRule get given v as S, produce Int:\n  Return v.between.\n",
+      "pf": "ac5b171d7e83362d71326bf6d5f5d7d0265a2ae0ea661b3007be2668ad193e17"
+    },
+    {
+      "name": "varref/between/lower",
+      "source": "Module probe.sample.\n\nRule get given between as Int, produce Int:\n  Return between.\n",
+      "pf": "050e1fc2a7beae60c92c521feea9b7f3a5904659d98affe05f66567de5379205"
+    },
+    {
+      "name": "alias/between/lower",
+      "source": "Module probe.sample.\n\nType between as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "import/between/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as between.\n",
+      "pf": "1e4ef6c743da53102d13428dd7f998a87c75a2516773006286a9f8b41545475a"
+    },
+    {
+      "name": "rulename/between/lower",
+      "source": "Module probe.sample.\n\nRule between given x as Int, produce Int:\n  Return x.\n",
+      "pf": "c7a93ee908a91e82da156c1e08d467f41df3d60c2755eb3e1e1fcb7f5275d60f"
+    },
+    {
+      "name": "field/between/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Between as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/between/Cap",
+      "source": "Module probe.sample.\n\nRule get given Between as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/between/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Between be x.\n  Return x.\n",
+      "pf": "405d324f99b030b31fe716e42cdaaa7db2e8a8ef508555c53bc9d780aece9ac4"
+    },
+    {
+      "name": "member/between/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Between as Int.\n\nRule get given v as S, produce Int:\n  Return v.Between.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/between/Cap",
+      "source": "Module probe.sample.\n\nRule get given Between as Int, produce Int:\n  Return Between.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/between/Cap",
+      "source": "Module probe.sample.\n\nType Between as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/between/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Between, Other.\n",
+      "pf": "7be5acc8f62543fa9b3a0d5d3e0da841b139d94d4fa330d8d0d4230a1c9eb507"
+    },
+    {
+      "name": "import/between/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Between.\n",
+      "pf": "7ef5e9d17a6fb989bfd637786c6b7619db92b67e23e077e572d71cb3df29b605"
+    },
+    {
+      "name": "typename/between/Cap",
+      "source": "Module probe.sample.\n\nDefine Between with x as Int.\n",
+      "pf": "885517ad5d77bd4a3cf4ce968401c94adae2caf91248e9de66f2c8854b51da71"
+    },
+    {
+      "name": "rulename/between/Cap",
+      "source": "Module probe.sample.\n\nRule Between given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/between/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with BETWEEN as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/between/UPPER",
+      "source": "Module probe.sample.\n\nRule get given BETWEEN as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/between/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let BETWEEN be x.\n  Return x.\n",
+      "pf": "79590391f8877230680423f4ce7bddf45b7ccaa224cdcf0950617fb8f1a3ad37"
+    },
+    {
+      "name": "member/between/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with BETWEEN as Int.\n\nRule get given v as S, produce Int:\n  Return v.BETWEEN.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/between/UPPER",
+      "source": "Module probe.sample.\n\nRule get given BETWEEN as Int, produce Int:\n  Return BETWEEN.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/between/UPPER",
+      "source": "Module probe.sample.\n\nType BETWEEN as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/between/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of BETWEEN, Other.\n",
+      "pf": "ab2e1b91b2eb98e20c7d8aa0dc048659101f514be51ae9cb4f9aeb4b88c8d3a7"
+    },
+    {
+      "name": "import/between/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as BETWEEN.\n",
+      "pf": "f260af649ab33bca3004d57e6a0be7285741cf280363619f3ba516df8257848d"
+    },
+    {
+      "name": "typename/between/UPPER",
+      "source": "Module probe.sample.\n\nDefine BETWEEN with x as Int.\n",
+      "pf": "b0943ec0f980924642aed5b3f25fa0768b36afdd0b0a1555f27fc9c06789c43d"
+    },
+    {
+      "name": "rulename/between/UPPER",
+      "source": "Module probe.sample.\n\nRule BETWEEN given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/given/lower",
+      "source": "Module probe.sample.\n\nDefine S with given as Int.\n",
+      "pf": "9dbdcea143fa41d98dd12dfe3e619efaadd570141700a37f0afdcab624b8e042"
+    },
+    {
+      "name": "param/given/lower",
+      "source": "Module probe.sample.\n\nRule get given given as Int, produce Int:\n  Return 1.\n",
+      "pf": "023c4ed437b3b11f2180594abfa78d4163c5539d57b4c3673cb80b1caaea648c"
+    },
+    {
+      "name": "let/given/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let given be x.\n  Return x.\n",
+      "pf": "6f6a7972e54bec49d5260d2d5f66073d72be0061cc658e8ae52c475dcdd9a806"
+    },
+    {
+      "name": "member/given/lower",
+      "source": "Module probe.sample.\n\nDefine S with given as Int.\n\nRule get given v as S, produce Int:\n  Return v.given.\n",
+      "pf": "a7c4c6ef061cfa6dde964ebe1c69d019b01fa2280b6e131f26662021af09b9ee"
+    },
+    {
+      "name": "varref/given/lower",
+      "source": "Module probe.sample.\n\nRule get given given as Int, produce Int:\n  Return given.\n",
+      "pf": "17805a9cffd00960d59d1859f694d15e2019864ca75ce957c11690b845291516"
+    },
+    {
+      "name": "alias/given/lower",
+      "source": "Module probe.sample.\n\nType given as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "import/given/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as given.\n",
+      "pf": "fd2486cbd0fafb97dd15384047fc7728d94eea0ed04aef16933bd74e0099bdc8"
+    },
+    {
+      "name": "rulename/given/lower",
+      "source": "Module probe.sample.\n\nRule given given x as Int, produce Int:\n  Return x.\n",
+      "pf": "dfa3a9c6a467dd96a61c660e5c81df59be4120d7bb376dc5f82df70bfc479a33"
+    },
+    {
+      "name": "field/given/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Given as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/given/Cap",
+      "source": "Module probe.sample.\n\nRule get given Given as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/given/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Given be x.\n  Return x.\n",
+      "pf": "21d02bad494199256b05d1d83f9b8e019ccea05822b694ecc15bd711f0f07ef7"
+    },
+    {
+      "name": "member/given/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Given as Int.\n\nRule get given v as S, produce Int:\n  Return v.Given.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/given/Cap",
+      "source": "Module probe.sample.\n\nRule get given Given as Int, produce Int:\n  Return Given.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/given/Cap",
+      "source": "Module probe.sample.\n\nType Given as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/given/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Given, Other.\n",
+      "pf": "d23336ae8c9107592ab2e083062c3453d1eb91ef172dc56b39a945b507e4f7f9"
+    },
+    {
+      "name": "import/given/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Given.\n",
+      "pf": "21ae64fb0507ab9c1878fff20caf363378f22343a4d78df81fa60c155dfac721"
+    },
+    {
+      "name": "typename/given/Cap",
+      "source": "Module probe.sample.\n\nDefine Given with x as Int.\n",
+      "pf": "e66e72e3fbbf70a72e1d9ce62671e6755cdcf07da76c727ea268af215a170fb0"
+    },
+    {
+      "name": "rulename/given/Cap",
+      "source": "Module probe.sample.\n\nRule Given given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/given/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with GIVEN as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/given/UPPER",
+      "source": "Module probe.sample.\n\nRule get given GIVEN as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/given/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let GIVEN be x.\n  Return x.\n",
+      "pf": "a105e87bc8bb48b5c0ff57653b13dcc89bc57aec131c60a3ad18459a5e4c14f4"
+    },
+    {
+      "name": "member/given/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with GIVEN as Int.\n\nRule get given v as S, produce Int:\n  Return v.GIVEN.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/given/UPPER",
+      "source": "Module probe.sample.\n\nRule get given GIVEN as Int, produce Int:\n  Return GIVEN.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/given/UPPER",
+      "source": "Module probe.sample.\n\nType GIVEN as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/given/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of GIVEN, Other.\n",
+      "pf": "68dfc381bd73dec44a09b489645589c5ffebe073fa3b5f13e5143fdf2ba9e435"
+    },
+    {
+      "name": "import/given/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as GIVEN.\n",
+      "pf": "5361f48b3c0cfafe0b9c2c2f7a95e1ec474447c35a7776e1f47209caab00b812"
+    },
+    {
+      "name": "typename/given/UPPER",
+      "source": "Module probe.sample.\n\nDefine GIVEN with x as Int.\n",
+      "pf": "593cf15867a670ef08a25bad654ec48b951ada4af0a1e979ae682b8ed8ded662"
+    },
+    {
+      "name": "rulename/given/UPPER",
+      "source": "Module probe.sample.\n\nRule GIVEN given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/be/lower",
+      "source": "Module probe.sample.\n\nDefine S with be as Int.\n",
+      "pf": "1dee011607a1860f4f3105ba490bc6eca0059bb2de01499ab20b0060b15c0c57"
+    },
+    {
+      "name": "param/be/lower",
+      "source": "Module probe.sample.\n\nRule get given be as Int, produce Int:\n  Return 1.\n",
+      "pf": "0e6a3b4518695badbe04f3c543a9b77f2f61e864daab5b75a6b83b44fa2d2c07"
+    },
+    {
+      "name": "let/be/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let be be x.\n  Return x.\n",
+      "pf": "a9c6c56c0430442fccbc2f6cda5a9d96fb86ef00a72bd69a2a462a2c1a1ea817"
+    },
+    {
+      "name": "member/be/lower",
+      "source": "Module probe.sample.\n\nDefine S with be as Int.\n\nRule get given v as S, produce Int:\n  Return v.be.\n",
+      "pf": "0e45fa8d8c59e052d9f4acd10e33732f70df2fbd75b6e426353da9998366cb72"
+    },
+    {
+      "name": "varref/be/lower",
+      "source": "Module probe.sample.\n\nRule get given be as Int, produce Int:\n  Return be.\n",
+      "pf": "c9040c2f1853ede96b8b1fb33ee09068ceaa92c8ff8e4f1b42b774685def10d6"
+    },
+    {
+      "name": "alias/be/lower",
+      "source": "Module probe.sample.\n\nType be as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "import/be/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as be.\n",
+      "pf": "fe0bec59ee4e774aca5e26269e0b293cf50cf2583b0a2088db20637c20b8ac79"
+    },
+    {
+      "name": "rulename/be/lower",
+      "source": "Module probe.sample.\n\nRule be given x as Int, produce Int:\n  Return x.\n",
+      "pf": "b6239d74878ef0d5d796e84180d9b7a23143cb57733a7e1f7e39bdbc85afb7e4"
+    },
+    {
+      "name": "field/be/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Be as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/be/Cap",
+      "source": "Module probe.sample.\n\nRule get given Be as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/be/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Be be x.\n  Return x.\n",
+      "pf": "8ea11d592b5072d533780e248e70e3cebf79bf8c0956c23942961b028a5afffa"
+    },
+    {
+      "name": "member/be/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Be as Int.\n\nRule get given v as S, produce Int:\n  Return v.Be.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/be/Cap",
+      "source": "Module probe.sample.\n\nRule get given Be as Int, produce Int:\n  Return Be.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/be/Cap",
+      "source": "Module probe.sample.\n\nType Be as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/be/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Be, Other.\n",
+      "pf": "9a83ad4c2fa330d1d42c0d6acf0fd32ef537a848c096971323cea0919d4b3028"
+    },
+    {
+      "name": "import/be/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Be.\n",
+      "pf": "60f04709e30f0219b49fb1bc8251a836794d303c723dbf9f42390cee184fe43c"
+    },
+    {
+      "name": "typename/be/Cap",
+      "source": "Module probe.sample.\n\nDefine Be with x as Int.\n",
+      "pf": "01d4a178ecf42289f6c08ddd7cba5c32b1010f4f55657ca5be35113924b29138"
+    },
+    {
+      "name": "rulename/be/Cap",
+      "source": "Module probe.sample.\n\nRule Be given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/be/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with BE as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/be/UPPER",
+      "source": "Module probe.sample.\n\nRule get given BE as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/be/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let BE be x.\n  Return x.\n",
+      "pf": "4eefb74708d94f5b8051eabf835df32351a62f28d721662fb1059e699941aa58"
+    },
+    {
+      "name": "member/be/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with BE as Int.\n\nRule get given v as S, produce Int:\n  Return v.BE.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/be/UPPER",
+      "source": "Module probe.sample.\n\nRule get given BE as Int, produce Int:\n  Return BE.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/be/UPPER",
+      "source": "Module probe.sample.\n\nType BE as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/be/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of BE, Other.\n",
+      "pf": "dcf0206d0de1ce4c20ce37ef1bdc453ba0b61674573d9a0e783d91eb2fb5f797"
+    },
+    {
+      "name": "import/be/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as BE.\n",
+      "pf": "e33bee3359f576aa6a7464a9eed503ace7c3c6fa4fe83623b7fa01f10ea89cdd"
+    },
+    {
+      "name": "typename/be/UPPER",
+      "source": "Module probe.sample.\n\nDefine BE with x as Int.\n",
+      "pf": "da83a82fc3911c323fadffb3be98b6cd80987d9bca626bbadd193bf05fc13486"
+    },
+    {
+      "name": "rulename/be/UPPER",
+      "source": "Module probe.sample.\n\nRule BE given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/module/lower",
+      "source": "Module probe.sample.\n\nDefine S with module as Int.\n",
+      "pf": "352757b219b8efae8f79dac5cffbff66dcc5fc6704d51d6b096e37aeeb6ea0e8"
+    },
+    {
+      "name": "param/module/lower",
+      "source": "Module probe.sample.\n\nRule get given module as Int, produce Int:\n  Return 1.\n",
+      "pf": "90435b5b7b083989602da3b91258751a2a49c4713083351de445c22e5f66e25d"
+    },
+    {
+      "name": "let/module/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let module be x.\n  Return x.\n",
+      "pf": "67c5eca4bd60a5f319cad67feacffd106e235ed78eb23e34cfebbbd7ca17912b"
+    },
+    {
+      "name": "member/module/lower",
+      "source": "Module probe.sample.\n\nDefine S with module as Int.\n\nRule get given v as S, produce Int:\n  Return v.module.\n",
+      "pf": "2530b4f489bb6879bf6c17e79658e9da57e94be1e55468ad9d36f0b1a89adfe8"
+    },
+    {
+      "name": "varref/module/lower",
+      "source": "Module probe.sample.\n\nRule get given module as Int, produce Int:\n  Return module.\n",
+      "pf": "47fde59bcb0ea9ac31bb6b862e5996232a31ca252477045ab1278509be8bf001"
+    },
+    {
+      "name": "alias/module/lower",
+      "source": "Module probe.sample.\n\nType module as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "import/module/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as module.\n",
+      "pf": "53965bc37cf09ad966d3f1e05cc3b2a9b81f4475593ee38405082fd4f8ed2478"
+    },
+    {
+      "name": "rulename/module/lower",
+      "source": "Module probe.sample.\n\nRule module given x as Int, produce Int:\n  Return x.\n",
+      "pf": "7d5cbfeaa979d3df2167f87dd98f7d7d192c410d8e98770d13d5dfe57f4c1ccc"
+    },
+    {
+      "name": "field/module/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Module as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/module/Cap",
+      "source": "Module probe.sample.\n\nRule get given Module as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/module/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Module be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/module/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Module as Int.\n\nRule get given v as S, produce Int:\n  Return v.Module.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/module/Cap",
+      "source": "Module probe.sample.\n\nRule get given Module as Int, produce Int:\n  Return Module.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/module/Cap",
+      "source": "Module probe.sample.\n\nType Module as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "enum/module/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Module, Other.\n",
+      "reject": [
+        "E062",
+        3,
+        20
+      ]
+    },
+    {
+      "name": "import/module/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Module.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "typename/module/Cap",
+      "source": "Module probe.sample.\n\nDefine Module with x as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        8
+      ]
+    },
+    {
+      "name": "rulename/module/Cap",
+      "source": "Module probe.sample.\n\nRule Module given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/module/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with MODULE as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/module/UPPER",
+      "source": "Module probe.sample.\n\nRule get given MODULE as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/module/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let MODULE be x.\n  Return x.\n",
+      "pf": "036ca4d408babc6adca8e20367367c82e9a4b4f1811a0e21a6460afa43bc205f"
+    },
+    {
+      "name": "member/module/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with MODULE as Int.\n\nRule get given v as S, produce Int:\n  Return v.MODULE.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/module/UPPER",
+      "source": "Module probe.sample.\n\nRule get given MODULE as Int, produce Int:\n  Return MODULE.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/module/UPPER",
+      "source": "Module probe.sample.\n\nType MODULE as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/module/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of MODULE, Other.\n",
+      "pf": "77921c45bb04ddb8d67840a1b915fc417fe6bab988484158f492ea564aa84608"
+    },
+    {
+      "name": "import/module/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as MODULE.\n",
+      "pf": "7a9612e5618a0ed035e8a79a6a9f5a3c5d9af18c63692858d886a90eca2285c9"
+    },
+    {
+      "name": "typename/module/UPPER",
+      "source": "Module probe.sample.\n\nDefine MODULE with x as Int.\n",
+      "pf": "8350139fc296f039d159d5bdd8b132860ee76c7a2486e937218d92d0d54e561c"
+    },
+    {
+      "name": "rulename/module/UPPER",
+      "source": "Module probe.sample.\n\nRule MODULE given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "e901/field/If",
+      "source": "Module probe.sample.\n\nDefine S with If as Int.\n",
+      "reject": [
+        "E901",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "e901/param/If",
+      "source": "Module probe.sample.\n\nRule get given If as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E901",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "e901/let/If",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let If be x.\n  Return x.\n",
+      "reject": [
+        "E901",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "e901/enum/If",
+      "source": "Module probe.sample.\n\nDefine E as one of If, Other.\n",
+      "reject": [
+        "E901",
+        3,
+        20
+      ]
+    },
+    {
+      "name": "e901/typename/If",
+      "source": "Module probe.sample.\n\nDefine If with x as Int.\n",
+      "reject": [
+        "E901",
+        3,
+        8
+      ]
+    },
+    {
+      "name": "e901/alias/If",
+      "source": "Module probe.sample.\n\nType If as Int.\n",
+      "reject": [
+        "E901",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "e901/field/IF",
+      "source": "Module probe.sample.\n\nDefine S with IF as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "e901/param/IF",
+      "source": "Module probe.sample.\n\nRule get given IF as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "e901/let/IF",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let IF be x.\n  Return x.\n",
+      "pf": "25b529bbd7b48374293c3a74dc6910077406bb35283739f9a46195470b8bb349"
+    },
+    {
+      "name": "e901/enum/IF",
+      "source": "Module probe.sample.\n\nDefine E as one of IF, Other.\n",
+      "reject": [
+        "E055",
+        3,
+        20
+      ]
+    },
+    {
+      "name": "e901/typename/IF",
+      "source": "Module probe.sample.\n\nDefine IF with x as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        8
+      ]
+    },
+    {
+      "name": "e901/alias/IF",
+      "source": "Module probe.sample.\n\nType IF as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "e901/field/iF",
+      "source": "Module probe.sample.\n\nDefine S with iF as Int.\n",
+      "pf": "8e4f505c8cb90f04e85e36e62331c5a92e23249866032bac577562209e560bf0"
+    },
+    {
+      "name": "e901/param/iF",
+      "source": "Module probe.sample.\n\nRule get given iF as Int, produce Int:\n  Return 1.\n",
+      "pf": "6e638be3d7ed149df48b11b10f98cc8b3c9688b6bb0e0e056734289958f4c8cc"
+    },
+    {
+      "name": "e901/let/iF",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let iF be x.\n  Return x.\n",
+      "pf": "e2f015a13848af4765bbf96c6a4e96c723a7c79de36a663c87fa434e92803e07"
+    },
+    {
+      "name": "e901/enum/iF",
+      "source": "Module probe.sample.\n\nDefine E as one of iF, Other.\n",
+      "reject": [
+        "E055",
+        3,
+        20
+      ]
+    },
+    {
+      "name": "e901/typename/iF",
+      "source": "Module probe.sample.\n\nDefine iF with x as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        8
+      ]
+    },
+    {
+      "name": "e901/alias/iF",
+      "source": "Module probe.sample.\n\nType iF as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "e901/field/if",
+      "source": "Module probe.sample.\n\nDefine S with if as Int.\n",
+      "pf": "80ded184e80c2fc9702fb1895e69831c8880b68ea89486214194040fa531ad02"
+    },
+    {
+      "name": "e901/param/if",
+      "source": "Module probe.sample.\n\nRule get given if as Int, produce Int:\n  Return 1.\n",
+      "pf": "4aaad3eb43f1f211667222c167610d05e6cc7ddb0c1b3b11da937788441568a3"
+    },
+    {
+      "name": "e901/let/if",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let if be x.\n  Return x.\n",
+      "pf": "7f9ea5c8a8579b8eb06fb5b8f8035790d73e35d7978ed0b32c4a335434d54cf2"
+    },
+    {
+      "name": "e901/enum/if",
+      "source": "Module probe.sample.\n\nDefine E as one of if, Other.\n",
+      "reject": [
+        "E055",
+        3,
+        20
+      ]
+    },
+    {
+      "name": "e901/typename/if",
+      "source": "Module probe.sample.\n\nDefine if with x as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        8
+      ]
+    },
+    {
+      "name": "e901/alias/if",
+      "source": "Module probe.sample.\n\nType if as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "field/with/lower",
+      "source": "Module probe.sample.\n\nDefine S with with as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/with/lower",
+      "source": "Module probe.sample.\n\nRule get given with as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/with/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let with be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/with/lower",
+      "source": "Module probe.sample.\n\nDefine S with with as Int.\n\nRule get given v as S, produce Int:\n  Return v.with.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/with/lower",
+      "source": "Module probe.sample.\n\nRule get given with as Int, produce Int:\n  Return with.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/with/lower",
+      "source": "Module probe.sample.\n\nType with as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        1
+      ]
+    },
+    {
+      "name": "import/with/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as with.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "rulename/with/lower",
+      "source": "Module probe.sample.\n\nRule with given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/with/Cap",
+      "source": "Module probe.sample.\n\nDefine S with With as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/with/Cap",
+      "source": "Module probe.sample.\n\nRule get given With as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/with/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let With be x.\n  Return x.\n",
+      "pf": "9b47e25718aec455e5a9dc211693900b24f3bccf11c00977e543ae10be8353b7"
+    },
+    {
+      "name": "member/with/Cap",
+      "source": "Module probe.sample.\n\nDefine S with With as Int.\n\nRule get given v as S, produce Int:\n  Return v.With.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/with/Cap",
+      "source": "Module probe.sample.\n\nRule get given With as Int, produce Int:\n  Return With.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/with/Cap",
+      "source": "Module probe.sample.\n\nType With as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/with/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of With, Other.\n",
+      "pf": "8646098df663a8baf2a59206df3d5988222ed815d5fb0d47039c1cd9508b8605"
+    },
+    {
+      "name": "import/with/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as With.\n",
+      "pf": "5659d2bf0ed12e37eddca2b128b36b2ab4cac5cbd80f289c5b04ca04b17371ae"
+    },
+    {
+      "name": "typename/with/Cap",
+      "source": "Module probe.sample.\n\nDefine With with x as Int.\n",
+      "pf": "a27160df2ac51e0c2dafaed131a58bb1405285d5a5b0d867db629e0047810d1a"
+    },
+    {
+      "name": "rulename/with/Cap",
+      "source": "Module probe.sample.\n\nRule With given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/with/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with WITH as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/with/UPPER",
+      "source": "Module probe.sample.\n\nRule get given WITH as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/with/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let WITH be x.\n  Return x.\n",
+      "pf": "93cc9b455b716bb94d1b04849d65f3ba36471779a7d5b73b7a18f29e923293c5"
+    },
+    {
+      "name": "member/with/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with WITH as Int.\n\nRule get given v as S, produce Int:\n  Return v.WITH.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/with/UPPER",
+      "source": "Module probe.sample.\n\nRule get given WITH as Int, produce Int:\n  Return WITH.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/with/UPPER",
+      "source": "Module probe.sample.\n\nType WITH as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/with/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of WITH, Other.\n",
+      "pf": "a237905008624e8a2a92b56f5bf8a849400aeeb335bad1ee31f1cff723243930"
+    },
+    {
+      "name": "import/with/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as WITH.\n",
+      "pf": "bd7c7d455f835e184d8878674b5ee1005533456c0520e296e32e629195a77f88"
+    },
+    {
+      "name": "typename/with/UPPER",
+      "source": "Module probe.sample.\n\nDefine WITH with x as Int.\n",
+      "pf": "26e355088e49c90fe04bde1dd3f2703f8e0d13f4c8fd9fc64e8fc397181284a0"
+    },
+    {
+      "name": "rulename/with/UPPER",
+      "source": "Module probe.sample.\n\nRule WITH given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/as/lower",
+      "source": "Module probe.sample.\n\nDefine S with as as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/as/lower",
+      "source": "Module probe.sample.\n\nRule get given as as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/as/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let as be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/as/lower",
+      "source": "Module probe.sample.\n\nDefine S with as as Int.\n\nRule get given v as S, produce Int:\n  Return v.as.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/as/lower",
+      "source": "Module probe.sample.\n\nRule get given as as Int, produce Int:\n  Return as.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/as/lower",
+      "source": "Module probe.sample.\n\nType as as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "import/as/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as as.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "rulename/as/lower",
+      "source": "Module probe.sample.\n\nRule as given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/as/Cap",
+      "source": "Module probe.sample.\n\nDefine S with As as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/as/Cap",
+      "source": "Module probe.sample.\n\nRule get given As as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/as/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let As be x.\n  Return x.\n",
+      "pf": "0e82f67587e29ad6a399cc5248c61819208260698f32101a414b2fc5cb464cca"
+    },
+    {
+      "name": "member/as/Cap",
+      "source": "Module probe.sample.\n\nDefine S with As as Int.\n\nRule get given v as S, produce Int:\n  Return v.As.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/as/Cap",
+      "source": "Module probe.sample.\n\nRule get given As as Int, produce Int:\n  Return As.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/as/Cap",
+      "source": "Module probe.sample.\n\nType As as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/as/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of As, Other.\n",
+      "pf": "6f8dcfb4dec755ac85247b778b65bd27958b261d7609c9d3977cc7778ae12094"
+    },
+    {
+      "name": "import/as/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as As.\n",
+      "pf": "9bb75298e6447356228790ef360ce83e538dd518c86c01b3ada395e56de88183"
+    },
+    {
+      "name": "typename/as/Cap",
+      "source": "Module probe.sample.\n\nDefine As with x as Int.\n",
+      "pf": "a53ee7d1150b87fc5ee8ae73f63f7d2eecb7b7f08d50f12c8c7cc18be85e1795"
+    },
+    {
+      "name": "rulename/as/Cap",
+      "source": "Module probe.sample.\n\nRule As given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/as/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with AS as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/as/UPPER",
+      "source": "Module probe.sample.\n\nRule get given AS as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/as/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let AS be x.\n  Return x.\n",
+      "pf": "5fcc95b60cfb474ed5962d10394c4bb7a242be51a260d80715fb6d1c0da2c65b"
+    },
+    {
+      "name": "member/as/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with AS as Int.\n\nRule get given v as S, produce Int:\n  Return v.AS.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/as/UPPER",
+      "source": "Module probe.sample.\n\nRule get given AS as Int, produce Int:\n  Return AS.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/as/UPPER",
+      "source": "Module probe.sample.\n\nType AS as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/as/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of AS, Other.\n",
+      "pf": "826d761ce2f030fc96d555011efb5364621b93fe9ec88af24e851ea44e78c4ef"
+    },
+    {
+      "name": "import/as/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as AS.\n",
+      "pf": "8280ffa85ce92b10a0eedec27b78e6806644999edfaa861a20990c09a4cb00a4"
+    },
+    {
+      "name": "typename/as/UPPER",
+      "source": "Module probe.sample.\n\nDefine AS with x as Int.\n",
+      "pf": "a5902d84b5fd6798a2f66322d70693e8af0b59e29ec8f0cd46458c475691d85c"
+    },
+    {
+      "name": "rulename/as/UPPER",
+      "source": "Module probe.sample.\n\nRule AS given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/of/lower",
+      "source": "Module probe.sample.\n\nDefine S with of as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/of/lower",
+      "source": "Module probe.sample.\n\nRule get given of as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/of/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let of be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/of/lower",
+      "source": "Module probe.sample.\n\nDefine S with of as Int.\n\nRule get given v as S, produce Int:\n  Return v.of.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/of/lower",
+      "source": "Module probe.sample.\n\nRule get given of as Int, produce Int:\n  Return of.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/of/lower",
+      "source": "Module probe.sample.\n\nType of as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "import/of/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as of.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "rulename/of/lower",
+      "source": "Module probe.sample.\n\nRule of given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/of/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Of as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/of/Cap",
+      "source": "Module probe.sample.\n\nRule get given Of as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/of/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Of be x.\n  Return x.\n",
+      "pf": "d8ac7e1a5284d856eb58767741cb8751e246a025a3b29f44002e746b84110314"
+    },
+    {
+      "name": "member/of/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Of as Int.\n\nRule get given v as S, produce Int:\n  Return v.Of.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/of/Cap",
+      "source": "Module probe.sample.\n\nRule get given Of as Int, produce Int:\n  Return Of.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/of/Cap",
+      "source": "Module probe.sample.\n\nType Of as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/of/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Of, Other.\n",
+      "pf": "42832337b601d035d4c4afe2977ccd323cf17aac746470b1e6c6073f1aa864ac"
+    },
+    {
+      "name": "import/of/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Of.\n",
+      "pf": "f2d7cf8aa251a50bbcc51f9be942dba87a32e55173c99895740109bc5a0cff22"
+    },
+    {
+      "name": "typename/of/Cap",
+      "source": "Module probe.sample.\n\nDefine Of with x as Int.\n",
+      "pf": "350b94e5b8bc59845c46f2df2c8dfa86928bc4cea968b731005d4e2b5fe85adf"
+    },
+    {
+      "name": "rulename/of/Cap",
+      "source": "Module probe.sample.\n\nRule Of given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/of/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with OF as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/of/UPPER",
+      "source": "Module probe.sample.\n\nRule get given OF as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/of/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let OF be x.\n  Return x.\n",
+      "pf": "da45fdc7fc602686940b94626e8ff4d271efce17c1e58ccfe28ffd31ef60cdfe"
+    },
+    {
+      "name": "member/of/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with OF as Int.\n\nRule get given v as S, produce Int:\n  Return v.OF.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/of/UPPER",
+      "source": "Module probe.sample.\n\nRule get given OF as Int, produce Int:\n  Return OF.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/of/UPPER",
+      "source": "Module probe.sample.\n\nType OF as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/of/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of OF, Other.\n",
+      "pf": "ed7cd0a83734ae107fa42fc9945cf8f14c967f4a8f5c0bae7e8c71ea2010b653"
+    },
+    {
+      "name": "import/of/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as OF.\n",
+      "pf": "f949b0fa242b89d572959a7705b83bbdd5d7e0df523cea032551ad2617bf36c2"
+    },
+    {
+      "name": "typename/of/UPPER",
+      "source": "Module probe.sample.\n\nDefine OF with x as Int.\n",
+      "pf": "aacfc7bfea68da309e4ad8410ab9911d264bdcbcbc10efaefd4216e7edc724d2"
+    },
+    {
+      "name": "rulename/of/UPPER",
+      "source": "Module probe.sample.\n\nRule OF given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/one/lower",
+      "source": "Module probe.sample.\n\nDefine S with one as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/one/lower",
+      "source": "Module probe.sample.\n\nRule get given one as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/one/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let one be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/one/lower",
+      "source": "Module probe.sample.\n\nDefine S with one as Int.\n\nRule get given v as S, produce Int:\n  Return v.one.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/one/lower",
+      "source": "Module probe.sample.\n\nRule get given one as Int, produce Int:\n  Return one.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/one/lower",
+      "source": "Module probe.sample.\n\nType one as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "import/one/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as one.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "rulename/one/lower",
+      "source": "Module probe.sample.\n\nRule one given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/one/Cap",
+      "source": "Module probe.sample.\n\nDefine S with One as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/one/Cap",
+      "source": "Module probe.sample.\n\nRule get given One as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/one/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let One be x.\n  Return x.\n",
+      "pf": "034a21108817b3bcec5a3ff335a52383316e6bb12cc55fcb777e09914f62658e"
+    },
+    {
+      "name": "member/one/Cap",
+      "source": "Module probe.sample.\n\nDefine S with One as Int.\n\nRule get given v as S, produce Int:\n  Return v.One.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/one/Cap",
+      "source": "Module probe.sample.\n\nRule get given One as Int, produce Int:\n  Return One.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/one/Cap",
+      "source": "Module probe.sample.\n\nType One as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/one/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of One, Other.\n",
+      "pf": "665795cf438389295ad5bd82cc82b324bf1d82c3872782ac4d3132e31c1ba39f"
+    },
+    {
+      "name": "import/one/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as One.\n",
+      "pf": "d6036f08aa103e41aaabac5a6b3868c62e33d7e0191f07098a4a0ee0c6e8dab6"
+    },
+    {
+      "name": "typename/one/Cap",
+      "source": "Module probe.sample.\n\nDefine One with x as Int.\n",
+      "pf": "ec12064f099e7c940d06e6c9e16b8e27610ccc0ffbe6c01e67ec9c7ffae40055"
+    },
+    {
+      "name": "rulename/one/Cap",
+      "source": "Module probe.sample.\n\nRule One given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/one/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with ONE as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/one/UPPER",
+      "source": "Module probe.sample.\n\nRule get given ONE as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/one/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let ONE be x.\n  Return x.\n",
+      "pf": "df35f4879772e18df2f68a785d2d9be4521730dd7d294a5e2e8f71a717b2ba84"
+    },
+    {
+      "name": "member/one/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with ONE as Int.\n\nRule get given v as S, produce Int:\n  Return v.ONE.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/one/UPPER",
+      "source": "Module probe.sample.\n\nRule get given ONE as Int, produce Int:\n  Return ONE.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/one/UPPER",
+      "source": "Module probe.sample.\n\nType ONE as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/one/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of ONE, Other.\n",
+      "pf": "bf8d0f7cfd1aaa06cfcf32369dfacea54430ff14ffcb2b11850546d89f5195ef"
+    },
+    {
+      "name": "import/one/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as ONE.\n",
+      "pf": "d2ab0e3b08be077c41ef61d8dc6730de9ecc379e7c48d7b04699002cd87f2a49"
+    },
+    {
+      "name": "typename/one/UPPER",
+      "source": "Module probe.sample.\n\nDefine ONE with x as Int.\n",
+      "pf": "35c259622030189948ffd5e7cdc6af5bb075d04e089bf0370b3c89b2aa478fdf"
+    },
+    {
+      "name": "rulename/one/UPPER",
+      "source": "Module probe.sample.\n\nRule ONE given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/has/lower",
+      "source": "Module probe.sample.\n\nDefine S with has as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/has/lower",
+      "source": "Module probe.sample.\n\nRule get given has as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/has/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let has be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/has/lower",
+      "source": "Module probe.sample.\n\nDefine S with has as Int.\n\nRule get given v as S, produce Int:\n  Return v.has.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/has/lower",
+      "source": "Module probe.sample.\n\nRule get given has as Int, produce Int:\n  Return has.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/has/lower",
+      "source": "Module probe.sample.\n\nType has as Int.\n",
+      "reject": [
+        "E061",
+        3,
+        10
+      ]
+    },
+    {
+      "name": "import/has/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as has.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "rulename/has/lower",
+      "source": "Module probe.sample.\n\nRule has given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/has/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Has as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/has/Cap",
+      "source": "Module probe.sample.\n\nRule get given Has as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/has/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Has be x.\n  Return x.\n",
+      "pf": "7486caa1071e96afb4886d0ab838d3f159129def9c2b67a338917cee2f6b16f9"
+    },
+    {
+      "name": "member/has/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Has as Int.\n\nRule get given v as S, produce Int:\n  Return v.Has.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/has/Cap",
+      "source": "Module probe.sample.\n\nRule get given Has as Int, produce Int:\n  Return Has.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/has/Cap",
+      "source": "Module probe.sample.\n\nType Has as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/has/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Has, Other.\n",
+      "pf": "7bf2f534746bb81f85b0ec945b471309d80e674e9e1f2c33df1b037c66bbcf05"
+    },
+    {
+      "name": "import/has/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Has.\n",
+      "pf": "d33256405242ec3c463f84dd58e66689c793fa8bd885661c45924644df060fc2"
+    },
+    {
+      "name": "typename/has/Cap",
+      "source": "Module probe.sample.\n\nDefine Has with x as Int.\n",
+      "pf": "e918e7458366090931968d13dc1b0805f9300cd58a83a6f9e7d8e00430f28e51"
+    },
+    {
+      "name": "rulename/has/Cap",
+      "source": "Module probe.sample.\n\nRule Has given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/has/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with HAS as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/has/UPPER",
+      "source": "Module probe.sample.\n\nRule get given HAS as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/has/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let HAS be x.\n  Return x.\n",
+      "pf": "5d45c4b9d88a8d1fc66e2fe3de0a693abe57e21a9910b746b6b92f0ae75ccb24"
+    },
+    {
+      "name": "member/has/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with HAS as Int.\n\nRule get given v as S, produce Int:\n  Return v.HAS.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/has/UPPER",
+      "source": "Module probe.sample.\n\nRule get given HAS as Int, produce Int:\n  Return HAS.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/has/UPPER",
+      "source": "Module probe.sample.\n\nType HAS as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/has/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of HAS, Other.\n",
+      "pf": "018a3a286c86362d75d635059e0749c77294665433a7465c4edbe670a8ad32d0"
+    },
+    {
+      "name": "import/has/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as HAS.\n",
+      "pf": "1137dfca069d5ca7651fc06f24fa3a73ad9701ef18ca5d7f0f5611455eb86014"
+    },
+    {
+      "name": "typename/has/UPPER",
+      "source": "Module probe.sample.\n\nDefine HAS with x as Int.\n",
+      "pf": "1737b20a8d53c07c278ec4dddd1845f6f6a80312aa8ac15e415d46af71335347"
+    },
+    {
+      "name": "rulename/has/UPPER",
+      "source": "Module probe.sample.\n\nRule HAS given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/produce/lower",
+      "source": "Module probe.sample.\n\nDefine S with produce as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/produce/lower",
+      "source": "Module probe.sample.\n\nRule get given produce as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/produce/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let produce be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/produce/lower",
+      "source": "Module probe.sample.\n\nDefine S with produce as Int.\n\nRule get given v as S, produce Int:\n  Return v.produce.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/produce/lower",
+      "source": "Module probe.sample.\n\nRule get given produce as Int, produce Int:\n  Return produce.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/produce/lower",
+      "source": "Module probe.sample.\n\nType produce as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "import/produce/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as produce.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "rulename/produce/lower",
+      "source": "Module probe.sample.\n\nRule produce given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/produce/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Produce as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/produce/Cap",
+      "source": "Module probe.sample.\n\nRule get given Produce as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/produce/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Produce be x.\n  Return x.\n",
+      "pf": "a82388f02785ab0b00290b03e9ed4b3c7f1386766bbe4ebe59180bad6e7b84bc"
+    },
+    {
+      "name": "member/produce/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Produce as Int.\n\nRule get given v as S, produce Int:\n  Return v.Produce.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/produce/Cap",
+      "source": "Module probe.sample.\n\nRule get given Produce as Int, produce Int:\n  Return Produce.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/produce/Cap",
+      "source": "Module probe.sample.\n\nType Produce as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/produce/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Produce, Other.\n",
+      "pf": "0ca654fdd333f5fe2c2e0a4817c02cf9b83d099bd881b695c9063c6e63575ed7"
+    },
+    {
+      "name": "import/produce/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Produce.\n",
+      "pf": "941d81826c984e8ce5c39985323b022034d43fbb8429a289d76d9a95a58906d2"
+    },
+    {
+      "name": "typename/produce/Cap",
+      "source": "Module probe.sample.\n\nDefine Produce with x as Int.\n",
+      "pf": "beee46e6d8ff1fb48e703a3eab4304a46eee616959c9eb78d4d2a6aa1667323a"
+    },
+    {
+      "name": "rulename/produce/Cap",
+      "source": "Module probe.sample.\n\nRule Produce given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/produce/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with PRODUCE as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/produce/UPPER",
+      "source": "Module probe.sample.\n\nRule get given PRODUCE as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/produce/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let PRODUCE be x.\n  Return x.\n",
+      "pf": "42a25004fa74e8ca720967f14c2c59cb967a85c88802df48afe99c106dbf8676"
+    },
+    {
+      "name": "member/produce/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with PRODUCE as Int.\n\nRule get given v as S, produce Int:\n  Return v.PRODUCE.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/produce/UPPER",
+      "source": "Module probe.sample.\n\nRule get given PRODUCE as Int, produce Int:\n  Return PRODUCE.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/produce/UPPER",
+      "source": "Module probe.sample.\n\nType PRODUCE as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/produce/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of PRODUCE, Other.\n",
+      "pf": "a9437e32d4b357a5a0ea1f5df892ca7f2586ab559c82eaeeb629b8b59501e737"
+    },
+    {
+      "name": "import/produce/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as PRODUCE.\n",
+      "pf": "ad95be9d6248029b6f43db63f3ea7082ba829dff3b40171e1132030ce5fae246"
+    },
+    {
+      "name": "typename/produce/UPPER",
+      "source": "Module probe.sample.\n\nDefine PRODUCE with x as Int.\n",
+      "pf": "110623152975563900c26d6072a49f69c9c15a5ca8baabc2efe256092d358566"
+    },
+    {
+      "name": "rulename/produce/UPPER",
+      "source": "Module probe.sample.\n\nRule PRODUCE given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/use/lower",
+      "source": "Module probe.sample.\n\nDefine S with use as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/use/lower",
+      "source": "Module probe.sample.\n\nRule get given use as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/use/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let use be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/use/lower",
+      "source": "Module probe.sample.\n\nDefine S with use as Int.\n\nRule get given v as S, produce Int:\n  Return v.use.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/use/lower",
+      "source": "Module probe.sample.\n\nRule get given use as Int, produce Int:\n  Return use.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/use/lower",
+      "source": "Module probe.sample.\n\nType use as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "import/use/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as use.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "rulename/use/lower",
+      "source": "Module probe.sample.\n\nRule use given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/use/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Use as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/use/Cap",
+      "source": "Module probe.sample.\n\nRule get given Use as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/use/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Use be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/use/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Use as Int.\n\nRule get given v as S, produce Int:\n  Return v.Use.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/use/Cap",
+      "source": "Module probe.sample.\n\nRule get given Use as Int, produce Int:\n  Return Use.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/use/Cap",
+      "source": "Module probe.sample.\n\nType Use as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "enum/use/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Use, Other.\n",
+      "reject": [
+        "E062",
+        3,
+        20
+      ]
+    },
+    {
+      "name": "import/use/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Use.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "typename/use/Cap",
+      "source": "Module probe.sample.\n\nDefine Use with x as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        8
+      ]
+    },
+    {
+      "name": "rulename/use/Cap",
+      "source": "Module probe.sample.\n\nRule Use given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/use/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with USE as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/use/UPPER",
+      "source": "Module probe.sample.\n\nRule get given USE as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/use/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let USE be x.\n  Return x.\n",
+      "pf": "3d5a75133401db1db7162521d63883f508c3b7a5301bf522801ac667a4240592"
+    },
+    {
+      "name": "member/use/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with USE as Int.\n\nRule get given v as S, produce Int:\n  Return v.USE.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/use/UPPER",
+      "source": "Module probe.sample.\n\nRule get given USE as Int, produce Int:\n  Return USE.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/use/UPPER",
+      "source": "Module probe.sample.\n\nType USE as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/use/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of USE, Other.\n",
+      "pf": "ca97e42be468c1d1da36f56b2f0a62d4a5544144e1074ae04670c5a537cd695a"
+    },
+    {
+      "name": "import/use/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as USE.\n",
+      "pf": "de16ae94fb02e2bfd2a96d51d18108f60bfc43a5503aa09a59491af0807cccdb"
+    },
+    {
+      "name": "typename/use/UPPER",
+      "source": "Module probe.sample.\n\nDefine USE with x as Int.\n",
+      "pf": "03c9780b5334585fe096230f946f2601228a1c83d44eb3653d4bbe471205b8b3"
+    },
+    {
+      "name": "rulename/use/UPPER",
+      "source": "Module probe.sample.\n\nRule USE given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/it/lower",
+      "source": "Module probe.sample.\n\nDefine S with it as Int.\n",
+      "pf": "322cf1dfd6372c9d02c6aa8f4ae5f474731175da211fc1fed48fad10fb25b8f7"
+    },
+    {
+      "name": "param/it/lower",
+      "source": "Module probe.sample.\n\nRule get given it as Int, produce Int:\n  Return 1.\n",
+      "pf": "d86b2fa46c77874881a568ef85209ac0cf219d5640b818bb468917cdca5ea134"
+    },
+    {
+      "name": "let/it/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let it be x.\n  Return x.\n",
+      "pf": "773b8c28a0f254b61a63045d4a8297260ab44d9a20509b60d720256e1add5d2f"
+    },
+    {
+      "name": "member/it/lower",
+      "source": "Module probe.sample.\n\nDefine S with it as Int.\n\nRule get given v as S, produce Int:\n  Return v.it.\n",
+      "pf": "13073fe9b23d51da65806b8af756eb1c374c0d5e2fcf1da6976ca31ad896f767"
+    },
+    {
+      "name": "varref/it/lower",
+      "source": "Module probe.sample.\n\nRule get given it as Int, produce Int:\n  Return it.\n",
+      "pf": "e3261412bc3f0b6a08c8c749de92c886e3102b12a03ba5f95cd263de3be510ab"
+    },
+    {
+      "name": "alias/it/lower",
+      "source": "Module probe.sample.\n\nType it as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "import/it/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as it.\n",
+      "pf": "124ddef6013d50b946801f5c4e393a90c1262e548109d78c7ee4a46b590064f9"
+    },
+    {
+      "name": "rulename/it/lower",
+      "source": "Module probe.sample.\n\nRule it given x as Int, produce Int:\n  Return x.\n",
+      "pf": "16b5d3e25cb32c710b05a1500b613d84cfef8e8c6b9d1964fa5e8595a975773d"
+    },
+    {
+      "name": "field/it/Cap",
+      "source": "Module probe.sample.\n\nDefine S with It as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/it/Cap",
+      "source": "Module probe.sample.\n\nRule get given It as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/it/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let It be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/it/Cap",
+      "source": "Module probe.sample.\n\nDefine S with It as Int.\n\nRule get given v as S, produce Int:\n  Return v.It.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/it/Cap",
+      "source": "Module probe.sample.\n\nRule get given It as Int, produce Int:\n  Return It.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/it/Cap",
+      "source": "Module probe.sample.\n\nType It as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "enum/it/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of It, Other.\n",
+      "reject": [
+        "E062",
+        3,
+        20
+      ]
+    },
+    {
+      "name": "import/it/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as It.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "typename/it/Cap",
+      "source": "Module probe.sample.\n\nDefine It with x as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        8
+      ]
+    },
+    {
+      "name": "rulename/it/Cap",
+      "source": "Module probe.sample.\n\nRule It given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/it/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with IT as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/it/UPPER",
+      "source": "Module probe.sample.\n\nRule get given IT as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/it/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let IT be x.\n  Return x.\n",
+      "pf": "2c483a1bd9834f416c0536b11e941405e29703a6dee767832babdf8498321012"
+    },
+    {
+      "name": "member/it/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with IT as Int.\n\nRule get given v as S, produce Int:\n  Return v.IT.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/it/UPPER",
+      "source": "Module probe.sample.\n\nRule get given IT as Int, produce Int:\n  Return IT.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/it/UPPER",
+      "source": "Module probe.sample.\n\nType IT as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/it/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of IT, Other.\n",
+      "pf": "d8ccdcb339f2c0cd9a4e2fcc5c1d1e02f17b99dd60029d9b8957116a8283e525"
+    },
+    {
+      "name": "import/it/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as IT.\n",
+      "pf": "c120efb9c2208740120a4330b62429283579a38d1fea6d67ffdaf2975e7c03c7"
+    },
+    {
+      "name": "typename/it/UPPER",
+      "source": "Module probe.sample.\n\nDefine IT with x as Int.\n",
+      "pf": "3a9931b0d06db2bf4174195d92551b19b5b06fe7ffe74d3d69e22af2741887a3"
+    },
+    {
+      "name": "rulename/it/UPPER",
+      "source": "Module probe.sample.\n\nRule IT given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/performs/lower",
+      "source": "Module probe.sample.\n\nDefine S with performs as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/performs/lower",
+      "source": "Module probe.sample.\n\nRule get given performs as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/performs/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let performs be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/performs/lower",
+      "source": "Module probe.sample.\n\nDefine S with performs as Int.\n\nRule get given v as S, produce Int:\n  Return v.performs.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/performs/lower",
+      "source": "Module probe.sample.\n\nRule get given performs as Int, produce Int:\n  Return performs.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/performs/lower",
+      "source": "Module probe.sample.\n\nType performs as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "import/performs/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as performs.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "rulename/performs/lower",
+      "source": "Module probe.sample.\n\nRule performs given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/performs/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Performs as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/performs/Cap",
+      "source": "Module probe.sample.\n\nRule get given Performs as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/performs/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Performs be x.\n  Return x.\n",
+      "pf": "9f78c70569cf8182f99795e4aa63a1312caced83a988dd3d91896125350c0ee5"
+    },
+    {
+      "name": "member/performs/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Performs as Int.\n\nRule get given v as S, produce Int:\n  Return v.Performs.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/performs/Cap",
+      "source": "Module probe.sample.\n\nRule get given Performs as Int, produce Int:\n  Return Performs.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/performs/Cap",
+      "source": "Module probe.sample.\n\nType Performs as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/performs/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Performs, Other.\n",
+      "pf": "b02077d9078d38e38cb44be38bac29704b2a5d69c0a452108466b716f3fb6756"
+    },
+    {
+      "name": "import/performs/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Performs.\n",
+      "pf": "a63afd14e1b5f448c3844f3a1eac1e50e13fe10bb8ebed8c0d6eeff073b84f28"
+    },
+    {
+      "name": "typename/performs/Cap",
+      "source": "Module probe.sample.\n\nDefine Performs with x as Int.\n",
+      "pf": "2c631fce252fb1da25fbe4fc5394f6b160f3ea5c3fafe7c82919503ae6d1d601"
+    },
+    {
+      "name": "rulename/performs/Cap",
+      "source": "Module probe.sample.\n\nRule Performs given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "field/performs/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with PERFORMS as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/performs/UPPER",
+      "source": "Module probe.sample.\n\nRule get given PERFORMS as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/performs/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let PERFORMS be x.\n  Return x.\n",
+      "pf": "33882e8cf03df169dba6a4dc20aeed8a7fc3886afd40d7dc08fc60dd1422d4d8"
+    },
+    {
+      "name": "member/performs/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with PERFORMS as Int.\n\nRule get given v as S, produce Int:\n  Return v.PERFORMS.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/performs/UPPER",
+      "source": "Module probe.sample.\n\nRule get given PERFORMS as Int, produce Int:\n  Return PERFORMS.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/performs/UPPER",
+      "source": "Module probe.sample.\n\nType PERFORMS as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/performs/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of PERFORMS, Other.\n",
+      "pf": "8a25abd364bacfe5a2594799a786b729e67117c8fb058471dad7f4a51733fd93"
+    },
+    {
+      "name": "import/performs/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as PERFORMS.\n",
+      "pf": "4fda7149288c73d39bbf33b85ed38b1b66bcdb9bfd490b24dfce91394967265f"
+    },
+    {
+      "name": "typename/performs/UPPER",
+      "source": "Module probe.sample.\n\nDefine PERFORMS with x as Int.\n",
+      "pf": "7e121f6615d998770fa094df286333f0f0a05e406a5e51975347c69e3be93634"
+    },
+    {
+      "name": "rulename/performs/UPPER",
+      "source": "Module probe.sample.\n\nRule PERFORMS given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    }
+  ]
+}
