@@ -58,7 +58,6 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>K-b 另外：
  * <ul>
- *   <li>只收小写开头拼写的关键词辅助规则（{@code kwAndLower} 等，后缀 {@code Lower}）同样删掉谓词分支，sync 放行时只认 IDENT；</li>
  *   <li>左边缘门控规则 {@code kwGate*}（只含一个谓词）的谓词换成 ε 转移而不是删掉：门控对 K 之前能走通的记号序列恒为真；</li>
  *   <li>SLL 预测走到出错记号、本该退而取「已走完决策规则」的分支时（{@link Simulator#getSynValidOrSemInvalidAltThatFinishedDecisionEntryRule}），
  *       改按无可行分支交给旧文法预测：K 的名字分支在 SLL 的全局 FOLLOW 里造出的假路径会让这类分支与 K 之前不同。</li>
@@ -115,22 +114,9 @@ public final class KeywordCaseCompat {
         return rules;
     }
 
-    /** 只收小写开头（IDENT）拼写的关键词辅助规则的后缀（K-b，如 {@code kwAndLower}）。 */
-    private static final String IDENT_ONLY_SUFFIX = "Lower";
-
-    /** {@link #kwWordsAt} 里只收 IDENT 拼写的关键词带这个后缀。 */
-    private static final String IDENT_ONLY_MARK = "@ident";
-
-    /** 关键词辅助规则对应的关键词：{@code kwPerforms} → {@code performs}，{@code kwAndLower} → {@code and}。 */
+    /** 关键词辅助规则对应的关键词：{@code kwPerforms} → {@code performs}。 */
     private static String kwWord(int ruleIndex) {
-        String name = AsterParser.ruleNames[ruleIndex];
-        int end = isIdentOnly(ruleIndex) ? name.length() - IDENT_ONLY_SUFFIX.length() : name.length();
-        return name.substring(KW_RULE_PREFIX.length(), end).toLowerCase(Locale.ROOT);
-    }
-
-    /** 关键词辅助规则是否只在 IDENT 记号上按文本认关键词。 */
-    private static boolean isIdentOnly(int ruleIndex) {
-        return AsterParser.ruleNames[ruleIndex].endsWith(IDENT_ONLY_SUFFIX);
+        return AsterParser.ruleNames[ruleIndex].substring(KW_RULE_PREFIX.length()).toLowerCase(Locale.ROOT);
     }
 
     private static boolean isKwPredicate(Transition t) {
@@ -198,7 +184,7 @@ public final class KeywordCaseCompat {
             return false;
         }
         String lower = t.getText().toLowerCase(Locale.ROOT);
-        return words.contains(lower) || (t.getType() == AsterParser.IDENT && words.contains(lower + IDENT_ONLY_MARK));
+        return words.contains(lower);
     }
 
     private static Set<String> kwWordsAt(int state) {
@@ -207,7 +193,7 @@ public final class KeywordCaseCompat {
         for (int type : look.toList()) {
             if (type >= KW_MARKER_BASE) {
                 int rule = type - KW_MARKER_BASE;
-                words.add(isIdentOnly(rule) ? kwWord(rule) + IDENT_ONLY_MARK : kwWord(rule));
+                words.add(kwWord(rule));
             }
         }
         return Set.copyOf(words);

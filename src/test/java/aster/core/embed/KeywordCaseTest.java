@@ -30,9 +30,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  *       在声明名字的位置报 E055（产品裁决 D2，reject 里带 tightened 的行）。</li>
  *   <li>{@code keyword_case_workflow.json}：K-d 的 workflow 与约束关键词（workflow、step、depends on、compensate、retry、backoff、
  *       timeout、seconds / second、required、between、matching），结构同上；max attempts 本来就由 Canonicalizer 归一成小写。</li>
- *   <li>{@code name_position_matrix.json}：名字位置回归矩阵。期望值取自 K 之前的 core，K-a..K-d 每个 PR 原样重跑：
+ *   <li>{@code name_position_matrix.json}：名字位置回归矩阵。期望值取自 K 之前的 core，K-a..K-d 与 aster-lang-ts#411 每个 PR 原样重跑：
  *       名字位置的结论（位置无关哈希，或第一条诊断的码与位置）必须逐例不变；唯一的例外是标了 {@code "tightened": "D2"}
  *       的行（true / false / null 的其余大小写拼写），期望值是 K-c 之后的结论，{@code before} 记录 K-c 之前的结论。</li>
+ *   <li>{@code keyword_case_stmt.json} 里带 {@code loosened} 的 accept 行（aster-lang-ts#411）：K-b 只收小写开头拼写的位置（形参与
+ *       变体之间的 and / or、apply 的 to、构造里 and 之后的 set、lambda 形参之间的 and）改为不区分大小写，{@code before} 记录此前的
+ *       第一条诊断。</li>
  * </ul>
  */
 class KeywordCaseTest {
@@ -46,7 +49,7 @@ class KeywordCaseTest {
 
     @TestFactory
     Stream<DynamicTest> statementExpressionTypeKeywords() throws IOException {
-        return keywordFixture("/keyword-case/keyword_case_stmt.json", 206);
+        return keywordFixture("/keyword-case/keyword_case_stmt.json", 213);
     }
 
     @TestFactory
@@ -94,7 +97,7 @@ class KeywordCaseTest {
                 }
             }));
         }
-        assertThat(fixture.get("cases")).hasSize(4073);
+        assertThat(fixture.get("cases")).hasSize(5405);
         // D2 的刻意收紧只落在 true / false / null 上，每行都记着 K-c 之前的结论
         List<JsonNode> tightened = new ArrayList<>();
         fixture.get("cases").forEach(c -> { if (c.has("tightened")) tightened.add(c); });

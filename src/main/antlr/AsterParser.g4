@@ -163,14 +163,12 @@ import org.antlr.v4.runtime.atn.PredictionMode;
     }
 
     /**
-     * 构造的下一个字段（K-b）：分隔符（and / 逗号）之后是 `名字 set`。and 之后的 set 只收小写开头的拼写：
-     * aster-lang-ts 在 and 之后只在 IDENT 上认 set（逗号之后与首个字段不限），两引擎同样把 `and b Set to 2` 读成缺 set to。
+     * 构造的下一个字段（K-b）：分隔符（and / 逗号）之后是 `名字 set`，set 不区分大小写（aster-lang-ts#411，与 aster-lang-ts
+     * isListSeparatorAnd 一致）。
      */
     protected boolean isConstructFieldAt() {
         Token set = _input.LT(3);
-        if (set != null && set.getType() == SET) return true;
-        if (!isKwText(set, "set")) return false;
-        return !isKwAt(1, "and") || set.getType() == IDENT;
+        return (set != null && set.getType() == SET) || isKwText(set, "set");
     }
 
     /** 同 {@link #isKwText}，但区分大小写（软比较词 is / under / over 只认小写）。 */
@@ -498,9 +496,9 @@ typeParam
 // 逗号之后是 produce（任意大小写）时形参表结束（K，与 aster-lang-ts parseParamList 先判 produce 一致）：
 // 否则 `, Produce maybe Int` 在预测里也能读成形参 Produce 带类型 maybe Int，分支序号更小而被误选。
 // 小写开头的 pRODUCE 此前可作形参名，K 之后在逗号后是关键词，含义随 ts（门禁见 PR 说明）。
-// 形参之间的 and 只收小写开头的拼写（K-b）：aster-lang-ts parseParamList 只在 IDENT 上认 and，`And` / `AND` 两引擎都拒。
+// 形参之间的 and 不区分大小写（aster-lang-ts#411，与 aster-lang-ts parseParamList 一致）。
 givenParamList
-    : kwGiven param ((kwAndLower | {!isKwAt(2, "produce")}? COMMA) param)*
+    : kwGiven param ((kwAnd | {!isKwAt(2, "produce")}? COMMA) param)*
     ;
 
 /**
@@ -703,9 +701,9 @@ article
  * 变体列表
  * 语法: Success, Failure, Pending
  */
-// or 只收小写开头的拼写、and 只收小写（K-b，与 aster-lang-ts parseVariantList 一致：ts 只在 IDENT 上认 or，不认 and）
+// 变体之间的 or / and 不区分大小写（aster-lang-ts#411，与 aster-lang-ts parseVariantList 一致）
 variantList
-    : declaredTypeName ((COMMA | kwOrLower | AND) declaredTypeName)*
+    : declaredTypeName ((COMMA | kwOr | kwAnd) declaredTypeName)*
     ;
 
 /**
@@ -1208,8 +1206,8 @@ unaryExpr
  * 与 TS 引擎 parseCallTargetName 对齐——否则 `apply f(y) to x` 会一引擎接受一引擎拒，破坏 parity。
  */
 applyExpr
-    // to 只收小写开头的拼写（K-b，与 aster-lang-ts parseApply 一致：ts 只在 IDENT 上认 to）
-    : APPLY callTarget kwToLower expr
+    // to 不区分大小写（aster-lang-ts#411，与 aster-lang-ts applyLooksLikeCall 一致）
+    : APPLY callTarget kwTo expr
     ;
 
 callTarget
@@ -1361,7 +1359,8 @@ lambdaExpr
  * Lambda 参数列表：with 或 given 引导（同义）
  */
 lambdaParamList
-    : (kwGiven | kwWith) param ((AND | {!isKwAt(2, "produce")}? COMMA) param)*
+    // 形参之间的 and 不区分大小写（aster-lang-ts#411，与 givenParamList 一致）
+    : (kwGiven | kwWith) param ((kwAnd | {!isKwAt(2, "produce")}? COMMA) param)*
     ;
 
 // ============================================================
@@ -1440,8 +1439,7 @@ kwPerforms
     | {isKwAt(1, "performs")}? (TYPE_IDENT | IDENT)
     ;
 
-// K-b（语句、表达式与类型的关键词）。`kwXLower` 只收小写开头（IDENT）的其余拼写：aster-lang-ts 在这些位置只在 IDENT 上
-// 认关键词，首字母大写的拼写两引擎都拒。
+// K-b（语句、表达式与类型的关键词）。
 
 kwBe
     : BE
@@ -1458,29 +1456,14 @@ kwTo
     | {isKwAt(1, "to")}? (TYPE_IDENT | IDENT)
     ;
 
-kwToLower
-    : TO_WORD
-    | {isKwAt(1, "to")}? IDENT
-    ;
-
 kwAnd
     : AND
     | {isKwAt(1, "and")}? (TYPE_IDENT | IDENT)
     ;
 
-kwAndLower
-    : AND
-    | {isKwAt(1, "and")}? IDENT
-    ;
-
 kwOr
     : OR
     | {isKwAt(1, "or")}? (TYPE_IDENT | IDENT)
-    ;
-
-kwOrLower
-    : OR
-    | {isKwAt(1, "or")}? IDENT
     ;
 
 kwFor
