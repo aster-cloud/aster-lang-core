@@ -63,8 +63,8 @@
       "line": 6,
       "column": 32,
       "params": {
-        "context": "token.construction",
-        "token": "kw.set"
+        "token": "kw.set",
+        "context": "token.construction"
       }
     },
     {
@@ -75,8 +75,8 @@
       "line": 6,
       "column": 17,
       "params": {
-        "context": "token.construction",
-        "token": "kw.set"
+        "token": "kw.set",
+        "context": "token.construction"
       }
     },
     {
@@ -165,6 +165,21 @@
       "name": "bare-data/name-Latin-1",
       "source": "Module p.\n\nÜber has x as Int.\n",
       "pf": "7aec93c175bc0e35b9434b37d5cfb6ffec118bf780e679d95b8eeb430d903f56"
+    },
+    {
+      "name": "bare-data/name-Latin-Extended-A",
+      "source": "Module p.\n\nĀb has x as Int.\n",
+      "pf": "a461b5f84632fbe6dcbb7339e7ef68aa9646f8c2373f4a74620a509201800529"
+    },
+    {
+      "name": "bare-data/reject-lowercase-Latin-1",
+      "source": "Module p.\n\nüber has x as Int.\n",
+      "reject": true
+    },
+    {
+      "name": "bare-data/reject-Devanagari",
+      "source": "Module p.\n\nराशि has x as Int.\n",
+      "reject": true
     },
     {
       "name": "bare-data/zh",

@@ -38,8 +38,8 @@ class FollowCoreParityTest {
             if (c.has("reject")) rejects++;
             if (c.has("code")) diagnostics++;
         }
-        assertThat(tests).hasSize(105);
-        assertThat(rejects).isEqualTo(40);
+        assertThat(tests).hasSize(108);
+        assertThat(rejects).isEqualTo(42);
         assertThat(diagnostics).isEqualTo(23);
         return tests.stream();
     }
