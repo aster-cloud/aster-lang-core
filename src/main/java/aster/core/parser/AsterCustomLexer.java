@@ -217,7 +217,7 @@ public class AsterCustomLexer extends AsterLexer {
      * 可以接在名字之后的关键词文本（K，任意大小写）：名字后面是这些词时，名字照旧是名字。即计划 RK3 的全部 K 关键词，
      * 加上软比较词与 if / then / else。
      */
-    private static final Set<String> WORDS_AFTER_NAME = Set.of(
+    static final Set<String> WORDS_AFTER_NAME = Set.of(
         "given", "with", "and", "or", "produce", "has", "as", "one", "of", "use", "version", "be", "set", "to",
         "for", "function", "map", "async", "times", "plus", "minus", "modulo", "workflow", "step", "retry", "timeout",
         "depends", "on", "compensate", "max", "attempts", "backoff", "second", "seconds", "required", "between",

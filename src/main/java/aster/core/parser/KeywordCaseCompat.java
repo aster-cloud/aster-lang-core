@@ -370,7 +370,11 @@ public final class KeywordCaseCompat {
          * 再按假路径选分支，出错源码因而报出别的诊断（`Return WITH flag.` 从软比较词的 E063 变成 E061）。
          * 这里在 SLL 阶段不取这类分支，按无可行分支交给旧文法预测（{@link #predictOld}）：旧 ATN 没有这些假路径，SLL 在 K 之前的
          * 位置报全冲突（LL 模式随之改用全上下文预测，全程 SLL 取最小分支），或同样退而取走完决策规则的分支。
-         * LL 阶段与类型之内照旧。走到这里说明下一个记号在任何上下文里都接不上（SLL 的上下文是全集的超集），只影响出错源码。
+         * LL 阶段与类型之内照旧。
+         *
+         * <p>只影响出错源码：SLL 的每一步 reach 集都是全上下文 LL 的超集（SLL 合并调用栈、在决策规则之外按全局 FOLLOW 继续，
+         * 谓词一律当作成立），SLL 在某个记号上 reach 为空，说明该记号在任何调用上下文里都接不上，源码在此处必然有语法错误。
+         * KeywordCaseTest 的接受夹具同时走生产路径（InProcessCnlParser，全程 SLL）与 ParseDiagnostics（LL），锁定这一点。
          */
         @Override
         protected int getSynValidOrSemInvalidAltThatFinishedDecisionEntryRule(ATNConfigSet configs,

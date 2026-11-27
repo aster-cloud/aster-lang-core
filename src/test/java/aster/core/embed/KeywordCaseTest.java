@@ -47,9 +47,13 @@ class KeywordCaseTest {
         JsonNode fixture = fixture(path);
         List<DynamicTest> tests = new ArrayList<>();
         for (JsonNode c : fixture.get("accept")) {
-            tests.add(DynamicTest.dynamicTest("accept " + c.get("name").asText(), () ->
+            tests.add(DynamicTest.dynamicTest("accept " + c.get("name").asText(), () -> {
+                // 生产路径（InProcessCnlParser，全程 SLL）与 ParseDiagnostics（LL）都接受：兼容层只在出错路径介入
                 assertThat(positionFree(c.get("source").asText(), lexicon(c)))
-                    .isEqualTo(positionFree(c.get("canonical").asText(), lexicon(c)))));
+                    .isEqualTo(positionFree(c.get("canonical").asText(), lexicon(c)));
+                assertThat(aster.core.parser.ParseDiagnostics.parse(c.get("source").asText(),
+                    aster.core.lexicon.LexiconRegistry.getInstance().getOrThrow(lexicon(c))).diagnostics()).isEmpty();
+            }));
         }
         for (JsonNode c : fixture.get("names")) {
             tests.add(DynamicTest.dynamicTest("names " + c.get("name").asText(), () -> assertNames(c)));
