@@ -362,7 +362,7 @@ public class AsterCustomLexer extends AsterLexer {
     /**
      * 短语判定看的原文窗口（K-c）：最长的短语 {@code is not equal to} 加上其后的一个记号足够落在窗口里；窗口按行截断。
      * 窗口有界，每个候选记号的开销与行长无关（长行里大量 Plus / Is 时不退化成平方）。
-     * 保守取舍：短语之后的操作数若是越出窗口的超长字符串字面量，不改写（照旧报错）。
+     * 短语之后的字符串操作数只看起始引号，越出窗口的长字符串照样识别（phraseOnTokenBoundary）。
      */
     private static final int PHRASE_WINDOW = 256;
 
@@ -403,6 +403,10 @@ public class AsterCustomLexer extends AsterLexer {
                 continue;
             }
             if (tok.getStopIndex() != end - 1) return false;
+            // 字符串字面量可能越出窗口：只看起始的引号（字符串总能起一个操作数）
+            int i = end;
+            while (i < line.length() && (line.charAt(i) == ' ' || line.charAt(i) == '\t')) i++;
+            if (i < line.length() && line.charAt(i) == '"') return true;
             Token next = sub.nextToken();
             return next.getType() != Token.EOF && startsOperand(next);
         }

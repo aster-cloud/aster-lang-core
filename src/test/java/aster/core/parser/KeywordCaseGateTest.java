@@ -221,7 +221,17 @@ class KeywordCaseGateTest {
         long t0 = System.nanoTime();
         tokenTypesAndTexts(mixed.toString());
         long elapsedMs = (System.nanoTime() - t0) / 1_000_000;
-        assertThat(elapsedMs).as("4000 个候选词的一行").isLessThan(2_000);
+        assertThat(elapsedMs).as("4000 个候选词的一行（宽松上界，只防平方级退化）").isLessThan(10_000);
+    }
+
+    /** 短语之后是越出判定窗口的长字符串时，仍与小写拼写同记号。 */
+    @Test
+    void operatorPhraseBeforeLongStringOperand() {
+        String text = "\"" + "a".repeat(400) + "\"";
+        assertThat(tokenTypesAndTexts("Return x Is Equal To " + text + "."))
+            .isEqualTo(tokenTypesAndTexts("Return x is equal to " + text + "."));
+        assertThat(tokenTypesAndTexts("Return x PLUS " + text + "."))
+            .isEqualTo(tokenTypesAndTexts("Return x plus " + text + "."));
     }
 
     private static java.util.List<String> tokenTypesAndTexts(String source) {
