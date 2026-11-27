@@ -49,7 +49,7 @@ class KeywordCaseTest {
 
     @TestFactory
     Stream<DynamicTest> operatorAndLiteralKeywords() throws IOException {
-        return keywordFixture("/keyword-case/keyword_case_ops.json", 217);
+        return keywordFixture("/keyword-case/keyword_case_ops.json", 219);
     }
 
     private static Stream<DynamicTest> keywordFixture(String path, int acceptCount) throws IOException {

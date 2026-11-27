@@ -130,6 +130,10 @@ class KeywordCaseGateTest {
         "@Not(x) Rule f given x as Int, produce Int: | TYPE_IDENT",
         "Match s:\\n  When Not(a), Return a. | TYPE_IDENT",
         "Match b:\\n  When Box(Not(a)), Return a. | TYPE_IDENT",
+        "Match x:\\n  When 1,\\n    When Not(x), deny \"no\". | NOT",
+        "Match s:\\n  When Bb, Return 1.\\nReturn Not(x). | NOT",
+        "Match t:\\n  When 1,\\n    Match s:\\n      When Not(a), Return a. | TYPE_IDENT",
+        "Match s:\\n  When Bb(a), Return Not(a). | NOT",
         "Return Not + (x). | TYPE_IDENT",
         "Return Not.x. | TYPE_IDENT",
         "Return Not under 5. | TYPE_IDENT",
@@ -198,6 +202,26 @@ class KeywordCaseGateTest {
     void operatorHomographsStayNames(String source, String text, String expected) {
         Token t = tokenWithText(source.replace("\\n", "\n"), text);
         assertThat(AsterParser.VOCABULARY.getSymbolicName(t.getType())).isEqualTo(expected);
+    }
+
+    /**
+     * K-c 的短语判定只看有界窗口：一行里成千上万个候选词（Plus / Is less than）时，词法耗时与小写拼写同一量级，不随行长平方增长。
+     */
+    @Test
+    void operatorPhrasesOnLongLinesStayLinear() {
+        StringBuilder mixed = new StringBuilder("Return x");
+        StringBuilder lower = new StringBuilder("Return x");
+        for (int i = 0; i < 4000; i++) {
+            mixed.append(i % 2 == 0 ? " Plus 1" : " TIMES y");
+            lower.append(i % 2 == 0 ? " plus 1" : " times y");
+        }
+        mixed.append(" Is Less Than 5.");
+        lower.append(" is less than 5.");
+        assertThat(tokenTypesAndTexts(mixed.toString())).isEqualTo(tokenTypesAndTexts(lower.toString()));
+        long t0 = System.nanoTime();
+        tokenTypesAndTexts(mixed.toString());
+        long elapsedMs = (System.nanoTime() - t0) / 1_000_000;
+        assertThat(elapsedMs).as("4000 个候选词的一行").isLessThan(2_000);
     }
 
     private static java.util.List<String> tokenTypesAndTexts(String source) {

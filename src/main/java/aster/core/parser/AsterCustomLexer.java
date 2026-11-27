@@ -7,7 +7,6 @@ import aster.core.typecheck.ErrorCode;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -360,17 +359,31 @@ public class AsterCustomLexer extends AsterLexer {
         return c;
     }
 
-    /** 从 {@code start} 到行尾的原文。 */
+    /**
+     * 短语判定看的原文窗口（K-c）：最长的短语 {@code is not equal to} 加上其后的一个记号足够落在窗口里；窗口按行截断。
+     * 窗口有界，每个候选记号的开销与行长无关（长行里大量 Plus / Is 时不退化成平方）。
+     * 保守取舍：短语之后的操作数若是越出窗口的超长字符串字面量，不改写（照旧报错）。
+     */
+    private static final int PHRASE_WINDOW = 256;
+
+    /** 从 {@code start} 起、至多 {@link #PHRASE_WINDOW} 个字符、到行尾为止的原文。 */
     private String restOfLine(int start) {
         CharStream in = getInputStream();
-        int end = start;
-        int size = in.size();
-        while (end < size) {
-            int c = in.getText(org.antlr.v4.runtime.misc.Interval.of(end, end)).charAt(0);
-            if (c == '\n' || c == '\r') break;
-            end++;
+        int last = Math.min(in.size() - 1, start + PHRASE_WINDOW - 1);
+        if (last < start) {
+            return "";
         }
-        return end > start ? in.getText(org.antlr.v4.runtime.misc.Interval.of(start, end - 1)) : "";
+        String text = in.getText(org.antlr.v4.runtime.misc.Interval.of(start, last));
+        int nl = indexOfLineBreak(text);
+        return nl < 0 ? text : text.substring(0, nl);
+    }
+
+    private static int indexOfLineBreak(String text) {
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '\n' || c == '\r') return i;
+        }
+        return -1;
     }
 
     /**
@@ -383,14 +396,15 @@ public class AsterCustomLexer extends AsterLexer {
         }
         AsterLexer sub = new AsterLexer(CharStreams.fromString(line));
         sub.removeErrorListeners();
-        List<? extends Token> tokens = sub.getAllTokens();
-        for (int i = 0; i < tokens.size(); i++) {
-            Token tok = tokens.get(i);
+        // 只切到短语之后的第一个记号为止
+        for (Token tok = sub.nextToken(); tok.getType() != Token.EOF; tok = sub.nextToken()) {
             if (tok.getStopIndex() < end - 1) {
                 if (tok.getChannel() != Token.DEFAULT_CHANNEL) return false;
                 continue;
             }
-            return tok.getStopIndex() == end - 1 && i + 1 < tokens.size() && startsOperand(tokens.get(i + 1));
+            if (tok.getStopIndex() != end - 1) return false;
+            Token next = sub.nextToken();
+            return next.getType() != Token.EOF && startsOperand(next);
         }
         return false;
     }

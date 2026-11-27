@@ -1,5 +1,5 @@
 {
-  "description": "关键词大小写 K-c（运算符与字面量：times、plus、minus、modulo、比较词前的 is、not equal to、软比较词 under / over，以及 true / false / null；aster-lang-ts#338 第 1 部分，ADR 0056 修订 A4 §1.1、修订 A7 D1，产品裁决 D2 / D3）的 core 夹具。accept：source 能解析，且与把运算符 / 字面量改回规范拼写的 canonical Core IR 位置无关哈希相同，每例 aster-lang-ts 同样接受且同义；其中 Not(x) / NOT (x) 读作 not（D3），True / FALSE / Null 在表达式、注解值与模式里是字面量（D2）。names：同形词作名字照常解析，Core IR 含 names 中的每个名字：Let 名 Is / TIMES / Under、成员调用 H.Not(x)、Match 分支的构造器模式 When Not(a)、转义 `nOT`(x) / `True` / `Null`。reject：第一条诊断恰为 [码, 行, 列]；带 \"tightened\": \"D2\" 的行是 D2 的刻意收紧（true / false / null 的其余大小写拼写不能作声明的名字，与 aster-lang-ts 同码同位置报 E055），其余行与 K-c 之前的 core（7004a26）相同：转义的运算符是名字，以关键词同形词为名的操作数（max Times 2）与行首的运算符不改写，aster-lang-ts 连小写也不收的 less than or equal to 不放宽。",
+  "description": "关键词大小写 K-c（运算符与字面量：times、plus、minus、modulo、比较词前的 is、not equal to、软比较词 under / over，以及 true / false / null；aster-lang-ts#338 第 1 部分，ADR 0056 修订 A4 §1.1、修订 A7 D1，产品裁决 D2 / D3）的 core 夹具。accept：source 能解析，且与把运算符 / 字面量改回规范拼写的 canonical Core IR 位置无关哈希相同，每例 aster-lang-ts 同样接受且同义；其中 Not(x) / NOT (x) 读作 not（D3），True / FALSE / Null 在表达式、注解值与模式里是字面量（D2）。names：同形词作名字照常解析，Core IR 含 names 中的每个名字：Let 名 Is / TIMES / Under、成员调用 H.Not(x)、Match 分支的构造器模式 When Not(a)、转义 `nOT`(x) / `True` / `Null`，apply 的调用目标 True（与 K-c 之前相同）。reject：第一条诊断恰为 [码, 行, 列]；带 \"tightened\": \"D2\" 的行是 D2 的刻意收紧（true / false / null 的其余大小写拼写不能作声明的名字，与 aster-lang-ts 同码同位置报 E055），其余行与 K-c 之前的 core（7004a26）相同：转义的运算符是名字，以关键词同形词为名的操作数（max Times 2）与行首的运算符不改写，aster-lang-ts 连小写也不收的 less than or equal to 不放宽。",
   "accept": [
     {
       "name": "times-return/TIMES",
@@ -1085,6 +1085,16 @@
       "name": "times-after-keyword-member/tIMES",
       "source": "Module probe.sample.\n\nDefine S with tIMES as Int.\n\nRule get given s as S, produce Int:\n  Return s.tIMES tIMES 2.\n",
       "canonical": "Module probe.sample.\n\nDefine S with tIMES as Int.\n\nRule get given s as S, produce Int:\n  Return s.tIMES times 2.\n"
+    },
+    {
+      "name": "not-paren-sugar-in-match-body/Not",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Bool:\n  Match x:\n    When 1,\n      When Not(x > 1), deny \"no\".\n      Otherwise allow.\n  Return true.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Bool:\n  Match x:\n    When 1,\n      When not (x > 1), deny \"no\".\n      Otherwise allow.\n  Return true.\n"
+    },
+    {
+      "name": "not-paren-after-nested-match/Not",
+      "source": "Module probe.sample.\n\nDefine Not with a as Int.\n\nRule get given s as Not, t as Int, produce Int:\n  Match t:\n    When 1,\n      Match s:\n        When Not(a), Return a.\n      Return 0.\n  Return Not(t > 1) and true.\n",
+      "canonical": "Module probe.sample.\n\nDefine Not with a as Int.\n\nRule get given s as Not, t as Int, produce Int:\n  Match t:\n    When 1,\n      Match s:\n        When Not(a), Return a.\n      Return 0.\n  Return not (t > 1) and true.\n"
     }
   ],
   "names": [
@@ -1189,6 +1199,13 @@
     {
       "name": "true-pattern-escaped",
       "source": "Module probe.sample.\n\nDefine Flag as one of `True`, Other.\n\nRule get given f as Flag, produce Int:\n  Match f:\n    When `True`, Return 1.\n    When Other, Return 2.\n  Return 0.\n",
+      "names": [
+        "True"
+      ]
+    },
+    {
+      "name": "true-apply-target",
+      "source": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get, produce Bool:\n  Return apply True to false.\n",
       "names": [
         "True"
       ]
@@ -1378,6 +1395,24 @@
         "E060",
         4,
         12
+      ]
+    },
+    {
+      "name": "true-construct-head",
+      "source": "Module probe.sample.\n\nDefine S with a as Int.\n\nRule get, produce S:\n  Return True with a set to 1.\n",
+      "reject": [
+        "E057",
+        6,
+        20
+      ]
+    },
+    {
+      "name": "true-qualified-unknown-member",
+      "source": "Module probe.sample.\n\nDefine Flag as one of Aa, Bb.\n\nRule get, produce Flag:\n  Return Flag.True.\n",
+      "reject": [
+        "E802",
+        6,
+        10
       ]
     }
   ]
