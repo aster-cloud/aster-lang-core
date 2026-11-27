@@ -9,12 +9,22 @@ import org.antlr.v4.runtime.atn.ParserATNSimulator;
 import org.antlr.v4.runtime.atn.PredicateTransition;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.atn.Transition;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -100,6 +110,35 @@ class KeywordCaseCompatTest {
             .map(d -> d.code().code() + "@" + d.line() + ":" + d.column())
             .collect(Collectors.joining(" "));
         assertThat(actual).isEqualTo(expected);
+    }
+
+    /** 60 份变异错误源码（首条诊断 E052 / E055 / E060 / E061 / E062 / E063 各 10 份）：全部诊断连同参数与 K 之前逐条相同。 */
+    @TestFactory
+    Stream<DynamicTest> mutatedSourcesKeepPreKeywordCaseDiagnostics() throws IOException {
+        JsonNode fixture;
+        try (InputStream in = KeywordCaseCompatTest.class.getResourceAsStream("/keyword-case/compat_diagnostics.json")) {
+            fixture = new ObjectMapper().readTree(in);
+        }
+        List<DynamicTest> tests = new ArrayList<>();
+        for (JsonNode c : fixture.get("cases")) {
+            tests.add(DynamicTest.dynamicTest(c.get("name").asText(), () -> {
+                var result = ParseDiagnostics.parse(c.get("source").asText(), LexiconRegistry.getInstance().getOrThrow("en-US"));
+                List<String> actual = result.diagnostics().stream().map(KeywordCaseCompatTest::render).toList();
+                List<String> want = new ArrayList<>();
+                for (JsonNode d : c.get("diagnostics")) {
+                    Map<String, String> params = new TreeMap<>();
+                    d.get("params").fields().forEachRemaining(e -> params.put(e.getKey(), e.getValue().asText()));
+                    want.add(d.get("code").asText() + "@" + d.get("line").asInt() + ":" + d.get("column").asInt() + " " + params);
+                }
+                assertThat(actual).isEqualTo(want);
+            }));
+        }
+        assertThat(fixture.get("cases")).hasSize(60);
+        return tests.stream();
+    }
+
+    private static String render(ParseDiagnostic d) {
+        return d.code().code() + "@" + d.line() + ":" + d.column() + " " + new TreeMap<>(d.params());
     }
 
     @Test
