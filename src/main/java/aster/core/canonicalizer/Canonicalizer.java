@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -80,6 +81,10 @@ public final class Canonicalizer {
     private final StringSegmenter stringSegmenter;
     /** 预编译的多词关键字 Pattern 缓存（避免每次规范化时重新编译） */
     private final List<Map.Entry<String, Pattern>> multiWordKeywordPatterns;
+    /** SET 的全部单词拼写（规范拼写与别名，小写），见 {@link #isSetTargetPhrase}。 */
+    private final Set<String> setSpellings;
+    /** TO_WORD 的全部拼写（规范拼写与别名，小写），见 {@link #isSetTargetPhrase}。 */
+    private final Set<String> toSpellings;
     /**
      * 顶层声明句首的本地化类型别名引导词（ADR 0058 修订 2）：行首（可带注解）的 TYPE_ALIAS 拼写后跟空白时改写成 {@code Type}。
      * 词法表没有非英语拼写时为 null。
@@ -312,6 +317,8 @@ public final class Canonicalizer {
             mwkPatterns.add(Map.entry(keyword, pattern));
         }
         this.multiWordKeywordPatterns = List.copyOf(mwkPatterns);  // 不可变视图
+        this.setSpellings = singleWordSpellings(lexicon, List.of(SemanticTokenKind.SET));
+        this.toSpellings = singleWordSpellings(lexicon, List.of(SemanticTokenKind.TO_WORD));
         // 触发词与关键词同形时关键词优先（ADR 0060 修订 1 R16'）：在本词法表下与关键词同形的触发词不展开
         this.literalMacros = vocabulary == null ? Map.of() : vocabulary.literalsVisibleUnder(lexicon);
         // compiledCustomRules 已在构造器开头预编译（供 applyCustomRulesToKey 复用，见上）。
@@ -1723,21 +1730,86 @@ public final class Canonicalizer {
         List<Segment> segments = segmentString(s);
 
         StringBuilder result = new StringBuilder();
-        for (Segment segment : segments) {
+        for (int i = 0; i < segments.size(); i++) {
+            Segment segment = segments.get(i);
             if (segment.inString) {
                 // 字符串内，保持原样
                 result.append(segment.text);
             } else {
-                // 字符串外，使用预编译的 Pattern 规范化多词关键字
+                // 字符串外，使用预编译的 Pattern 规范化多词关键字；Set 的目标名不改写（aster-lang-core#328）
                 String normalized = segment.text;
                 for (Map.Entry<String, Pattern> entry : multiWordKeywordPatterns) {
-                    normalized = entry.getValue().matcher(normalized).replaceAll(entry.getKey());
+                    normalized = lowercaseKeywordMatches(normalized, entry.getKey(), entry.getValue(), i == 0);
                 }
                 result.append(normalized);
             }
         }
 
         return result.toString();
+    }
+
+    /** 把 {@code text} 里与 {@code pattern} 匹配的多词关键字改写成 {@code keyword} 的拼写，Set 的目标名除外。 */
+    private String lowercaseKeywordMatches(String text, String keyword, Pattern pattern, boolean startsAtLineStart) {
+        Matcher m = pattern.matcher(text);
+        StringBuilder out = new StringBuilder();
+        while (m.find()) {
+            String replacement = isSetTargetPhrase(text, m.start(), m.end(), startsAtLineStart) ? m.group() : keyword;
+            m.appendReplacement(out, Matcher.quoteReplacement(replacement));
+        }
+        m.appendTail(out);
+        return out.toString();
+    }
+
+    /**
+     * 多词关键字的匹配是否落在 Set 的目标名上（aster-lang-core#328，与 aster-lang-ts canonicalizer 同一判据）：
+     * 行首（可缩进）是 Set 关键词（{@code Set} / {@code set}），其后紧接这个匹配，且匹配恰为「一个词 + to」。多词运算符只能接在操作数之后，
+     * 而 Set 之后是目标名：{@code Set Equals to 5.} 里的 {@code Equals to} 是名字 {@code Equals} 加 Set 的 to，不是运算符
+     * {@code equals to}，改写成小写会把目标名读成运算符（core 随后解析失败，ts 则把目标名改成 {@code equals}）。
+     *
+     * @param startsAtLineStart 片段是否从源码开头起（之后的片段紧跟在同一行的字符串字面量后面，找不到行首时不是 Set 语句）
+     */
+    private boolean isSetTargetPhrase(String text, int start, int end, boolean startsAtLineStart) {
+        String[] words = text.substring(start, end).trim().split("[ \\t]+");
+        if (words.length != 2 || !toSpellings.contains(words[1].toLowerCase(java.util.Locale.ROOT))
+                || (end < text.length() && isWordChar(text.charAt(end)))) {
+            return false;
+        }
+        // 自匹配处向前：空白、一个词（须是 Set 的拼写）、行首缩进。只回看紧邻的一个词，长行里大量匹配也是线性的
+        int i = skipHorizontalSpaceBackward(text, start);
+        if (i == start) {
+            return false;
+        }
+        int wordEnd = i;
+        while (i > 0 && !Character.isWhitespace(text.charAt(i - 1))) i--;
+        if (!isSetKeywordSpelling(text.substring(i, wordEnd))) {
+            return false;
+        }
+        i = skipHorizontalSpaceBackward(text, i);
+        return i == 0 ? startsAtLineStart : text.charAt(i - 1) == '\n';
+    }
+
+    /**
+     * Set 关键词的小写或首字母大写拼写（{@code set} / {@code Set}，core 词法的 SET 记号）。其余大小写（{@code SET}、{@code sET}）
+     * 在 K-b 里是同形词，只在 `名字 to` 之前读作 set；`SET equals to 2.` 可以是以 SET 为名的变量的比较表达式语句，
+     * 这里不改变它的读法。
+     */
+    private boolean isSetKeywordSpelling(String word) {
+        String lower = word.toLowerCase(java.util.Locale.ROOT);
+        if (!setSpellings.contains(lower)) {
+            return false;
+        }
+        return word.equals(lower) || word.equals(lower.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + lower.substring(1));
+    }
+
+    /** 词内字符（字母、数字、组合记号、下划线）：匹配之后紧跟它时 to 只是更长单词的前缀（{@code Set Equals tomorrow}）。 */
+    private static boolean isWordChar(char c) {
+        return Character.isLetterOrDigit(c) || c == '_' || Character.getType(c) == Character.NON_SPACING_MARK
+            || Character.getType(c) == Character.COMBINING_SPACING_MARK;
+    }
+
+    private static int skipHorizontalSpaceBackward(String text, int i) {
+        while (i > 0 && (text.charAt(i - 1) == ' ' || text.charAt(i - 1) == '\t')) i--;
+        return i;
     }
 
     /**

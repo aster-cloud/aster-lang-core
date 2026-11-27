@@ -426,4 +426,47 @@ class CanonicalizerTest {
             assertDoesNotThrow(() -> canonicalizer.canonicalize("Let y be \"ok\".\n"));
         }
     }
+
+    // ============================================================
+    // Set 的目标名不读作多词运算符（aster-lang-core#328）
+    // ============================================================
+
+    @Nested
+    @DisplayName("Set 的目标名 equals 不改写成运算符 equals to")
+    class SetTargetMultiWordKeyword {
+
+        @Test
+        @DisplayName("行首 Set / set（可缩进）之后的「名字 to」原样保留")
+        void setTargetKeptAsWritten() {
+            assertEquals("  Set Equals to 5.", canonicalizer.canonicalize("  Set Equals to 5."));
+            assertEquals("  Set EQUALS to 5.", canonicalizer.canonicalize("  Set EQUALS to 5."));
+            assertEquals("Set eQUALS to 5.", canonicalizer.canonicalize("Set eQUALS to 5."));
+            assertEquals("  set Equals to 5.", canonicalizer.canonicalize("  set Equals to 5."));
+            // 前面的行里有字符串字面量（分段不从源码开头起）也照样按行首判定
+            assertEquals("  Let s be \"a\".\n  Set Equals to 5.",
+                canonicalizer.canonicalize("  Let s be \"a\".\n  Set Equals to 5."));
+        }
+
+        @Test
+        @DisplayName("SET 等其余大小写是同形词（可以是变量名），读法不变")
+        void otherSetSpellingsUnchanged() {
+            assertEquals("  SET equals to 5.", canonicalizer.canonicalize("  SET Equals to 5."));
+        }
+
+        @Test
+        @DisplayName("操作数之后的 Equals to 照旧归一成小写运算符")
+        void operatorAfterOperandStillLowercased() {
+            assertEquals("  Return x equals to 5.", canonicalizer.canonicalize("  Return x Equals to 5."));
+            assertEquals("  Set y to x equals to 5.", canonicalizer.canonicalize("  Set y to x Equals to 5."));
+        }
+
+        @Test
+        @DisplayName("Set 不在行首、或同一行此前有字符串字面量时不按 Set 目标处理")
+        void onlyStatementInitialSet() {
+            assertEquals("  Return Set equals to 5.", canonicalizer.canonicalize("  Return Set Equals to 5."));
+            assertEquals("  Return \"Set\" equals to 5.", canonicalizer.canonicalize("  Return \"Set\" Equals to 5."));
+            // to 只是更长单词的前缀时不是 Set 的 to，照旧按多词关键字改写
+            assertEquals("  Set equals tomorrow.", canonicalizer.canonicalize("  Set Equals tomorrow."));
+        }
+    }
 }

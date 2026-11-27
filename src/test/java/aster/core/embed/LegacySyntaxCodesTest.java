@@ -44,7 +44,7 @@ class LegacySyntaxCodesTest {
 
     /** 目录里不是诊断的 key：外框句型、提示、名词与排版开关，补码时一律不认。 */
     private static final Set<String> FRAME_KEYS = Set.of("summary", "located", "moreErrors.one", "moreErrors.other",
-        "withHint", "or", "more", "inlineIfHint", "style.spaceQuotesAfterHan");
+        "withHint", "or", "more", "inlineIfHint", "escapeNameHint", "style.spaceQuotesAfterHan");
 
     /**
      * 占位符样本：每组依次为 token / expected / before / after / context。前五组是各语言改码前真实会出现的

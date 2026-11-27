@@ -76,6 +76,9 @@ public class AsterCustomLexer extends AsterLexer {
     /** 上一个有意义 token 之后是否出现过换行 / 缩进记号（K-c）：语句末尾的句点之后换行，下一行的名字不是成员名。 */
     private boolean lineBreakSincePrev = false;
 
+    /** {@link #prevMeaningful} 是否是一行的第一个有意义记号（aster-lang-core#328：语句开头的 Set）。 */
+    private boolean prevStartsLine = false;
+
     /** 刚见过 Match：其后的第一个 INDENT 开启 Match 分支块（K-c，D3 判定模式位置用）。 */
     private boolean matchHeaderPending = false;
 
@@ -237,6 +240,7 @@ public class AsterCustomLexer extends AsterLexer {
             return t;
         }
 
+        t = splitSetTarget(t);
         t = mergeOperatorPhrase(t);
         retypePrefixKeyword(t);
         retypeConstraintKeyword(t);
@@ -350,6 +354,48 @@ public class AsterCustomLexer extends AsterLexer {
             stop = n.getStopIndex();
         }
         return merged;
+    }
+
+    /**
+     * Set 的目标名 {@code equals}（aster-lang-core#328）：生成的词法器把 {@code set equals to 5.} 里的 {@code equals to}
+     * 切成运算符记号 EQUALS_TO_WORD，但多词运算符只能接在操作数之后，语句开头的 Set 之后是目标名。这里把它拆回名字
+     * {@code equals} 与 Set 的 {@code to}（TO_WORD），与 aster-lang-ts 相同。只看语句开头（行首）的 SET 记号（{@code Set} /
+     * {@code set}）：其余大小写（{@code SET}）是同形词，{@code SET equals to 2.} 可以是以 SET 为名的变量的比较表达式语句，
+     * 读法不变。大写开头的 {@code Equals to} 不会到这里：Canonicalizer 不再把 Set 的目标名改写成小写。
+     */
+    private Token splitSetTarget(Token t) {
+        if (t.getType() != AsterParser.EQUALS_TO_WORD || !prevStartsLine || prevMeaningful == null
+                || prevMeaningful.getType() != AsterParser.SET) {
+            return t;
+        }
+        String text = t.getText();
+        if (text == null || !text.startsWith("equals") || continuesWord(t.getStopIndex() + 1)) {
+            return t;
+        }
+        int toOffset = text.lastIndexOf("to");
+        CommonToken name = new CommonToken(t);
+        name.setType(AsterParser.IDENT);
+        name.setText("equals");
+        name.setStopIndex(t.getStartIndex() + "equals".length() - 1);
+        CommonToken to = new CommonToken(t);
+        to.setType(AsterParser.TO_WORD);
+        to.setText("to");
+        to.setStartIndex(t.getStartIndex() + toOffset);
+        to.setStopIndex(t.getStartIndex() + toOffset + 1);
+        to.setCharPositionInLine(t.getCharPositionInLine() + toOffset);
+        pending.addFirst(to);
+        return name;
+    }
+
+    /** 原文 {@code index} 处是词内字符（{@code set equals tomorrow} 的 to 只是 tomorrow 的前缀，不拆）。 */
+    private boolean continuesWord(int index) {
+        CharStream in = getInputStream();
+        if (index >= in.size()) {
+            return false;
+        }
+        int c = in.getText(org.antlr.v4.runtime.misc.Interval.of(index, index)).codePointAt(0);
+        return Character.isLetterOrDigit(c) || c == '_' || Character.getType(c) == Character.NON_SPACING_MARK
+            || Character.getType(c) == Character.COMBINING_SPACING_MARK;
     }
 
     /** 同一记号改成小写文本的 IDENT（软比较词，K-c）。 */
@@ -780,6 +826,7 @@ public class AsterCustomLexer extends AsterLexer {
         trackPattern(type);
         trackDeclarationList(t, type);
         prevIsMember = prevMeaningful != null && prevMeaningful.getType() == AsterParser.DOT && !lineBreakSincePrev;
+        prevStartsLine = lineBreakSincePrev || prevMeaningful == null;
         prevMeaningful = t;
         lineBreakSincePrev = false;
         String txt = t.getText();

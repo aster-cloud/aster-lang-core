@@ -32,7 +32,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  *       timeout、seconds / second、required、between、matching），结构同上；max attempts 本来就由 Canonicalizer 归一成小写。</li>
  *   <li>{@code name_position_matrix.json}：名字位置回归矩阵。期望值取自 K 之前的 core，K-a..K-d 与 aster-lang-ts#411 每个 PR 原样重跑：
  *       名字位置的结论（位置无关哈希，或第一条诊断的码与位置）必须逐例不变；唯一的例外是标了 {@code "tightened": "D2"}
- *       的行（true / false / null 的其余大小写拼写），期望值是 K-c 之后的结论，{@code before} 记录 K-c 之前的结论。</li>
+ *       的行（true / false / null 的其余大小写拼写），期望值是 K-c 之后的结论，{@code before} 记录 K-c 之前的结论；另一个例外是
+ *       标了 {@code "loosened": "#328"} 的行（Set 的目标名 equals，aster-lang-core#328 刻意放宽，与 aster-lang-ts 同一 Core IR），
+ *       期望值是 #328 之后的结论。</li>
  *   <li>{@code keyword_case_stmt.json} 里带 {@code loosened} 的 accept 行（aster-lang-ts#411）：K-b 只收小写开头拼写的位置（形参与
  *       变体之间的 and / or、apply 的 to、构造里 and 之后的 set、lambda 形参之间的 and）改为不区分大小写，{@code before} 记录此前的
  *       第一条诊断。</li>
@@ -105,6 +107,15 @@ class KeywordCaseTest {
             assertThat(c.get("tightened").asText()).isEqualTo("D2");
             assertThat(c.get("name").asText()).matches("[a-z]+/(true|false|null)/[A-Za-z]+");
             assertThat(c.has("before")).isTrue();
+        });
+        // #328 的刻意放宽只落在 Set 的目标名 equals 上（四种拼写），每行都记着 #328 之前的结论
+        List<JsonNode> loosened = new ArrayList<>();
+        fixture.get("cases").forEach(c -> { if (c.has("loosened")) loosened.add(c); });
+        assertThat(loosened).hasSize(4).allSatisfy(c -> {
+            assertThat(c.get("loosened").asText()).isEqualTo("#328");
+            assertThat(c.get("name").asText()).matches("settarget/equals/[A-Za-z]+");
+            assertThat(c.has("pf")).isTrue();
+            assertThat(c.get("before").get("reject").get(0).asText()).isEqualTo("E062");
         });
         return tests.stream();
     }

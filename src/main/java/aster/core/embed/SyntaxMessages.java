@@ -31,7 +31,7 @@ import java.util.regex.Pattern;
  * {@code overlays/<locale-id>/diagnostic-messages.json}（zh/de 随 locales jar，hi 随 aster-lang-hi jar），
  * 缺译回退 core 码表的英文模板（{@link ErrorCode#messageTemplate()}）。本目录只提供外框句型
  * （summary / located / moreErrors / withHint / or / more）、提示（isBeforeSymbol / unknownOperator /
- * inlineIfHint）与 {@code token.*} 名词。
+ * inlineIfHint / escapeNameHint）与 {@code token.*} 名词。
  *
  * <p>没有对应文件的语言（新 lexicon）退回英文；某条 key 缺失时同样退回英文，不会抛异常。
  */

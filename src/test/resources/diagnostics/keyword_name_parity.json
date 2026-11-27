@@ -1,5 +1,5 @@
 {
-  "description": "关键词当名字的双引擎 parity 夹具（ADR 0056 修订 A6 K1–K3，产品裁决 2026-11-22）。aster-lang-ts shared/keyword_name_parity.json 与 aster-lang-core src/test/resources/diagnostics/keyword_name_parity.json 必须 byte-identical。collisionWords：各语言包的 W802 判据集合 W（升序），两引擎按各自的词法表算出的集合须与此相同。带 reject 的例：解析失败，[码, 行] 为第一条解析错误（core 取第一条非 E063 的诊断）；带 params 的例另须第一条错误的参数恰为 params（E901 与 K-c 的 E055），带 message 的 en-US 例英文消息恰为 message。其余例：两引擎都须编译成功，Core IR 原样含 names 中的每个名字，W802 警告按行排序后恰为 warnings（只比较 W802 的 [码, 行]；名字所在源码行里有该英文拼写的整词出现时不报）。各轮新增的行：K-a / K-b 的关键词同形词作名字；K-c（ADR 0056 修订 A4 §1.1，产品裁决 D2 / D3）：true / false / null 的其余大小写拼写（True、NULL、tRUE…）在声明名字的位置两引擎都报 E055（params 为该位置的 token），转义 `True` 照旧是名字；运算符同形词（Is、TIMES、Under）在名字位置照旧是名字；`H.Not(x)`、`When Not(a)` 与转义 `nOT`(x) 不读作 not（D3）；K-d（workflow 与约束关键词）：同形词 STEP、sECONDS、rEQUIRED、bETWEEN、REQUIRED、rETRY 在名字位置照旧是名字，`Type With AS Int.` 照旧是类型别名（AS 之后的 Int 不读作约束）。",
+  "description": "关键词当名字的双引擎 parity 夹具（ADR 0056 修订 A6 K1–K3，产品裁决 2026-11-22）。aster-lang-ts shared/keyword_name_parity.json 与 aster-lang-core src/test/resources/diagnostics/keyword_name_parity.json 必须 byte-identical。collisionWords：各语言包的 W802 判据集合 W（升序），两引擎按各自的词法表算出的集合须与此相同。带 reject 的例：解析失败，[码, 行] 为第一条解析错误（core 取第一条非 E063 的诊断）；带 params 的例另须第一条错误的参数恰为 params（E901 与 K-c 的 E055；K-c 的 E055 另带 escape 参数，即源码写法，aster-lang-core#329），带 message 的 en-US 例英文消息恰为 message。其余例：两引擎都须编译成功，Core IR 原样含 names 中的每个名字，W802 警告按行排序后恰为 warnings（只比较 W802 的 [码, 行]；名字所在源码行里有该英文拼写的整词出现时不报）。各轮新增的行：K-a / K-b 的关键词同形词作名字；K-c（ADR 0056 修订 A4 §1.1，产品裁决 D2 / D3）：true / false / null 的其余大小写拼写（True、NULL、tRUE…）在声明名字的位置两引擎都报 E055（params 为该位置的 token），转义 `True` 照旧是名字；运算符同形词（Is、TIMES、Under）在名字位置照旧是名字；`H.Not(x)`、`When Not(a)` 与转义 `nOT`(x) 不读作 not（D3）；K-d（workflow 与约束关键词）：同形词 STEP、sECONDS、rEQUIRED、bETWEEN、REQUIRED、rETRY 在名字位置照旧是名字，`Type With AS Int.` 照旧是类型别名（AS 之后的 Int 不读作约束）。 samePf（可选，aster-lang-core#328）：两引擎编译 source 与 samePf 的 positionFreeSha256 都须相同（samePf 用名字转义写出同一个名字）：Set 的目标名 Equals / equals / EQUALS / eQUALS 不读作运算符 equals to，Set 的大写开头目标与 Let 名同口径，操作数之后的 Equals to 照旧是运算符。",
   "collisionWords": {
     "de-DE": [
       "Bool",
@@ -1100,7 +1100,8 @@
         3
       ],
       "params": {
-        "token": "token.variantName"
+        "token": "token.variantName",
+        "escape": "True"
       }
     },
     {
@@ -1112,7 +1113,8 @@
         3
       ],
       "params": {
-        "token": "token.typeName"
+        "token": "token.typeName",
+        "escape": "True"
       }
     },
     {
@@ -1124,8 +1126,10 @@
         4
       ],
       "params": {
-        "token": "token.identifier"
-      }
+        "token": "token.identifier",
+        "escape": "True"
+      },
+      "message": "Expected identifier. Write it in backticks (`True`) to use it as a name"
     },
     {
       "name": "en-US 导入别名 FALSE（K-c，D2）",
@@ -1136,8 +1140,10 @@
         3
       ],
       "params": {
-        "token": "token.identifier"
-      }
+        "token": "token.identifier",
+        "escape": "FALSE"
+      },
+      "message": "Expected identifier. Write it in backticks (`FALSE`) to use it as a name"
     },
     {
       "name": "en-US 形参 tRUE（K-c，D2）",
@@ -1148,8 +1154,10 @@
         3
       ],
       "params": {
-        "token": "token.identifier"
-      }
+        "token": "token.identifier",
+        "escape": "tRUE"
+      },
+      "message": "Expected identifier. Write it in backticks (`tRUE`) to use it as a name"
     },
     {
       "name": "en-US 字段名 nULL（K-c，D2）",
@@ -1160,8 +1168,10 @@
         3
       ],
       "params": {
-        "token": "token.fieldName"
-      }
+        "token": "token.fieldName",
+        "escape": "nULL"
+      },
+      "message": "Expected field name. Write it in backticks (`nULL`) to use it as a name"
     },
     {
       "name": "en-US 模式 When True（K-c，D2）",
@@ -1172,8 +1182,10 @@
         5
       ],
       "params": {
-        "token": "token.identifier"
-      }
+        "token": "token.identifier",
+        "escape": "True"
+      },
+      "message": "Expected identifier. Write it in backticks (`True`) to use it as a name"
     },
     {
       "name": "en-US Start 的任务名 True（K-c，D2）",
@@ -1184,8 +1196,10 @@
         7
       ],
       "params": {
-        "token": "token.identifier"
-      }
+        "token": "token.identifier",
+        "escape": "True"
+      },
+      "message": "Expected identifier. Write it in backticks (`True`) to use it as a name"
     },
     {
       "name": "en-US Let 名 STEP（K-d）",
@@ -1249,6 +1263,76 @@
         "rETRY"
       ],
       "warnings": []
+    },
+    {
+      "name": "en-US Set 的目标 Equals（aster-lang-core#328：不读作运算符 equals to）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Equals be x.\n  Set Equals to 2.\n  Return Equals.\n",
+      "names": [
+        "Equals"
+      ],
+      "warnings": [],
+      "samePf": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Equals be x.\n  Set `Equals` to 2.\n  Return Equals.\n"
+    },
+    {
+      "name": "en-US Set 的目标 equals（aster-lang-core#328：不读作运算符 equals to）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let equals be x.\n  Set equals to 2.\n  Return equals.\n",
+      "names": [
+        "equals"
+      ],
+      "warnings": [],
+      "samePf": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let equals be x.\n  Set `equals` to 2.\n  Return equals.\n"
+    },
+    {
+      "name": "en-US Set 的目标 EQUALS（aster-lang-core#328：不读作运算符 equals to）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let EQUALS be x.\n  Set EQUALS to 2.\n  Return EQUALS.\n",
+      "names": [
+        "EQUALS"
+      ],
+      "warnings": [],
+      "samePf": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let EQUALS be x.\n  Set `EQUALS` to 2.\n  Return EQUALS.\n"
+    },
+    {
+      "name": "en-US Set 的目标 eQUALS（aster-lang-core#328：不读作运算符 equals to）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let eQUALS be x.\n  Set eQUALS to 2.\n  Return eQUALS.\n",
+      "names": [
+        "eQUALS"
+      ],
+      "warnings": [],
+      "samePf": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let eQUALS be x.\n  Set `eQUALS` to 2.\n  Return eQUALS.\n"
+    },
+    {
+      "name": "en-US Set 的目标 Less（大写开头的 Set 目标，与 Let 名同口径，aster-lang-core#328）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Less be x.\n  Set Less to 2.\n  Return Less.\n",
+      "names": [
+        "Less"
+      ],
+      "warnings": [],
+      "samePf": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Less be x.\n  Set `Less` to 2.\n  Return Less.\n"
+    },
+    {
+      "name": "en-US 操作数之后的 Equals to 照旧是运算符（aster-lang-core#328）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Bool:\n  Let Equals be x.\n  Set Equals to 2.\n  Return Equals Equals to 2.\n",
+      "names": [
+        "Equals"
+      ],
+      "warnings": [],
+      "samePf": "Module probe.sample.\n\nRule get given x as Int, produce Bool:\n  Let Equals be x.\n  Set `Equals` to 2.\n  Return Equals equals to 2.\n"
+    },
+    {
+      "name": "en-US 前面的规则里有字符串字面量时 Set 的目标 Equals 照旧是名字（aster-lang-core#328）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule s, produce Text:\n  Return \"hi\".\n\nRule get given x as Int, produce Int:\n  Let Equals be x.\n  Set Equals to 2.\n  Return Equals.\n",
+      "names": [
+        "Equals"
+      ],
+      "warnings": [],
+      "samePf": "Module probe.sample.\n\nRule s, produce Text:\n  Return \"hi\".\n\nRule get given x as Int, produce Int:\n  Let Equals be x.\n  Set `Equals` to 2.\n  Return Equals.\n"
     }
   ]
 }
