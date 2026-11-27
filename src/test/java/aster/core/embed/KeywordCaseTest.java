@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * <ul>
  *   <li>{@code keyword_case_decl.json}：K-a 的声明与句首关键词在任意大小写下与规范拼写同义；同形词作名字照旧；转义的关键词
  *       永远是名字；非关键词名字的诊断与 K 之前相同。</li>
+ *   <li>{@code keyword_case_stmt.json}：K-b 的语句、表达式与类型关键词（be、set、to、not、and、or、for、function、map、async），
+ *       结构同上；小写 map 在类型位置是 Map 类型（aster-lang-core#314）。</li>
  *   <li>{@code name_position_matrix.json}：名字位置回归矩阵。期望值取自 K 之前的 core，K-a..K-d 每个 PR 原样重跑：
  *       名字位置的结论（位置无关哈希，或第一条诊断的码与位置）必须逐例不变。</li>
  * </ul>
@@ -33,7 +35,16 @@ class KeywordCaseTest {
 
     @TestFactory
     Stream<DynamicTest> declarationKeywords() throws IOException {
-        JsonNode fixture = fixture("/keyword-case/keyword_case_decl.json");
+        return keywordFixture("/keyword-case/keyword_case_decl.json", 62);
+    }
+
+    @TestFactory
+    Stream<DynamicTest> statementExpressionTypeKeywords() throws IOException {
+        return keywordFixture("/keyword-case/keyword_case_stmt.json", 206);
+    }
+
+    private static Stream<DynamicTest> keywordFixture(String path, int acceptCount) throws IOException {
+        JsonNode fixture = fixture(path);
         List<DynamicTest> tests = new ArrayList<>();
         for (JsonNode c : fixture.get("accept")) {
             tests.add(DynamicTest.dynamicTest("accept " + c.get("name").asText(), () ->
@@ -46,7 +57,7 @@ class KeywordCaseTest {
         for (JsonNode c : fixture.get("reject")) {
             tests.add(DynamicTest.dynamicTest("reject " + c.get("name").asText(), () -> assertReject(c)));
         }
-        assertThat(fixture.get("accept")).hasSize(62);
+        assertThat(fixture.get("accept")).hasSize(acceptCount);
         return tests.stream();
     }
 
@@ -63,7 +74,7 @@ class KeywordCaseTest {
                 }
             }));
         }
-        assertThat(fixture.get("cases")).hasSize(472);
+        assertThat(fixture.get("cases")).hasSize(1099);
         return tests.stream();
     }
 

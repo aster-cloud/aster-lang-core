@@ -1390,7 +1390,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         Expr left = (Expr) visit(ctx.andExpr(0));
         for (int i = 1; i < ctx.andExpr().size(); i++) {
             Expr right = (Expr) visit(ctx.andExpr(i));
-            Expr.Name op = new Expr.Name("or", spanFrom(ctx.OR(i - 1).getSymbol()));
+            Expr.Name op = new Expr.Name("or", spanFrom(ctx.kwOr(i - 1).getStart()));
             left = new Expr.Call(op, List.of(left, right), spanFrom(ctx));
         }
         return left;
@@ -1403,7 +1403,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         Expr left = (Expr) visit(ctx.notExpr(0));
         for (int i = 1; i < ctx.notExpr().size(); i++) {
             Expr right = (Expr) visit(ctx.notExpr(i));
-            Expr.Name op = new Expr.Name("and", spanFrom(ctx.AND(i - 1).getSymbol()));
+            Expr.Name op = new Expr.Name("and", spanFrom(ctx.kwAnd(i - 1).getStart()));
             left = new Expr.Call(op, List.of(left, right), spanFrom(ctx));
         }
         return left;

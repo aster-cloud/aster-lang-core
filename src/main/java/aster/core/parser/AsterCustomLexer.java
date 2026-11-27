@@ -208,8 +208,64 @@ public class AsterCustomLexer extends AsterLexer {
             return t;
         }
 
+        retypePrefixKeyword(t);
         recordMeaningful(t);
         return t;
+    }
+
+    /**
+     * 可以接在名字之后的关键词文本（K，任意大小写）：名字后面是这些词时，名字照旧是名字。即计划 RK3 的全部 K 关键词，
+     * 加上软比较词与 if / then / else。
+     */
+    private static final Set<String> WORDS_AFTER_NAME = Set.of(
+        "given", "with", "and", "or", "produce", "has", "as", "one", "of", "use", "version", "be", "set", "to",
+        "for", "function", "map", "async", "times", "plus", "minus", "modulo", "workflow", "step", "retry", "timeout",
+        "depends", "on", "compensate", "max", "attempts", "backoff", "second", "seconds", "required", "between",
+        "matching", "performs", "module", "is", "less", "greater", "more", "at", "equal", "equals", "divided",
+        "integer", "under", "over", "then", "else", "otherwise", "if", "it");
+
+    /**
+     * 记号能起一个操作数、而又不能接在名字之后（K-b，前缀关键词 not / async 的判定）：名字、字面量、not、function、Map、apply；
+     * 名字里排除 {@link #WORDS_AFTER_NAME}。括号、方括号（`It performs E [Http]` 的效应名之后）、运算符、点、逗号、换行等都不算：
+     * `Not(x)`、`Not + (x)`、`Not.x` 里的 Not 照旧是名字（读作 not 是 D3，属于 K-c）。
+     */
+    static boolean startsOperandOnly(Token t) {
+        if (t == null) {
+            return false;
+        }
+        int type = t.getType();
+        if (type == AsterParser.IDENT || type == AsterParser.TYPE_IDENT) {
+            return EscapedToken.isEscaped(t) || t.getText() == null
+                || !WORDS_AFTER_NAME.contains(t.getText().toLowerCase(java.util.Locale.ROOT));
+        }
+        return type == AsterParser.INT_LITERAL || type == AsterParser.FLOAT_LITERAL
+            || type == AsterParser.DECIMAL_LITERAL || type == AsterParser.LONG_LITERAL
+            || type == AsterParser.STRING_LITERAL || type == AsterParser.BOOL_LITERAL
+            || type == AsterParser.NULL_LITERAL || type == AsterParser.NOT || type == AsterParser.FUNCTION || type == AsterParser.MAP
+            || type == AsterParser.APPLY;
+    }
+
+    /**
+     * 前缀关键词 not / async 的其余大小写拼写（Not、NOT、nOT、Async…，K-b）在词法上是名字记号；名字读法走不通、关键词读法
+     * 走得通时（下一个记号能起操作数、又不能接在名字之后，{@link #startsOperandOnly}）改成 NOT / ASYNC 记号，文本与位置不变。
+     * async 另外只在 as 之后（`Start t as Async f().`）。
+     *
+     * <p>为什么在词法器里判定：not 能接在任何操作数之前，若用关键词辅助规则，其名字分支在预测深处一律当作成立，任何
+     * 「名字 操作数」（`Return x y.`）都会被预测读成 `not y`，出错源码的诊断随之漂移。这里只看下一个记号，与解析器上下文无关，
+     * 解析器看到的仍是 K 之前的 NOT / ASYNC 记号。名字转义永远是名字（ADR 0064 N3）。
+     */
+    private void retypePrefixKeyword(Token t) {
+        int type = t.getType();
+        if ((type != AsterParser.TYPE_IDENT && type != AsterParser.IDENT) || EscapedToken.isEscaped(t)
+                || t.getText() == null || !(t instanceof WritableToken w)) {
+            return;
+        }
+        String lower = t.getText().toLowerCase(java.util.Locale.ROOT);
+        boolean not = "not".equals(lower);
+        boolean async = "async".equals(lower) && "as".equals(prevMeaningfulLower);
+        if ((not || async) && startsOperandOnly(peekNextRealToken())) {
+            w.setType(not ? AsterParser.NOT : AsterParser.ASYNC);
+        }
     }
 
     /**
@@ -378,12 +434,29 @@ public class AsterCustomLexer extends AsterLexer {
     }
 
     /**
+     * 嵌套守卫另外按文本认 K-b 的 map / to / and（类型里的 Map 帧与分隔符），与 {@link #caseFoldedKeywordType} 同理：
+     * `MAP Text TO …` 与小写拼写同码同位置报 E054。只用于守卫计数，不影响标识符声明列表的判定。
+     * （not 链不需要：读作 not 的 Not / NOT 已由 {@link #retypePrefixKeyword} 改成 NOT 记号。）
+     */
+    private static int nestingGuardType(Token t, int folded) {
+        if (folded != AsterParser.TYPE_IDENT && folded != AsterParser.IDENT || EscapedToken.isEscaped(t) || t.getText() == null) {
+            return folded;
+        }
+        return switch (t.getText().toLowerCase(java.util.Locale.ROOT)) {
+            case "map" -> AsterParser.MAP;
+            case "to" -> AsterParser.TO_WORD;
+            case "and" -> AsterParser.AND;
+            default -> folded;
+        };
+    }
+
+    /**
      * 记录上一个有意义 token 的小写文本（用于标记位置判定）。
      * 跳过 NEWLINE/INDENT/DEDENT/EOF/隐藏通道——它们不影响"前驱是否结构关键词"判定。
      */
     private void recordMeaningful(Token t) {
         int type = caseFoldedKeywordType(t);
-        trackNestingDepth(type, t.getText());
+        trackNestingDepth(nestingGuardType(t, type), t.getText());
         if (type == NEWLINE || type == AsterParser.INDENT || type == AsterParser.DEDENT
                 || type == Token.EOF || t.getChannel() == Token.HIDDEN_CHANNEL) {
             return;

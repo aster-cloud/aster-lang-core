@@ -978,6 +978,37 @@
         "between"
       ],
       "warnings": []
+    },
+    {
+      "name": "en-US 字段与成员 aND / oR / nOT（K-b 关键词同形词，小写开头的其余拼写是名字）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine S with aND as Int, oR as Int, nOT as Bool.\n\nRule get given s as S, produce Int:\n  Return s.aND + s.oR.\n",
+      "names": [
+        "aND",
+        "oR",
+        "nOT"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "en-US 形参 fOR / sET / mAP（K-b）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given fOR as Int, sET as Int, mAP as Int, produce Int:\n  Return fOR + sET + mAP.\n",
+      "names": [
+        "fOR",
+        "sET",
+        "mAP"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "en-US Let 名 tO 与大写的 BE / SET / TO（K-b）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let tO BE x.\n  SET tO TO 2.\n  Return tO.\n",
+      "names": [
+        "tO"
+      ],
+      "warnings": []
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
-  "description": "关键词大小写（K，aster-lang-ts#338 第 1 部分，ADR 0056 修订 A4 §1.1 / 修订 A7）的名字位置回归矩阵：K-a 引入、K-b..K-d 每个 PR 原样重跑。每例是一份 en-US 源码：关键词同形词（type、version、required、between、given、be、module，以及 K-a 改写的 with、as、of、one、has、produce、use、it、performs）按小写、首字母大写、全大写三种拼写放进各个名字位置（字段、形参、Let 名、成员访问、变量引用、类型别名名、枚举成员、导入别名、数据类型名、规则名），外加结构关键词 If / IF / iF / if 的 E901 行。期望值取自 K 之前的 core（aster-lang-core f431a6b）：pf 是 Core IR 的位置无关 sha256，reject 是第一条诊断的 [码, 行, 列]。K 只放宽关键词位置，名字位置的结论必须与 K 之前逐例相同。",
-  "baseline": "aster-lang-core f431a6b (eco-1.0.56)",
+  "description": "关键词大小写（K，aster-lang-ts#338 第 1 部分，ADR 0056 修订 A4 §1.1 / 修订 A7）的名字位置回归矩阵：K-a 引入、K-b..K-d 每个 PR 原样重跑。每例是一份 en-US 源码：关键词同形词按小写、首字母大写、全大写三种拼写放进各个名字位置。K-a 的行：type、version、required、between、given、be、module，以及 K-a 改写的 with、as、of、one、has、produce、use、it、performs，放进字段、形参、Let 名、成员访问、变量引用、类型别名名、枚举成员、导入别名、数据类型名、规则名 10 个位置，外加结构关键词 If / IF / iF / if 的 E901 行，期望值取自 K 之前的 core（aster-lang-core f431a6b）。K-b 的行：K-b 改写的 set、to、not、and、or、for、function、map、async 放进上述 10 个位置与 K-b 新增的 5 个位置（构造字段、lambda 形参、Set 的目标、Start / Wait 的任务名、逻辑运算的操作数），K-a 的 16 个词也放进这 5 个新位置，期望值取自 K-b 之前的 core（aster-lang-core f995b84）。pf 是 Core IR 的位置无关 sha256，reject 是第一条诊断的 [码, 行, 列]。K 只放宽关键词位置，名字位置的结论必须与记录时逐例相同。",
+  "baseline": "aster-lang-core f431a6b (eco-1.0.56, K-a 行); f995b84 (K-b 行)",
   "cases": [
     {
       "name": "field/type/lower",
@@ -3372,6 +3372,4757 @@
         "E055",
         3,
         6
+      ]
+    },
+    {
+      "name": "field/set/lower",
+      "source": "Module probe.sample.\n\nDefine S with set as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/set/lower",
+      "source": "Module probe.sample.\n\nRule get given set as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/set/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let set be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/set/lower",
+      "source": "Module probe.sample.\n\nDefine S with set as Int.\n\nRule get given v as S, produce Int:\n  Return v.set.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/set/lower",
+      "source": "Module probe.sample.\n\nRule get given set as Int, produce Int:\n  Return set.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/set/lower",
+      "source": "Module probe.sample.\n\nType set as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "import/set/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as set.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "rulename/set/lower",
+      "source": "Module probe.sample.\n\nRule set given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/set/lower",
+      "source": "Module probe.sample.\n\nDefine S with set as Int.\n\nRule get, produce S:\n  Return S with set set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/set/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given set as Int, produce Int: Return set.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/set/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let set be x.\n  Set set to 2.\n  Return set.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/set/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start set as async f().\n  Wait for set.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/set/lower",
+      "source": "Module probe.sample.\n\nRule get given set as Bool, produce Bool:\n  Return set and set.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/set/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Set as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/set/Cap",
+      "source": "Module probe.sample.\n\nRule get given Set as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/set/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Set be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/set/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Set as Int.\n\nRule get given v as S, produce Int:\n  Return v.Set.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/set/Cap",
+      "source": "Module probe.sample.\n\nRule get given Set as Int, produce Int:\n  Return Set.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/set/Cap",
+      "source": "Module probe.sample.\n\nType Set as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "enum/set/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Set, Other.\n",
+      "reject": [
+        "E062",
+        3,
+        20
+      ]
+    },
+    {
+      "name": "import/set/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Set.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "typename/set/Cap",
+      "source": "Module probe.sample.\n\nDefine Set with x as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        8
+      ]
+    },
+    {
+      "name": "rulename/set/Cap",
+      "source": "Module probe.sample.\n\nRule Set given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/set/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Set as Int.\n\nRule get, produce S:\n  Return S with Set set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/set/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Set as Int, produce Int: Return Set.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/set/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Set be x.\n  Set Set to 2.\n  Return Set.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/set/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Set as async f().\n  Wait for Set.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/set/Cap",
+      "source": "Module probe.sample.\n\nRule get given Set as Bool, produce Bool:\n  Return Set and Set.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/set/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with SET as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/set/UPPER",
+      "source": "Module probe.sample.\n\nRule get given SET as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/set/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let SET be x.\n  Return x.\n",
+      "pf": "fb481269ef1c816be1d2061e5f0bc86902cf416c0725c7c3d24cb3a68d9fadd4"
+    },
+    {
+      "name": "member/set/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with SET as Int.\n\nRule get given v as S, produce Int:\n  Return v.SET.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/set/UPPER",
+      "source": "Module probe.sample.\n\nRule get given SET as Int, produce Int:\n  Return SET.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/set/UPPER",
+      "source": "Module probe.sample.\n\nType SET as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/set/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of SET, Other.\n",
+      "pf": "309bf99c82f8901de0ba32f7254e919a5aa12113e57f06529d4596cce84cc2c1"
+    },
+    {
+      "name": "import/set/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as SET.\n",
+      "pf": "fc9b247a0328808127831f10ffbb49d1fa13eefe81ed20d57ce1a80411fba371"
+    },
+    {
+      "name": "typename/set/UPPER",
+      "source": "Module probe.sample.\n\nDefine SET with x as Int.\n",
+      "pf": "add70f597b51699ddbec2be3f7d965ce7b95d0acdd758bf3b13c31dbee725908"
+    },
+    {
+      "name": "rulename/set/UPPER",
+      "source": "Module probe.sample.\n\nRule SET given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/set/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with SET as Int.\n\nRule get, produce S:\n  Return S with SET set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/set/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given SET as Int, produce Int: Return SET.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/set/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let SET be x.\n  Set SET to 2.\n  Return SET.\n",
+      "pf": "acfe2b77ffd7f8714c8efb09b84d6fbf6c777321de8ea252943ef4e072fbf00d"
+    },
+    {
+      "name": "waitname/set/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start SET as async f().\n  Wait for SET.\n  Return x.\n",
+      "pf": "93f1ae3c6db247d2bdc1fc183e207f17c82065d4c122efea8d617e2e8483d92b"
+    },
+    {
+      "name": "operand/set/UPPER",
+      "source": "Module probe.sample.\n\nRule get given SET as Bool, produce Bool:\n  Return SET and SET.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/to/lower",
+      "source": "Module probe.sample.\n\nDefine S with to as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/to/lower",
+      "source": "Module probe.sample.\n\nRule get given to as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/to/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let to be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/to/lower",
+      "source": "Module probe.sample.\n\nDefine S with to as Int.\n\nRule get given v as S, produce Int:\n  Return v.to.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/to/lower",
+      "source": "Module probe.sample.\n\nRule get given to as Int, produce Int:\n  Return to.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/to/lower",
+      "source": "Module probe.sample.\n\nType to as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "import/to/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as to.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "rulename/to/lower",
+      "source": "Module probe.sample.\n\nRule to given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/to/lower",
+      "source": "Module probe.sample.\n\nDefine S with to as Int.\n\nRule get, produce S:\n  Return S with to set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/to/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given to as Int, produce Int: Return to.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/to/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let to be x.\n  Set to to 2.\n  Return to.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/to/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start to as async f().\n  Wait for to.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/to/lower",
+      "source": "Module probe.sample.\n\nRule get given to as Bool, produce Bool:\n  Return to and to.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/to/Cap",
+      "source": "Module probe.sample.\n\nDefine S with To as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/to/Cap",
+      "source": "Module probe.sample.\n\nRule get given To as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/to/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let To be x.\n  Return x.\n",
+      "pf": "5c42b606b78b1cd8d2ac8085868899811ef5ab846a3de1e7a678610f741b1de1"
+    },
+    {
+      "name": "member/to/Cap",
+      "source": "Module probe.sample.\n\nDefine S with To as Int.\n\nRule get given v as S, produce Int:\n  Return v.To.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/to/Cap",
+      "source": "Module probe.sample.\n\nRule get given To as Int, produce Int:\n  Return To.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/to/Cap",
+      "source": "Module probe.sample.\n\nType To as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/to/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of To, Other.\n",
+      "pf": "580c713e452a85270656db19aaab60c1d6e172d502e9ebe882cdad370d1dcf8e"
+    },
+    {
+      "name": "import/to/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as To.\n",
+      "pf": "f5a817f4ad9600f6b2e5e74c437d81009558f37cbc797f5877305d98f547fde7"
+    },
+    {
+      "name": "typename/to/Cap",
+      "source": "Module probe.sample.\n\nDefine To with x as Int.\n",
+      "pf": "193f7273ea44664dcd96545341cc5e2a8a33732b2620243ba19d35bf6d771c82"
+    },
+    {
+      "name": "rulename/to/Cap",
+      "source": "Module probe.sample.\n\nRule To given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/to/Cap",
+      "source": "Module probe.sample.\n\nDefine S with To as Int.\n\nRule get, produce S:\n  Return S with To set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/to/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given To as Int, produce Int: Return To.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/to/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let To be x.\n  Set To to 2.\n  Return To.\n",
+      "pf": "d1e86380f439738b74624982fb8279eeae03db010430939c625d71f5a7551c85"
+    },
+    {
+      "name": "waitname/to/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start To as async f().\n  Wait for To.\n  Return x.\n",
+      "pf": "c98d2d3e85af2b22b005c34c62b9c1f8462385de837645c443ff64010d6b136d"
+    },
+    {
+      "name": "operand/to/Cap",
+      "source": "Module probe.sample.\n\nRule get given To as Bool, produce Bool:\n  Return To and To.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/to/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with TO as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/to/UPPER",
+      "source": "Module probe.sample.\n\nRule get given TO as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/to/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let TO be x.\n  Return x.\n",
+      "pf": "c3ea5220de042b72ca65104bea51d868b5d6b456975f6ca6c84924b95dbd1d08"
+    },
+    {
+      "name": "member/to/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with TO as Int.\n\nRule get given v as S, produce Int:\n  Return v.TO.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/to/UPPER",
+      "source": "Module probe.sample.\n\nRule get given TO as Int, produce Int:\n  Return TO.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/to/UPPER",
+      "source": "Module probe.sample.\n\nType TO as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/to/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of TO, Other.\n",
+      "pf": "dcdd356062694b2fe09c27ccef8603dcbfe4788173d795cfa39dcf12423c6159"
+    },
+    {
+      "name": "import/to/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as TO.\n",
+      "pf": "c249b5f981695ad1ed356bfac06fc80c145f1b557d7c46bbddf62a5251f33994"
+    },
+    {
+      "name": "typename/to/UPPER",
+      "source": "Module probe.sample.\n\nDefine TO with x as Int.\n",
+      "pf": "b209ea10d65a88861d3934baed19339a1c3bc033e9b7888491a03fdefd04c98b"
+    },
+    {
+      "name": "rulename/to/UPPER",
+      "source": "Module probe.sample.\n\nRule TO given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/to/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with TO as Int.\n\nRule get, produce S:\n  Return S with TO set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/to/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given TO as Int, produce Int: Return TO.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/to/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let TO be x.\n  Set TO to 2.\n  Return TO.\n",
+      "pf": "ed8244f1423db902f54794692480c97517af996d3b85e489269e2a04c3321167"
+    },
+    {
+      "name": "waitname/to/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start TO as async f().\n  Wait for TO.\n  Return x.\n",
+      "pf": "46eab268cbe479df63f2a009815f886a76b277d9c2847baf1056956370a5087a"
+    },
+    {
+      "name": "operand/to/UPPER",
+      "source": "Module probe.sample.\n\nRule get given TO as Bool, produce Bool:\n  Return TO and TO.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/not/lower",
+      "source": "Module probe.sample.\n\nDefine S with not as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/not/lower",
+      "source": "Module probe.sample.\n\nRule get given not as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/not/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let not be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/not/lower",
+      "source": "Module probe.sample.\n\nDefine S with not as Int.\n\nRule get given v as S, produce Int:\n  Return v.not.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/not/lower",
+      "source": "Module probe.sample.\n\nRule get given not as Int, produce Int:\n  Return not.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/not/lower",
+      "source": "Module probe.sample.\n\nType not as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        1
+      ]
+    },
+    {
+      "name": "import/not/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as not.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "rulename/not/lower",
+      "source": "Module probe.sample.\n\nRule not given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/not/lower",
+      "source": "Module probe.sample.\n\nDefine S with not as Int.\n\nRule get, produce S:\n  Return S with not set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/not/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given not as Int, produce Int: Return not.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/not/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let not be x.\n  Set not to 2.\n  Return not.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/not/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start not as async f().\n  Wait for not.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/not/lower",
+      "source": "Module probe.sample.\n\nRule get given not as Bool, produce Bool:\n  Return not and not.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/not/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Not as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/not/Cap",
+      "source": "Module probe.sample.\n\nRule get given Not as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/not/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Not be x.\n  Return x.\n",
+      "pf": "ce2b33b12ea675b21169ca16243b604733e89d74e9091e30521607eff8083183"
+    },
+    {
+      "name": "member/not/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Not as Int.\n\nRule get given v as S, produce Int:\n  Return v.Not.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/not/Cap",
+      "source": "Module probe.sample.\n\nRule get given Not as Int, produce Int:\n  Return Not.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/not/Cap",
+      "source": "Module probe.sample.\n\nType Not as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/not/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Not, Other.\n",
+      "pf": "9f503af906e9a00ac72caca29008bf544dff8d8a37f854b174cc3b0db2c1f93e"
+    },
+    {
+      "name": "import/not/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Not.\n",
+      "pf": "304c9b76bfb3afb9360881e41667ee9b53cb0e95408772c1c8400d0333240e0e"
+    },
+    {
+      "name": "typename/not/Cap",
+      "source": "Module probe.sample.\n\nDefine Not with x as Int.\n",
+      "pf": "fe61472512ba54b05ae3b559a64598e53c2d7190967dc8b49f68567b20f74055"
+    },
+    {
+      "name": "rulename/not/Cap",
+      "source": "Module probe.sample.\n\nRule Not given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/not/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Not as Int.\n\nRule get, produce S:\n  Return S with Not set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/not/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Not as Int, produce Int: Return Not.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/not/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Not be x.\n  Set Not to 2.\n  Return Not.\n",
+      "pf": "b2a8faa9c7b2483c68e22bd50f32742e41d978d017aeed8dd54d76a4fcae726c"
+    },
+    {
+      "name": "waitname/not/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Not as async f().\n  Wait for Not.\n  Return x.\n",
+      "pf": "937e5bf8d5f6923c175124dc3fa4c72cf433243ff4e07f9964a73b88ac6d57c4"
+    },
+    {
+      "name": "operand/not/Cap",
+      "source": "Module probe.sample.\n\nRule get given Not as Bool, produce Bool:\n  Return Not and Not.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/not/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with NOT as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/not/UPPER",
+      "source": "Module probe.sample.\n\nRule get given NOT as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/not/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let NOT be x.\n  Return x.\n",
+      "pf": "cd44f60de3a0aff5d503ee2932970792e05731a41cdc312e6f12d6750c3ba422"
+    },
+    {
+      "name": "member/not/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with NOT as Int.\n\nRule get given v as S, produce Int:\n  Return v.NOT.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/not/UPPER",
+      "source": "Module probe.sample.\n\nRule get given NOT as Int, produce Int:\n  Return NOT.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/not/UPPER",
+      "source": "Module probe.sample.\n\nType NOT as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/not/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of NOT, Other.\n",
+      "pf": "c516b820f54745c722a0d000a3057b98ee89a84d27bd6b7cce7c7a2ebf28f72f"
+    },
+    {
+      "name": "import/not/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as NOT.\n",
+      "pf": "fd8e77b3d59d892e1d37a14e0904e64080db9e51e5194070f110d05a28698ec5"
+    },
+    {
+      "name": "typename/not/UPPER",
+      "source": "Module probe.sample.\n\nDefine NOT with x as Int.\n",
+      "pf": "19f9a35d78f0a887cafb029ebb232c70a4ac6fc2fe18f67ebcbcdd0ac9e5cf4b"
+    },
+    {
+      "name": "rulename/not/UPPER",
+      "source": "Module probe.sample.\n\nRule NOT given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/not/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with NOT as Int.\n\nRule get, produce S:\n  Return S with NOT set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/not/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given NOT as Int, produce Int: Return NOT.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/not/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let NOT be x.\n  Set NOT to 2.\n  Return NOT.\n",
+      "pf": "58b6ee6d5c071142de2839290f3a569d00c46b3f13a76cc9dff70b5c5f8d66b7"
+    },
+    {
+      "name": "waitname/not/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start NOT as async f().\n  Wait for NOT.\n  Return x.\n",
+      "pf": "d110d7b0541196950d28029fee4faae2f1e57944c20f68526feac8f763269e6c"
+    },
+    {
+      "name": "operand/not/UPPER",
+      "source": "Module probe.sample.\n\nRule get given NOT as Bool, produce Bool:\n  Return NOT and NOT.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/and/lower",
+      "source": "Module probe.sample.\n\nDefine S with and as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/and/lower",
+      "source": "Module probe.sample.\n\nRule get given and as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/and/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let and be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        3
+      ]
+    },
+    {
+      "name": "member/and/lower",
+      "source": "Module probe.sample.\n\nDefine S with and as Int.\n\nRule get given v as S, produce Int:\n  Return v.and.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/and/lower",
+      "source": "Module probe.sample.\n\nRule get given and as Int, produce Int:\n  Return and.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/and/lower",
+      "source": "Module probe.sample.\n\nType and as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        1
+      ]
+    },
+    {
+      "name": "import/and/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as and.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "rulename/and/lower",
+      "source": "Module probe.sample.\n\nRule and given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/and/lower",
+      "source": "Module probe.sample.\n\nDefine S with and as Int.\n\nRule get, produce S:\n  Return S with and set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/and/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given and as Int, produce Int: Return and.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/and/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let and be x.\n  Set and to 2.\n  Return and.\n",
+      "reject": [
+        "E063",
+        4,
+        3
+      ]
+    },
+    {
+      "name": "waitname/and/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start and as async f().\n  Wait for and.\n  Return x.\n",
+      "reject": [
+        "E062",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/and/lower",
+      "source": "Module probe.sample.\n\nRule get given and as Bool, produce Bool:\n  Return and and and.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/and/Cap",
+      "source": "Module probe.sample.\n\nDefine S with And as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/and/Cap",
+      "source": "Module probe.sample.\n\nRule get given And as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/and/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let And be x.\n  Return x.\n",
+      "pf": "e25a31255571691bd2b8a189109c729172e0b7fb2a393870f06b2695a9f51ef0"
+    },
+    {
+      "name": "member/and/Cap",
+      "source": "Module probe.sample.\n\nDefine S with And as Int.\n\nRule get given v as S, produce Int:\n  Return v.And.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/and/Cap",
+      "source": "Module probe.sample.\n\nRule get given And as Int, produce Int:\n  Return And.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/and/Cap",
+      "source": "Module probe.sample.\n\nType And as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/and/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of And, Other.\n",
+      "pf": "6743eec2b9aafa171dc50ccff6ddd7e4354d7457d5cbaa648bb045493c99b1d0"
+    },
+    {
+      "name": "import/and/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as And.\n",
+      "pf": "2c4aa3f061f1c86cc33fa5df0d4f79a5c1c51f86d8cdb2160f5fa56e22da8fca"
+    },
+    {
+      "name": "typename/and/Cap",
+      "source": "Module probe.sample.\n\nDefine And with x as Int.\n",
+      "pf": "3eeafff34d74ea174d3a0a2d5fda30a773ba52e92ec0f457730c79b9bb08b9ee"
+    },
+    {
+      "name": "rulename/and/Cap",
+      "source": "Module probe.sample.\n\nRule And given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/and/Cap",
+      "source": "Module probe.sample.\n\nDefine S with And as Int.\n\nRule get, produce S:\n  Return S with And set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/and/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given And as Int, produce Int: Return And.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/and/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let And be x.\n  Set And to 2.\n  Return And.\n",
+      "pf": "19d4114278c14f6286fe7e4bb238773d9d82ddf20713e80fc29e39007d79eede"
+    },
+    {
+      "name": "waitname/and/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start And as async f().\n  Wait for And.\n  Return x.\n",
+      "pf": "d7a3508e768dae680b2094aa1ac061114e0873a94048515646d45c3fccf75b8b"
+    },
+    {
+      "name": "operand/and/Cap",
+      "source": "Module probe.sample.\n\nRule get given And as Bool, produce Bool:\n  Return And and And.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/and/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with AND as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/and/UPPER",
+      "source": "Module probe.sample.\n\nRule get given AND as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/and/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let AND be x.\n  Return x.\n",
+      "pf": "203b28326948c7e8d941b836272a1404a9969a0aa6614bbc84d5b4658498c938"
+    },
+    {
+      "name": "member/and/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with AND as Int.\n\nRule get given v as S, produce Int:\n  Return v.AND.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/and/UPPER",
+      "source": "Module probe.sample.\n\nRule get given AND as Int, produce Int:\n  Return AND.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/and/UPPER",
+      "source": "Module probe.sample.\n\nType AND as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/and/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of AND, Other.\n",
+      "pf": "4db688370787a790a0b7e30e805fea18d6f28c0129c1e1274d7489a0308e82a8"
+    },
+    {
+      "name": "import/and/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as AND.\n",
+      "pf": "fb992f77db18e5df253b34ea054e7b92a772ffa3a4d7ed1ba89e9a2da8c8d58f"
+    },
+    {
+      "name": "typename/and/UPPER",
+      "source": "Module probe.sample.\n\nDefine AND with x as Int.\n",
+      "pf": "14deb7a801fde84e6355471df700e82f0fa9d3f269806e5300edf56a9c03f049"
+    },
+    {
+      "name": "rulename/and/UPPER",
+      "source": "Module probe.sample.\n\nRule AND given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/and/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with AND as Int.\n\nRule get, produce S:\n  Return S with AND set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/and/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given AND as Int, produce Int: Return AND.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/and/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let AND be x.\n  Set AND to 2.\n  Return AND.\n",
+      "pf": "3001dc5db8f28f781d12fd1dc42ae60c023bc56d2cc46571f0b9b69128c024ec"
+    },
+    {
+      "name": "waitname/and/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start AND as async f().\n  Wait for AND.\n  Return x.\n",
+      "pf": "b2b2c645f0ada7a0cf4b96a26b5a996124f09da543ea456350271f7381cf8a43"
+    },
+    {
+      "name": "operand/and/UPPER",
+      "source": "Module probe.sample.\n\nRule get given AND as Bool, produce Bool:\n  Return AND and AND.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/or/lower",
+      "source": "Module probe.sample.\n\nDefine S with or as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/or/lower",
+      "source": "Module probe.sample.\n\nRule get given or as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/or/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let or be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        3
+      ]
+    },
+    {
+      "name": "member/or/lower",
+      "source": "Module probe.sample.\n\nDefine S with or as Int.\n\nRule get given v as S, produce Int:\n  Return v.or.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/or/lower",
+      "source": "Module probe.sample.\n\nRule get given or as Int, produce Int:\n  Return or.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/or/lower",
+      "source": "Module probe.sample.\n\nType or as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        1
+      ]
+    },
+    {
+      "name": "import/or/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as or.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "rulename/or/lower",
+      "source": "Module probe.sample.\n\nRule or given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/or/lower",
+      "source": "Module probe.sample.\n\nDefine S with or as Int.\n\nRule get, produce S:\n  Return S with or set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/or/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given or as Int, produce Int: Return or.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/or/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let or be x.\n  Set or to 2.\n  Return or.\n",
+      "reject": [
+        "E063",
+        4,
+        3
+      ]
+    },
+    {
+      "name": "waitname/or/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start or as async f().\n  Wait for or.\n  Return x.\n",
+      "reject": [
+        "E062",
+        7,
+        12
+      ]
+    },
+    {
+      "name": "operand/or/lower",
+      "source": "Module probe.sample.\n\nRule get given or as Bool, produce Bool:\n  Return or and or.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/or/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Or as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/or/Cap",
+      "source": "Module probe.sample.\n\nRule get given Or as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/or/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Or be x.\n  Return x.\n",
+      "pf": "371067528779874f6c88446601f707a26512627eeb2e21a985f4fd65bf6faaea"
+    },
+    {
+      "name": "member/or/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Or as Int.\n\nRule get given v as S, produce Int:\n  Return v.Or.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/or/Cap",
+      "source": "Module probe.sample.\n\nRule get given Or as Int, produce Int:\n  Return Or.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/or/Cap",
+      "source": "Module probe.sample.\n\nType Or as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/or/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Or, Other.\n",
+      "pf": "0cd4a7370a887b660bfdf9dc2c326e0170575d6f440e3e70f0b7b781886c41f4"
+    },
+    {
+      "name": "import/or/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Or.\n",
+      "pf": "7f583e6e7fa446b672162916a02616fd8c50b873057845e5f03b445a0d2814f1"
+    },
+    {
+      "name": "typename/or/Cap",
+      "source": "Module probe.sample.\n\nDefine Or with x as Int.\n",
+      "pf": "c5f5adf3bcfb4c56fc49fb6b472c7d1498edda9bd8fdac05a57e46bef8bb0996"
+    },
+    {
+      "name": "rulename/or/Cap",
+      "source": "Module probe.sample.\n\nRule Or given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/or/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Or as Int.\n\nRule get, produce S:\n  Return S with Or set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/or/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Or as Int, produce Int: Return Or.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/or/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Or be x.\n  Set Or to 2.\n  Return Or.\n",
+      "pf": "d87796f2ffe8caf6b7d565e941be4ed3f5e9b261911f19c65bbcec21dc0fb207"
+    },
+    {
+      "name": "waitname/or/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Or as async f().\n  Wait for Or.\n  Return x.\n",
+      "pf": "e234c4a58e63828eb69e1943cf536c7a370002d02193376b3115237ff82d7130"
+    },
+    {
+      "name": "operand/or/Cap",
+      "source": "Module probe.sample.\n\nRule get given Or as Bool, produce Bool:\n  Return Or and Or.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/or/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with OR as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/or/UPPER",
+      "source": "Module probe.sample.\n\nRule get given OR as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/or/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let OR be x.\n  Return x.\n",
+      "pf": "e45f50f25ab7d4e51de07f83417d5779b2a8b771d3bf55a25fcb3fd5d46d42e4"
+    },
+    {
+      "name": "member/or/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with OR as Int.\n\nRule get given v as S, produce Int:\n  Return v.OR.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/or/UPPER",
+      "source": "Module probe.sample.\n\nRule get given OR as Int, produce Int:\n  Return OR.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/or/UPPER",
+      "source": "Module probe.sample.\n\nType OR as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/or/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of OR, Other.\n",
+      "pf": "44bde1d11a76ec2a6144d9efc811b4855a338e366d3aca6846f15638af862afa"
+    },
+    {
+      "name": "import/or/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as OR.\n",
+      "pf": "ed29fdd6639fa8b1af90e302b0ad05108983fb7c5281fd64b17f6c40510451b6"
+    },
+    {
+      "name": "typename/or/UPPER",
+      "source": "Module probe.sample.\n\nDefine OR with x as Int.\n",
+      "pf": "5674c918ad7ef4d9af492d0298fd8b37c872c1d062033c53f065b3bb8f4dd8f7"
+    },
+    {
+      "name": "rulename/or/UPPER",
+      "source": "Module probe.sample.\n\nRule OR given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/or/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with OR as Int.\n\nRule get, produce S:\n  Return S with OR set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/or/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given OR as Int, produce Int: Return OR.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/or/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let OR be x.\n  Set OR to 2.\n  Return OR.\n",
+      "pf": "9f465f37ea574dd4a69281ea63d9cbb0bdecbec7148d3a208863ec64eaec2d21"
+    },
+    {
+      "name": "waitname/or/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start OR as async f().\n  Wait for OR.\n  Return x.\n",
+      "pf": "baf6b0591eb7eab29ad898ccd084bcc9e5d4085191b196b3aaee7cac52b09fe4"
+    },
+    {
+      "name": "operand/or/UPPER",
+      "source": "Module probe.sample.\n\nRule get given OR as Bool, produce Bool:\n  Return OR and OR.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/for/lower",
+      "source": "Module probe.sample.\n\nDefine S with for as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/for/lower",
+      "source": "Module probe.sample.\n\nRule get given for as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/for/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let for be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/for/lower",
+      "source": "Module probe.sample.\n\nDefine S with for as Int.\n\nRule get given v as S, produce Int:\n  Return v.for.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/for/lower",
+      "source": "Module probe.sample.\n\nRule get given for as Int, produce Int:\n  Return for.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/for/lower",
+      "source": "Module probe.sample.\n\nType for as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "import/for/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as for.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "rulename/for/lower",
+      "source": "Module probe.sample.\n\nRule for given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/for/lower",
+      "source": "Module probe.sample.\n\nDefine S with for as Int.\n\nRule get, produce S:\n  Return S with for set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/for/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given for as Int, produce Int: Return for.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/for/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let for be x.\n  Set for to 2.\n  Return for.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/for/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start for as async f().\n  Wait for for.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/for/lower",
+      "source": "Module probe.sample.\n\nRule get given for as Bool, produce Bool:\n  Return for and for.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/for/Cap",
+      "source": "Module probe.sample.\n\nDefine S with For as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/for/Cap",
+      "source": "Module probe.sample.\n\nRule get given For as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/for/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let For be x.\n  Return x.\n",
+      "pf": "f7a0729783743df0abb4ccaf1f93ac62f00f5812d2476f764d9e78b687608783"
+    },
+    {
+      "name": "member/for/Cap",
+      "source": "Module probe.sample.\n\nDefine S with For as Int.\n\nRule get given v as S, produce Int:\n  Return v.For.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/for/Cap",
+      "source": "Module probe.sample.\n\nRule get given For as Int, produce Int:\n  Return For.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/for/Cap",
+      "source": "Module probe.sample.\n\nType For as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/for/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of For, Other.\n",
+      "pf": "6ceebf449264835b812675b3ae80a3767771f9741f4a9db8f29644dc4344f5be"
+    },
+    {
+      "name": "import/for/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as For.\n",
+      "pf": "08cb0257425c4feb2abda55c4267afb4c98007156be68467df843db11b0809aa"
+    },
+    {
+      "name": "typename/for/Cap",
+      "source": "Module probe.sample.\n\nDefine For with x as Int.\n",
+      "pf": "771dbc140329bebe36eaa18b1d3fab19dc38d5d4e79f0fffffad1a71d20fb972"
+    },
+    {
+      "name": "rulename/for/Cap",
+      "source": "Module probe.sample.\n\nRule For given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/for/Cap",
+      "source": "Module probe.sample.\n\nDefine S with For as Int.\n\nRule get, produce S:\n  Return S with For set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/for/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given For as Int, produce Int: Return For.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/for/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let For be x.\n  Set For to 2.\n  Return For.\n",
+      "pf": "0284a55280510dc67e9fc5311ab604b77c59afcce863a897f747942aeff587f1"
+    },
+    {
+      "name": "waitname/for/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start For as async f().\n  Wait for For.\n  Return x.\n",
+      "pf": "a3cbc76fc6cd18b6d8bc64f2ae28a62070f4473785e166f29abad12fad2d9008"
+    },
+    {
+      "name": "operand/for/Cap",
+      "source": "Module probe.sample.\n\nRule get given For as Bool, produce Bool:\n  Return For and For.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/for/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with FOR as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/for/UPPER",
+      "source": "Module probe.sample.\n\nRule get given FOR as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/for/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let FOR be x.\n  Return x.\n",
+      "pf": "b06538432da9d6efc5acad5024077bd4c2176f14d557255496c613160e93cd63"
+    },
+    {
+      "name": "member/for/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with FOR as Int.\n\nRule get given v as S, produce Int:\n  Return v.FOR.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/for/UPPER",
+      "source": "Module probe.sample.\n\nRule get given FOR as Int, produce Int:\n  Return FOR.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/for/UPPER",
+      "source": "Module probe.sample.\n\nType FOR as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/for/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of FOR, Other.\n",
+      "pf": "8af401e0583eaaadca2beccff8b504d49c0266396987668b324ff9b87d07968f"
+    },
+    {
+      "name": "import/for/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as FOR.\n",
+      "pf": "d6735f60722ff288b00e70ae1bf274e4acb447e9f65e3507f0295c63aa9100a3"
+    },
+    {
+      "name": "typename/for/UPPER",
+      "source": "Module probe.sample.\n\nDefine FOR with x as Int.\n",
+      "pf": "9249f85068ab8077a10c8e082b5564a83cad55859a5c67ed0685e3cc4b79aa69"
+    },
+    {
+      "name": "rulename/for/UPPER",
+      "source": "Module probe.sample.\n\nRule FOR given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/for/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with FOR as Int.\n\nRule get, produce S:\n  Return S with FOR set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/for/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given FOR as Int, produce Int: Return FOR.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/for/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let FOR be x.\n  Set FOR to 2.\n  Return FOR.\n",
+      "pf": "a5b13bf8faf3009ee2aeba9bc49a1bd82dca495f8359da8c22135219e5884f22"
+    },
+    {
+      "name": "waitname/for/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start FOR as async f().\n  Wait for FOR.\n  Return x.\n",
+      "pf": "2efd7d28f7f627163d3c5890a3ae5cc9fa15ab3a9d43e8119f59f6f51651bf01"
+    },
+    {
+      "name": "operand/for/UPPER",
+      "source": "Module probe.sample.\n\nRule get given FOR as Bool, produce Bool:\n  Return FOR and FOR.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/function/lower",
+      "source": "Module probe.sample.\n\nDefine S with function as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/function/lower",
+      "source": "Module probe.sample.\n\nRule get given function as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/function/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let function be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/function/lower",
+      "source": "Module probe.sample.\n\nDefine S with function as Int.\n\nRule get given v as S, produce Int:\n  Return v.function.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/function/lower",
+      "source": "Module probe.sample.\n\nRule get given function as Int, produce Int:\n  Return function.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/function/lower",
+      "source": "Module probe.sample.\n\nType function as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "import/function/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as function.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "rulename/function/lower",
+      "source": "Module probe.sample.\n\nRule function given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/function/lower",
+      "source": "Module probe.sample.\n\nDefine S with function as Int.\n\nRule get, produce S:\n  Return S with function set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/function/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given function as Int, produce Int: Return function.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/function/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let function be x.\n  Set function to 2.\n  Return function.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/function/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start function as async f().\n  Wait for function.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/function/lower",
+      "source": "Module probe.sample.\n\nRule get given function as Bool, produce Bool:\n  Return function and function.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/function/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Function as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/function/Cap",
+      "source": "Module probe.sample.\n\nRule get given Function as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/function/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Function be x.\n  Return x.\n",
+      "pf": "cb9ac07c9da69f2f86878fceda6b4cd03bf49d768758672ebd91377fffd57e88"
+    },
+    {
+      "name": "member/function/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Function as Int.\n\nRule get given v as S, produce Int:\n  Return v.Function.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/function/Cap",
+      "source": "Module probe.sample.\n\nRule get given Function as Int, produce Int:\n  Return Function.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/function/Cap",
+      "source": "Module probe.sample.\n\nType Function as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/function/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Function, Other.\n",
+      "pf": "b06ac37f82636526c59a0e6600791c12e444b5ffca789d7ec9d0759d721f3921"
+    },
+    {
+      "name": "import/function/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Function.\n",
+      "pf": "4f6f22d2aced0cd6d569e1128857ae19bd04e9a23d55184e45a74417b674469a"
+    },
+    {
+      "name": "typename/function/Cap",
+      "source": "Module probe.sample.\n\nDefine Function with x as Int.\n",
+      "pf": "dd0576a18e955c73784c2c845ed0de3b1566c89f7dcd9ee510967990e9be866c"
+    },
+    {
+      "name": "rulename/function/Cap",
+      "source": "Module probe.sample.\n\nRule Function given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/function/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Function as Int.\n\nRule get, produce S:\n  Return S with Function set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/function/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Function as Int, produce Int: Return Function.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/function/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Function be x.\n  Set Function to 2.\n  Return Function.\n",
+      "pf": "0fe391a6ef6e7aa53110e8f8909f2ed07c4a19787a219b0ffd0db09470605ed4"
+    },
+    {
+      "name": "waitname/function/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Function as async f().\n  Wait for Function.\n  Return x.\n",
+      "pf": "ddb2b5becf0e301790c11c7455f364da84dbad44215bd18cf5dfebb0cabdcc25"
+    },
+    {
+      "name": "operand/function/Cap",
+      "source": "Module probe.sample.\n\nRule get given Function as Bool, produce Bool:\n  Return Function and Function.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/function/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with FUNCTION as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/function/UPPER",
+      "source": "Module probe.sample.\n\nRule get given FUNCTION as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/function/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let FUNCTION be x.\n  Return x.\n",
+      "pf": "9d6d9c36e2fb72bd41697e5293b6cb6d1a3999c9b68f0a7cab502f66c9256639"
+    },
+    {
+      "name": "member/function/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with FUNCTION as Int.\n\nRule get given v as S, produce Int:\n  Return v.FUNCTION.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/function/UPPER",
+      "source": "Module probe.sample.\n\nRule get given FUNCTION as Int, produce Int:\n  Return FUNCTION.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/function/UPPER",
+      "source": "Module probe.sample.\n\nType FUNCTION as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/function/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of FUNCTION, Other.\n",
+      "pf": "461e1055b9df549d30b48a695e25b79b2310ff6e09973c465f0604a6b5315152"
+    },
+    {
+      "name": "import/function/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as FUNCTION.\n",
+      "pf": "6e682918121a9f7b2171ab7e054f1002c2ba9da2d31d0b68ecc631bc5456a871"
+    },
+    {
+      "name": "typename/function/UPPER",
+      "source": "Module probe.sample.\n\nDefine FUNCTION with x as Int.\n",
+      "pf": "60778c60139a65d692fa25763e1c7286b1e81ef6c927bddbf63a43b4838ae700"
+    },
+    {
+      "name": "rulename/function/UPPER",
+      "source": "Module probe.sample.\n\nRule FUNCTION given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/function/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with FUNCTION as Int.\n\nRule get, produce S:\n  Return S with FUNCTION set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/function/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given FUNCTION as Int, produce Int: Return FUNCTION.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/function/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let FUNCTION be x.\n  Set FUNCTION to 2.\n  Return FUNCTION.\n",
+      "pf": "46304ad4fb45cbb3303ab87f76e81ca7c253094a351e9a925abb6ecf6a5264d4"
+    },
+    {
+      "name": "waitname/function/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start FUNCTION as async f().\n  Wait for FUNCTION.\n  Return x.\n",
+      "pf": "6b23410a972b1da31b80f46c0e99b5a423ef4766181ab2d0bb998ae538947058"
+    },
+    {
+      "name": "operand/function/UPPER",
+      "source": "Module probe.sample.\n\nRule get given FUNCTION as Bool, produce Bool:\n  Return FUNCTION and FUNCTION.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/map/lower",
+      "source": "Module probe.sample.\n\nDefine S with map as Int.\n",
+      "pf": "fd52780d1d1fd816d75747c72edc96a22e69a8b3e557a6f9eb409f39e5ceffa5"
+    },
+    {
+      "name": "param/map/lower",
+      "source": "Module probe.sample.\n\nRule get given map as Int, produce Int:\n  Return 1.\n",
+      "pf": "27dfed37a84d0fd58051d9570eeb5b49b2bd201a75d41517f03edfef203b3ef1"
+    },
+    {
+      "name": "let/map/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let map be x.\n  Return x.\n",
+      "pf": "a3f07247f022e9e8519bcbe6aa9085bfcca45a505a7784978583c77cf0217750"
+    },
+    {
+      "name": "member/map/lower",
+      "source": "Module probe.sample.\n\nDefine S with map as Int.\n\nRule get given v as S, produce Int:\n  Return v.map.\n",
+      "pf": "6ad45254f9def1c885ef51925bc63d9ac0a79824d1bae48cb988352a4c771912"
+    },
+    {
+      "name": "varref/map/lower",
+      "source": "Module probe.sample.\n\nRule get given map as Int, produce Int:\n  Return map.\n",
+      "pf": "f55552c7ac887bfda7c341214853eecbb9e04f1c2dc6e40c7c45a97d46fe1276"
+    },
+    {
+      "name": "alias/map/lower",
+      "source": "Module probe.sample.\n\nType map as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "import/map/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as map.\n",
+      "pf": "9cec6185f31b7948673f6a1b6498f21e7cc6b225da3d443b3900b19fc62fabf6"
+    },
+    {
+      "name": "rulename/map/lower",
+      "source": "Module probe.sample.\n\nRule map given x as Int, produce Int:\n  Return x.\n",
+      "pf": "4fcb2f0609ac7d9ae4b4ed45983c45fffdf0127883960540dd0c592df457d2eb"
+    },
+    {
+      "name": "construct/map/lower",
+      "source": "Module probe.sample.\n\nDefine S with map as Int.\n\nRule get, produce S:\n  Return S with map set to 1.\n",
+      "pf": "e9143fece20af03395eac8c8debdc11a9dc5e79155862145921e2eed4b0bc05a"
+    },
+    {
+      "name": "lambda/map/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given map as Int, produce Int: Return map.\n  Return x.\n",
+      "pf": "5452096d811580ad0118676e2bddbdab32fac83933d36ea7c76a06b76f8cb3aa"
+    },
+    {
+      "name": "settarget/map/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let map be x.\n  Set map to 2.\n  Return map.\n",
+      "pf": "6caeead7d68ed4addaf78ae6ff5f18fc8a5ff217dad020399605121088cd811c"
+    },
+    {
+      "name": "waitname/map/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start map as async f().\n  Wait for map.\n  Return x.\n",
+      "pf": "56bf5c67d8a59673abe746e63a6020190bef0e496793421e91dc5c25e2007325"
+    },
+    {
+      "name": "operand/map/lower",
+      "source": "Module probe.sample.\n\nRule get given map as Bool, produce Bool:\n  Return map and map.\n",
+      "pf": "f807bfbe98b1a2b6615ba1530b0ac33e09eb90da415e21a8ff1d7cb36ded9094"
+    },
+    {
+      "name": "field/map/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Map as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/map/Cap",
+      "source": "Module probe.sample.\n\nRule get given Map as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/map/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Map be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/map/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Map as Int.\n\nRule get given v as S, produce Int:\n  Return v.Map.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/map/Cap",
+      "source": "Module probe.sample.\n\nRule get given Map as Int, produce Int:\n  Return Map.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/map/Cap",
+      "source": "Module probe.sample.\n\nType Map as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "enum/map/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Map, Other.\n",
+      "reject": [
+        "E062",
+        3,
+        20
+      ]
+    },
+    {
+      "name": "import/map/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Map.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "typename/map/Cap",
+      "source": "Module probe.sample.\n\nDefine Map with x as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        8
+      ]
+    },
+    {
+      "name": "rulename/map/Cap",
+      "source": "Module probe.sample.\n\nRule Map given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/map/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Map as Int.\n\nRule get, produce S:\n  Return S with Map set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/map/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Map as Int, produce Int: Return Map.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/map/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Map be x.\n  Set Map to 2.\n  Return Map.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/map/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Map as async f().\n  Wait for Map.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/map/Cap",
+      "source": "Module probe.sample.\n\nRule get given Map as Bool, produce Bool:\n  Return Map and Map.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/map/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with MAP as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/map/UPPER",
+      "source": "Module probe.sample.\n\nRule get given MAP as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/map/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let MAP be x.\n  Return x.\n",
+      "pf": "715d4ccdfe48070303695ceb4ad8c2c3e3a765965974bb6a97db82cfca35715e"
+    },
+    {
+      "name": "member/map/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with MAP as Int.\n\nRule get given v as S, produce Int:\n  Return v.MAP.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/map/UPPER",
+      "source": "Module probe.sample.\n\nRule get given MAP as Int, produce Int:\n  Return MAP.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/map/UPPER",
+      "source": "Module probe.sample.\n\nType MAP as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/map/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of MAP, Other.\n",
+      "pf": "e5a8640fc43e2bc45eb17280a2c19818891f4570cb17c6555c42534f19c59cf7"
+    },
+    {
+      "name": "import/map/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as MAP.\n",
+      "pf": "4700b0e93a043f7eb59d4e5b0412c1b2906e6b11a411ff221dc7c30de7ea5330"
+    },
+    {
+      "name": "typename/map/UPPER",
+      "source": "Module probe.sample.\n\nDefine MAP with x as Int.\n",
+      "pf": "bade6488e87088ae3c985946996eb7856d2dfd1b74b74b1082b090234bec792c"
+    },
+    {
+      "name": "rulename/map/UPPER",
+      "source": "Module probe.sample.\n\nRule MAP given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/map/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with MAP as Int.\n\nRule get, produce S:\n  Return S with MAP set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/map/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given MAP as Int, produce Int: Return MAP.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/map/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let MAP be x.\n  Set MAP to 2.\n  Return MAP.\n",
+      "pf": "650b6eb230c0d4d08d7172b8caf120af84465d1b31bad885344e0a6f5d14711e"
+    },
+    {
+      "name": "waitname/map/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start MAP as async f().\n  Wait for MAP.\n  Return x.\n",
+      "pf": "36359274b896a39db057ff578150cb6e0e4c39adbdcfa818c223085b52a076c0"
+    },
+    {
+      "name": "operand/map/UPPER",
+      "source": "Module probe.sample.\n\nRule get given MAP as Bool, produce Bool:\n  Return MAP and MAP.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/async/lower",
+      "source": "Module probe.sample.\n\nDefine S with async as Int.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/async/lower",
+      "source": "Module probe.sample.\n\nRule get given async as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/async/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let async be x.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "member/async/lower",
+      "source": "Module probe.sample.\n\nDefine S with async as Int.\n\nRule get given v as S, produce Int:\n  Return v.async.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/async/lower",
+      "source": "Module probe.sample.\n\nRule get given async as Int, produce Int:\n  Return async.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/async/lower",
+      "source": "Module probe.sample.\n\nType async as Int.\n",
+      "reject": [
+        "E063",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "import/async/lower",
+      "source": "Module probe.sample.\n\nUse io.Http as async.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "rulename/async/lower",
+      "source": "Module probe.sample.\n\nRule async given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E061",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/async/lower",
+      "source": "Module probe.sample.\n\nDefine S with async as Int.\n\nRule get, produce S:\n  Return S with async set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/async/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given async as Int, produce Int: Return async.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/async/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let async be x.\n  Set async to 2.\n  Return async.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/async/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start async as async f().\n  Wait for async.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/async/lower",
+      "source": "Module probe.sample.\n\nRule get given async as Bool, produce Bool:\n  Return async and async.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/async/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Async as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/async/Cap",
+      "source": "Module probe.sample.\n\nRule get given Async as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/async/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Async be x.\n  Return x.\n",
+      "pf": "86e2f1877b2e14b10da6bbf864e7b04c0db64f5d49a752dbd2bc920e9b8b9bc2"
+    },
+    {
+      "name": "member/async/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Async as Int.\n\nRule get given v as S, produce Int:\n  Return v.Async.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/async/Cap",
+      "source": "Module probe.sample.\n\nRule get given Async as Int, produce Int:\n  Return Async.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/async/Cap",
+      "source": "Module probe.sample.\n\nType Async as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/async/Cap",
+      "source": "Module probe.sample.\n\nDefine E as one of Async, Other.\n",
+      "pf": "aeb1631df779773687824c4907e8bfe3924d4e5eb76e44e424d3072ce74845ed"
+    },
+    {
+      "name": "import/async/Cap",
+      "source": "Module probe.sample.\n\nUse io.Http as Async.\n",
+      "pf": "30c9df7a0811a2f52a6412c1a84f540af6a25fb00b2292ebe4aff011bfdf5679"
+    },
+    {
+      "name": "typename/async/Cap",
+      "source": "Module probe.sample.\n\nDefine Async with x as Int.\n",
+      "pf": "36090af5e87f53d6f7d8a5b487a421ce305808b6c021ca4c5cc1a3866d5fcaf3"
+    },
+    {
+      "name": "rulename/async/Cap",
+      "source": "Module probe.sample.\n\nRule Async given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/async/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Async as Int.\n\nRule get, produce S:\n  Return S with Async set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/async/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Async as Int, produce Int: Return Async.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/async/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Async be x.\n  Set Async to 2.\n  Return Async.\n",
+      "pf": "48eacd8190426d0fcec900a18f197ab36df24a31d5546b19c4d22ccc30793730"
+    },
+    {
+      "name": "waitname/async/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Async as async f().\n  Wait for Async.\n  Return x.\n",
+      "pf": "2a27f45c1ba13f92b171a1d64ebfd56d29c6e145db4cff46228574438069b8a3"
+    },
+    {
+      "name": "operand/async/Cap",
+      "source": "Module probe.sample.\n\nRule get given Async as Bool, produce Bool:\n  Return Async and Async.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "field/async/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with ASYNC as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "param/async/UPPER",
+      "source": "Module probe.sample.\n\nRule get given ASYNC as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "let/async/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let ASYNC be x.\n  Return x.\n",
+      "pf": "ec362516b5168c16db175f18c59d746b6587f9ef9d3233692905d853a3807a79"
+    },
+    {
+      "name": "member/async/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with ASYNC as Int.\n\nRule get given v as S, produce Int:\n  Return v.ASYNC.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "varref/async/UPPER",
+      "source": "Module probe.sample.\n\nRule get given ASYNC as Int, produce Int:\n  Return ASYNC.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "alias/async/UPPER",
+      "source": "Module probe.sample.\n\nType ASYNC as Int.\n",
+      "pf": "8057de2f35250cf7d63423c4924f27612ead50eb6db4b056968f9b39d82914e6"
+    },
+    {
+      "name": "enum/async/UPPER",
+      "source": "Module probe.sample.\n\nDefine E as one of ASYNC, Other.\n",
+      "pf": "70493954f80cf744b815b10bce2626533b74f267ec453115a589d25e3be4de8d"
+    },
+    {
+      "name": "import/async/UPPER",
+      "source": "Module probe.sample.\n\nUse io.Http as ASYNC.\n",
+      "pf": "7f731df2f10a8de95e2793700bbc80d90ada25a1ec3bb11dd7a1d3103f147925"
+    },
+    {
+      "name": "typename/async/UPPER",
+      "source": "Module probe.sample.\n\nDefine ASYNC with x as Int.\n",
+      "pf": "b9604c46b619cb3ea4c797c7cc38f563e7ea60784ee988e14b2743462b74680b"
+    },
+    {
+      "name": "rulename/async/UPPER",
+      "source": "Module probe.sample.\n\nRule ASYNC given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ]
+    },
+    {
+      "name": "construct/async/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with ASYNC as Int.\n\nRule get, produce S:\n  Return S with ASYNC set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/async/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given ASYNC as Int, produce Int: Return ASYNC.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/async/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let ASYNC be x.\n  Set ASYNC to 2.\n  Return ASYNC.\n",
+      "pf": "5ceccb83612d9b125500b8775f571310bfafdfbd59e14abc0a7e2d942dc1b0ea"
+    },
+    {
+      "name": "waitname/async/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start ASYNC as async f().\n  Wait for ASYNC.\n  Return x.\n",
+      "pf": "c0c7d4c466e7ed6696a6f755025d946c8eac831b95443eee0f2c8604d67586f1"
+    },
+    {
+      "name": "operand/async/UPPER",
+      "source": "Module probe.sample.\n\nRule get given ASYNC as Bool, produce Bool:\n  Return ASYNC and ASYNC.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/type/lower",
+      "source": "Module probe.sample.\n\nDefine S with type as Int.\n\nRule get, produce S:\n  Return S with type set to 1.\n",
+      "pf": "73826d0eb811faecccad167d1cfe420c786163d46631586d0df5a42fc808d078"
+    },
+    {
+      "name": "lambda/type/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given type as Int, produce Int: Return type.\n  Return x.\n",
+      "pf": "d609d1daa586bf78a2afcb5c9684e7a7215d0ab47e43e1feedbb6bb3fc760491"
+    },
+    {
+      "name": "settarget/type/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let type be x.\n  Set type to 2.\n  Return type.\n",
+      "pf": "6d6063d98e12e5f4e98ba7f4de684603879b8baed3a6b7b18030b2a87bfb7846"
+    },
+    {
+      "name": "waitname/type/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start type as async f().\n  Wait for type.\n  Return x.\n",
+      "pf": "a40902e2307d22a50d98df8dafb5b6119e9a26d1e9aeb88579e959a68603c918"
+    },
+    {
+      "name": "operand/type/lower",
+      "source": "Module probe.sample.\n\nRule get given type as Bool, produce Bool:\n  Return type and type.\n",
+      "pf": "c48d03c4a7df0057155e032934593017f019b81853825db110418868bc856cc2"
+    },
+    {
+      "name": "construct/type/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Type as Int.\n\nRule get, produce S:\n  Return S with Type set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/type/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Type as Int, produce Int: Return Type.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/type/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Type be x.\n  Set Type to 2.\n  Return Type.\n",
+      "pf": "0252aaf5d93e720185efff0e3926c527287f6e5eb6f86018afcbf9a720a00fad"
+    },
+    {
+      "name": "waitname/type/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Type as async f().\n  Wait for Type.\n  Return x.\n",
+      "pf": "11eb988dcbedcb3c760e563d3227dd52ea76c65de8391d31c57bb35dd2956815"
+    },
+    {
+      "name": "operand/type/Cap",
+      "source": "Module probe.sample.\n\nRule get given Type as Bool, produce Bool:\n  Return Type and Type.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/type/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with TYPE as Int.\n\nRule get, produce S:\n  Return S with TYPE set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/type/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given TYPE as Int, produce Int: Return TYPE.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/type/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let TYPE be x.\n  Set TYPE to 2.\n  Return TYPE.\n",
+      "pf": "a9016e91e9e7e3e1a46d93c3a39cf9910514cf82d10926a93673fe882960c929"
+    },
+    {
+      "name": "waitname/type/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start TYPE as async f().\n  Wait for TYPE.\n  Return x.\n",
+      "pf": "cec9dd5bf1e55a5238de7827a768cd0b77dee6e8c16fca280f86fafa455144e9"
+    },
+    {
+      "name": "operand/type/UPPER",
+      "source": "Module probe.sample.\n\nRule get given TYPE as Bool, produce Bool:\n  Return TYPE and TYPE.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/version/lower",
+      "source": "Module probe.sample.\n\nDefine S with version as Int.\n\nRule get, produce S:\n  Return S with version set to 1.\n",
+      "pf": "bc5318921cbb39259568c0c7d2198dd95384cb22f2f1cec3202c68b608024b94"
+    },
+    {
+      "name": "lambda/version/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given version as Int, produce Int: Return version.\n  Return x.\n",
+      "pf": "c2cbb78700368ce0540be1cf24213eadd8120f1fd71527b3567ba572cc244aa5"
+    },
+    {
+      "name": "settarget/version/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let version be x.\n  Set version to 2.\n  Return version.\n",
+      "pf": "db4f751520d4df9899d16b521ed39e508acd958c846f024f816dfd4476c4f3e1"
+    },
+    {
+      "name": "waitname/version/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start version as async f().\n  Wait for version.\n  Return x.\n",
+      "pf": "b3d0aa34ee8264ceaab4a64b77cbbcdf6a23f155c9c534229e721f31eeb2fa83"
+    },
+    {
+      "name": "operand/version/lower",
+      "source": "Module probe.sample.\n\nRule get given version as Bool, produce Bool:\n  Return version and version.\n",
+      "pf": "869705be8c479a8412a1778cbf9063ddae1a4585268eadb6e59dc49ff8cc7aa5"
+    },
+    {
+      "name": "construct/version/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Version as Int.\n\nRule get, produce S:\n  Return S with Version set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/version/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Version as Int, produce Int: Return Version.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/version/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Version be x.\n  Set Version to 2.\n  Return Version.\n",
+      "pf": "1f645205c83ad32e9a347018171150df2f976615acc025388ee1262e8e7170cc"
+    },
+    {
+      "name": "waitname/version/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Version as async f().\n  Wait for Version.\n  Return x.\n",
+      "pf": "6c9ce8d12fa744cb89f7e4ddddac9abc38ec2115b583fd63df462ceb932592b3"
+    },
+    {
+      "name": "operand/version/Cap",
+      "source": "Module probe.sample.\n\nRule get given Version as Bool, produce Bool:\n  Return Version and Version.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/version/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with VERSION as Int.\n\nRule get, produce S:\n  Return S with VERSION set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/version/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given VERSION as Int, produce Int: Return VERSION.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/version/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let VERSION be x.\n  Set VERSION to 2.\n  Return VERSION.\n",
+      "pf": "591ffe1ccd8bccc267a7a622b55b5ef6144275d59d3e56cc3c4a8211a4a66b22"
+    },
+    {
+      "name": "waitname/version/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start VERSION as async f().\n  Wait for VERSION.\n  Return x.\n",
+      "pf": "945acbfbbdcfc47aaee2e63a094d75d306ebac921856b17c4abd374d53522acc"
+    },
+    {
+      "name": "operand/version/UPPER",
+      "source": "Module probe.sample.\n\nRule get given VERSION as Bool, produce Bool:\n  Return VERSION and VERSION.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/required/lower",
+      "source": "Module probe.sample.\n\nDefine S with required as Int.\n\nRule get, produce S:\n  Return S with required set to 1.\n",
+      "pf": "1bf2a426e3796e7e74e1ecaa282352d3d9650dc1593cfc48c7307feb3ebed0a2"
+    },
+    {
+      "name": "lambda/required/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given required as Int, produce Int: Return required.\n  Return x.\n",
+      "pf": "c02b721240dd86e424417bd85af6b59a64cd312f35b83e33c7f18e51674c2f16"
+    },
+    {
+      "name": "settarget/required/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let required be x.\n  Set required to 2.\n  Return required.\n",
+      "pf": "6490ffe2cb5798a06c18cee7b5804e1e44f9614e60a9ba06f7e9bdff9fe862c1"
+    },
+    {
+      "name": "waitname/required/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start required as async f().\n  Wait for required.\n  Return x.\n",
+      "pf": "2b5431554c4c9a879d25b46d442e69f2895670172dd531f61acc22f9f57b291e"
+    },
+    {
+      "name": "operand/required/lower",
+      "source": "Module probe.sample.\n\nRule get given required as Bool, produce Bool:\n  Return required and required.\n",
+      "pf": "0f2e7a44dddbf831170f3a7a18e859e5f5b59fa91fd8ef646adea0754aa0000a"
+    },
+    {
+      "name": "construct/required/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Required as Int.\n\nRule get, produce S:\n  Return S with Required set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/required/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Required as Int, produce Int: Return Required.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/required/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Required be x.\n  Set Required to 2.\n  Return Required.\n",
+      "pf": "ac1fc988b1f5865ed3ea1548b37d9d2be5ae48fba32f00cced44007524d427da"
+    },
+    {
+      "name": "waitname/required/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Required as async f().\n  Wait for Required.\n  Return x.\n",
+      "pf": "bcf94840304b54f1c47e7ea14c34e162d22974178e496ea908e5217faa4b4e51"
+    },
+    {
+      "name": "operand/required/Cap",
+      "source": "Module probe.sample.\n\nRule get given Required as Bool, produce Bool:\n  Return Required and Required.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/required/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with REQUIRED as Int.\n\nRule get, produce S:\n  Return S with REQUIRED set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/required/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given REQUIRED as Int, produce Int: Return REQUIRED.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/required/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let REQUIRED be x.\n  Set REQUIRED to 2.\n  Return REQUIRED.\n",
+      "pf": "d325c4891eaf800256c1b19ef9377587a6869408a4cd9e131c958b409a468413"
+    },
+    {
+      "name": "waitname/required/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start REQUIRED as async f().\n  Wait for REQUIRED.\n  Return x.\n",
+      "pf": "f43887027005b2d9c3e3d4046a753316dc408ce9f0d5b0c6de094acfd0f5652a"
+    },
+    {
+      "name": "operand/required/UPPER",
+      "source": "Module probe.sample.\n\nRule get given REQUIRED as Bool, produce Bool:\n  Return REQUIRED and REQUIRED.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/between/lower",
+      "source": "Module probe.sample.\n\nDefine S with between as Int.\n\nRule get, produce S:\n  Return S with between set to 1.\n",
+      "pf": "16ef5dc522357273ae3549308b9603327f07e17ec9c2e912d468c34028f183d6"
+    },
+    {
+      "name": "lambda/between/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given between as Int, produce Int: Return between.\n  Return x.\n",
+      "pf": "01126e3384a96b05ecbf450864aa2369fc2f7a284c7418594459e1e566e7046f"
+    },
+    {
+      "name": "settarget/between/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let between be x.\n  Set between to 2.\n  Return between.\n",
+      "pf": "af7acc87d0d39c9a386afa1632122cd9db404153ce4f4cad0377d923bc247086"
+    },
+    {
+      "name": "waitname/between/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start between as async f().\n  Wait for between.\n  Return x.\n",
+      "pf": "55c0ef76e371c5d38b32ec045285db5767cef4b9f1b8132f5e4e37f479d55164"
+    },
+    {
+      "name": "operand/between/lower",
+      "source": "Module probe.sample.\n\nRule get given between as Bool, produce Bool:\n  Return between and between.\n",
+      "pf": "62c4ba09c47aaf91c2686c4efb7ed51a24c0e8b40b28cf596ee3f186757ae463"
+    },
+    {
+      "name": "construct/between/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Between as Int.\n\nRule get, produce S:\n  Return S with Between set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/between/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Between as Int, produce Int: Return Between.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/between/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Between be x.\n  Set Between to 2.\n  Return Between.\n",
+      "pf": "e57d759ea904e934ee69150cb846b5c46bae1665e00a4a950444550bf549f1f2"
+    },
+    {
+      "name": "waitname/between/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Between as async f().\n  Wait for Between.\n  Return x.\n",
+      "pf": "6c644ff7cea587353976c2790684c2a670775c88a5e89ca90cf4e8ae514b2561"
+    },
+    {
+      "name": "operand/between/Cap",
+      "source": "Module probe.sample.\n\nRule get given Between as Bool, produce Bool:\n  Return Between and Between.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/between/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with BETWEEN as Int.\n\nRule get, produce S:\n  Return S with BETWEEN set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/between/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given BETWEEN as Int, produce Int: Return BETWEEN.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/between/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let BETWEEN be x.\n  Set BETWEEN to 2.\n  Return BETWEEN.\n",
+      "pf": "eb36bf848762b5a620840fac30c77d6d053a1a7a0b0289bf1383d43ceb6c1456"
+    },
+    {
+      "name": "waitname/between/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start BETWEEN as async f().\n  Wait for BETWEEN.\n  Return x.\n",
+      "pf": "2f7581cad7ff4691a411a40382435b574799f7975a4907b6b40aae59a754e3d0"
+    },
+    {
+      "name": "operand/between/UPPER",
+      "source": "Module probe.sample.\n\nRule get given BETWEEN as Bool, produce Bool:\n  Return BETWEEN and BETWEEN.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/given/lower",
+      "source": "Module probe.sample.\n\nDefine S with given as Int.\n\nRule get, produce S:\n  Return S with given set to 1.\n",
+      "pf": "35870111508912a3a9f7a4d23f177c8b484993e85fe329184418f76b0c616d51"
+    },
+    {
+      "name": "lambda/given/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given given as Int, produce Int: Return given.\n  Return x.\n",
+      "pf": "f70297363c70ccdc04b4e8aafaca2c6ebbfbffb83b45ad8081b3daebdc990bfa"
+    },
+    {
+      "name": "settarget/given/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let given be x.\n  Set given to 2.\n  Return given.\n",
+      "pf": "25fbb56626058a3f26b604a254d39b02e506562413dc431cf71dea93fdd12b6f"
+    },
+    {
+      "name": "waitname/given/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start given as async f().\n  Wait for given.\n  Return x.\n",
+      "pf": "508ae9cc01a281c8eb982c1329805d66d360661dc1e14177e668040d69dca894"
+    },
+    {
+      "name": "operand/given/lower",
+      "source": "Module probe.sample.\n\nRule get given given as Bool, produce Bool:\n  Return given and given.\n",
+      "pf": "5c5ac4bf970054ff6582b117d1320450f0c8b63a19e6a49288871eeb78fe2eb1"
+    },
+    {
+      "name": "construct/given/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Given as Int.\n\nRule get, produce S:\n  Return S with Given set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/given/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Given as Int, produce Int: Return Given.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/given/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Given be x.\n  Set Given to 2.\n  Return Given.\n",
+      "pf": "62344fddc6129da9523d0a21c0546a0f547199bf2650c5602a1bafd972904c11"
+    },
+    {
+      "name": "waitname/given/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Given as async f().\n  Wait for Given.\n  Return x.\n",
+      "pf": "a09a0bfa399ffe29a8e8f6abe4acb85fc4f144eb1e48450384dc26a8466f3cb1"
+    },
+    {
+      "name": "operand/given/Cap",
+      "source": "Module probe.sample.\n\nRule get given Given as Bool, produce Bool:\n  Return Given and Given.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/given/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with GIVEN as Int.\n\nRule get, produce S:\n  Return S with GIVEN set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/given/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given GIVEN as Int, produce Int: Return GIVEN.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/given/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let GIVEN be x.\n  Set GIVEN to 2.\n  Return GIVEN.\n",
+      "pf": "82de8a2899110f7eaab55dd44d721e1e93ab38a08a3826784d24cd90fc84a24c"
+    },
+    {
+      "name": "waitname/given/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start GIVEN as async f().\n  Wait for GIVEN.\n  Return x.\n",
+      "pf": "fab3ca14d0e1ec49bf8470ad91be8013c2cdd09784e082604e9897d8b2e5c27e"
+    },
+    {
+      "name": "operand/given/UPPER",
+      "source": "Module probe.sample.\n\nRule get given GIVEN as Bool, produce Bool:\n  Return GIVEN and GIVEN.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/be/lower",
+      "source": "Module probe.sample.\n\nDefine S with be as Int.\n\nRule get, produce S:\n  Return S with be set to 1.\n",
+      "pf": "87f5e7ab5b1eaba9757001edcbbb9e456612410c80247b847f27c7ffc2e2d3d2"
+    },
+    {
+      "name": "lambda/be/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given be as Int, produce Int: Return be.\n  Return x.\n",
+      "pf": "3506dc1f3fd809c22bf0f396e6758f6132e9aff47288afeeb7b90fd37eb41995"
+    },
+    {
+      "name": "settarget/be/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let be be x.\n  Set be to 2.\n  Return be.\n",
+      "pf": "83cfea8d53164143baedd4b2f217387bb22cb5bde4bf5e979f4bfd96864375e3"
+    },
+    {
+      "name": "waitname/be/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start be as async f().\n  Wait for be.\n  Return x.\n",
+      "pf": "4e1cab1c08a9b8a4b8a7be9578bef6d22a297d13cf95b77188d419b0ffc75169"
+    },
+    {
+      "name": "operand/be/lower",
+      "source": "Module probe.sample.\n\nRule get given be as Bool, produce Bool:\n  Return be and be.\n",
+      "pf": "525abdec0220c0a5ee98ebadc0a0b9408811dbf8c440eefa78557d2e9b816184"
+    },
+    {
+      "name": "construct/be/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Be as Int.\n\nRule get, produce S:\n  Return S with Be set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/be/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Be as Int, produce Int: Return Be.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/be/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Be be x.\n  Set Be to 2.\n  Return Be.\n",
+      "pf": "6a7791071679086cc13b0d5046dcd00d36efdb8f454462f2fdaf8332cbc62225"
+    },
+    {
+      "name": "waitname/be/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Be as async f().\n  Wait for Be.\n  Return x.\n",
+      "pf": "28c36c49ffe45a476acbeee91cb455eafe1ac32c0cb482ea942239535b5b9e3e"
+    },
+    {
+      "name": "operand/be/Cap",
+      "source": "Module probe.sample.\n\nRule get given Be as Bool, produce Bool:\n  Return Be and Be.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/be/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with BE as Int.\n\nRule get, produce S:\n  Return S with BE set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/be/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given BE as Int, produce Int: Return BE.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/be/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let BE be x.\n  Set BE to 2.\n  Return BE.\n",
+      "pf": "3e98864df479d4ec57222a516b638ca2b8c8b0f9f1ffc31f40af6fc88b193c0d"
+    },
+    {
+      "name": "waitname/be/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start BE as async f().\n  Wait for BE.\n  Return x.\n",
+      "pf": "c8498ec196136a7996836e9a5975f41de8a36ae897ceacce00c00ebd01007775"
+    },
+    {
+      "name": "operand/be/UPPER",
+      "source": "Module probe.sample.\n\nRule get given BE as Bool, produce Bool:\n  Return BE and BE.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/module/lower",
+      "source": "Module probe.sample.\n\nDefine S with module as Int.\n\nRule get, produce S:\n  Return S with module set to 1.\n",
+      "pf": "6eb74a679aec9da42a5e101d27a888b6b3f7749e254bd44535a1559160f7e217"
+    },
+    {
+      "name": "lambda/module/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given module as Int, produce Int: Return module.\n  Return x.\n",
+      "pf": "735bcfc421e1e23857a241d683c81d3e06b9852319691b66c48e9e3c29810d6a"
+    },
+    {
+      "name": "settarget/module/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let module be x.\n  Set module to 2.\n  Return module.\n",
+      "pf": "b0f11251c3d53760c1eba9945f066d479c9a86007b4494996ed351f09e10950d"
+    },
+    {
+      "name": "waitname/module/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start module as async f().\n  Wait for module.\n  Return x.\n",
+      "pf": "deac46f45e4dc7d09a012c3682c5ee2c8a9683ca43c24b1e350886e9fd659bd9"
+    },
+    {
+      "name": "operand/module/lower",
+      "source": "Module probe.sample.\n\nRule get given module as Bool, produce Bool:\n  Return module and module.\n",
+      "pf": "c870318b99aae019372d65dff9e25a50b4afa935ad98ec838abebc614005e9bf"
+    },
+    {
+      "name": "construct/module/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Module as Int.\n\nRule get, produce S:\n  Return S with Module set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/module/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Module as Int, produce Int: Return Module.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/module/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Module be x.\n  Set Module to 2.\n  Return Module.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/module/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Module as async f().\n  Wait for Module.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/module/Cap",
+      "source": "Module probe.sample.\n\nRule get given Module as Bool, produce Bool:\n  Return Module and Module.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/module/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with MODULE as Int.\n\nRule get, produce S:\n  Return S with MODULE set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/module/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given MODULE as Int, produce Int: Return MODULE.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/module/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let MODULE be x.\n  Set MODULE to 2.\n  Return MODULE.\n",
+      "pf": "1273f3143933256c5b5c69692e3029276c2165fd87692980a6a3a49ec0f6801a"
+    },
+    {
+      "name": "waitname/module/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start MODULE as async f().\n  Wait for MODULE.\n  Return x.\n",
+      "pf": "819f648cf36c2e3f17cacbed6243d7245496afda3b096a442a22197a69be54f8"
+    },
+    {
+      "name": "operand/module/UPPER",
+      "source": "Module probe.sample.\n\nRule get given MODULE as Bool, produce Bool:\n  Return MODULE and MODULE.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/with/lower",
+      "source": "Module probe.sample.\n\nDefine S with with as Int.\n\nRule get, produce S:\n  Return S with with set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/with/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given with as Int, produce Int: Return with.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/with/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let with be x.\n  Set with to 2.\n  Return with.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/with/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start with as async f().\n  Wait for with.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/with/lower",
+      "source": "Module probe.sample.\n\nRule get given with as Bool, produce Bool:\n  Return with and with.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/with/Cap",
+      "source": "Module probe.sample.\n\nDefine S with With as Int.\n\nRule get, produce S:\n  Return S with With set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/with/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given With as Int, produce Int: Return With.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/with/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let With be x.\n  Set With to 2.\n  Return With.\n",
+      "pf": "12bbb059d9e2bcd402399ba8db303e8a24234e8690f689b9352fc4a0c27e4bea"
+    },
+    {
+      "name": "waitname/with/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start With as async f().\n  Wait for With.\n  Return x.\n",
+      "pf": "29f60ae5ecd3afbcbbcb99228d7d02326c1e6cd8f2478037da8667c855effc23"
+    },
+    {
+      "name": "operand/with/Cap",
+      "source": "Module probe.sample.\n\nRule get given With as Bool, produce Bool:\n  Return With and With.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/with/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with WITH as Int.\n\nRule get, produce S:\n  Return S with WITH set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/with/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given WITH as Int, produce Int: Return WITH.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/with/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let WITH be x.\n  Set WITH to 2.\n  Return WITH.\n",
+      "pf": "23061de1f829eb1ba496ce74be94028e1865c2d5cd077c989819d261893409ef"
+    },
+    {
+      "name": "waitname/with/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start WITH as async f().\n  Wait for WITH.\n  Return x.\n",
+      "pf": "75463c2d88565bbcefeea91395abad554355966b1bdd75338d1c0b686a2df8e8"
+    },
+    {
+      "name": "operand/with/UPPER",
+      "source": "Module probe.sample.\n\nRule get given WITH as Bool, produce Bool:\n  Return WITH and WITH.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/as/lower",
+      "source": "Module probe.sample.\n\nDefine S with as as Int.\n\nRule get, produce S:\n  Return S with as set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/as/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given as as Int, produce Int: Return as.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/as/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let as be x.\n  Set as to 2.\n  Return as.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/as/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start as as async f().\n  Wait for as.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/as/lower",
+      "source": "Module probe.sample.\n\nRule get given as as Bool, produce Bool:\n  Return as and as.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/as/Cap",
+      "source": "Module probe.sample.\n\nDefine S with As as Int.\n\nRule get, produce S:\n  Return S with As set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/as/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given As as Int, produce Int: Return As.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/as/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let As be x.\n  Set As to 2.\n  Return As.\n",
+      "pf": "918dfdd73174ee263c546b843b6a107a30007ee88658417c90040fe7007c8761"
+    },
+    {
+      "name": "waitname/as/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start As as async f().\n  Wait for As.\n  Return x.\n",
+      "pf": "4601ad898bbe01fcffe82575c6f3cded430414ea66ce43ddbf0333ec9ee97f0e"
+    },
+    {
+      "name": "operand/as/Cap",
+      "source": "Module probe.sample.\n\nRule get given As as Bool, produce Bool:\n  Return As and As.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/as/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with AS as Int.\n\nRule get, produce S:\n  Return S with AS set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/as/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given AS as Int, produce Int: Return AS.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/as/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let AS be x.\n  Set AS to 2.\n  Return AS.\n",
+      "pf": "06a2c76a8c06672e1e7c3c2fe77ce6ce01b156006c4ed613bfb4f5d0eb7e206a"
+    },
+    {
+      "name": "waitname/as/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start AS as async f().\n  Wait for AS.\n  Return x.\n",
+      "pf": "38215f0997d4ab889565d748a9673d17503f6c2d3f5abbe1ea40fb36372d8885"
+    },
+    {
+      "name": "operand/as/UPPER",
+      "source": "Module probe.sample.\n\nRule get given AS as Bool, produce Bool:\n  Return AS and AS.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/of/lower",
+      "source": "Module probe.sample.\n\nDefine S with of as Int.\n\nRule get, produce S:\n  Return S with of set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/of/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given of as Int, produce Int: Return of.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/of/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let of be x.\n  Set of to 2.\n  Return of.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/of/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start of as async f().\n  Wait for of.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/of/lower",
+      "source": "Module probe.sample.\n\nRule get given of as Bool, produce Bool:\n  Return of and of.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/of/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Of as Int.\n\nRule get, produce S:\n  Return S with Of set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/of/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Of as Int, produce Int: Return Of.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/of/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Of be x.\n  Set Of to 2.\n  Return Of.\n",
+      "pf": "8a40ca2d88b61497a2e403605ca4128082b954d94160f4b9d2a0a7bee666be2f"
+    },
+    {
+      "name": "waitname/of/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Of as async f().\n  Wait for Of.\n  Return x.\n",
+      "pf": "f5c4ddf2e9b6a4f566d7ba1cf362bfba22418097eabfcbb9f6c250c718f51b29"
+    },
+    {
+      "name": "operand/of/Cap",
+      "source": "Module probe.sample.\n\nRule get given Of as Bool, produce Bool:\n  Return Of and Of.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/of/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with OF as Int.\n\nRule get, produce S:\n  Return S with OF set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/of/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given OF as Int, produce Int: Return OF.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/of/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let OF be x.\n  Set OF to 2.\n  Return OF.\n",
+      "pf": "2bca3325d82959be1e1517ed5099f6581d60d0466c0535c0f5b0d5e025e3ff30"
+    },
+    {
+      "name": "waitname/of/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start OF as async f().\n  Wait for OF.\n  Return x.\n",
+      "pf": "d8146b0fd720f6e6ab93bac6f5633d7c831491129f86a21d054da671c5cbe895"
+    },
+    {
+      "name": "operand/of/UPPER",
+      "source": "Module probe.sample.\n\nRule get given OF as Bool, produce Bool:\n  Return OF and OF.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/one/lower",
+      "source": "Module probe.sample.\n\nDefine S with one as Int.\n\nRule get, produce S:\n  Return S with one set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/one/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given one as Int, produce Int: Return one.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/one/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let one be x.\n  Set one to 2.\n  Return one.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/one/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start one as async f().\n  Wait for one.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/one/lower",
+      "source": "Module probe.sample.\n\nRule get given one as Bool, produce Bool:\n  Return one and one.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/one/Cap",
+      "source": "Module probe.sample.\n\nDefine S with One as Int.\n\nRule get, produce S:\n  Return S with One set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/one/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given One as Int, produce Int: Return One.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/one/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let One be x.\n  Set One to 2.\n  Return One.\n",
+      "pf": "12fbc2d3ef26f531cdcdc9252a4733ce4640c82242859a53f544c76e82321c5d"
+    },
+    {
+      "name": "waitname/one/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start One as async f().\n  Wait for One.\n  Return x.\n",
+      "pf": "9fa109eab76cea2f4c6188708680a9b06e180c17fbefb4ae47aceb2a5a44c740"
+    },
+    {
+      "name": "operand/one/Cap",
+      "source": "Module probe.sample.\n\nRule get given One as Bool, produce Bool:\n  Return One and One.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/one/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with ONE as Int.\n\nRule get, produce S:\n  Return S with ONE set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/one/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given ONE as Int, produce Int: Return ONE.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/one/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let ONE be x.\n  Set ONE to 2.\n  Return ONE.\n",
+      "pf": "51fd9b04d4b0ea402f3c3922b8e812bf6603f4a35b43a54b1182b2a3eba0e497"
+    },
+    {
+      "name": "waitname/one/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start ONE as async f().\n  Wait for ONE.\n  Return x.\n",
+      "pf": "9cdd502d91cb3c700a36c61ca55cf175ea6d721b663ec4c6c4c800d22a9b6e94"
+    },
+    {
+      "name": "operand/one/UPPER",
+      "source": "Module probe.sample.\n\nRule get given ONE as Bool, produce Bool:\n  Return ONE and ONE.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/has/lower",
+      "source": "Module probe.sample.\n\nDefine S with has as Int.\n\nRule get, produce S:\n  Return S with has set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/has/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given has as Int, produce Int: Return has.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/has/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let has be x.\n  Set has to 2.\n  Return has.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/has/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start has as async f().\n  Wait for has.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/has/lower",
+      "source": "Module probe.sample.\n\nRule get given has as Bool, produce Bool:\n  Return has and has.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/has/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Has as Int.\n\nRule get, produce S:\n  Return S with Has set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/has/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Has as Int, produce Int: Return Has.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/has/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Has be x.\n  Set Has to 2.\n  Return Has.\n",
+      "pf": "c4c19b0b1133242fa464e388efe88ec53cafdb6fe47721d441fe0401a74f43d3"
+    },
+    {
+      "name": "waitname/has/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Has as async f().\n  Wait for Has.\n  Return x.\n",
+      "pf": "10c723046522c63cebbdf2c695b44836a1a272901ae38348db32e17c26a78d9a"
+    },
+    {
+      "name": "operand/has/Cap",
+      "source": "Module probe.sample.\n\nRule get given Has as Bool, produce Bool:\n  Return Has and Has.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/has/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with HAS as Int.\n\nRule get, produce S:\n  Return S with HAS set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/has/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given HAS as Int, produce Int: Return HAS.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/has/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let HAS be x.\n  Set HAS to 2.\n  Return HAS.\n",
+      "pf": "31a49066bd95acda258708e7a100d2c839f388fe760c7445f7a65e2e71e58d6a"
+    },
+    {
+      "name": "waitname/has/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start HAS as async f().\n  Wait for HAS.\n  Return x.\n",
+      "pf": "77e39e0632d06126a16d070deb2e5b7ecc4a9f25975ee5950ca1445ebae120a7"
+    },
+    {
+      "name": "operand/has/UPPER",
+      "source": "Module probe.sample.\n\nRule get given HAS as Bool, produce Bool:\n  Return HAS and HAS.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/produce/lower",
+      "source": "Module probe.sample.\n\nDefine S with produce as Int.\n\nRule get, produce S:\n  Return S with produce set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/produce/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given produce as Int, produce Int: Return produce.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/produce/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let produce be x.\n  Set produce to 2.\n  Return produce.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/produce/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start produce as async f().\n  Wait for produce.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/produce/lower",
+      "source": "Module probe.sample.\n\nRule get given produce as Bool, produce Bool:\n  Return produce and produce.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/produce/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Produce as Int.\n\nRule get, produce S:\n  Return S with Produce set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/produce/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Produce as Int, produce Int: Return Produce.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/produce/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Produce be x.\n  Set Produce to 2.\n  Return Produce.\n",
+      "pf": "317ec0f86ce2bee8f98a69a4d54cdefed55a7f842debf76495bf0cced95feffa"
+    },
+    {
+      "name": "waitname/produce/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Produce as async f().\n  Wait for Produce.\n  Return x.\n",
+      "pf": "529a826dc649cc2249d13e75115339c423651395d4b0c3ae3317bacb5fdde212"
+    },
+    {
+      "name": "operand/produce/Cap",
+      "source": "Module probe.sample.\n\nRule get given Produce as Bool, produce Bool:\n  Return Produce and Produce.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/produce/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with PRODUCE as Int.\n\nRule get, produce S:\n  Return S with PRODUCE set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/produce/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given PRODUCE as Int, produce Int: Return PRODUCE.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/produce/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let PRODUCE be x.\n  Set PRODUCE to 2.\n  Return PRODUCE.\n",
+      "pf": "39a41d424483988f016ce71a234eb0335248f910a0d428b1581e56e08aefa5fe"
+    },
+    {
+      "name": "waitname/produce/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start PRODUCE as async f().\n  Wait for PRODUCE.\n  Return x.\n",
+      "pf": "ab05a073e309f9774569ef96022499385bb67146b7ca94265e44446119d384b2"
+    },
+    {
+      "name": "operand/produce/UPPER",
+      "source": "Module probe.sample.\n\nRule get given PRODUCE as Bool, produce Bool:\n  Return PRODUCE and PRODUCE.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/use/lower",
+      "source": "Module probe.sample.\n\nDefine S with use as Int.\n\nRule get, produce S:\n  Return S with use set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/use/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given use as Int, produce Int: Return use.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/use/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let use be x.\n  Set use to 2.\n  Return use.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/use/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start use as async f().\n  Wait for use.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/use/lower",
+      "source": "Module probe.sample.\n\nRule get given use as Bool, produce Bool:\n  Return use and use.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/use/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Use as Int.\n\nRule get, produce S:\n  Return S with Use set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/use/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Use as Int, produce Int: Return Use.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/use/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Use be x.\n  Set Use to 2.\n  Return Use.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/use/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Use as async f().\n  Wait for Use.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/use/Cap",
+      "source": "Module probe.sample.\n\nRule get given Use as Bool, produce Bool:\n  Return Use and Use.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/use/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with USE as Int.\n\nRule get, produce S:\n  Return S with USE set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/use/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given USE as Int, produce Int: Return USE.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/use/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let USE be x.\n  Set USE to 2.\n  Return USE.\n",
+      "pf": "571e3bfb27f4526effea3e547af2553652cefad723ee32f1a904f2c21ef82c61"
+    },
+    {
+      "name": "waitname/use/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start USE as async f().\n  Wait for USE.\n  Return x.\n",
+      "pf": "a9e97e17b0ce8e45e60e25c9b4b32c5bfabe9881e313e27fc3b770b5e9861863"
+    },
+    {
+      "name": "operand/use/UPPER",
+      "source": "Module probe.sample.\n\nRule get given USE as Bool, produce Bool:\n  Return USE and USE.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/it/lower",
+      "source": "Module probe.sample.\n\nDefine S with it as Int.\n\nRule get, produce S:\n  Return S with it set to 1.\n",
+      "pf": "f0376d8e82991e49d942e204b64d614decb33b0a36a40df6321ba275d9ed8b1f"
+    },
+    {
+      "name": "lambda/it/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given it as Int, produce Int: Return it.\n  Return x.\n",
+      "pf": "0cf943523ad2d6868611a82e7b5e2cefd444af5d1f0d0a3f24b55f64d20bf326"
+    },
+    {
+      "name": "settarget/it/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let it be x.\n  Set it to 2.\n  Return it.\n",
+      "pf": "be14c8a878313fa04c733347126da676c6a4bae55488c3af2b0a7b7d13426d18"
+    },
+    {
+      "name": "waitname/it/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start it as async f().\n  Wait for it.\n  Return x.\n",
+      "pf": "80c58d352b6edf1dcc60273fb8619f27f715872e729e52cc43804467043f9109"
+    },
+    {
+      "name": "operand/it/lower",
+      "source": "Module probe.sample.\n\nRule get given it as Bool, produce Bool:\n  Return it and it.\n",
+      "pf": "7fc9ebfd3f9570a4af8233d710527c72685c03e8a88bf084b3f21ff449b5dce3"
+    },
+    {
+      "name": "construct/it/Cap",
+      "source": "Module probe.sample.\n\nDefine S with It as Int.\n\nRule get, produce S:\n  Return S with It set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/it/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given It as Int, produce Int: Return It.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/it/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let It be x.\n  Set It to 2.\n  Return It.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/it/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start It as async f().\n  Wait for It.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/it/Cap",
+      "source": "Module probe.sample.\n\nRule get given It as Bool, produce Bool:\n  Return It and It.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/it/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with IT as Int.\n\nRule get, produce S:\n  Return S with IT set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/it/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given IT as Int, produce Int: Return IT.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/it/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let IT be x.\n  Set IT to 2.\n  Return IT.\n",
+      "pf": "6ba912f8daf21413d2041d75c18c9aa9d62c9ac8af7270cc112f4fd1ebac80c7"
+    },
+    {
+      "name": "waitname/it/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start IT as async f().\n  Wait for IT.\n  Return x.\n",
+      "pf": "ad82a504472c9ee56e4ff22614784ba5cbce3911441d0185f0ba7f9f74586e0b"
+    },
+    {
+      "name": "operand/it/UPPER",
+      "source": "Module probe.sample.\n\nRule get given IT as Bool, produce Bool:\n  Return IT and IT.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/performs/lower",
+      "source": "Module probe.sample.\n\nDefine S with performs as Int.\n\nRule get, produce S:\n  Return S with performs set to 1.\n",
+      "reject": [
+        "E062",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/performs/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given performs as Int, produce Int: Return performs.\n  Return x.\n",
+      "reject": [
+        "E063",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/performs/lower",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let performs be x.\n  Set performs to 2.\n  Return performs.\n",
+      "reject": [
+        "E063",
+        4,
+        7
+      ]
+    },
+    {
+      "name": "waitname/performs/lower",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start performs as async f().\n  Wait for performs.\n  Return x.\n",
+      "reject": [
+        "E063",
+        7,
+        9
+      ]
+    },
+    {
+      "name": "operand/performs/lower",
+      "source": "Module probe.sample.\n\nRule get given performs as Bool, produce Bool:\n  Return performs and performs.\n",
+      "reject": [
+        "E062",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/performs/Cap",
+      "source": "Module probe.sample.\n\nDefine S with Performs as Int.\n\nRule get, produce S:\n  Return S with Performs set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/performs/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given Performs as Int, produce Int: Return Performs.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/performs/Cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Performs be x.\n  Set Performs to 2.\n  Return Performs.\n",
+      "pf": "d47a036b831d4954f411d1618370fbad8ade5a4c5800042d1063357be7486662"
+    },
+    {
+      "name": "waitname/performs/Cap",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start Performs as async f().\n  Wait for Performs.\n  Return x.\n",
+      "pf": "6b8d8806e3d1948ebd06ca2294119cd628bd8ea675016143cf550d34bec3aafd"
+    },
+    {
+      "name": "operand/performs/Cap",
+      "source": "Module probe.sample.\n\nRule get given Performs as Bool, produce Bool:\n  Return Performs and Performs.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ]
+    },
+    {
+      "name": "construct/performs/UPPER",
+      "source": "Module probe.sample.\n\nDefine S with PERFORMS as Int.\n\nRule get, produce S:\n  Return S with PERFORMS set to 1.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ]
+    },
+    {
+      "name": "lambda/performs/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given PERFORMS as Int, produce Int: Return PERFORMS.\n  Return x.\n",
+      "reject": [
+        "E055",
+        4,
+        27
+      ]
+    },
+    {
+      "name": "settarget/performs/UPPER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let PERFORMS be x.\n  Set PERFORMS to 2.\n  Return PERFORMS.\n",
+      "pf": "18630c172465c17dcf8b1e9d14ada541da996201004a6fea0c387cae8962c190"
+    },
+    {
+      "name": "waitname/performs/UPPER",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get given x as Int, produce Int:\n  Start PERFORMS as async f().\n  Wait for PERFORMS.\n  Return x.\n",
+      "pf": "c8d652c5216baa5d75ccc8f8cd91da6f86a6f440f546f909cdee33ea8fafb049"
+    },
+    {
+      "name": "operand/performs/UPPER",
+      "source": "Module probe.sample.\n\nRule get given PERFORMS as Bool, produce Bool:\n  Return PERFORMS and PERFORMS.\n",
+      "reject": [
+        "E055",
+        3,
+        16
       ]
     }
   ]
