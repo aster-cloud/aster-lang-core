@@ -1,5 +1,5 @@
 {
-  "description": "关键词大小写 K-b（语句、表达式与类型的关键词：be、set、to、not、and、or、for、function、map、async；aster-lang-ts#338 第 1 部分，ADR 0056 修订 A4 §1.1 / §1.3、修订 A7 D1）的 core 夹具。accept：source 能解析，且与把关键词改回规范拼写的 canonical Core IR 位置无关哈希相同，每例 aster-lang-ts 同样接受且同义（小写 map 在类型位置是 Map 类型，aster-lang-core#314）。names：关键词同形词作名字照常解析，Core IR 含 names 中的每个名字；其中 `aSYNC(x)` 这类名字读法也成立的写法仍是调用（`nOT(x)` 自 K-c 起读作 not，产品裁决 D3，见 keyword_case_ops.json）。reject：第一条诊断恰为 [码, 行, 列]，与 K-b 之前的 core（f995b84）相同：转义的关键词永远是名字；aster-lang-ts 只在小写开头拼写上认关键词的位置（形参与变体之间的 and / or、apply 的 to、构造里 and 之后的 set、lambda 形参之间的 and），首字母大写的拼写两引擎都拒。",
+  "description": "关键词大小写 K-b（语句、表达式与类型的关键词：be、set、to、not、and、or、for、function、map、async；aster-lang-ts#338 第 1 部分，ADR 0056 修订 A4 §1.1 / §1.3、修订 A7 D1）的 core 夹具。accept：source 能解析，且与把关键词改回规范拼写的 canonical Core IR 位置无关哈希相同，每例 aster-lang-ts 同样接受且同义（小写 map 在类型位置是 Map 类型，aster-lang-core#314）。names：关键词同形词作名字照常解析，Core IR 含 names 中的每个名字；其中 `aSYNC(x)` 这类名字读法也成立的写法仍是调用（`nOT(x)` 自 K-c 起读作 not，产品裁决 D3，见 keyword_case_ops.json）。reject：第一条诊断恰为 [码, 行, 列]，与 K-b 之前的 core（f995b84）相同：转义的关键词永远是名字。带 loosened 的 accept 行（aster-lang-ts#411）：形参与变体之间的 and / or、apply 的 to、构造里 and 之后的 set、lambda 形参之间的 and 在 K-b 里只收小写开头的拼写（当时 aster-lang-ts 只在 IDENT 上认这些关键词），#411 两引擎一起改为不区分大小写；before 记录此前的第一条诊断。",
   "accept": [
     {
       "name": "be/BE",
@@ -1030,6 +1030,83 @@
       "name": "when-not/nOT",
       "source": "Module probe.sample.\n\nRule get given x as Bool, produce Int:\n  When nOT x, deny \"no\".\n  Otherwise allow.\n",
       "canonical": "Module probe.sample.\n\nRule get given x as Bool, produce Int:\n  When not x, deny \"no\".\n  Otherwise allow.\n"
+    },
+    {
+      "name": "param-And-upper",
+      "source": "Module probe.sample.\n\nRule get given x as Int And y as Int, produce Int:\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int and y as Int, produce Int:\n  Return x.\n",
+      "loosened": "aster-lang-ts#411",
+      "before": [
+        "E062",
+        3,
+        25
+      ]
+    },
+    {
+      "name": "param-AND-upper",
+      "source": "Module probe.sample.\n\nRule get given x AND y, produce Int:\n  Return 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x and y, produce Int:\n  Return 1.\n",
+      "loosened": "aster-lang-ts#411",
+      "before": [
+        "E062",
+        3,
+        18
+      ]
+    },
+    {
+      "name": "variant-Or-upper",
+      "source": "Module probe.sample.\n\nDefine E as one of A Or B.\n",
+      "canonical": "Module probe.sample.\n\nDefine E as one of A or B.\n",
+      "loosened": "aster-lang-ts#411",
+      "before": [
+        "E060",
+        3,
+        22
+      ]
+    },
+    {
+      "name": "variant-and-mixed",
+      "source": "Module probe.sample.\n\nDefine E as one of A aND B.\n",
+      "canonical": "Module probe.sample.\n\nDefine E as one of A and B.\n",
+      "loosened": "aster-lang-ts#411",
+      "before": [
+        "E060",
+        3,
+        22
+      ]
+    },
+    {
+      "name": "apply-To-upper",
+      "source": "Module probe.sample.\n\nRule inc given v as Int, produce Int:\n  Return v + 1.\n\nRule get given x as Int, produce Int:\n  Return apply inc To x.\n",
+      "canonical": "Module probe.sample.\n\nRule inc given v as Int, produce Int:\n  Return v + 1.\n\nRule get given x as Int, produce Int:\n  Return apply inc to x.\n",
+      "loosened": "aster-lang-ts#411",
+      "before": [
+        "E063",
+        7,
+        20
+      ]
+    },
+    {
+      "name": "construct-and-SET-upper",
+      "source": "Module probe.sample.\n\nDefine S with p as Int and q as Int.\n\nRule get, produce S:\n  Return S with p set to 1 and q SET to 2.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with p as Int and q as Int.\n\nRule get, produce S:\n  Return S with p set to 1 and q set to 2.\n",
+      "loosened": "aster-lang-ts#411",
+      "before": [
+        "E060",
+        6,
+        34
+      ]
+    },
+    {
+      "name": "lambda-param-And",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given a as Int And b as Int, produce Int: Return a.\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given a as Int and b as Int, produce Int: Return a.\n  Return x.\n",
+      "loosened": "aster-lang-ts#411",
+      "before": [
+        "E063",
+        4,
+        42
+      ]
     }
   ],
   "names": [
@@ -1145,69 +1222,6 @@
         "E063",
         3,
         21
-      ]
-    },
-    {
-      "name": "param-And-upper",
-      "source": "Module probe.sample.\n\nRule get given x as Int And y as Int, produce Int:\n  Return x.\n",
-      "reject": [
-        "E062",
-        3,
-        25
-      ]
-    },
-    {
-      "name": "param-AND-upper",
-      "source": "Module probe.sample.\n\nRule get given x AND y, produce Int:\n  Return 1.\n",
-      "reject": [
-        "E062",
-        3,
-        18
-      ]
-    },
-    {
-      "name": "variant-Or-upper",
-      "source": "Module probe.sample.\n\nDefine E as one of A Or B.\n",
-      "reject": [
-        "E060",
-        3,
-        22
-      ]
-    },
-    {
-      "name": "variant-and-mixed",
-      "source": "Module probe.sample.\n\nDefine E as one of A aND B.\n",
-      "reject": [
-        "E060",
-        3,
-        22
-      ]
-    },
-    {
-      "name": "apply-To-upper",
-      "source": "Module probe.sample.\n\nRule inc given v as Int, produce Int:\n  Return v + 1.\n\nRule get given x as Int, produce Int:\n  Return apply inc To x.\n",
-      "reject": [
-        "E063",
-        7,
-        20
-      ]
-    },
-    {
-      "name": "construct-and-SET-upper",
-      "source": "Module probe.sample.\n\nDefine S with p as Int and q as Int.\n\nRule get, produce S:\n  Return S with p set to 1 and q SET to 2.\n",
-      "reject": [
-        "E060",
-        6,
-        34
-      ]
-    },
-    {
-      "name": "lambda-param-And",
-      "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let f be function given a as Int And b as Int, produce Int: Return a.\n  Return x.\n",
-      "reject": [
-        "E063",
-        4,
-        42
       ]
     },
     {

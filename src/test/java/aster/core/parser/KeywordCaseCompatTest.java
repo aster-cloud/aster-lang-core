@@ -63,8 +63,8 @@ class KeywordCaseCompatTest {
                 }
             }
         }
-        // 31 条关键词辅助规则（K-a 11 条、K-b 11 条、K-d 9 条），各有一条谓词分支；K-b 的 9 条门控规则各有一个谓词
-        assertThat(removed).isEqualTo(31);
+        // 28 条关键词辅助规则（K-a 11 条、K-b 8 条、K-d 9 条），各有一条谓词分支；K-b 的 9 条门控规则各有一个谓词
+        assertThat(removed).isEqualTo(28);
         assertThat(gates).isEqualTo(9);
     }
 
