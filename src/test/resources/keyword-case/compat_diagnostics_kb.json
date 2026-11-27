@@ -1,0 +1,1060 @@
+{
+  "description": "关键词大小写 K-b 的诊断兼容层回归夹具：变异自 aster-lang-test tier1 语料的错误源码（en-US），首条诊断所在行含 K-b 的关键词（be、set、to、not、and、or、for、function、map、async），ParseDiagnostics 给出的全部诊断（码、行、列、参数），期望值取自 K-b 之前的 core（aster-lang-core f995b84）。K-b 只放宽关键词位置，这些错误源码的诊断与错误恢复必须逐条相同。",
+  "cases": [
+    {
+      "name": "mut/hipaa-validation-demo.aster/1/del",
+      "source": "# ========================================\n# HIPAA Compliance Demo: PHI Validation & Access Control\n# §164.312 - Access Control & Audit Controls\n# ========================================\n\nModule examples.compliance.hipaa_validation_demo.\n\n# HIPAA 访问控制级别（服务端定义，不可客户端伪造）\nDefine AccessLevel has\n  level_name,\n  can_view_demographics,\n  can_view_medical,\n  can_view_financial,\n  can_modify.\n\n# PHI 数据分类\nDefine PHICategory has\n  category,\n  sensitivity,\n  requires_consent,\n  retention_years.\n\n# 访问请求\nDefine PHIAccessRequest has\n  user_id,\n  user_role,\n  phi_category_name,\n  purpose,\n  has_consent.\n\n# HIPAA 验证结果\nDefine HIPAAValidation has\n  is_compliant,\n  passed_count,\n  failed_count,\n  message.\n\n# 定义访问级别（服务端权威函数）\nRule get_access_level given role, produce:\n  If role equals to \"physician\"\n    Return AccessLevel with level_name set to \"FULL\", can_view_demographics set to true, can_view_medical set to true, can_view_financial set to false, can_modify set to true.\n  If role equals to \"nurse\"\n    Return AccessLevel with level_name set to \"CLINICAL\", can_view_demographics set to true, can_view_medical set to true, can_view_financial set to false, can_modify set to false.\n  If role equals to \"billing\"\n    Return AccessLevel with level_name set to \"BILLING\", can_view_demographics set to true, can_view_medical set to false, can_view_financial set to true, can_modify set to false.\n  If role equals to \"admin\"\n    Return AccessLevel with level_name set to \"ADMIN\", can_view_demographics set to true, can_view_medical set to false, can_view_financial set to false, can_modify set to false.\n  Return AccessLevel with level_name set to \"NONE\", can_view_demographics set to false, can_view_medical set to false, can_view_financial set to false, can_modify set to false.\n\n# 定义 PHI 类别\nRule get_phi_category given category_name, produce:\n  If category_name equals to \"demographics\"\n    Return PHICategory with category set to \"DEMOGRAPHICS\", sensitivity set to \"L2\", requires_consent set to false, retention_years set to 6.\n  If category_name equals to \"medical\"\n    Return PHICategory with category set to \"MEDICAL\", sensitivity set to \"L3\", requires_consent set to true, retention_years set to 10.\n  If category_name equals to \"financial\"\n    Return PHICategory with category set to \"FINANCIAL\", sensitivity set to \"L2\", requires_consent set to false, retention_years set to 7.\n  If category_name equals to \"psychotherapy\"\n    Return PHICategory with category set to \"PSYCHOTHERAPY\", sensitivity set to \"L3\", requires_consent set to true, retention_years set to 10.\n  Return PHICategory with category set to \"UNKNOWN\", sensitivity set to \"L3\", requires_consent set to true, retention_years set to 10.\n\n# HIPAA §164.312(a) - 访问控制验证\nRule validate_access_control given request, produce:\n  Let level be get_access_level(request.user_role).\n  Let category be get_phi_category(request.phi_category_name).\n  If category.category equals to \"MEDICAL\"\n    If level.can_view_medical equals to false\n      Return err of \"HIPAA: Role \" plus request.user_role plus \" cannot access medical records\".\n  If category.category equals to \"FINANCIAL\"\n    If level.can_view_financial equals to false\n      Return err of \"HIPAA: Role \" plus request.user_role plus \" cannot access financial records\".\n  If category.category equals to \"PSYCHOTHERAPY\"\n    If level.can_view_medical equals to false\n      Return err of \"HIPAA: Role \" plus request.user_role plus \" cannot access psychotherapy notes\".\n  Return ok of Text.concat(\"Access validated for role: \", request.user_role).\n\n# HIPAA §164.508 - 同意验证\nRule validate_consent given request, produce:\n  Let category be get_phi_category(request.phi_category_name).\n  If category.requires_consent\n    If request.has_consent equals to false\n      Return err of Text.concat(\"HIPAA: Consent required for \", category.category).\n  Return ok of \"Consent validated\".\n\n# HIPAA §164.512 - 使用目的验证\nRule validate_purpose given request, produce:\n  If request.purpose equals to \"treatment\"\n    Return ok of \"Purpose validated\".\n  If request.purpose equals to \"payment\"\n    Return ok of \"Purpose validated\".\n  If request.purpose equals to \"healthcare_operations\"\n    Return ok of \"Purpose validated\".\n  Return err of \"HIPAA: Purpose \" plus request.purpose plus \" is not permitted\".\n\n# 完整 HIPAA 合规验证（简化版 - 仅检查访问控制）\nRule validate_hipaa_compliance given request, produce:\n   access_result be validate_access_control(request).\n  Let consent_result be validate_consent(request).\n  Let purpose_result be validate_purpose(request).\n  If Result.isOk(access_result)\n    If Result.isOk(consent_result)\n      If Result.isOk(purpose_result)\n        Return HIPAAValidation with is_compliant set to true, passed_count set to 3, failed_count set to 0, message set to \"All HIPAA checks passed\".\n  Return HIPAAValidation with is_compliant set to false, passed_count set to 0, failed_count set to 1, message set to \"HIPAA compliance failed\".\n\n# 生成 HIPAA 合规报告\nRule generate_hipaa_report given user_id, validation, produce:\n  If validation.is_compliant\n    Return Text.concat(\"HIPAA COMPLIANCE: PASSED for \", user_id).\n  Otherwise\n    Return \"HIPAA COMPLIANCE: FAILED for \" plus user_id plus \". Failed checks: \" plus validation.failed_count.\n\n# 示例：医生访问医疗记录（合规）\nRule demo_compliant_access, produce:\n  Let request be PHIAccessRequest with user_id set to \"DR-001\", user_role set to \"physician\", phi_category_name set to \"medical\", purpose set to \"treatment\", has_consent set to true.\n  Return validate_hipaa_compliance(request).\n\n# 示例：账单人员访问医疗记录（不合规）\nRule demo_non_compliant_access, produce:\n  Let request be PHIAccessRequest with user_id set to \"BILL-001\", user_role set to \"billing\", phi_category_name set to \"medical\", purpose set to \"payment\", has_consent set to false.\n  Return validate_hipaa_compliance(request).\n\n# 示例：攻击者尝试伪造权限\nRule demo_spoofed_access_blocked, produce:\n  Let request be PHIAccessRequest with user_id set to \"ATTACKER-001\", user_role set to \"admin\", phi_category_name set to \"medical\", purpose set to \"curiosity\", has_consent set to false.\n  Return validate_hipaa_compliance(request).\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 97,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E060",
+          "line": 97,
+          "column": 18,
+          "params": {
+            "before": "kw.be",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 97,
+          "column": 44,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'('"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 98,
+          "column": 1,
+          "params": {}
+        }
+      ]
+    },
+    {
+      "name": "mut/loan.aster/4/del",
+      "source": "Module aster.finance.loan.\n\nDefine LoanApplication has applicantId required, amount, termMonths between 0 and 600, purpose required.\n\n ApplicantProfile has age between 0 and 120, creditScore between 300 and 850, annualIncome.\n\nDefine LoanDecision has approved, reason, approvedAmount, interestRateBps, termMonths.\n\nRule evaluateLoanEligibility given application, applicant, produce:\n  Return 0.\nRule determineInterestRateBps given creditScore between 300 and 850, produce:\n  Return 350.\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 5,
+          "column": 1,
+          "params": {}
+        }
+      ]
+    },
+    {
+      "name": "mut/not-precedence.aster/2/del",
+      "source": "Module not_prec.\n\nRule notCompare given x as Int, y as Int, produce Bool:\n  Return not x greater than y.\n\nRule notNot given b as Bool, produce Bool:\n   not not b.\n\nRule notAnd given x as Int, y as Int, produce Bool:\n  Return not x greater than 0 and y greater than 0.\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 7,
+          "column": 1,
+          "params": {}
+        }
+      ]
+    },
+    {
+      "name": "mut/pii_propagation.aster/4/del",
+      "source": "Module test.pii.propagation.\n\nRule process_user given name, produce. It performs io [Http]:\n   user_name be name.\n  Return Http.post(\"/api/users\", user_name).\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 4,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 14,
+          "params": {
+            "before": "kw.be",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 21,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 5,
+          "column": 1,
+          "params": {}
+        }
+      ]
+    },
+    {
+      "name": "mut/test_division.aster/1/del",
+      "source": "Module test.division.\n\nRule divide given x, y, produce:\n  Return x divided by y.\n\nRule multiplyAndDivide given x, y, z, produce:\n  Let product be x times y.\n   result be product divided by z.\n  Return result.\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 8,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 8,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 9,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 10,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_life.aster/2/del",
+      "source": "Module test.insurance.life.\n\n# 合成示例策略——数值取自公开权威来源（2026-08 检索），非真实保险公司费率表。\n#   · 基准费率：NerdWallet（费率由 LifeStein 提供，数据截至 2026-08-01）\n#     $500k/20 年期/Preferred/男性非吸烟：20 岁 $210、30 岁 $213、40 岁 $321、\n#     50 岁 $810、60 岁 $2331、70 岁 $9702（年保费）\n#     ★保费随年龄非线性：20→30 仅 +1.4%，40→50 +152%，60→70 +316%\n#   · 吸烟倍数 3.62x：由上表实算（60 岁 8435/2331）；ValuePenguin +215%、\n#     U.S.News +146%、Policygenius +217%——行业区间 2.5-4.5x，无单一权威值\n#   · BMI 分档：InsuranceGeek（Preferred Plus ≤25 / Preferred 26-28 /\n#     Standard Plus 29-30 / Standard 31-35 / Table Rating 36-40 / >40-42 拒保）\n#     ★该表为「典型 carrier 代表性限值」，未指名具体公司，各家 build chart 差异可达数十磅\n#   · 健康倍数按 **BMI 档**取值（88/100/121/177/250），★注意它**不等于**\n#     LifeStein 的核保等级费率差（40 岁男 Pref+ $321 / Pref $405 / Std $631\n#     = 100/126/197）——真实核保里 BMI 只是决定等级的因素之一，此处为让样本\n#     可执行而把两者合并成单一维度。121/177 取自等级差 126/197 的量级但**经过\n#     人为调整**以拉开与 BMI 档的对应关系，不是可直接引用的费率。\n#   · 职业倍数：BLS《2024 年致命职业伤害普查》（2026-02-19 发布）\n#     全国基准 3.3/10万 FTE；伐木 110.4(33.5x)、渔猎 88.8(26.9x)、屋顶 48.7(14.8x)、\n#     飞行员 36.7(11.1x)、卡车司机 25.7(7.8x，绝对死亡数 950 全美最高)、建筑 15.8(4.8x)\n#     ★真实核保用 flat extra（每千保额加 $2.50-5.00）而非乘数，此处简化为乘数\n#   · 最高投保年龄 75：★无行业统一上限，按产品条款而定，此为示例产品设定\n#   · ★期限系数（10 年 62% / 15 年 80% / 20 年 100% / 30 年 138%）：**无权威出处**。\n#     检索到的费率表都以 20 年期为口径，未找到公开的跨期限系数表。\n#     这四个数是为让样本覆盖期限维度而设的工程取值，仅保证单调递增，\n#     不可引用为费率。若接入真实费率表，改这四个数即可，case 断言的\n#     是「期限越长越贵」这个关系，不是具体百分比。\n\nDefine Applicant has applicantId, age, gender, smoker, bmi, occupation, healthScore.\n\nDefine PolicyRequest has coverageAmount, termYears, policyType.\n\nDefine LifeQuote has approved, reason, monthlyPremium, coverageAmount, termYears.\n\nRule calculateBaseRate given age, termYears, produce:\n  Let rate be 210.\n  If age at least 30\n    Let rate be 213.\n  If age at least 40\n    Let rate be 321.\n  If age at least 50\n    Let rate be 810.\n  If age at least 60\n    Let rate be 2331.\n  If age at least 70\n    Let rate be 9702.\n  If termYears at most 10\n    Return (rate times 62) integer divided by 100.\n  If termYears at most 15\n    Return (rate times 80) integer divided by 100.\n  If termYears at most 20\n    Return rate.\n  Return (rate times 138) integer divided by 100.\nRule calculateHealthMultiplier given applicant, produce:\n  Let multiplier be 100.\n  If applicant.bmi at least 29\n    Let multiplier be 121.\n  If applicant.bmi at least 31\n    Let multiplier be 177.\n  If applicant.bmi at least 36\n    Let multiplier be 250.\n  If applicant.healthScore at least 90\n    If applicant.bmi less than 29\n      Let multiplier be 88.\n  If applicant.smoker equals to true\n    Return (multiplier times 362) integer divided by 100.\n  Return multiplier.\nRule calculateOccupationMultiplier given occupation, produce:\n  If occupation equals to \"logging\"\n    Return 3350.\n  If occupation equals to \"fishing\"\n    Return 2690.\n  If occupation equals to \"roofing\"\n    Return 1480.\n  If occupation equals to \"pilot\"\n    Return 1110.\n  If occupation equals to \"truck-driver\"\n    Return 780.\n  If occupation equals to \"construction\"\n    Return 480.\n  If occupation equals to \"office\"\n    Return 100.\n  Return 100.\nRule calculateRiskScore given applicant, produce:\n  Let score be 100.\n  If applicant.smoker equals to true\n    Let score be score minus 30.\n  If applicant.bmi at least 31\n    Let score be score minus 20.\n  If applicant.bmi at least 36\n    Let score be score minus 15.\n  If applicant.healthScore at least 90\n    Let score be score plus 10.\n  If applicant.age at least 60\n    Let score be score minus 15.\n  Return score.\nRule generateLifeQuote given applicant, request, produce:\n  If applicant.age less than 18\n    Return LifeQuote with approved set to false, reason set to \"Applicant below minimum issue age\", monthlyPremium set to 0, coverageAmount set to 0, termYears set to 0.\n  If applicant.age at least 76\n    Return LifeQuote with approved set to false, reason set to \"Applicant above maximum issue age\", monthlyPremium set to 0, coverageAmount set to 0, termYears set to 0.\n  If applicant.healthScore less than 40\n    Return LifeQuote with approved set to false, reason set to \"Health score below underwriting threshold\", monthlyPremium set to 0, coverageAmount set to 0, termYears set to 0.\n  If applicant.bmi at least 41\n    Return LifeQuote with approved set to false, reason set to \"Build outside underwriting limits\", monthlyPremium set to 0, coverageAmount set to 0, termYears set to 0.\n  If request.coverageAmount at least 5000001\n    Return LifeQuote with approved set to false, reason set to \"Coverage exceeds maximum\", monthlyPremium set to 0, coverageAmount set to 0, termYears set to 0.\n  Let baseRate be calculateBaseRate(applicant.age, request.termYears).\n  Let healthMult be calculateHealthMultiplier(applicant).\n  Let occMult be calculateOccupationMultiplier(applicant.occupation).\n  Let scaled be (baseRate times request.coverageAmount) integer divided by 500000.\n  Let withHealth be (scaled times healthMult) integer divided by 100.\n  Let annual be (withHealth times occMult) integer divided by 100.\n  Let monthly be annual integer divided by 12.\n  Return LifeQuote with approved set to true, reason set to \"Approved\", monthlyPremium set to monthly, coverageAmount set to request.coverageAmount, termYears set to request.termYears.\nRule testApplicantTooYoung, produce:\n  Let applicant be Applicant with applicantId set to \"L1\", age set to 17, gender set to \"M\", smoker set to false, bmi set to 22, occupation set to \"office\", healthScore set to 90.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.reason.\nRule testApplicantTooOld, produce:\n  Let applicant be Applicant with applicantId set to \"L2\", age set to 80, gender set to \"M\", smoker set to false, bmi set to 24, occupation set to \"office\", healthScore set to 80.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.reason.\nRule testHealthScoreTooLow, produce:\n  Let applicant be Applicant with applicantId set to \"L3\", age set to 45, gender set to \"M\", smoker set to false, bmi set to 24, occupation set to \"office\", healthScore set to 30.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.reason.\nRule testCoverageExceedsMaximum, produce:\n  Let applicant be Applicant with applicantId set to \"L4\", age set to 40, gender set to \"M\", smoker set to false, bmi set to 24, occupation set to \"office\", healthScore set to 85.\n   request be PolicyRequest with coverageAmount set to 6000000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.reason.\nRule testYoungHealthyNonSmokerShortTerm, produce:\n  Let applicant be Applicant with applicantId set to \"L5\", age set to 25, gender set to \"M\", smoker set to false, bmi set to 23, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 10, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testYoungHealthyNonSmokerLongTerm, produce:\n  Let applicant be Applicant with applicantId set to \"L6\", age set to 30, gender set to \"M\", smoker set to false, bmi set to 23, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testMiddleAgedSmokerHighBMI, produce:\n  Let applicant be Applicant with applicantId set to \"L7\", age set to 45, gender set to \"M\", smoker set to true, bmi set to 32, occupation set to \"office\", healthScore set to 60.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testMiddleAgedNonSmokerLowBMI, produce:\n  Let applicant be Applicant with applicantId set to \"L8\", age set to 45, gender set to \"M\", smoker set to false, bmi set to 23, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testOlderApplicantHealthy, produce:\n  Let applicant be Applicant with applicantId set to \"L9\", age set to 60, gender set to \"M\", smoker set to false, bmi set to 24, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testHighRiskOccupation, produce:\n  Let applicant be Applicant with applicantId set to \"L10\", age set to 40, gender set to \"M\", smoker set to false, bmi set to 24, occupation set to \"logging\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testModerateRiskOccupation, produce:\n  Let applicant be Applicant with applicantId set to \"L11\", age set to 40, gender set to \"M\", smoker set to false, bmi set to 24, occupation set to \"construction\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testOfficeWorkerLowRisk, produce:\n  Let applicant be Applicant with applicantId set to \"L12\", age set to 40, gender set to \"M\", smoker set to false, bmi set to 24, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testSmokerVeryHighBMI, produce:\n  Let applicant be Applicant with applicantId set to \"L13\", age set to 50, gender set to \"M\", smoker set to true, bmi set to 37, occupation set to \"office\", healthScore set to 50.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testExcellentHealthHighScore, produce:\n  Let applicant be Applicant with applicantId set to \"L14\", age set to 40, gender set to \"F\", smoker set to false, bmi set to 22, occupation set to \"office\", healthScore set to 95.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testCalculateBaseRateYoungShort, produce:\n  Return calculateBaseRate(25, 10).\nRule testCalculateBaseRateYoungLong, produce:\n  Return calculateBaseRate(25, 30).\nRule testCalculateBaseRateMiddleShort, produce:\n  Return calculateBaseRate(40, 10).\nRule testCalculateBaseRateMiddleLong, produce:\n  Return calculateBaseRate(40, 30).\nRule testCalculateBaseRateOlderShort, produce:\n  Return calculateBaseRate(50, 10).\nRule testCalculateBaseRateOlderLong, produce:\n  Return calculateBaseRate(50, 30).\nRule testCalculateBaseRateSeniorShort, produce:\n  Return calculateBaseRate(60, 10).\nRule testCalculateHealthMultiplierClean, produce:\n  Let applicant be Applicant with applicantId set to \"L15\", age set to 40, gender set to \"M\", smoker set to false, bmi set to 23, occupation set to \"office\", healthScore set to 75.\n  Return calculateHealthMultiplier(applicant).\nRule testCalculateHealthMultiplierSmoker, produce:\n  Let applicant be Applicant with applicantId set to \"L16\", age set to 40, gender set to \"M\", smoker set to true, bmi set to 23, occupation set to \"office\", healthScore set to 75.\n  Return calculateHealthMultiplier(applicant).\nRule testCalculateHealthMultiplierHighBMI, produce:\n  Let applicant be Applicant with applicantId set to \"L17\", age set to 40, gender set to \"M\", smoker set to false, bmi set to 32, occupation set to \"office\", healthScore set to 75.\n  Return calculateHealthMultiplier(applicant).\nRule testCalculateHealthMultiplierExcellent, produce:\n  Let applicant be Applicant with applicantId set to \"L18\", age set to 40, gender set to \"F\", smoker set to false, bmi set to 22, occupation set to \"office\", healthScore set to 95.\n  Return calculateHealthMultiplier(applicant).\nRule testCalculateOccupationMultiplierHighRisk, produce:\n  Return calculateOccupationMultiplier(\"logging\").\nRule testCalculateOccupationMultiplierModerate, produce:\n  Return calculateOccupationMultiplier(\"construction\").\nRule testCalculateOccupationMultiplierOffice, produce:\n  Return calculateOccupationMultiplier(\"office\").\nRule testCalculateOccupationMultiplierUnknown, produce:\n  Return calculateOccupationMultiplier(\"librarian\").\nRule testCalculateRiskScoreLowRisk, produce:\n  Let applicant be Applicant with applicantId set to \"L19\", age set to 35, gender set to \"F\", smoker set to false, bmi set to 22, occupation set to \"office\", healthScore set to 95.\n  Return calculateRiskScore(applicant).\nRule testCalculateRiskScoreHighRisk, produce:\n  Let applicant be Applicant with applicantId set to \"L20\", age set to 62, gender set to \"M\", smoker set to true, bmi set to 37, occupation set to \"roofing\", healthScore set to 45.\n  Return calculateRiskScore(applicant).\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 133,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 133,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E062",
+          "line": 133,
+          "column": 49,
+          "params": {
+            "expected": "'.' | ',' | kw.less than or equal word | kw.greater than or equal word | kw.and | kw.as | kw.required | kw.between | kw.matching | token.newline",
+            "token": "kw.set"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 134,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 135,
+          "column": 3,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 136,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/builtin-name-shadowing.aster/1/del",
+      "source": "Module demo.builtinnameshadowing.\n\nRule lessThan given a as Int, b as Int, produce Bool:\n  Return a less than b.\n\nRule ap given gt as (Int, Int) -> Bool, produce Bool:\n  Return gt(1, 2).\n\nRule viaParam given n as Int, produce Bool:\n  Return ap(lessThan).\n\nRule viaClosure given n as Int, produce Int:\n  Let add be function with a  Int, b as Int, produce Int:\n    Return a times b.\n  Return add(n, 3).\n\nRule viaUnary given n as Int, produce Int:\n  Let add be function with a as Int, produce Int:\n    Return a plus 10.\n  Return add(n).\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 13,
+          "column": 28,
+          "params": {
+            "token": "token.identifier"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/constraint-single-sided-range.aster/0/rep",
+      "source": "Module demo.constraints.singlesided.\n\nDefine Loan has amount as Int at least 1, One as Double at most 0.25, termMonths as Int between 6 and 360.\n\nRule clampTerm given months as Int at least 6, produce Int:\n  If months greater than 360:\n    Return 360.\n  Return months.\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 3,
+          "column": 43,
+          "params": {
+            "token": "token.fieldName"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-adr-07-whole-input-serialized.aster/0/rep",
+      "source": "Module governance.input.refs.case07.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, AS as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let s be Crypto.hash(req.context).\n  If s equals to \"x\":\n    Return Verdict.deny(\"hash\").\n  Return Verdict.allow().\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 4,
+          "column": 44,
+          "params": {
+            "token": "token.fieldName"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-memo-key-collision-repro.aster/5/case",
+      "source": "Module governance.input.refs.case48.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, Meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule g given m as Text, produce Bool:\n  Return m equals to \"x\".\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let b be List.concat([Maybe.withDefault(Map.get(req.context.meta, \"a\"), \"\")], req.principal_roles).\n  Let r1 be g(b).\n  Let a be Map.get(req.context.meta, \"a\u0001principal_roles\").\n  Let r2 be g(a).\n  If r1 and r2:\n    Return Verdict.deny(\"x\").\n  Return Verdict.allow().\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 4,
+          "column": 72,
+          "params": {
+            "token": "token.fieldName"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/17-comparison-range.aster/0/ins",
+      "source": "Module dual.engine.comparison.range.\n\nRule in_range given value, lo, hi, produce:\n  Return value greater than lo and value Produce less than hi.\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 42,
+          "params": {
+            "before": "'Produce'",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/20-let-dependent.aster/0/ins",
+      "source": "Module dual.engine.let.dependent.\n\nRule final_amount given base produce:\n  Let doubled be base times 2.\n  Given Let with_bonus be doubled plus 100.\n  Return with_bonus.\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 5,
+          "column": 9,
+          "params": {
+            "before": "kw.let",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/22-logical-and.aster/2/rep",
+      "source": "Module dual.engine.logical.conjunction.\n\nRule both given x, y, produce:\n  Return x Produce least 18 and y at least 30000.\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 12,
+          "params": {
+            "before": "'Produce'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 26,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'18'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/and-or-short-circuit.aster/4/ins",
+      "source": "Module demo.logic.shortcircuit.\n\nRule isWheel given xs, produce:\n  Return List.length(xs) equals to 5 and List.get(xs, 4) equals to 14.\n\nRule hasNoFifthOrPositive given xs, produce:\n  Return List.length(xs) less than 5 or List.get(xs, 4) greater than 0.\n\nRule guardedAnd given flag, xs, produce:\n  WITH Return flag and List.get(xs, 4) equals to 14.\n\nRule guardedOr given flag, xs, produce:\n  Return flag or List.get(xs, 4) equals to 14.\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 10,
+          "column": 8,
+          "params": {
+            "before": "kw.return",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/constraint-single-sided-range.aster/1/del",
+      "source": "Module demo.constraints.singlesided.\n\nDefine Loan has amount as Int at least 1, rate as Double  most 0.25, termMonths as Int between 6 and 360.\n\nRule clampTerm given months as Int at least 6, produce Int:\n  If months greater than 360:\n    Return 360.\n  Return months.\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 3,
+          "column": 58,
+          "params": {
+            "before": "'most'",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/constraint-single-sided-range.aster/5/rep",
+      "source": "Module demo.constraints.singlesided.\n\nDefine Loan has amount as Int at least 1, rate as Double at most 0.25, termMonths under Int between 6 and 360.\n\nRule clampTerm given months as Int at least 6, produce Int:\n  If months greater than 360:\n    Return 360.\n  Return months.\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 3,
+          "column": 83,
+          "params": {
+            "before": "'under'",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/constraints-v2.aster/1/del",
+      "source": "Module demo.constraints.v2.\n\nDefine Applicant has name as Text required, age as Int required between 18 and 120, email  Text matching \"^.+@.+$\", code as Text required matching pattern \"^[A-Z]{2}[0-9]{4}$\".\n\nRule screen given age as Int required between 18 and 120, code as Text required matching pattern \"^[A-Z]{2}[0-9]{4}$\", produce Bool:\n  Return age greater than 20.\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 3,
+          "column": 91,
+          "params": {
+            "before": "'Text'",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/constraints-v2.aster/5/case",
+      "source": "Module demo.constraints.v2.\n\nDefine Applicant has name as Text required, age as Int required between 18 and 120, email as Text Matching \"^.+@.+$\", code as Text required matching pattern \"^[A-Z]{2}[0-9]{4}$\".\n\nRule screen given age as Int required between 18 and 120, code as Text required matching pattern \"^[A-Z]{2}[0-9]{4}$\", produce Bool:\n  Return age greater than 20.\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 3,
+          "column": 99,
+          "params": {
+            "before": "'Matching'",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/creditcard.aster/1/ins",
+      "source": "Module aster.finance.creditcard.\n\n# 合成示例策略——数值取自公开权威来源（2026-08 检索），非真实发卡行核保政策。\n#   · FICO 五档 300-579/580-669/670-739/740-799/800-850：myFICO 官网\n#   · 使用率分档：Experian Q3 2024 各 FICO 档实测均值 7.1/15.2/38.6/61.4/80.7%\n#     ★FICO 官方否认「30% 悬崖」——分数是连续函数。本策略的分档罚分是\n#     工程简化，不代表 FICO 行为。\n#   · 硬查询：myFICO（单次通常 <5 分；≥6 次破产概率达 8 倍）\n#     ★只应统计 12 个月内查询（影响分数 1 年，留存报告 2 年，两者不同）\n#   · APR 分档：CFPB《2025 消费信用卡市场报告》Figure 85（2024 新账户）\n#     760+ 25.8% / 740-759 27.3% / ... / <620 30.0%（以基点存储避免浮点）\n#   · 21 岁以下需独立还款能力或共签：Reg Z 12 CFR §1026.51(b)\n#     ★§1026.51 不设任何数字门槛；36%/43% DTI 均属房贷惯例（43% 已于 2021 废止），\n#     故本策略用「可支配收入」而非 DTI 比率。\n#   · 担保卡押金：Discover it Secured（$200 起、1:1）、Capital One（分层 $49/$99/$200）\n#   · 年费：CFPB 2024 通用卡平均 $127/年；中端 $95、高端 $550-895\n#   · ★评分点值（信用分档 50/40/30/15/0、历史 35/20/10/0、使用率罚 30/22/14/6/0、\n#     查询罚 20/8/3/0、就业 25/20/15/10/5/0、基础 +15）：**无权威出处**。\n#     FICO 官方只公布**因子权重**（支付历史 35%/欠款 30%/账龄 15%/新开户 10%/\n#     组合 10%）且明说是「人群平均、个体浮动」，不公布任何可加总的点值表；\n#     真实发卡行的评分卡是专有的。这些点值是为让样本可执行而设的工程取值，\n#     **相对大小**参照 FICO 权重（支付历史 35 最高、查询影响最小），\n#     但绝对值不可引用。case 断言的是分档关系与边界，不是具体分数。\n#   · ★担保卡触发线（分数<580 / 风险分<40）与额度上限公式（可支配收入÷2、\n#     (风险分+就业分)×100）同为工程取值，无监管或行业出处。\n\nDefine ApplicantInfo has applicantId, age, annualIncome, creditScore, existingCreditCards, monthlyRent, employmentStatus, yearsAtCurrentJob.\n\nDefine FinancialHistory has bankruptcyCount, latePayments, utilization, accountAge, hardInquiries.\n\nDefine CreditCardOffer has productType, requestedLimit, hasRewards, annualFee.\n\nDefine ApprovalDecision has approved, reason, approvedLimit, interestRateAPR, monthlyFee, creditLine, requiresDeposit, depositAmount.\n\nDefine RiskScore has score, category, factors.\n\nDefine IncomeValidation has sufficient, ratio, recommendation.\n\nRule calculateCreditScorePoints given creditScore, produce:\n  If creditScore at least 800\n    Return 50.\n  If creditScore at least 740\n    Return 40.\n  If creditScore at least 670\n    Return 30.\n  If creditScore at least 580\n    Return 15.\n  Return 0.\nRule calculateHistoryPoints given history, produce:\n  If history.bankruptcyCount at least 1\n    Return 0.\n  If history.latePayments equals to 0\n    Return 35.\n  If history.latePayments at most 2\n    Return 20.\n  If history.latePayments at most 5\n    Return 10.\n  Return 0.\nRule calculateUtilizationPenalty given utilization, produce:\n  If utilization at least 81\n    Return 30.\n  If utilization at least 61\n    Return 22.\n  If utilization at least 39\n    Return 14.\n  If utilization at least 16\n    Return 6.\n  Return 0.\nRule calculateInquiryPenalty given inquiries, produce:\n  If inquiries at least 6\n    Return 20.\n  If inquiries at least 3\n    Return 8.\n  If inquiries at least 1\n    Return 3.\n  Return 0.\nRule calculateComprehensiveRiskScore given applicant, history, produce:\n  Let scorePoints be calculateCreditScorePoints(applicant.creditScore).\n  Let historyPoints be calculateHistoryPoints(history).\n  Let utilPenalty be calculateUtilizationPenalty(history.utilization).\n  Let inquiryPenalty be calculateInquiryPenalty(history.hardInquiries).\n  Return ((scorePoints plus historyPoints) plus 15) minus (utilPenalty plus inquiryPenalty).\nRule assessEmploymentStability given applicant, produce:\n  If applicant.employmentStatus equals to \"unemployed\"\n    Return 0.\n  If applicant.employmentStatus equals to \"self-employed\"\n    If applicant.yearsAtCurrentJob at least 2\n      Return 15.\n    Return 5.\n  If applicant.yearsAtCurrentJob at least 5\n    Return 25.\n  If applicant.yearsAtCurrentJob at least 2\n    Return 20.\n  Return 10.\nRule validateIncomeRequirements given applicant, requestedLimit, produce:\n  Let annualRent be applicant.monthlyRent times 12.\n  Let disposable be applicant.annualIncome minus annualRent.\n  If disposable at most 0\n    Return false.\n  If requestedLimit at most (disposable divided by 2)\n    Return true.\n  Return false.\nRule determineFinalCreditLimit given requestedLimit, applicant, history, riskScore, employmentScore, produce:\n  If riskScore less than 30\n    Return 0.\n  GIVEN Let annualRent be applicant.monthlyRent times 12.\n  Let disposable be applicant.annualIncome minus annualRent.\n  If disposable at most 0\n    Return 0.\n  Let affordCap be disposable divided by 2.\n  Let riskCap be (riskScore plus employmentScore) times 100.\n  Let cap be affordCap.\n  If riskCap less than cap\n    Let cap be riskCap.\n  If requestedLimit less than cap\n    Return requestedLimit.\n  Return cap.\nRule calculateAPR given creditScore, riskScore, history, produce:\n  Let base be 3000.\n  If creditScore at least 760\n    Let base be 2580.\n  If creditScore at least 740\n    If creditScore less than 760\n      Let base be 2730.\n  If creditScore at least 720\n    If creditScore less than 740\n      Let base be 2820.\n  If creditScore at least 700\n    If creditScore less than 720\n      Let base be 2870.\n  If creditScore at least 680\n    If creditScore less than 700\n      Let base be 2900.\n  If creditScore at least 660\n    If creditScore less than 680\n      Let base be 2920.\n  If creditScore at least 640\n    If creditScore less than 660\n      Let base be 2940.\n  If creditScore at least 620\n    If creditScore less than 640\n      Let base be 2990.\n  If history.bankruptcyCount at least 1\n    Return base plus 200.\n  If riskScore at least 70\n    Return base minus 100.\n  Return base.\nRule shouldRequireSecuredCard given applicant, history, riskScore, produce:\n  If history.bankruptcyCount at least 1\n    Return true.\n  If applicant.creditScore less than 580\n    Return true.\n  If riskScore less than 40\n    Return true.\n  Return false.\nRule calculateRequiredDeposit given requiresSecured, creditLimit, produce:\n  If requiresSecured equals to false\n    Return 0.\n  If creditLimit at most 200\n    Return 200.\n  Return creditLimit.\nRule determineMonthlyFee given productType, isSecured, creditScore, produce:\n  If isSecured equals to true\n    Return 0.\n  If productType equals to \"premium\"\n    Return 74.\n  If productType equals to \"rewards\"\n    Return 8.\n  Return 0.\nRule evaluateCreditCardApplication given applicant, history, offer, produce:\n  If applicant.age less than 21\n    Return ApprovalDecision with approved set to false, reason set to \"Applicant under 21 requires independent ability to pay or cosigner\", approvedLimit set to 0, interestRateAPR set to 0, monthlyFee set to 0, creditLine set to 0, requiresDeposit set to false, depositAmount set to 0.\n  Let riskScore be calculateComprehensiveRiskScore(applicant, history).\n  Let employmentScore be assessEmploymentStability(applicant).\n  Let secured be shouldRequireSecuredCard(applicant, history, riskScore).\n  Let limit be determineFinalCreditLimit(offer.requestedLimit, applicant, history, riskScore, employmentScore).\n  If limit at most 0\n    Return ApprovalDecision with approved set to false, reason set to \"Insufficient ability to pay\", approvedLimit set to 0, interestRateAPR set to 0, monthlyFee set to 0, creditLine set to 0, requiresDeposit set to false, depositAmount set to 0.\n  Let apr be calculateAPR(applicant.creditScore, riskScore, history).\n  Let deposit be calculateRequiredDeposit(secured, limit).\n  Let fee be determineMonthlyFee(offer.productType, secured, applicant.creditScore).\n  Return ApprovalDecision with approved set to true, reason set to \"Approved\", approvedLimit set to limit, interestRateAPR set to apr, monthlyFee set to fee, creditLine set to limit, requiresDeposit set to secured, depositAmount set to deposit.\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 106,
+          "column": 9,
+          "params": {
+            "before": "kw.let",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_valid_nested.aster/3/rep",
+      "source": "Module test.eff.valid.nested.\n\nRule leaf_http, produce. It performs io [Http]:\n  Return Http.get(\"/health\").\n\nRule mid_io, produce. It performs io [Http, Sql]:\n  Let resp be leaf_http(given.\n  Return Db.insert(\"logs\", resp).\n\nRule root_io, produce. It performs io [Http, Sql, Time]:\n  Let data be mid_io().\n  Let ts be Time.now().\n  Return (ts plus \": \") plus data.\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 7,
+          "column": 30,
+          "params": {
+            "before": "'.'",
+            "token": "')'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/09-arithmetic-modulo.aster/4/ins",
+      "source": "Module dual.engine.arithmetic.evencheck.\n\nRule is_even given n produce:\n  Return n modulo 2 equals to 0with .\n\nRule mod given n, d, produce:\n  Return n modulo d.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 32,
+          "params": {
+            "token": "kw.with"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/11-boolean-and.aster/0/ins",
+      "source": "Module dual.engine.boolean.and.\n\nRule both given x, y, produce:\n  of Return x and y.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 3,
+          "params": {
+            "token": "kw.of"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/19-let-multiple.aster/4/ins",
+      "source": "Module dual.engine.let.multiple.\n\nRule total_price given quantity, unit_price, produce:\n  Let subtotal be quantity times unit_price.\n  Let tax be subtotal of divided by 10.\n  Return subtotal plus tax.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 5,
+          "column": 26,
+          "params": {
+            "token": "kw.divided by"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/23-logical-or.aster/1/ins",
+      "source": "Module dual.engine.logical.disjunction.\n\nRule either given tier, produce:\n  Return tier equals to \"gold\" or tier equals to \"platinum\"Foo .\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 60,
+          "params": {
+            "token": "'Foo'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/23-logical-or.aster/3/ins",
+      "source": "Module dual.engine.logical.disjunction.\n\nRule either given tier, produce:\n  Return tier equals to \"gold\" or tier equals to \"platinum\"as .\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 60,
+          "params": {
+            "token": "kw.as"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/double-literals-v2.aster/2/rep",
+      "source": "Module demo.doubles.v2.\n\nDefine Reading has level as Double between 0.50 and 2.0, ratio as Double between 0 and 123456789012345678901With5.\n\nRule tenth, produce Double:\n  Return 0.1.\n\nRule wholeOne, produce Double:\n  Return 1.0.\n\nRule trimmed, produce Double:\n  Return 2.50.\n\nRule shifted given x as Double, produce Double:\n  Return x plus 0.30000000000000004.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 3,
+          "column": 109,
+          "params": {
+            "token": "'With5'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eligibility.aster/2/ins",
+      "source": "Module aster.healthcare.eligibility.\n\nDefine Patient has patientId, age, hasInsurance, insuranceType, chronicConditions.\n\nDefine Service has serviceCode, serviceName, basePrice, requiresPreAuth.\n\nDefine EligibilityCheck has eligible, reason, coveragePercent, estimatedCost, requiresPreAuth.\n\nRule checkServiceEligibility given patient, service, produce:\n  Return 0.\nRule determineMinorCoverage given insuranceType, service, produce:\n  Return 0.\nRule determineSeniorCoverage given insuranceType, service, produce:\n  Return 0.\nRule determineStandardCoverage given insuranceType, service, chronicConditions, produce:\n  Return 0.\nRule calculatePatientCost and given basePrice, coveragePercent, produce:\n  Return 0.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 17,
+          "column": 27,
+          "params": {
+            "token": "kw.and"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/enterprise.aster/0/del",
+      "source": "Module aster.finance.enterprise_lending.\n\nDefine EnterpriseInfo has companyId, companyName, industry, yearsInBusiness, employeeCount, annualRevenue, revenueGrowthRate, profitMargin.\n\nDefine FinancialPosition has totalAssets, currentAssets, totalLiabilities, currentLiabilities, equity, cashFlow, outstandingDebt.\n\nDefine BusinessHistory has previousLoans, defaultCount, latePayments, creditUtilization, largestLoanAmount, relationshipYears.\n\nDefine LoanApplication has requestedAmount, loanPurpose, termMonths, collateralValue, guarantorCount.\n\nDefine LendingDecision has approved, approvedAmount, interestRateBps, termMonths, collateralRequired, specialConditions, riskCategory, confidenceScore, reasonCode, detailedAnalysis.\n\nDefine LiquidityAnalysis has currentRatio, quickRatio, isHealthy, recommendation.\n\nDefine LeverageAnalysis has debtToEquity, debtToAssets, riskLevel, maxLoanCapacity.\n\nDefine ProfitabilityAnalysis has returnOnAssets, returnOnEquity, profitabilityGrade, repaymentCapacity.\n\nRule assessLiquidity given position, produce:\n  Let currentRatio be (position.currentAssets times 100) divided by position.currentLiabilities.\n  Let quickRatio be (position.currentAssets times 100) divided by position.currentLiabilities.\n  If currentRatio at least 200\n    Return LiquidityAnalysis with currentRatio set to currentRatio and quickRatio set to quickRatio and isHealthy set to true and recommendation set to \"Excellent liquidity\".\n  If currentRatio at least 150\n    Return LiquidityAnalysis with currentRatio set to currentRatio and quickRatio set to quickRatio and isHealthy set to true and recommendation set to \"Good liquidity\".\n  If currentRatio at least 100\n    Return LiquidityAnalysis with currentRatio set to currentRatio and quickRatio set to quickRatio and isHealthy set to true and recommendation set to \"Adequate liquidity\".\n  Return LiquidityAnalysis with currentRatio set to currentRatio and quickRatio set to quickRatio and isHealthy set to false and recommendation set to \"Poor liquidity\".\n\nRule assessLeverage given position, produce:\n  If position.equity equals to 0\n    Return LeverageAnalysis with debtToEquity set to 0 and debtToAssets set to 0 and riskLevel set to \"CRITICAL\" and maxLoanCapacity set to 0.\n  Let debtToEquity be (position.totalLiabilities times 100) divided by position.equity.\n  Let debtToAssets be (position.totalLiabilities times 100) divided by position.totalAssets.\n  Let baseCapacity be position.equity times 3.\n  If debtToEquity at most 100\n    Return LeverageAnalysis with debtToEquity set to debtToEquity and debtToAssets set to debtToAssets and riskLevel set to \"LOW\" and maxLoanCapacity set to baseCapacity.\n  If debtToEquity at most 200\n    Return LeverageAnalysis with debtToEquity set to debtToEquity and debtToAssets set to debtToAssets and riskLevel set to \"MEDIUM\" and maxLoanCapacity set to baseCapacity.\n  If debtToEquity at most 300\n    Return LeverageAnalysis with debtToEquity set to debtToEquity and debtToAssets set to debtToAssets and riskLevel set to \"HIGH\" and maxLoanCapacity set to baseCapacity.\n  Return LeverageAnalysis with debtToEquity set to debtToEquity and debtToAssets set to debtToAssets and riskLevel set to \"CRITICAL\" and maxLoanCapacity set to 0.\n\nRule assessProfitability given enterprise, position, produce:\n  Let returnOnAssets be enterprise.profitMargin.\n  Let returnOnEquity be enterprise.profitMargin.\n  Let annualCashFlow be position.cashFlow times 12.\n  Let repaymentCapacity be annualCashFlow times 3.\n  If returnOnAssets at least 15\n    Return ProfitabilityAnalysis with returnOnAssets set to returnOnAssets and returnOnEquity set to returnOnEquity and profitabilityGrade set to \"EXCELLENT\" and repaymentCapacity set to repaymentCapacity.\n  If returnOnAssets at least 10\n    Return ProfitabilityAnalysis with returnOnAssets set to  and returnOnEquity set to returnOnEquity and profitabilityGrade set to \"GOOD\" and repaymentCapacity set to repaymentCapacity.\n  If returnOnAssets at least 5\n    Return ProfitabilityAnalysis with returnOnAssets set to returnOnAssets and returnOnEquity set to returnOnEquity and profitabilityGrade set to \"FAIR\" and repaymentCapacity set to repaymentCapacity.\n  Return ProfitabilityAnalysis with returnOnAssets set to returnOnAssets and returnOnEquity set to returnOnEquity and profitabilityGrade set to \"POOR\" and repaymentCapacity set to repaymentCapacity.\n\nRule calculateIndustryFactor given industry, produce:\n  If industry equals to \"Healthcare\"\n    Return 105.\n  If industry equals to \"Education\"\n    Return 105.\n  If industry equals to \"Manufacturing\"\n    Return 100.\n  If industry equals to \"Retail\"\n    Return 95.\n  If industry equals to \"Services\"\n    Return 100.\n  If industry equals to \"Construction\"\n    Return 85.\n  If industry equals to \"Hospitality\"\n    Return 80.\n  If industry equals to \"Transportation\"\n    Return 90.\n  Return 100.\n\nRule assessMaturityScore given enterprise, history, produce:\n  Let score be 0.\n  If enterprise.yearsInBusiness at least 10\n    Let score be score plus 30.\n  If enterprise.yearsInBusiness at least 5\n    Let score be score plus 15.\n  If enterprise.employeeCount at least 100\n    Let score be score plus 15.\n  If enterprise.annualRevenue at least 10000000\n    Let score be score plus 10.\n  If history.relationshipYears at least 5\n    Let score be score plus 10.\n  If history.defaultCount equals to 0\n    Let score be score plus 10.\n  Return score.\n\nRule evaluateEnterpriseLoan given enterprise, position, history, application, produce:\n  If history.defaultCount greater than 0\n    Return LendingDecision with approved set to false and approvedAmount set to 0 and interestRateBps set to 0 and termMonths set to 0 and collateralRequired set to 0 and specialConditions set to \"Declined\" and riskCategory set to \"HIGH_RISK\" and confidenceScore set to 0 and reasonCode set to \"PREVIOUS_DEFAULT\" and detailedAnalysis set to \"Previous defaults on record\".\n  If position.equity at most 0\n    Return LendingDecision with approved set to false and approvedAmount set to 0 and interestRateBps set to 0 and termMonths set to 0 and collateralRequired set to 0 and specialConditions set to \"Declined\" and riskCategory set to \"CRITICAL\" and confidenceScore set to 0 and reasonCode set to \"NEGATIVE_EQUITY\" and detailedAnalysis set to \"Negative equity position\".\n  Let liquidityResult be assessLiquidity(position).\n  Let leverageResult be assessLeverage(position).\n  Let profitabilityResult be assessProfitability(enterprise, position).\n  Let maturityScore be assessMaturityScore(enterprise, history).\n  Let industryFactor be calculateIndustryFactor(enterprise.industry).\n  Let baseScore be maturityScore.\n  If liquidityResult.isHealthy\n    Let baseScore be baseScore plus 10.\n  If leverageResult.riskLevel equals to \"LOW\"\n    Let baseScore be baseScore plus 10.\n  If profitabilityResult.profitabilityGrade equals to \"EXCELLENT\"\n    Let baseScore be baseScore plus 10.\n  Let adjustedScore be (baseScore times industryFactor) divided by 100.\n  Let maxLoanAmount be leverageResult.maxLoanCapacity.\n  If profitabilityResult.repaymentCapacity less than maxLoanAmount\n    Let maxLoanAmount be profitabilityResult.repaymentCapacity.\n  Let approvedAmt be application.requestedAmount.\n  If approvedAmt greater than maxLoanAmount\n    Let approvedAmt be maxLoanAmount.\n  If adjustedScore at least 70\n    Let requiredCollateral be (approvedAmt times 50) divided by 100.\n    Return LendingDecision with approved set to true and approvedAmount set to approvedAmt and interestRateBps set to 650 and termMonths set to application.termMonths and collateralRequired set to requiredCollateral and specialConditions set to \"Standard terms\" and riskCategory set to \"MODERATE_RISK\" and confidenceScore set to adjustedScore and reasonCode set to \"APPROVED_STANDARD\" and detailedAnalysis set to \"Solid financial profile\".\n  Return LendingDecision with approved set to false and approvedAmount set to 0 and interestRateBps set to 0 and termMonths set to 0 and collateralRequired set to application.requestedAmount and specialConditions set to \"Declined\" and riskCategory set to \"HIGH_RISK\" and confidenceScore set to adjustedScore and reasonCode set to \"DECLINED_RISK\" and detailedAnalysis set to \"Insufficient risk score\".\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 52,
+          "column": 61,
+          "params": {
+            "token": "kw.and"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 52,
+          "column": 80,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 52,
+          "column": 84,
+          "params": {
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 52,
+          "column": 102,
+          "params": {
+            "expected": "'.' | ',' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "kw.and"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 52,
+          "column": 125,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 52,
+          "column": 129,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 52,
+          "column": 139,
+          "params": {
+            "expected": "'.' | kw.or | token.newline",
+            "token": "kw.and"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 52,
+          "column": 161,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 52,
+          "column": 165,
+          "params": {
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 52,
+          "column": 185,
+          "params": {
+            "expected": "'.' | kw.or | token.newline",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/enum_exhaustiveness.aster/3/ins",
+      "source": "Define AuthErr as one of InvalidCreds, Locked.\n\nRule show given and e, produce:\n  Match e:\n    When InvalidCreds, Return \"bad\".\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 3,
+          "column": 17,
+          "params": {
+            "token": "kw.and"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/g1-softkeyword-idents.aster/2/rep",
+      "source": "Module dual.engine.softkeyword.idents.\n\nrule pick given let, match:\n  with when be let.\n  match when:\n    when start, return let.\n    when other, return match.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 3,
+          "params": {
+            "token": "kw.with"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 16,
+          "params": {
+            "before": "kw.let",
+            "token": "','"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/09-arithmetic-modulo.aster/2/del",
+      "source": "Module dual.engine.arithmetic.evencheck.\n\nRule is_even given n produce:\n  Return n modulo 2  to 0.\n\nRule mod given n, d, produce:\n  Return n modulo d.\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 4,
+          "column": 21,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "kw.to"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/13-boolean-not.aster/0/del",
+      "source": "Module dual.engine.boolean.notop.\n\nRule invert given flag produce:\n  Return not .\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 4,
+          "column": 13,
+          "params": {
+            "expected": "'(' | '[' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | token.string | token.boolean | 'null' | token.number | token.integer | kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.not | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | kw.function | kw.map | token.typeName | token.identifier",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/17-comparison-not-equals.aster/4/del",
+      "source": "Module dual.engine.comparison.notequals.\n\nRule different given x, y, produce:\n  Return x not equal to .\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 4,
+          "column": 24,
+          "params": {
+            "expected": "'(' | '[' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | token.string | token.boolean | 'null' | token.number | token.integer | kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | kw.function | kw.map | token.typeName | token.identifier",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/26-if-bool-condition.aster/2/ins",
+      "source": "Module dual.engine.control.boolcondition.\n\nRule discount given is_member, has_coupon, base, produce:\n  If is_member and has_coupon:\n    Return base divided by 2.\n  If is_member As or has_coupon:\n    Return base minus base divided by 5.\n  Otherwise:\n    Return base.\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 6,
+          "column": 16,
+          "params": {
+            "expected": "':' | ',' | token.newline",
+            "token": "'As'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 6,
+          "column": 32,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 7,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 8,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 9,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 10,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/27-business-loan-eligibility.aster/3/del",
+      "source": "Module dual.engine.business.loan.\n\nRule eligible given age, credit_score, annual_income, produce:\n  Return age greater than 17 and credit_score greater than 599 and  greater than 19999.\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 4,
+          "column": 64,
+          "params": {
+            "expected": "'.' | kw.or | token.newline",
+            "token": "kw.and"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/constraints-v2.aster/3/rep",
+      "source": "Module demo.constraints.v2.\n\nDefine Applicant has name as Text required, age as Int required between 18 and 120, email as Text matching \"^.+@.+$\", code as Text required matching pattern \"^[A-Z]{2}[0-9]{4}$\".\n\nRule screen given , as Int required between 18 and 120, code as Text required matching pattern \"^[A-Z]{2}[0-9]{4}$\", produce Bool:\n  Return age greater than 20.\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 5,
+          "column": 18,
+          "params": {
+            "expected": "'@' | kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 5,
+          "column": 20,
+          "params": {
+            "expected": "'.' | ':' | kw.produce",
+            "token": "kw.as"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 6,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 7,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_caps_enforce_missing_files.aster/3/rep",
+      "source": "Module demo.capcaps.missing_files.\n\nRule bad, produce. and performs io [Http]:\n  Return Files.read(\"/tmp/foo\").\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 20,
+          "params": {
+            "expected": "token.eof | '@' | kw.rule | kw.define | kw.type | kw.use | token.typeName | token.identifier | token.newline",
+            "token": "kw.and"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_violation_missing_time.aster/3/del",
+      "source": "Module test.eff.violation.missing_time.\n\nRule log_event, produce. It performs io [Files]:\n  Let timestamp be Time.().\n  Return File.write(\"/var/log/app.log\", timestamp).\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 4,
+          "column": 26,
+          "params": {
+            "expected": "'(' | '[' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | token.string | token.boolean | 'null' | token.number | token.integer | kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.not | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | kw.function | kw.map | token.typeName | token.identifier",
+            "token": "')'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/g2a-inline-if.aster/1/rep",
+      "source": "Module dual.engine.inline.if.\n\nRule classify given and:\n  if amount is greater than 10000 then return \"large\"\n  else if amount is greater than 1000 then return \"medium\"\n  else return \"small\".\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 21,
+          "params": {
+            "expected": "'@' | kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.and"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 24,
+          "params": {
+            "expected": "'@' | kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "':'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-adr-01-literal-field.aster/2/rep",
+      "source": "Module governance.input.refs.case01.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Module to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  If req.context.amount at least 50000:\n    Return Verdict.escalate(\"large\").\n  Return Verdict.allow().\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 4,
+          "column": 84,
+          "params": {
+            "expected": "'(' | '@' | kw.map | token.typeName | token.identifier",
+            "token": "kw.module"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/11-boolean-and.aster/4/rep",
+      "source": "Module dual.engine.boolean.and.\n\nRule both given x, y, produce:\n  Return . and y.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 3,
+          "params": {
+            "token": "kw.return"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/14-boolean-short-circuit.aster/4/rep",
+      "source": "Module dual.engine.boolean.shortcircuit.\n\nRule guard given enabled, value, produce:\n  Return enabled and value greater It 0.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 36,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "kw.it"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/19-comparison-is-not-equal.aster/1/rep",
+      "source": "Module dual.engine.comparison.isnotequal.\n\nRule different given x, y, produce:\n  Return x is not and to y.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 15,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "kw.not"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 4,
+          "column": 19,
+          "params": {
+            "expected": "'(' | '[' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | token.string | token.boolean | 'null' | token.number | token.integer | kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.not | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | kw.function | kw.map | token.typeName | token.identifier",
+            "token": "kw.and"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/22-logical-and.aster/5/del",
+      "source": "Module dual.engine.logical.conjunction.\n\nRule both given x, y, produce:\n  Return x at least 18 and y at  30000.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 33,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'30000'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/and-or-short-circuit.aster/0/rep",
+      "source": "Module demo.logic.shortcircuit.\n\nRule isWheel given xs, produce:\n  Return List.length(xs) equals to 5 and List.get(xs, 4) under to 14.\n\nRule hasNoFifthOrPositive given xs, produce:\n  Return List.length(xs) less than 5 or List.get(xs, 4) greater than 0.\n\nRule guardedAnd given flag, xs, produce:\n  Return flag and List.get(xs, 4) equals to 14.\n\nRule guardedOr given flag, xs, produce:\n  Return flag or List.get(xs, 4) equals to 14.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 64,
+          "params": {
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 64,
+          "params": {
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 64,
+          "params": {
+            "token": "kw.to"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/block-scope-shadowing.aster/2/ins",
+      "source": "Module demo.block.shadowing.\n\nRule caseShadow given n as Int, produce Int:\n  Let x be 1.\n  Match n:\n    When 0,\n      Let x be 100.\n      Set x to x plus 1.\n    When other,\n      Let x be other.\n  Return x.\n\nRule caseShadowRead given n as Int, produce Int:\n  Let x be 1.\n  Let seen be 0.\n  Match n:\n    When 0,\n      Let x be 100.\n      Set seen to x.\n    When 1,\n      Set seen to x.\n      Let x be 200.\n    When other,\n      Set x to x plus 10.\n  Return x plus seen.\n\nRule nestedCaseShadow given n as Int, produce Int:\n  Let x be 1.\n  Match n:\n    When 0,\n      Let x be 10.\n      Match n:\n        When 0,\n          Let as x be 20.\n          Set x to x plus 1.\n      Return x.\n  Return x.\n\nRule patternShadow given n as Int, produce Int:\n  Let other be 7.\n  Let seen be 0.\n  Match n:\n    When 0,\n      Set seen to other.\n    When other,\n      Set seen to other.\n  Return other plus seen.\n\nRule closureInCase given n as Int, produce Int:\n  Let base be 1.\n  Match n:\n    When 0,\n      Let base be 100.\n      Let addBase be function with k as Int, produce Int:\n        Return base plus k.\n      Return addBase(1).\n  Return base.\n\nRule paramShadow given n as Int, produce Int:\n  Match n:\n    When 0,\n      Let n be 50.\n      Set n to n plus 1.\n  Return n.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 34,
+          "column": 15,
+          "params": {
+            "token": "kw.as"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 34,
+          "column": 20,
+          "params": {
+            "before": "kw.be",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 34,
+          "column": 23,
+          "params": {
+            "token": "'20'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/constraints-v2.aster/2/ins",
+      "source": "Module demo.constraints.v2.\n\nDefine Applicant has name as Text required, age as Int required between 18 and 120, email as Text matching \"^.+@.+$\", code as Text required matching pattern \"^[A-Z]{2}[0-9]{4}$\".\n\nHas Rule screen given age as Int required between 18 and 120, code as Text required matching pattern \"^[A-Z]{2}[0-9]{4}$\", produce Bool:\n  Return age greater than 20.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 5,
+          "column": 10,
+          "params": {
+            "token": "'screen'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/context-map-access.aster/2/ins",
+      "source": "Module guard.context.access.\n\nDefine GuardRequest has principal_id, action, context, agent_model.\n\n@id(\"CTX-001\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let large be req.context.amount at under least 10000.\n  If req.action equals to \"refund\" and large:\n    Return Verdict.escalate(\"large refund\").\n  Return Verdict.allow().\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 7,
+          "column": 38,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'under'"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 7,
+          "column": 44,
+          "params": {
+            "before": "'least'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 7,
+          "column": 50,
+          "params": {
+            "token": "'10000'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/context-map-access.aster/4/del",
+      "source": "Module guard.context.access.\n\nDefine GuardRequest has principal_id, action, context, agent_model.\n\n@id(\"CTX-001\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let  be req.context.amount at least 10000.\n  If req.action equals to \"refund\" and large:\n    Return Verdict.escalate(\"large refund\").\n  Return Verdict.allow().\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 7,
+          "column": 10,
+          "params": {
+            "token": "'req'"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 7,
+          "column": 13,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_caps_enforce_unused_time.aster/4/rep",
+      "source": "Module demo.capcaps.unused_time.\n\nRule okHttp, produce. It performs io [Time, Http]:\n  Return and.get(\"/\").\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 3,
+          "params": {
+            "token": "kw.return"
+          }
+        }
+      ]
+    }
+  ]
+}

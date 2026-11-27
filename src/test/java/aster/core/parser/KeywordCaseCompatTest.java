@@ -36,6 +36,7 @@ class KeywordCaseCompatTest {
 
     private static final String H = "Module probe.sample.\n\n";
 
+    /** 旧 ATN 只差关键词辅助规则的谓词分支（删掉）与门控规则 kwGate* 的谓词（换成 ε 转移，K-b）。 */
     @Test
     void oldAtnDiffersOnlyByKeywordRulePredicates() {
         ATN real = AsterParser._ATN;
@@ -43,6 +44,7 @@ class KeywordCaseCompatTest {
         assertThat(old.states).hasSameSizeAs(real.states);
         assertThat(old.getNumberOfDecisions()).isEqualTo(real.getNumberOfDecisions());
         int removed = 0;
+        int gates = 0;
         for (int i = 0; i < real.states.size(); i++) {
             ATNState r = real.states.get(i);
             ATNState o = old.states.get(i);
@@ -55,22 +57,34 @@ class KeywordCaseCompatTest {
             List<String> kept = describe(r, false);
             assertThat(describe(o, true)).as("状态 %d", i).isEqualTo(kept);
             removed += r.getNumberOfTransitions() - o.getNumberOfTransitions();
+            for (int t = 0; t < r.getNumberOfTransitions(); t++) {
+                if (isGatePredicate(r.transition(t))) {
+                    gates++;
+                }
+            }
         }
-        // 11 条关键词辅助规则，各有一条谓词分支
-        assertThat(removed).isEqualTo(11);
+        // 22 条关键词辅助规则（K-a 11 条、K-b 11 条），各有一条谓词分支；K-b 的 9 条门控规则各有一个谓词
+        assertThat(removed).isEqualTo(22);
+        assertThat(gates).isEqualTo(9);
     }
 
-    /** 状态的转移序列（目标状态号 + 类型）；{@code old} 为假时去掉关键词辅助规则里的谓词转移。 */
+    /** 状态的转移序列（目标状态号 + 类型）；{@code old} 为假时去掉关键词辅助规则里的谓词转移、把门控谓词记为 ε 转移。 */
     private static List<String> describe(ATNState s, boolean old) {
         return java.util.stream.IntStream.range(0, s.getNumberOfTransitions())
             .mapToObj(s::transition)
             .filter(t -> old || !isKwPredicate(t))
-            .map(t -> t.getClass().getSimpleName() + "->" + t.target.stateNumber)
+            .map(t -> (!old && isGatePredicate(t) ? "EpsilonTransition" : t.getClass().getSimpleName())
+                + "->" + t.target.stateNumber)
             .collect(Collectors.toList());
     }
 
+    private static boolean isGatePredicate(Transition t) {
+        return t instanceof PredicateTransition p && AsterParser.ruleNames[p.ruleIndex].startsWith("kwGate");
+    }
+
     private static boolean isKwPredicate(Transition t) {
-        return t instanceof PredicateTransition p && AsterParser.ruleNames[p.ruleIndex].matches("kw[A-Z].*");
+        return t instanceof PredicateTransition p && AsterParser.ruleNames[p.ruleIndex].matches("kw[A-Z].*")
+            && !AsterParser.ruleNames[p.ruleIndex].startsWith("kwGate");
     }
 
     @Test
@@ -115,8 +129,18 @@ class KeywordCaseCompatTest {
     /** 60 份变异错误源码（首条诊断 E052 / E055 / E060 / E061 / E062 / E063 各 10 份）：全部诊断连同参数与 K 之前逐条相同。 */
     @TestFactory
     Stream<DynamicTest> mutatedSourcesKeepPreKeywordCaseDiagnostics() throws IOException {
+        return mutatedSources("/keyword-case/compat_diagnostics.json", 60);
+    }
+
+    /** K-b：首条诊断所在行含 K-b 关键词的 50 份变异错误源码，全部诊断连同参数与 K-b 之前（f995b84）逐条相同。 */
+    @TestFactory
+    Stream<DynamicTest> mutatedSourcesKeepPreStatementKeywordCaseDiagnostics() throws IOException {
+        return mutatedSources("/keyword-case/compat_diagnostics_kb.json", 50);
+    }
+
+    private static Stream<DynamicTest> mutatedSources(String path, int count) throws IOException {
         JsonNode fixture;
-        try (InputStream in = KeywordCaseCompatTest.class.getResourceAsStream("/keyword-case/compat_diagnostics.json")) {
+        try (InputStream in = KeywordCaseCompatTest.class.getResourceAsStream(path)) {
             fixture = new ObjectMapper().readTree(in);
         }
         List<DynamicTest> tests = new ArrayList<>();
@@ -133,7 +157,7 @@ class KeywordCaseCompatTest {
                 assertThat(actual).isEqualTo(want);
             }));
         }
-        assertThat(fixture.get("cases")).hasSize(60);
+        assertThat(fixture.get("cases")).hasSize(count);
         return tests.stream();
     }
 

@@ -126,6 +126,53 @@ import org.antlr.v4.runtime.atn.PredictionMode;
         return isKwText(_input.LT(i), lower);
     }
 
+    /**
+     * 跳过续行换行之后，下一个记号是否为关键词 {@code lower}（K-b）：orExpr / andExpr 的续行运算符前可以有换行，
+     * 换行之后的关键词谓词不在预测决策的左边缘，由这里在左边缘按偏移判定。
+     */
+    protected boolean isKwAfterNewlines(String lower) {
+        int i = 1;
+        while (_input.LA(i) == NEWLINE) i++;
+        return isKwAt(i, lower);
+    }
+
+    /** 跳过续行换行之后是否为逻辑运算词 and / or（K-b，任意大小写）。 */
+    protected boolean isLogicalKwAhead() {
+        return isKwAfterNewlines("and") || isKwAfterNewlines("or");
+    }
+
+    /**
+     * Set 语句（K-b）：Set / set 是 SET 记号；其余大小写拼写（SET、sET）在词法上是名字，只在 `名字 to` 之前读作 set，
+     * 名字是软比较词（under / over / is）时不读：`SET under To(x).` 照旧是表达式语句（比较），与 K 之前相同。
+     */
+    protected boolean isSetStmtAhead() {
+        Token t = _input.LT(1);
+        if (t != null && t.getType() == SET) return true;
+        if (!isKwText(t, "set") || !isKwAt(3, "to")) return false;
+        Token name = _input.LT(2);
+        return !(isExactKwText(name, "under") || isExactKwText(name, "over") || isExactKwText(name, "is"));
+    }
+
+    /** lambda（K-b）：FUNCTION 记号总是；其余大小写拼写只在后面是 with / given / produce、或逗号 + produce 时。 */
+    protected boolean isLambdaAhead() {
+        Token t = _input.LT(1);
+        if (t != null && t.getType() == FUNCTION) return true;
+        if (!isKwText(t, "function")) return false;
+        return isKwAt(2, "with") || isKwAt(2, "given") || isKwAt(2, "produce")
+            || (_input.LA(2) == COMMA && isKwAt(3, "produce"));
+    }
+
+    /**
+     * 构造的下一个字段（K-b）：分隔符（and / 逗号）之后是 `名字 set`。and 之后的 set 只收小写开头的拼写：
+     * aster-lang-ts 在 and 之后只在 IDENT 上认 set（逗号之后与首个字段不限），两引擎同样把 `and b Set to 2` 读成缺 set to。
+     */
+    protected boolean isConstructFieldAt() {
+        Token set = _input.LT(3);
+        if (set != null && set.getType() == SET) return true;
+        if (!isKwText(set, "set")) return false;
+        return !isKwAt(1, "and") || set.getType() == IDENT;
+    }
+
     /** 同 {@link #isKwText}，但区分大小写（软比较词 is / under / over 只认小写）。 */
     protected static boolean isExactKwText(Token t, String word) {
         return t != null && !aster.core.parser.EscapedToken.isEscaped(t) && word.equals(t.getText());
@@ -412,7 +459,7 @@ funcDecl
  * 写在类型参数之后、形参之前；效应参数名是大写标识符。
  */
 effectParamList
-    : LT TYPE_IDENT ((COMMA | AND) TYPE_IDENT)* GT
+    : LT TYPE_IDENT ((COMMA | kwAnd) TYPE_IDENT)* GT
     ;
 
 // ADR 0028：函数体形态。缩进块（现有）走 `COLON NEWLINE block`；显式块（新增）走
@@ -431,7 +478,7 @@ funcBody
  * 语法: of T and U / of T, U
  */
 typeParamList
-    : kwOf typeParam ((AND | {!isKwAt(2, "produce")}? COMMA) typeParam)*
+    : kwOf typeParam ((kwAnd | {!isKwAt(2, "produce")}? COMMA) typeParam)*
     ;
 
 /**
@@ -451,8 +498,9 @@ typeParam
 // 逗号之后是 produce（任意大小写）时形参表结束（K，与 aster-lang-ts parseParamList 先判 produce 一致）：
 // 否则 `, Produce maybe Int` 在预测里也能读成形参 Produce 带类型 maybe Int，分支序号更小而被误选。
 // 小写开头的 pRODUCE 此前可作形参名，K 之后在逗号后是关键词，含义随 ts（门禁见 PR 说明）。
+// 形参之间的 and 只收小写开头的拼写（K-b）：aster-lang-ts parseParamList 只在 IDENT 上认 and，`And` / `AND` 两引擎都拒。
 givenParamList
-    : kwGiven param ((AND | {!isKwAt(2, "produce")}? COMMA) param)*
+    : kwGiven param ((kwAndLower | {!isKwAt(2, "produce")}? COMMA) param)*
     ;
 
 /**
@@ -475,7 +523,7 @@ param
 capabilityAnnotation
     : kwIt kwPerforms effect=(IDENT | TYPE_IDENT)
       ( LBRACKET caps+=TYPE_IDENT (COMMA caps+=TYPE_IDENT)* RBRACKET
-      | (kwWith | AND) caps+=(IDENT | TYPE_IDENT) (AND caps+=(IDENT | TYPE_IDENT))*
+      | (kwWith | kwAnd) caps+=(IDENT | TYPE_IDENT) (kwAnd caps+=(IDENT | TYPE_IDENT))*
       )?
     ;
 
@@ -533,7 +581,7 @@ structuralKeyword
  *   age: Int
  */
 fieldList
-    : NEWLINE* INDENT? field (NEWLINE* (AND | COMMA) NEWLINE* field)*
+    : NEWLINE* INDENT? field (NEWLINE* (kwAnd | COMMA) NEWLINE* field)*
     ;
 
 /**
@@ -554,7 +602,7 @@ field
  */
 fieldConstraint
     : REQUIRED
-    | BETWEEN rangeBound AND rangeBound
+    | BETWEEN rangeBound kwAnd rangeBound
     | GREATER_THAN_OR_EQUAL_WORD rangeBound
     | LESS_THAN_OR_EQUAL_WORD rangeBound
     | MATCHING IDENT? STRING_LITERAL
@@ -653,8 +701,9 @@ article
  * 变体列表
  * 语法: Success, Failure, Pending
  */
+// or 只收小写开头的拼写、and 只收小写（K-b，与 aster-lang-ts parseVariantList 一致：ts 只在 IDENT 上认 or，不认 and）
 variantList
-    : declaredTypeName ((COMMA | OR | AND) declaredTypeName)*
+    : declaredTypeName ((COMMA | kwOrLower | AND) declaredTypeName)*
     ;
 
 /**
@@ -769,7 +818,8 @@ annotatedType
 type
     : type QUESTION                       # MaybeType
     | LPAREN typeList RPAREN (ARROW type)?  # FuncType
-    | MAP annotatedType TO_WORD annotatedType  # MapType
+    // 引导词 map 不区分大小写（K-b）：小写 map 在类型位置是 Map 类型（ADR 0056 修订 A4 §1.3，aster-lang-core#314）
+    | kwMap annotatedType kwTo annotatedType  # MapType
     // 前缀可空 `maybe T`（≡ `T?`），T 可带注解：`maybe @pii(L1, name) Text`。与 aster-lang-ts parseTypePrimary 一致
     | {isMaybeKeyword()}? name=(IDENT | TYPE_IDENT) annotatedType  # PrefixMaybeType
     // 左边缘谓词判 of（K）：不判时名字读法的 of 在预测里被当作成立，`given x as Int Produce Int` 会被误读成 `Int of …`
@@ -796,7 +846,7 @@ typeList
  */
 ofTypeArgs[String generic]
     locals [int extra = 0]
-    : ( {acceptsOfTypeArg($generic, $extra)}? (AND | COMMA) {rejectBareLowercaseTypeArg();} annotatedType {$extra++;} )*
+    : ( {acceptsOfTypeArg($generic, $extra)}? (kwAnd | COMMA) {rejectBareLowercaseTypeArg();} annotatedType {$extra++;} )*
     ;
 
 // ============================================================
@@ -852,8 +902,8 @@ stmt
  * 支持中文变量名: Let 贷款决定 be true.
  */
 letStmt
-    : LET nameIdent BE lambdaExpr          # LetLambdaStmt
-    | LET nameIdent BE expr DOT            # LetExprStmt
+    : kwGateLet LET nameIdent kwBe lambdaExpr  # LetLambdaStmt
+    | kwGateLet LET nameIdent kwBe expr DOT    # LetExprStmt
     ;
 
 defineStmt
@@ -866,15 +916,16 @@ defineStmt
  * 与 TS parseStatement 的 `Set x to <expr>.` 一致；目标是否可赋值由类型检查判定。
  */
 setStmt
-    : SET nameIdent TO_WORD expr DOT
+    : kwGateSet kwSet nameIdent kwTo expr DOT
     ;
 
+// async 的其余大小写拼写读作 async 时，词法器已改成 ASYNC 记号（AsterCustomLexer.retypePrefixKeyword，K-b）
 startStmt
     : START nameIdent kwAs ASYNC? expr DOT
     ;
 
 waitStmt
-    : WAIT FOR nameIdent (AND nameIdent)* DOT
+    : kwGateWait WAIT kwFor nameIdent (kwAnd nameIdent)* DOT
     ;
 
 workflowStmt
@@ -1090,12 +1141,12 @@ nlOpt
     ;
 
 orExpr
-    : andExpr (nlOpt OR nlOpt andExpr)*
+    : andExpr (kwGateOr nlOpt kwOr nlOpt andExpr)*
     ;
 
 // 逻辑与（高于 or，低于 not，左结合）
 andExpr
-    : notExpr (nlOpt AND nlOpt notExpr)*
+    : notExpr (kwGateAnd nlOpt kwAnd nlOpt notExpr)*
     ;
 
 // 逻辑非（高于 and，低于比较——`not x greater than y` = `not(x greater than y)`）。
@@ -1103,6 +1154,7 @@ andExpr
 //   `and < not < 比较` 优先级。此前 NOT 误置于 unaryExpr（紧于比较），使
 //   `not x greater than y` 被解析为 `(not x) greater than y`——两引擎产生不同 AST
 //   （Java 紧绑定、TS 松绑定），是审计发现的双引擎 parity 缺陷。右结合以支持 `not not x`。
+// not 的其余大小写拼写（Not、NOT）读作 not 时，词法器已改成 NOT 记号（AsterCustomLexer.retypePrefixKeyword，K-b）
 notExpr
     : NOT notExpr                        # LogicalNot
     | comparisonExpr                     # NotFallthrough
@@ -1113,7 +1165,7 @@ notExpr
 // 软关键字前可带一个可选的 `is` 连接词（`is under` / `is over`），由语义谓词
 // 识别 IDENT 文本，避免在 lexer 无条件保留这些常见英文单词。
 comparisonExpr
-    : additiveExpr ( nlOpt (
+    : additiveExpr ( kwGateComparison nlOpt (
           op=(LT | GT | LTE | GTE | NEQ | EQ | EQUALS
               | LESS_THAN_WORD | GREATER_THAN_WORD
               | LESS_THAN_OR_EQUAL_WORD | GREATER_THAN_OR_EQUAL_WORD
@@ -1153,7 +1205,8 @@ unaryExpr
  * 与 TS 引擎 parseCallTargetName 对齐——否则 `apply f(y) to x` 会一引擎接受一引擎拒，破坏 parity。
  */
 applyExpr
-    : APPLY callTarget TO_WORD expr
+    // to 只收小写开头的拼写（K-b，与 aster-lang-ts parseApply 一致：ts 只在 IDENT 上认 to）
+    : APPLY callTarget kwToLower expr
     ;
 
 callTarget
@@ -1238,12 +1291,12 @@ constructExpr
  * 构造报告。后续字段同理（`X with a set to 1, b = 2` 在 `=` 处报错）。
  */
 constructBody
-    : constructFieldList                   # WellFormedConstructBody
+    : kwGateConstructSet constructFieldList  # WellFormedConstructBody
     | malformedConstructField              # MalformedConstructBody
     ;
 
 constructFieldList
-    : constructField ((AND | COMMA) constructField)* ((AND | COMMA) malformedConstructField)?
+    : constructField (kwGateConstructField (kwAnd | COMMA) constructField)* ((kwAnd | COMMA) malformedConstructField)?
     ;
 
 /**
@@ -1273,7 +1326,7 @@ constructHead
 
 
 constructField
-    : (IDENT | TYPE_IDENT | structKeywordName) SET TO_WORD expr
+    : (IDENT | TYPE_IDENT | structKeywordName) kwSet kwTo expr
     ;
 
 operatorCall
@@ -1298,7 +1351,7 @@ listLiteral
  * 省略时 lower 为 Type.Name("Unknown")（与 TS Node.TypeName('Unknown') 对齐）。
  */
 lambdaExpr
-    : FUNCTION lambdaParamList? COMMA? kwProduce annotatedType? COLON (returnStmt | (NEWLINE+ block))
+    : kwGateLambda kwFunction lambdaParamList? COMMA? kwProduce annotatedType? COLON (returnStmt | (NEWLINE+ block))
     ;
 
 /**
@@ -1382,4 +1435,118 @@ kwIt
 kwPerforms
     : PERFORMS
     | {isKwAt(1, "performs")}? (TYPE_IDENT | IDENT)
+    ;
+
+// K-b（语句、表达式与类型的关键词）。`kwXLower` 只收小写开头（IDENT）的其余拼写：aster-lang-ts 在这些位置只在 IDENT 上
+// 认关键词，首字母大写的拼写两引擎都拒。
+
+kwBe
+    : BE
+    | {isKwAt(1, "be")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwSet
+    : SET
+    | {isKwAt(1, "set")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwTo
+    : TO_WORD
+    | {isKwAt(1, "to")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwToLower
+    : TO_WORD
+    | {isKwAt(1, "to")}? IDENT
+    ;
+
+kwAnd
+    : AND
+    | {isKwAt(1, "and")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwAndLower
+    : AND
+    | {isKwAt(1, "and")}? IDENT
+    ;
+
+kwOr
+    : OR
+    | {isKwAt(1, "or")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwOrLower
+    : OR
+    | {isKwAt(1, "or")}? IDENT
+    ;
+
+kwFor
+    : FOR
+    | {isKwAt(1, "for")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwFunction
+    : FUNCTION
+    | {isKwAt(1, "function")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwMap
+    : MAP
+    | {isKwAt(1, "map")}? (TYPE_IDENT | IDENT)
+    ;
+
+// ------------------------------------------------------------
+// K-b 的左边缘门控（kwGate*）：只含一个谓词、不消费记号的规则，放在分支起点。
+// ------------------------------------------------------------
+//
+// ANTLR 只在预测决策的左边缘（消费第一个记号之前）求值谓词，更深处的谓词一律当作成立。关键词辅助规则让名字记号在关键词位置
+// 也能匹配，深处的 kwAnd / kwSet / kwBe / kwWith… 在预测里于是对任何名字都成立：`Return x aND y.` 的 aND 会被当成软比较词，
+// `and q sET to 2` 的 q 会被当成构造头，`Let x AS be y.` 的 AS 会被当成 be。门控在分支起点按偏移量判定，使预测与 K 之前
+// （以及 aster-lang-ts 先判关键词）一致。门控只收窄 K-b 新增的读法：对 K 之前能走通的记号序列恒为真，KeywordCaseCompat 的
+// 旧 ATN 把它们换成 ε 转移（不是删掉分支），旧 ATN 因而与 K-b 之前的文法同构，出错路径的预测、sync 与期望集合不变。
+// 前缀关键词 not / async 能接在任何操作数之前，门控挡不住深处的假路径，改在词法器里按下一个记号判定（AsterCustomLexer.retypePrefixKeyword）。
+
+/** 比较运算 / 软比较分支：后面（可隔续行换行）是 and / or 时不进入，否则 `aND` / `oR` 会被当成软比较词（softComparator 的谓词在末尾）。 */
+kwGateComparison
+    : {!isLogicalKwAhead()}?
+    ;
+
+/** or 续行：换行之后的 kwOr 不在左边缘，先按偏移判定。 */
+kwGateOr
+    : {isKwAfterNewlines("or")}?
+    ;
+
+/** and 续行；构造字段值之后的 `and 名字 set` 是下一个字段，不是逻辑与（isConstructFieldAt）。 */
+kwGateAnd
+    : {isKwAfterNewlines("and") && !isConstructFieldAt()}?
+    ;
+
+/** Let 语句（K-b）：名字之后是 be（任意大小写）。kwBe 是第三个记号，不在语句决策的左边缘。 */
+kwGateLet
+    : {isKwAt(3, "be")}?
+    ;
+
+/** Wait 语句（K-b）：Wait 之后是 for（任意大小写）。kwFor 是第二个记号，不在语句决策的左边缘。 */
+kwGateWait
+    : {isKwAt(2, "for")}?
+    ;
+
+/** Set 语句（K-b）：见 isSetStmtAhead。 */
+kwGateSet
+    : {isSetStmtAhead()}?
+    ;
+
+/** lambda（K-b）：Function / FUNCTION 只在后面是 with / given / produce（或逗号 + produce）时读作 function（isLambdaAhead）。 */
+kwGateLambda
+    : {isLambdaAhead()}?
+    ;
+
+/** 构造的首个字段：set 是第二个记号（K-b），否则 `X with f = v` 在预测里也能读成良构字段。 */
+kwGateConstructSet
+    : {isKwAt(2, "set")}?
+    ;
+
+/** 构造的后续字段：分隔符之后是 `名字 set`（isConstructFieldAt）。 */
+kwGateConstructField
+    : {isConstructFieldAt()}?
     ;

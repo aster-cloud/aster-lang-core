@@ -25,6 +25,7 @@ import org.antlr.v4.runtime.atn.PredictionContextCache;
 import org.antlr.v4.runtime.atn.RuleTransition;
 import org.antlr.v4.runtime.atn.Transition;
 import org.antlr.v4.runtime.dfa.DFA;
+import org.antlr.v4.runtime.dfa.DFAState;
 import org.antlr.v4.runtime.misc.IntervalSet;
 
 import java.util.BitSet;
@@ -54,17 +55,29 @@ import java.util.concurrent.ConcurrentHashMap;
  * </ul>
  * 能解析的源码不经过这里（真实预测成功即返回），所以兼容层不改变任何接受集合与解析结果。仍会变的只有一类：K 的谓词在预测
  * 深处按成立处理，真实预测因此可能越过旧文法会失败的位置，第一条错误落在更靠后、真正出错的记号上（多为 E063 变成更具体的码）。
+ *
+ * <p>K-b 另外：
+ * <ul>
+ *   <li>只收小写开头拼写的关键词辅助规则（{@code kwAndLower} 等，后缀 {@code Lower}）同样删掉谓词分支，sync 放行时只认 IDENT；</li>
+ *   <li>左边缘门控规则 {@code kwGate*}（只含一个谓词）的谓词换成 ε 转移而不是删掉：门控对 K 之前能走通的记号序列恒为真；</li>
+ *   <li>SLL 预测走到出错记号、本该退而取「已走完决策规则」的分支时（{@link Simulator#getSynValidOrSemInvalidAltThatFinishedDecisionEntryRule}），
+ *       改按无可行分支交给旧文法预测：K 的名字分支在 SLL 的全局 FOLLOW 里造出的假路径会让这类分支与 K 之前不同。</li>
+ * </ul>
  */
 public final class KeywordCaseCompat {
 
     /** 关键词辅助规则的规则名前缀；其中的谓词分支就是 K 新增的读法。 */
     private static final String KW_RULE_PREFIX = "kw";
 
+    /** 左边缘门控规则的规则名前缀（K-b）：只含一个谓词、不消费记号，对 K 之前的记号序列恒为真。 */
+    private static final String GATE_RULE_PREFIX = "kwGate";
+
     /** 标记记号的起点：{@link KeywordAnalyzer} 用「起点 + 规则序号」在 LOOK 集合里标出可达的关键词谓词。 */
     private static final int KW_MARKER_BASE = 1 << 20;
 
     private static final ATN REAL_ATN = AsterParser._ATN;
     private static final BitSet KW_RULES = kwRules();
+    private static final BitSet GATE_RULES = gateRules();
     /** 旧 ATN：真实 ATN 去掉关键词辅助规则里的谓词分支。 */
     private static final ATN OLD_ATN = buildOldAtn();
     private static final DFA[] OLD_DFA = buildDfa(OLD_ATN);
@@ -83,22 +96,52 @@ public final class KeywordCaseCompat {
         String[] names = AsterParser.ruleNames;
         for (int i = 0; i < names.length; i++) {
             if (names[i].startsWith(KW_RULE_PREFIX) && names[i].length() > KW_RULE_PREFIX.length()
-                    && Character.isUpperCase(names[i].charAt(KW_RULE_PREFIX.length()))) {
+                    && Character.isUpperCase(names[i].charAt(KW_RULE_PREFIX.length()))
+                    && !names[i].startsWith(GATE_RULE_PREFIX)) {
                 rules.set(i);
             }
         }
         return rules;
     }
 
-    /** 关键词辅助规则对应的关键词：{@code kwPerforms} → {@code performs}。 */
+    private static BitSet gateRules() {
+        BitSet rules = new BitSet();
+        String[] names = AsterParser.ruleNames;
+        for (int i = 0; i < names.length; i++) {
+            if (names[i].startsWith(GATE_RULE_PREFIX)) {
+                rules.set(i);
+            }
+        }
+        return rules;
+    }
+
+    /** 只收小写开头（IDENT）拼写的关键词辅助规则的后缀（K-b，如 {@code kwAndLower}）。 */
+    private static final String IDENT_ONLY_SUFFIX = "Lower";
+
+    /** {@link #kwWordsAt} 里只收 IDENT 拼写的关键词带这个后缀。 */
+    private static final String IDENT_ONLY_MARK = "@ident";
+
+    /** 关键词辅助规则对应的关键词：{@code kwPerforms} → {@code performs}，{@code kwAndLower} → {@code and}。 */
     private static String kwWord(int ruleIndex) {
-        return AsterParser.ruleNames[ruleIndex].substring(KW_RULE_PREFIX.length()).toLowerCase(Locale.ROOT);
+        String name = AsterParser.ruleNames[ruleIndex];
+        int end = isIdentOnly(ruleIndex) ? name.length() - IDENT_ONLY_SUFFIX.length() : name.length();
+        return name.substring(KW_RULE_PREFIX.length(), end).toLowerCase(Locale.ROOT);
+    }
+
+    /** 关键词辅助规则是否只在 IDENT 记号上按文本认关键词。 */
+    private static boolean isIdentOnly(int ruleIndex) {
+        return AsterParser.ruleNames[ruleIndex].endsWith(IDENT_ONLY_SUFFIX);
     }
 
     private static boolean isKwPredicate(Transition t) {
         return t instanceof PredicateTransition p && KW_RULES.get(p.ruleIndex);
     }
 
+    private static boolean isGatePredicate(Transition t) {
+        return t instanceof PredicateTransition p && GATE_RULES.get(p.ruleIndex);
+    }
+
+    /** 旧 ATN：删掉关键词辅助规则的谓词分支；门控规则的谓词换成 ε 转移（恒为真，见 {@link #GATE_RULE_PREFIX}）。 */
     private static ATN buildOldAtn() {
         ATN atn = new ATNDeserializer().deserialize(AsterParser._serializedATN.toCharArray());
         for (ATNState s : atn.states) {
@@ -106,8 +149,11 @@ public final class KeywordCaseCompat {
                 continue;
             }
             for (int i = s.getNumberOfTransitions() - 1; i >= 0; i--) {
-                if (isKwPredicate(s.transition(i))) {
+                Transition t = s.transition(i);
+                if (isKwPredicate(t)) {
                     s.removeTransition(i);
+                } else if (isGatePredicate(t)) {
+                    s.setTransition(i, new EpsilonTransition(t.target));
                 }
             }
         }
@@ -148,7 +194,11 @@ public final class KeywordCaseCompat {
             return false;
         }
         Set<String> words = KW_WORDS_AT.computeIfAbsent(state, KeywordCaseCompat::kwWordsAt);
-        return !words.isEmpty() && words.contains(t.getText().toLowerCase(Locale.ROOT));
+        if (words.isEmpty()) {
+            return false;
+        }
+        String lower = t.getText().toLowerCase(Locale.ROOT);
+        return words.contains(lower) || (t.getType() == AsterParser.IDENT && words.contains(lower + IDENT_ONLY_MARK));
     }
 
     private static Set<String> kwWordsAt(int state) {
@@ -156,7 +206,8 @@ public final class KeywordCaseCompat {
         Set<String> words = new HashSet<>();
         for (int type : look.toList()) {
             if (type >= KW_MARKER_BASE) {
-                words.add(kwWord(type - KW_MARKER_BASE));
+                int rule = type - KW_MARKER_BASE;
+                words.add(isIdentOnly(rule) ? kwWord(rule) + IDENT_ONLY_MARK : kwWord(rule));
             }
         }
         return Set.copyOf(words);
@@ -296,6 +347,52 @@ public final class KeywordCaseCompat {
             }
             old.setPredictionMode(getPredictionMode());
             return oldPrediction(parser, old, input, decision, outerContext);
+        }
+
+        /** 正在做全上下文（LL）预测的层数：SLL 阶段为 0。 */
+        private int fullContextDepth;
+
+        @Override
+        protected int execATNWithFullContext(DFA dfa, DFAState d, ATNConfigSet s0, TokenStream input, int startIndex,
+                                             ParserRuleContext outerContext) {
+            fullContextDepth++;
+            try {
+                return super.execATNWithFullContext(dfa, d, s0, input, startIndex, outerContext);
+            } finally {
+                fullContextDepth--;
+            }
+        }
+
+        /**
+         * SLL 预测在某个记号上走不通时，ANTLR 退而取「已走完决策所在规则」的分支，由外层报错。SLL 走出决策规则后按全局 FOLLOW
+         * 继续，K 的关键词辅助规则又让名字记号在外层许多关键词位置（and / or 续行、构造字段…）都能被消费，这类假路径比 K 之前多：
+         * K 之前 SLL 在这些出错位置先报全冲突、改用全上下文 LL 精确预测，K 之后假路径打破了全冲突，SLL 一路走到出错记号，
+         * 再按假路径选分支，出错源码因而报出别的诊断（`Return WITH flag.` 从软比较词的 E063 变成 E061）。
+         * 这里在 SLL 阶段不取这类分支，按无可行分支交给旧文法预测（{@link #predictOld}）：旧 ATN 没有这些假路径，SLL 在 K 之前的
+         * 位置报全冲突（LL 模式随之改用全上下文预测，全程 SLL 取最小分支），或同样退而取走完决策规则的分支。
+         * LL 阶段与类型之内照旧。
+         *
+         * <p>只影响出错源码：SLL 的每一步 reach 集都是全上下文 LL 的超集（SLL 合并调用栈、在决策规则之外按全局 FOLLOW 继续，
+         * 谓词一律当作成立），SLL 在某个记号上 reach 为空，说明该记号在任何调用上下文里都接不上，源码在此处必然有语法错误。
+         * KeywordCaseTest 的接受夹具同时走生产路径（InProcessCnlParser，全程 SLL）与 ParseDiagnostics（LL），锁定这一点。
+         */
+        @Override
+        protected int getSynValidOrSemInvalidAltThatFinishedDecisionEntryRule(ATNConfigSet configs,
+                                                                              ParserRuleContext outerContext) {
+            if (!fallback || fullContextDepth > 0 || insideType(outerContext)) {
+                return super.getSynValidOrSemInvalidAltThatFinishedDecisionEntryRule(configs, outerContext);
+            }
+            return ATN.INVALID_ALT_NUMBER;
+        }
+
+        /** 决策是否在类型之内（annotatedType 规则之下）：类型内的出错路径照旧（K-a 起即如此，诊断夹具按它记录）。 */
+        private static boolean insideType(RuleContext ctx) {
+            for (RuleContext c = ctx; c != null; c = c.parent) {
+                if (c.getRuleIndex() == AsterParser.RULE_annotatedType) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         @Override
