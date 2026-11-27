@@ -1323,6 +1323,16 @@
       ],
       "warnings": [],
       "samePf": "Module probe.sample.\n\nRule get given x as Int, produce Bool:\n  Let Equals be x.\n  Set `Equals` to 2.\n  Return Equals equals to 2.\n"
+    },
+    {
+      "name": "en-US 前面的规则里有字符串字面量时 Set 的目标 Equals 照旧是名字（aster-lang-core#328）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule s, produce Text:\n  Return \"hi\".\n\nRule get given x as Int, produce Int:\n  Let Equals be x.\n  Set Equals to 2.\n  Return Equals.\n",
+      "names": [
+        "Equals"
+      ],
+      "warnings": [],
+      "samePf": "Module probe.sample.\n\nRule s, produce Text:\n  Return \"hi\".\n\nRule get given x as Int, produce Int:\n  Let Equals be x.\n  Set `Equals` to 2.\n  Return Equals.\n"
     }
   ]
 }

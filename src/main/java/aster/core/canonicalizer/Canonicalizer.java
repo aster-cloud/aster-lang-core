@@ -1762,7 +1762,7 @@ public final class Canonicalizer {
 
     /**
      * 多词关键字的匹配是否落在 Set 的目标名上（aster-lang-core#328，与 aster-lang-ts canonicalizer 同一判据）：
-     * 行首（可缩进）是 Set 关键词（任意大小写），其后紧接这个匹配，且匹配恰为「一个词 + to」。多词运算符只能接在操作数之后，
+     * 行首（可缩进）是 Set 关键词（{@code Set} / {@code set}），其后紧接这个匹配，且匹配恰为「一个词 + to」。多词运算符只能接在操作数之后，
      * 而 Set 之后是目标名：{@code Set Equals to 5.} 里的 {@code Equals to} 是名字 {@code Equals} 加 Set 的 to，不是运算符
      * {@code equals to}，改写成小写会把目标名读成运算符（core 随后解析失败，ts 则把目标名改成 {@code equals}）。
      *
@@ -1781,11 +1781,24 @@ public final class Canonicalizer {
         }
         int wordEnd = i;
         while (i > 0 && !Character.isWhitespace(text.charAt(i - 1))) i--;
-        if (!setSpellings.contains(text.substring(i, wordEnd).toLowerCase(java.util.Locale.ROOT))) {
+        if (!isSetKeywordSpelling(text.substring(i, wordEnd))) {
             return false;
         }
         i = skipHorizontalSpaceBackward(text, i);
         return i == 0 ? startsAtLineStart : text.charAt(i - 1) == '\n';
+    }
+
+    /**
+     * Set 关键词的小写或首字母大写拼写（{@code set} / {@code Set}，core 词法的 SET 记号）。其余大小写（{@code SET}、{@code sET}）
+     * 在 K-b 里是同形词，只在 `名字 to` 之前读作 set；`SET equals to 2.` 可以是以 SET 为名的变量的比较表达式语句，
+     * 这里不改变它的读法。
+     */
+    private boolean isSetKeywordSpelling(String word) {
+        String lower = word.toLowerCase(java.util.Locale.ROOT);
+        if (!setSpellings.contains(lower)) {
+            return false;
+        }
+        return word.equals(lower) || word.equals(lower.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + lower.substring(1));
     }
 
     /** 词内字符（字母、数字、组合记号、下划线）：匹配之后紧跟它时 to 只是更长单词的前缀（{@code Set Equals tomorrow}）。 */

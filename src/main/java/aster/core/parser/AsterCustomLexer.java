@@ -359,12 +359,13 @@ public class AsterCustomLexer extends AsterLexer {
     /**
      * Set 的目标名 {@code equals}（aster-lang-core#328）：生成的词法器把 {@code set equals to 5.} 里的 {@code equals to}
      * 切成运算符记号 EQUALS_TO_WORD，但多词运算符只能接在操作数之后，语句开头的 Set 之后是目标名。这里把它拆回名字
-     * {@code equals} 与 Set 的 {@code to}（TO_WORD），与 aster-lang-ts 相同。只看语句开头（行首）的 Set（任意大小写；
-     * 其余大小写拼写由 kwSet 按 `名字 to` 读作 set）；大写开头的 {@code Equals to} 不会到这里：Canonicalizer 不再把 Set 的
-     * 目标名改写成小写。
+     * {@code equals} 与 Set 的 {@code to}（TO_WORD），与 aster-lang-ts 相同。只看语句开头（行首）的 SET 记号（{@code Set} /
+     * {@code set}）：其余大小写（{@code SET}）是同形词，{@code SET equals to 2.} 可以是以 SET 为名的变量的比较表达式语句，
+     * 读法不变。大写开头的 {@code Equals to} 不会到这里：Canonicalizer 不再把 Set 的目标名改写成小写。
      */
     private Token splitSetTarget(Token t) {
-        if (t.getType() != AsterParser.EQUALS_TO_WORD || !prevStartsLine || !"set".equals(prevMeaningfulLower)) {
+        if (t.getType() != AsterParser.EQUALS_TO_WORD || !prevStartsLine || prevMeaningful == null
+                || prevMeaningful.getType() != AsterParser.SET) {
             return t;
         }
         String text = t.getText();
