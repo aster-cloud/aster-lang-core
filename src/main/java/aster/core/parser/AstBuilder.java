@@ -409,12 +409,13 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
      * aster-lang-ts 的词法把它们一律读作 BOOL / NULL，在这些位置报 E055，core 同码同位置拒绝。此前 core 收作名字
      * （{@code Define Flag as one of True, Other.} 之后 {@code Return True.} 是枚举成员），K-c 之后同一个
      * {@code Return True.} 会读作布尔值，静默改变含义，所以先拒绝声明。名字转义 {@code `True`} 永远是名字（ADR 0064 N3），
-     * 消息建议的正是这种写法；由本地化关键词还原出的标识符不在此列。
+     * 消息建议的正是这种写法；由本地化关键词还原出的标识符不在此列。诊断参数 {@code escape} 是源码里的写法，结构化诊断据此给出
+     * 「写成 {@code `True`}」的提示（aster-lang-core#329，与 aster-lang-ts 同参数）。
      */
     private static void rejectLiteralName(Token tok, String expected, String message) {
         String literal = literalHomograph(tok);
         if (literal == null) return;
-        throw new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED, Map.of("token", expected),
+        throw new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED, Map.of("token", expected, "escape", tok.getText()),
             message + "; '" + tok.getText() + "' is the literal " + literal
                 + ", write it in backticks (`" + tok.getText() + "`) to use it as a name", tok);
     }

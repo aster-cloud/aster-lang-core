@@ -44,7 +44,7 @@ class KeywordNameParityTest {
         for (JsonNode c : fixture.get("cases")) {
             tests.add(DynamicTest.dynamicTest(c.get("name").asText(), () -> assertCase(c)));
         }
-        assertThat(fixture.get("cases")).hasSize(87);
+        assertThat(fixture.get("cases")).hasSize(93);
         return tests.stream();
     }
 
@@ -88,6 +88,15 @@ class KeywordNameParityTest {
         List<List<Object>> want = new ArrayList<>();
         c.get("warnings").forEach(w -> want.add(List.of(w.get(0).asText(), w.get(1).asInt())));
         assertThat(warnings).isEqualTo(want);
+        if (c.has("samePf")) {
+            // aster-lang-core#328：samePf 用名字转义写出同一个名字，Core IR 的位置无关哈希必须相同
+            assertThat(positionFree(source, locale)).isEqualTo(positionFree(c.get("samePf").asText(), locale));
+        }
+    }
+
+    private static String positionFree(String source, String locale) throws Exception {
+        return PolicySourceCompiler.positionFreeSha256(
+            aster.core.ir.CoreIrJson.serialize(InProcessCnlParser.parse(source, locale).core()));
     }
 
     /** 第一条非 E063 的解析诊断 [码, 行]（全是 E063 时取第一条），与 ParseDiagnosticsParityTest 同一判定；能解析时返回 null。 */

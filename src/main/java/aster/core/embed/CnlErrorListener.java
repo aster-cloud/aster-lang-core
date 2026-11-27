@@ -244,7 +244,23 @@ public class CnlErrorListener extends BaseErrorListener {
             args.add(p.getKey());
             args.add(value);
         }
-        return text.diagnostic(code, args.toArray(String[]::new));
+        return withEscapeHint(text.diagnostic(code, args.toArray(String[]::new)), code, params, text);
+    }
+
+    /** 名字转义提示的句型 key（aster-lang-core#329）：E055 带 {@code escape} 参数时接在消息之后。 */
+    static final String ESCAPE_HINT_KEY = "escapeNameHint";
+
+    /**
+     * E055 的可选参数 {@code escape}（aster-lang-core#329，ADR 0056 修订 A7）：名字位置上写了关键词同形词（{@code True}），
+     * 改写成名字转义 {@code `True`} 即可用作名字。参数值是源码原文，原样代入提示句（不换标点、不回译）；目录未收录提示句
+     * （locales 尚未升级）时消息不变。
+     */
+    private static String withEscapeHint(String message, ErrorCode code, Map<String, String> params, SyntaxMessages text) {
+        String escape = params.get("escape");
+        if (code != ErrorCode.PARSE_EXPECTED || escape == null || escape.isEmpty() || !text.has(ESCAPE_HINT_KEY)) {
+            return message;
+        }
+        return text.text("withHint", "hint", text.text(ESCAPE_HINT_KEY, "escape", escape), "message", message);
     }
 
     /** E902 的 {@code reason} → 语法目录的 {@code token.escape*} 名词句（ADR 0064 N1a）；目录未收录时用英文。 */

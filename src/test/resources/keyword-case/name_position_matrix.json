@@ -1,5 +1,5 @@
 {
-  "description": "关键词大小写（K，aster-lang-ts#338 第 1 部分，ADR 0056 修订 A4 §1.1 / 修订 A7）的名字位置回归矩阵：K-a 引入、K-b..K-d 每个 PR 原样重跑。每例是一份 en-US 源码：关键词同形词按小写、首字母大写、全大写三种拼写放进各个名字位置。K-a 的行：type、version、required、between、given、be、module，以及 K-a 改写的 with、as、of、one、has、produce、use、it、performs，放进字段、形参、Let 名、成员访问、变量引用、类型别名名、枚举成员、导入别名、数据类型名、规则名 10 个位置，外加结构关键词 If / IF / iF / if 的 E901 行，期望值取自 K 之前的 core（aster-lang-core f431a6b）。K-b 的行：K-b 改写的 set、to、not、and、or、for、function、map、async 放进上述 10 个位置与 K-b 新增的 5 个位置（构造字段、lambda 形参、Set 的目标、Start / Wait 的任务名、逻辑运算的操作数），K-a 的 16 个词也放进这 5 个新位置，期望值取自 K-b 之前的 core（aster-lang-core f995b84）。pf 是 Core IR 的位置无关 sha256，reject 是第一条诊断的 [码, 行, 列]。K 只放宽关键词位置，名字位置的结论必须与记录时逐例相同。K-c 的行：K-c 改写的运算符与字面量词 times、plus、minus、modulo、true、false、null、under、over、is，以及多词运算符的首词 less、greater、more、at、equal、equals、integer、divided，按小写、首字母大写、全大写与小写开头的混合拼写（tRUE）放进上述 15 个位置与 K-c 新增的 4 个位置（Let 名之后引用、Let 名作比较的左操作数、Let 名作算术的左操作数、Match 分支的模式），K-a / K-b 的 25 个词也放进这 4 个新位置，期望值取自 K-c 之前的 core（aster-lang-core 7004a26）。例外是带 \"tightened\": \"D2\" 的行（产品裁决 D2，刻意收紧）：true / false / null 的其余大小写拼写在声明名字的位置报 E055（与 aster-lang-ts 同码同位置），模式里的 Null 读作 null 模式；这些行的 reject / pf 是 K-c 之后的结论，\"before\" 记录 K-c 之前的结论。 K-d 的行：K-d 改写的 workflow 与约束词 workflow、step、retry、timeout、depends、on、compensate、max、attempts、backoff、seconds、second、matching，以及 matching 之后的 pattern，按小写、首字母大写、全大写与小写开头的混合拼写放进上述 19 个位置与 K-d 新增的 2 个位置（workflow 的步骤名、语句开头的调用），K-a / K-b / K-c 的 43 个词也放进这 2 个新位置；期望值取自 K-d 之前的 core（aster-lang-core 85f891f），K-d 没有刻意收紧的行。",
+  "description": "关键词大小写（K，aster-lang-ts#338 第 1 部分，ADR 0056 修订 A4 §1.1 / 修订 A7）的名字位置回归矩阵：K-a 引入、K-b..K-d 每个 PR 原样重跑。每例是一份 en-US 源码：关键词同形词按小写、首字母大写、全大写三种拼写放进各个名字位置。K-a 的行：type、version、required、between、given、be、module，以及 K-a 改写的 with、as、of、one、has、produce、use、it、performs，放进字段、形参、Let 名、成员访问、变量引用、类型别名名、枚举成员、导入别名、数据类型名、规则名 10 个位置，外加结构关键词 If / IF / iF / if 的 E901 行，期望值取自 K 之前的 core（aster-lang-core f431a6b）。K-b 的行：K-b 改写的 set、to、not、and、or、for、function、map、async 放进上述 10 个位置与 K-b 新增的 5 个位置（构造字段、lambda 形参、Set 的目标、Start / Wait 的任务名、逻辑运算的操作数），K-a 的 16 个词也放进这 5 个新位置，期望值取自 K-b 之前的 core（aster-lang-core f995b84）。pf 是 Core IR 的位置无关 sha256，reject 是第一条诊断的 [码, 行, 列]。K 只放宽关键词位置，名字位置的结论必须与记录时逐例相同。K-c 的行：K-c 改写的运算符与字面量词 times、plus、minus、modulo、true、false、null、under、over、is，以及多词运算符的首词 less、greater、more、at、equal、equals、integer、divided，按小写、首字母大写、全大写与小写开头的混合拼写（tRUE）放进上述 15 个位置与 K-c 新增的 4 个位置（Let 名之后引用、Let 名作比较的左操作数、Let 名作算术的左操作数、Match 分支的模式），K-a / K-b 的 25 个词也放进这 4 个新位置，期望值取自 K-c 之前的 core（aster-lang-core 7004a26）。例外是带 \"tightened\": \"D2\" 的行（产品裁决 D2，刻意收紧）：true / false / null 的其余大小写拼写在声明名字的位置报 E055（与 aster-lang-ts 同码同位置），模式里的 Null 读作 null 模式；这些行的 reject / pf 是 K-c 之后的结论，\"before\" 记录 K-c 之前的结论。 K-d 的行：K-d 改写的 workflow 与约束词 workflow、step、retry、timeout、depends、on、compensate、max、attempts、backoff、seconds、second、matching，以及 matching 之后的 pattern，按小写、首字母大写、全大写与小写开头的混合拼写放进上述 19 个位置与 K-d 新增的 2 个位置（workflow 的步骤名、语句开头的调用），K-a / K-b / K-c 的 43 个词也放进这 2 个新位置；期望值取自 K-d 之前的 core（aster-lang-core 85f891f），K-d 没有刻意收紧的行。 例外二是带 \"loosened\": \"#328\" 的行（aster-lang-core#328，刻意放宽）：Set 的目标名 equals 的四种拼写（Set Equals to 2.）此前被 Canonicalizer / 词法器读成运算符 equals to 而报错，aster-lang-ts 收作名字；这些行的 pf 是 #328 之后的结论（与 aster-lang-ts 的 Core IR 位置无关哈希相同），\"before\" 记录 #328 之前的结论。",
   "baseline": "aster-lang-core f431a6b (eco-1.0.56, K-a 行); f995b84 (K-b 行); 7004a26 (K-c 行); 85f891f (K-d 行)",
   "cases": [
     {
@@ -15938,11 +15938,15 @@
     {
       "name": "settarget/equals/lower",
       "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let equals be x.\n  Set equals to 2.\n  Return equals.\n",
-      "reject": [
-        "E062",
-        5,
-        7
-      ]
+      "pf": "ee8811725cf8a6378204811396a129200902b886dd7f9dab32cee64fd2d02091",
+      "loosened": "#328",
+      "before": {
+        "reject": [
+          "E062",
+          5,
+          7
+        ]
+      }
     },
     {
       "name": "waitname/equals/lower",
@@ -16065,11 +16069,15 @@
     {
       "name": "settarget/equals/Cap",
       "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let Equals be x.\n  Set Equals to 2.\n  Return Equals.\n",
-      "reject": [
-        "E062",
-        5,
-        7
-      ]
+      "pf": "f4b055cdbb0bc5b71877949ad0d0bd1070ceccdcfcc070d15780431695d4da4a",
+      "loosened": "#328",
+      "before": {
+        "reject": [
+          "E062",
+          5,
+          7
+        ]
+      }
     },
     {
       "name": "waitname/equals/Cap",
@@ -16196,11 +16204,15 @@
     {
       "name": "settarget/equals/UPPER",
       "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let EQUALS be x.\n  Set EQUALS to 2.\n  Return EQUALS.\n",
-      "reject": [
-        "E062",
-        5,
-        7
-      ]
+      "pf": "1a5b4377a10197575d90c79ac3fb464cff6bf7d9f6bb7d115ffad636d565084a",
+      "loosened": "#328",
+      "before": {
+        "reject": [
+          "E062",
+          5,
+          7
+        ]
+      }
     },
     {
       "name": "waitname/equals/UPPER",
@@ -16289,11 +16301,15 @@
     {
       "name": "settarget/equals/mixed",
       "source": "Module probe.sample.\n\nRule get given x as Int, produce Int:\n  Let eQUALS be x.\n  Set eQUALS to 2.\n  Return eQUALS.\n",
-      "reject": [
-        "E062",
-        5,
-        7
-      ]
+      "pf": "e0a1400560711b20a2ab9f98fc34fcfb3b0e330f0c2a3595d8feb0af79199beb",
+      "loosened": "#328",
+      "before": {
+        "reject": [
+          "E062",
+          5,
+          7
+        ]
+      }
     },
     {
       "name": "waitname/equals/mixed",
