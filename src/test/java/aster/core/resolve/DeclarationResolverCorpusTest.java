@@ -103,7 +103,10 @@ public class DeclarationResolverCorpusTest {
         "tier1-parity/vocab-zh/cjk-pattern-binding.aster",
         "当 其余 / 当 其他 不是主语枚举的成员：直接 lower 按 TYPE_IDENT 产出 PatCtor，R2 按 ADR 0055 #16 改写为绑定 PatName",
         "tier1-parity/vocab-zh/enum-variant-v2.aster",
-        "当 其余 不是主语枚举的成员：直接 lower 按 TYPE_IDENT 产出 PatCtor，R2 按 ADR 0055 #16 改写为绑定 PatName");
+        "当 其余 不是主语枚举的成员：直接 lower 按 TYPE_IDENT 产出 PatCtor，R2 按 ADR 0055 #16 改写为绑定 PatName",
+        "tier1-parity/syntax/follow-core-one-sided.aster",
+        "构造字段 Y / Left / Right / Height 与声明字段 y / left / right / height 仅大小写不同（ADR 0056 修订 A8 第 3 条 3a），"
+            + "R2 按 ADR 0051 §6.3 大小写折叠解析为声明的字段名");
 
     /** 语料文件的引擎声明；lexicon 缺省为 en-US。 */
     private record Meta(boolean java, boolean reject, String lexicon) {}
