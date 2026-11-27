@@ -75,6 +75,10 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
+      # Maven Central 限流（429）防护：此后的 Gradle 构建优先走 Central 镜像，缺货回落原仓库（制品逐字节相同）。
+      # 本地路径引用：platform 已由 checkout-sibling 按同名分支检出到 ./aster-lang-platform。
+      - uses: ./aster-lang-platform/.github/actions/maven-central-mirror
+
       # Phase 0: 发布共享版本目录到 Maven Local（core settings 依赖它）
       - name: Publish version catalog
         run: cd aster-lang-platform && ./gradlew publishToMavenLocal
@@ -256,6 +260,11 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
           cache: 'gradle'
+
+      # Maven Central 限流（429）防护：此后的 Gradle 构建优先走 Central 镜像，缺货回落原仓库（制品逐字节相同）。
+      # 本地路径引用：platform 已由 checkout-sibling 按同名分支检出到 ./aster-lang-platform。
+      - if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
+        uses: ./aster-lang-platform/.github/actions/maven-central-mirror
 
       - name: Build aster-lang-ts
         if: steps.changed.outputs.parity == 'true' || github.event_name == 'push'
