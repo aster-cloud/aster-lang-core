@@ -1,0 +1,1384 @@
+{
+  "description": "关键词大小写 K-c（运算符与字面量：times、plus、minus、modulo、比较词前的 is、not equal to、软比较词 under / over，以及 true / false / null；aster-lang-ts#338 第 1 部分，ADR 0056 修订 A4 §1.1、修订 A7 D1，产品裁决 D2 / D3）的 core 夹具。accept：source 能解析，且与把运算符 / 字面量改回规范拼写的 canonical Core IR 位置无关哈希相同，每例 aster-lang-ts 同样接受且同义；其中 Not(x) / NOT (x) 读作 not（D3），True / FALSE / Null 在表达式、注解值与模式里是字面量（D2）。names：同形词作名字照常解析，Core IR 含 names 中的每个名字：Let 名 Is / TIMES / Under、成员调用 H.Not(x)、Match 分支的构造器模式 When Not(a)、转义 `nOT`(x) / `True` / `Null`。reject：第一条诊断恰为 [码, 行, 列]；带 \"tightened\": \"D2\" 的行是 D2 的刻意收紧（true / false / null 的其余大小写拼写不能作声明的名字，与 aster-lang-ts 同码同位置报 E055），其余行与 K-c 之前的 core（7004a26）相同：转义的运算符是名字，以关键词同形词为名的操作数（max Times 2）与行首的运算符不改写，aster-lang-ts 连小写也不收的 less than or equal to 不放宽。",
+  "accept": [
+    {
+      "name": "times-return/TIMES",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x TIMES y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x times y.\n"
+    },
+    {
+      "name": "times-return/Times",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x Times y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x times y.\n"
+    },
+    {
+      "name": "times-return/tIMES",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x tIMES y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x times y.\n"
+    },
+    {
+      "name": "times-let/TIMES",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x TIMES 2.\n  Return z.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x times 2.\n  Return z.\n"
+    },
+    {
+      "name": "times-let/Times",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x Times 2.\n  Return z.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x times 2.\n  Return z.\n"
+    },
+    {
+      "name": "times-let/tIMES",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x tIMES 2.\n  Return z.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x times 2.\n  Return z.\n"
+    },
+    {
+      "name": "times-paren/TIMES",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) TIMES (y).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) times (y).\n"
+    },
+    {
+      "name": "times-paren/Times",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) Times (y).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) times (y).\n"
+    },
+    {
+      "name": "times-paren/tIMES",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) tIMES (y).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) times (y).\n"
+    },
+    {
+      "name": "times-call-literal/TIMES",
+      "source": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) TIMES 3.\n",
+      "canonical": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) times 3.\n"
+    },
+    {
+      "name": "times-call-literal/Times",
+      "source": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) Times 3.\n",
+      "canonical": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) times 3.\n"
+    },
+    {
+      "name": "times-call-literal/tIMES",
+      "source": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) tIMES 3.\n",
+      "canonical": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) times 3.\n"
+    },
+    {
+      "name": "plus-return/PLUS",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x PLUS y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x plus y.\n"
+    },
+    {
+      "name": "plus-return/Plus",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x Plus y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x plus y.\n"
+    },
+    {
+      "name": "plus-return/pLUS",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x pLUS y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x plus y.\n"
+    },
+    {
+      "name": "plus-let/PLUS",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x PLUS 2.\n  Return z.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x plus 2.\n  Return z.\n"
+    },
+    {
+      "name": "plus-let/Plus",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x Plus 2.\n  Return z.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x plus 2.\n  Return z.\n"
+    },
+    {
+      "name": "plus-let/pLUS",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x pLUS 2.\n  Return z.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x plus 2.\n  Return z.\n"
+    },
+    {
+      "name": "plus-paren/PLUS",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) PLUS (y).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) plus (y).\n"
+    },
+    {
+      "name": "plus-paren/Plus",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) Plus (y).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) plus (y).\n"
+    },
+    {
+      "name": "plus-paren/pLUS",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) pLUS (y).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) plus (y).\n"
+    },
+    {
+      "name": "plus-call-literal/PLUS",
+      "source": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) PLUS 3.\n",
+      "canonical": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) plus 3.\n"
+    },
+    {
+      "name": "plus-call-literal/Plus",
+      "source": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) Plus 3.\n",
+      "canonical": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) plus 3.\n"
+    },
+    {
+      "name": "plus-call-literal/pLUS",
+      "source": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) pLUS 3.\n",
+      "canonical": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) plus 3.\n"
+    },
+    {
+      "name": "minus-return/MINUS",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x MINUS y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x minus y.\n"
+    },
+    {
+      "name": "minus-return/Minus",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x Minus y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x minus y.\n"
+    },
+    {
+      "name": "minus-return/mINUS",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x mINUS y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x minus y.\n"
+    },
+    {
+      "name": "minus-let/MINUS",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x MINUS 2.\n  Return z.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x minus 2.\n  Return z.\n"
+    },
+    {
+      "name": "minus-let/Minus",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x Minus 2.\n  Return z.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x minus 2.\n  Return z.\n"
+    },
+    {
+      "name": "minus-let/mINUS",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x mINUS 2.\n  Return z.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x minus 2.\n  Return z.\n"
+    },
+    {
+      "name": "minus-paren/MINUS",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) MINUS (y).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) minus (y).\n"
+    },
+    {
+      "name": "minus-paren/Minus",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) Minus (y).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) minus (y).\n"
+    },
+    {
+      "name": "minus-paren/mINUS",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) mINUS (y).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) minus (y).\n"
+    },
+    {
+      "name": "minus-call-literal/MINUS",
+      "source": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) MINUS 3.\n",
+      "canonical": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) minus 3.\n"
+    },
+    {
+      "name": "minus-call-literal/Minus",
+      "source": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) Minus 3.\n",
+      "canonical": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) minus 3.\n"
+    },
+    {
+      "name": "minus-call-literal/mINUS",
+      "source": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) mINUS 3.\n",
+      "canonical": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) minus 3.\n"
+    },
+    {
+      "name": "modulo-return/MODULO",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x MODULO y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x modulo y.\n"
+    },
+    {
+      "name": "modulo-return/Modulo",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x Modulo y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x modulo y.\n"
+    },
+    {
+      "name": "modulo-return/mODULO",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x mODULO y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x modulo y.\n"
+    },
+    {
+      "name": "modulo-let/MODULO",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x MODULO 2.\n  Return z.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x modulo 2.\n  Return z.\n"
+    },
+    {
+      "name": "modulo-let/Modulo",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x Modulo 2.\n  Return z.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x modulo 2.\n  Return z.\n"
+    },
+    {
+      "name": "modulo-let/mODULO",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x mODULO 2.\n  Return z.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let z be x modulo 2.\n  Return z.\n"
+    },
+    {
+      "name": "modulo-paren/MODULO",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) MODULO (y).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) modulo (y).\n"
+    },
+    {
+      "name": "modulo-paren/Modulo",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) Modulo (y).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) modulo (y).\n"
+    },
+    {
+      "name": "modulo-paren/mODULO",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) mODULO (y).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return (x) modulo (y).\n"
+    },
+    {
+      "name": "modulo-call-literal/MODULO",
+      "source": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) MODULO 3.\n",
+      "canonical": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) modulo 3.\n"
+    },
+    {
+      "name": "modulo-call-literal/Modulo",
+      "source": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) Modulo 3.\n",
+      "canonical": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) modulo 3.\n"
+    },
+    {
+      "name": "modulo-call-literal/mODULO",
+      "source": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) mODULO 3.\n",
+      "canonical": "Module probe.sample.\n\nRule f given n as Int, produce Int:\n  Return n.\n\nRule get given x as Int, produce Int:\n  Return f(x) modulo 3.\n"
+    },
+    {
+      "name": "plus-string/PLUS",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Text:\n  Return \"a\" PLUS \"b\".\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Text:\n  Return \"a\" plus \"b\".\n"
+    },
+    {
+      "name": "plus-string/Plus",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Text:\n  Return \"a\" Plus \"b\".\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Text:\n  Return \"a\" plus \"b\".\n"
+    },
+    {
+      "name": "plus-string/pLUS",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Text:\n  Return \"a\" pLUS \"b\".\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Text:\n  Return \"a\" plus \"b\".\n"
+    },
+    {
+      "name": "plus-chain/PLUS",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x PLUS y PLUS 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x plus y plus 1.\n"
+    },
+    {
+      "name": "plus-chain/Plus",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x Plus y Plus 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x plus y plus 1.\n"
+    },
+    {
+      "name": "plus-chain/pLUS",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x pLUS y pLUS 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x plus y plus 1.\n"
+    },
+    {
+      "name": "times-escaped-operand/TIMES",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return `x` TIMES y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return `x` times y.\n"
+    },
+    {
+      "name": "times-escaped-operand/Times",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return `x` Times y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return `x` times y.\n"
+    },
+    {
+      "name": "times-escaped-operand/tIMES",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return `x` tIMES y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return `x` times y.\n"
+    },
+    {
+      "name": "times-in-if/TIMES",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x TIMES 2 > y:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x times 2 > y:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "times-in-if/Times",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x Times 2 > y:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x times 2 > y:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "times-in-if/tIMES",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x tIMES 2 > y:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x times 2 > y:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "is-less-than/IS LESS THAN",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x IS LESS THAN y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is less than y.\n"
+    },
+    {
+      "name": "is-less-than/Is Less Than",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Is Less Than y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is less than y.\n"
+    },
+    {
+      "name": "is-less-than/Is less than",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Is less than y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is less than y.\n"
+    },
+    {
+      "name": "is-less-than/iS less than",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x iS less than y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is less than y.\n"
+    },
+    {
+      "name": "is-less-than-if/Is Less Than",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x Is Less Than 10:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x is less than 10:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "is-greater-than/IS GREATER THAN",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x IS GREATER THAN y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is greater than y.\n"
+    },
+    {
+      "name": "is-greater-than/Is Greater Than",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Is Greater Than y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is greater than y.\n"
+    },
+    {
+      "name": "is-greater-than/Is greater than",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Is greater than y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is greater than y.\n"
+    },
+    {
+      "name": "is-greater-than/iS greater than",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x iS greater than y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is greater than y.\n"
+    },
+    {
+      "name": "is-greater-than-if/Is Greater Than",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x Is Greater Than 10:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x is greater than 10:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "is-more-than/IS MORE THAN",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x IS MORE THAN y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is more than y.\n"
+    },
+    {
+      "name": "is-more-than/Is More Than",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Is More Than y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is more than y.\n"
+    },
+    {
+      "name": "is-more-than/Is more than",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Is more than y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is more than y.\n"
+    },
+    {
+      "name": "is-more-than/iS more than",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x iS more than y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is more than y.\n"
+    },
+    {
+      "name": "is-more-than-if/Is More Than",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x Is More Than 10:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x is more than 10:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "is-at-least/IS AT LEAST",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x IS AT LEAST y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is at least y.\n"
+    },
+    {
+      "name": "is-at-least/Is At Least",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Is At Least y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is at least y.\n"
+    },
+    {
+      "name": "is-at-least/Is at least",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Is at least y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is at least y.\n"
+    },
+    {
+      "name": "is-at-least/iS at least",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x iS at least y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is at least y.\n"
+    },
+    {
+      "name": "is-at-least-if/Is At Least",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x Is At Least 10:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x is at least 10:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "is-at-most/IS AT MOST",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x IS AT MOST y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is at most y.\n"
+    },
+    {
+      "name": "is-at-most/Is At Most",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Is At Most y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is at most y.\n"
+    },
+    {
+      "name": "is-at-most/Is at most",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Is at most y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is at most y.\n"
+    },
+    {
+      "name": "is-at-most/iS at most",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x iS at most y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is at most y.\n"
+    },
+    {
+      "name": "is-at-most-if/Is At Most",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x Is At Most 10:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x is at most 10:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "is-equal-to/IS EQUAL TO",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x IS EQUAL TO y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is equal to y.\n"
+    },
+    {
+      "name": "is-equal-to/Is Equal To",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Is Equal To y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is equal to y.\n"
+    },
+    {
+      "name": "is-equal-to/Is equal to",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Is equal to y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is equal to y.\n"
+    },
+    {
+      "name": "is-equal-to/iS equal to",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x iS equal to y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is equal to y.\n"
+    },
+    {
+      "name": "is-equal-to-if/Is Equal To",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x Is Equal To 10:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x is equal to 10:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "is-not-equal-to/IS NOT EQUAL TO",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x IS NOT EQUAL TO y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is not equal to y.\n"
+    },
+    {
+      "name": "is-not-equal-to/Is Not Equal To",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Is Not Equal To y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is not equal to y.\n"
+    },
+    {
+      "name": "is-not-equal-to/Is not equal to",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Is not equal to y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is not equal to y.\n"
+    },
+    {
+      "name": "is-not-equal-to/iS not equal to",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x iS not equal to y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is not equal to y.\n"
+    },
+    {
+      "name": "is-not-equal-to-if/Is Not Equal To",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x Is Not Equal To 10:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x is not equal to 10:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "not-equal-to/NOT EQUAL TO",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x NOT EQUAL TO y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x not equal to y.\n"
+    },
+    {
+      "name": "not-equal-to/Not Equal To",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Not Equal To y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x not equal to y.\n"
+    },
+    {
+      "name": "not-equal-to/Not equal to",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Not equal to y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x not equal to y.\n"
+    },
+    {
+      "name": "not-equal-to/nOT equal to",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x nOT equal to y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x not equal to y.\n"
+    },
+    {
+      "name": "not-equal-to-if/Not Equal To",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x Not Equal To 10:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If x not equal to 10:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "under/UNDER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x UNDER y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x under y.\n"
+    },
+    {
+      "name": "under/Under",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Under y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x under y.\n"
+    },
+    {
+      "name": "under/uNDER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x uNDER y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x under y.\n"
+    },
+    {
+      "name": "over/OVER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x OVER y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x over y.\n"
+    },
+    {
+      "name": "over/Over",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Over y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x over y.\n"
+    },
+    {
+      "name": "over/oVER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x oVER y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x over y.\n"
+    },
+    {
+      "name": "is-under/IS UNDER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x IS UNDER y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is under y.\n"
+    },
+    {
+      "name": "is-under/Is Under",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Is Under y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is under y.\n"
+    },
+    {
+      "name": "is-under/iS under",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x iS under y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is under y.\n"
+    },
+    {
+      "name": "is-over/IS OVER",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x IS OVER y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is over y.\n"
+    },
+    {
+      "name": "is-over/Is Over",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Is Over y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is over y.\n"
+    },
+    {
+      "name": "is-over/iS over",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x iS over y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x is over y.\n"
+    },
+    {
+      "name": "not-equal-to-mixed/not Equal To",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x not Equal To y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x not equal to y.\n"
+    },
+    {
+      "name": "not-equal-to-mixed/Not equal to",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Not equal to y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x not equal to y.\n"
+    },
+    {
+      "name": "not-equal-to-mixed/not EQUAL to",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x not EQUAL to y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x not equal to y.\n"
+    },
+    {
+      "name": "true-return/TRUE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return TRUE.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return true.\n"
+    },
+    {
+      "name": "true-return/True",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return True.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return true.\n"
+    },
+    {
+      "name": "true-return/tRUE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return tRUE.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return true.\n"
+    },
+    {
+      "name": "true-let/TRUE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let b be TRUE.\n  Return b.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let b be true.\n  Return b.\n"
+    },
+    {
+      "name": "true-let/True",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let b be True.\n  Return b.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let b be true.\n  Return b.\n"
+    },
+    {
+      "name": "true-let/tRUE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let b be tRUE.\n  Return b.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let b be true.\n  Return b.\n"
+    },
+    {
+      "name": "true-if/TRUE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If TRUE:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If true:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "true-if/True",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If True:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If true:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "true-if/tRUE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If tRUE:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If true:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "true-arg/TRUE",
+      "source": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get, produce Bool:\n  Return f(TRUE).\n",
+      "canonical": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get, produce Bool:\n  Return f(true).\n"
+    },
+    {
+      "name": "true-arg/True",
+      "source": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get, produce Bool:\n  Return f(True).\n",
+      "canonical": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get, produce Bool:\n  Return f(true).\n"
+    },
+    {
+      "name": "true-arg/tRUE",
+      "source": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get, produce Bool:\n  Return f(tRUE).\n",
+      "canonical": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get, produce Bool:\n  Return f(true).\n"
+    },
+    {
+      "name": "true-list/TRUE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce List of Bool:\n  Return [TRUE, x > 1].\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce List of Bool:\n  Return [true, x > 1].\n"
+    },
+    {
+      "name": "true-list/True",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce List of Bool:\n  Return [True, x > 1].\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce List of Bool:\n  Return [true, x > 1].\n"
+    },
+    {
+      "name": "true-list/tRUE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce List of Bool:\n  Return [tRUE, x > 1].\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce List of Bool:\n  Return [true, x > 1].\n"
+    },
+    {
+      "name": "true-eq/TRUE",
+      "source": "Module probe.sample.\n\nRule get given b as Bool, produce Bool:\n  Return b == TRUE.\n",
+      "canonical": "Module probe.sample.\n\nRule get given b as Bool, produce Bool:\n  Return b == true.\n"
+    },
+    {
+      "name": "true-eq/True",
+      "source": "Module probe.sample.\n\nRule get given b as Bool, produce Bool:\n  Return b == True.\n",
+      "canonical": "Module probe.sample.\n\nRule get given b as Bool, produce Bool:\n  Return b == true.\n"
+    },
+    {
+      "name": "true-eq/tRUE",
+      "source": "Module probe.sample.\n\nRule get given b as Bool, produce Bool:\n  Return b == tRUE.\n",
+      "canonical": "Module probe.sample.\n\nRule get given b as Bool, produce Bool:\n  Return b == true.\n"
+    },
+    {
+      "name": "true-not/TRUE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not TRUE.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not true.\n"
+    },
+    {
+      "name": "true-not/True",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not True.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not true.\n"
+    },
+    {
+      "name": "true-not/tRUE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not tRUE.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not true.\n"
+    },
+    {
+      "name": "true-and/TRUE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x > 1 and TRUE.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x > 1 and true.\n"
+    },
+    {
+      "name": "true-and/True",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x > 1 and True.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x > 1 and true.\n"
+    },
+    {
+      "name": "true-and/tRUE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x > 1 and tRUE.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x > 1 and true.\n"
+    },
+    {
+      "name": "true-annotation/TRUE",
+      "source": "Module probe.sample.\n\nDefine S with @deprecated(TRUE) a as Int.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with @deprecated(true) a as Int.\n"
+    },
+    {
+      "name": "true-annotation/True",
+      "source": "Module probe.sample.\n\nDefine S with @deprecated(True) a as Int.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with @deprecated(true) a as Int.\n"
+    },
+    {
+      "name": "true-annotation/tRUE",
+      "source": "Module probe.sample.\n\nDefine S with @deprecated(tRUE) a as Int.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with @deprecated(true) a as Int.\n"
+    },
+    {
+      "name": "true-inline-if/TRUE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return if x > 1 then TRUE else x > 2.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return if x > 1 then true else x > 2.\n"
+    },
+    {
+      "name": "true-inline-if/True",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return if x > 1 then True else x > 2.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return if x > 1 then true else x > 2.\n"
+    },
+    {
+      "name": "true-inline-if/tRUE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return if x > 1 then tRUE else x > 2.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return if x > 1 then true else x > 2.\n"
+    },
+    {
+      "name": "false-return/FALSE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return FALSE.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return false.\n"
+    },
+    {
+      "name": "false-return/False",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return False.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return false.\n"
+    },
+    {
+      "name": "false-return/fALSE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return fALSE.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return false.\n"
+    },
+    {
+      "name": "false-let/FALSE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let b be FALSE.\n  Return b.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let b be false.\n  Return b.\n"
+    },
+    {
+      "name": "false-let/False",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let b be False.\n  Return b.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let b be false.\n  Return b.\n"
+    },
+    {
+      "name": "false-let/fALSE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let b be fALSE.\n  Return b.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let b be false.\n  Return b.\n"
+    },
+    {
+      "name": "false-if/FALSE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If FALSE:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If false:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "false-if/False",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If False:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If false:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "false-if/fALSE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If fALSE:\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If false:\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "false-arg/FALSE",
+      "source": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get, produce Bool:\n  Return f(FALSE).\n",
+      "canonical": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get, produce Bool:\n  Return f(false).\n"
+    },
+    {
+      "name": "false-arg/False",
+      "source": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get, produce Bool:\n  Return f(False).\n",
+      "canonical": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get, produce Bool:\n  Return f(false).\n"
+    },
+    {
+      "name": "false-arg/fALSE",
+      "source": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get, produce Bool:\n  Return f(fALSE).\n",
+      "canonical": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get, produce Bool:\n  Return f(false).\n"
+    },
+    {
+      "name": "false-list/FALSE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce List of Bool:\n  Return [FALSE, x > 1].\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce List of Bool:\n  Return [false, x > 1].\n"
+    },
+    {
+      "name": "false-list/False",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce List of Bool:\n  Return [False, x > 1].\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce List of Bool:\n  Return [false, x > 1].\n"
+    },
+    {
+      "name": "false-list/fALSE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce List of Bool:\n  Return [fALSE, x > 1].\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce List of Bool:\n  Return [false, x > 1].\n"
+    },
+    {
+      "name": "false-eq/FALSE",
+      "source": "Module probe.sample.\n\nRule get given b as Bool, produce Bool:\n  Return b == FALSE.\n",
+      "canonical": "Module probe.sample.\n\nRule get given b as Bool, produce Bool:\n  Return b == false.\n"
+    },
+    {
+      "name": "false-eq/False",
+      "source": "Module probe.sample.\n\nRule get given b as Bool, produce Bool:\n  Return b == False.\n",
+      "canonical": "Module probe.sample.\n\nRule get given b as Bool, produce Bool:\n  Return b == false.\n"
+    },
+    {
+      "name": "false-eq/fALSE",
+      "source": "Module probe.sample.\n\nRule get given b as Bool, produce Bool:\n  Return b == fALSE.\n",
+      "canonical": "Module probe.sample.\n\nRule get given b as Bool, produce Bool:\n  Return b == false.\n"
+    },
+    {
+      "name": "false-not/FALSE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not FALSE.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not false.\n"
+    },
+    {
+      "name": "false-not/False",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not False.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not false.\n"
+    },
+    {
+      "name": "false-not/fALSE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not fALSE.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not false.\n"
+    },
+    {
+      "name": "false-and/FALSE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x > 1 and FALSE.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x > 1 and false.\n"
+    },
+    {
+      "name": "false-and/False",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x > 1 and False.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x > 1 and false.\n"
+    },
+    {
+      "name": "false-and/fALSE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x > 1 and fALSE.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x > 1 and false.\n"
+    },
+    {
+      "name": "false-annotation/FALSE",
+      "source": "Module probe.sample.\n\nDefine S with @deprecated(FALSE) a as Int.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with @deprecated(false) a as Int.\n"
+    },
+    {
+      "name": "false-annotation/False",
+      "source": "Module probe.sample.\n\nDefine S with @deprecated(False) a as Int.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with @deprecated(false) a as Int.\n"
+    },
+    {
+      "name": "false-annotation/fALSE",
+      "source": "Module probe.sample.\n\nDefine S with @deprecated(fALSE) a as Int.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with @deprecated(false) a as Int.\n"
+    },
+    {
+      "name": "false-inline-if/FALSE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return if x > 1 then FALSE else x > 2.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return if x > 1 then false else x > 2.\n"
+    },
+    {
+      "name": "false-inline-if/False",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return if x > 1 then False else x > 2.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return if x > 1 then false else x > 2.\n"
+    },
+    {
+      "name": "false-inline-if/fALSE",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return if x > 1 then fALSE else x > 2.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return if x > 1 then false else x > 2.\n"
+    },
+    {
+      "name": "null-return/NULL",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int?:\n  Return NULL.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int?:\n  Return null.\n"
+    },
+    {
+      "name": "null-return/Null",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int?:\n  Return Null.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int?:\n  Return null.\n"
+    },
+    {
+      "name": "null-return/nULL",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int?:\n  Return nULL.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int?:\n  Return null.\n"
+    },
+    {
+      "name": "null-let/NULL",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let a be NULL.\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let a be null.\n  Return x.\n"
+    },
+    {
+      "name": "null-let/Null",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let a be Null.\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let a be null.\n  Return x.\n"
+    },
+    {
+      "name": "null-let/nULL",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let a be nULL.\n  Return x.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let a be null.\n  Return x.\n"
+    },
+    {
+      "name": "null-eq/NULL",
+      "source": "Module probe.sample.\n\nRule get given x as Int?, produce Bool:\n  Return x == NULL.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int?, produce Bool:\n  Return x == null.\n"
+    },
+    {
+      "name": "null-eq/Null",
+      "source": "Module probe.sample.\n\nRule get given x as Int?, produce Bool:\n  Return x == Null.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int?, produce Bool:\n  Return x == null.\n"
+    },
+    {
+      "name": "null-eq/nULL",
+      "source": "Module probe.sample.\n\nRule get given x as Int?, produce Bool:\n  Return x == nULL.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int?, produce Bool:\n  Return x == null.\n"
+    },
+    {
+      "name": "null-pattern/NULL",
+      "source": "Module probe.sample.\n\nRule get given x as Int?, produce Int:\n  Match x:\n    When NULL, Return 1.\n    When 1, Return 2.\n  Return 3.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int?, produce Int:\n  Match x:\n    When null, Return 1.\n    When 1, Return 2.\n  Return 3.\n"
+    },
+    {
+      "name": "null-pattern/Null",
+      "source": "Module probe.sample.\n\nRule get given x as Int?, produce Int:\n  Match x:\n    When Null, Return 1.\n    When 1, Return 2.\n  Return 3.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int?, produce Int:\n  Match x:\n    When null, Return 1.\n    When 1, Return 2.\n  Return 3.\n"
+    },
+    {
+      "name": "null-pattern/nULL",
+      "source": "Module probe.sample.\n\nRule get given x as Int?, produce Int:\n  Match x:\n    When nULL, Return 1.\n    When 1, Return 2.\n  Return 3.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int?, produce Int:\n  Match x:\n    When null, Return 1.\n    When 1, Return 2.\n  Return 3.\n"
+    },
+    {
+      "name": "not-paren/NOT",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return NOT(x > 1).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not(x > 1).\n"
+    },
+    {
+      "name": "not-paren/Not",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return Not(x > 1).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not(x > 1).\n"
+    },
+    {
+      "name": "not-paren/nOT",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return nOT(x > 1).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not(x > 1).\n"
+    },
+    {
+      "name": "not-paren-space/NOT",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return NOT (x > 1).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not (x > 1).\n"
+    },
+    {
+      "name": "not-paren-space/Not",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return Not (x > 1).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not (x > 1).\n"
+    },
+    {
+      "name": "not-paren-space/nOT",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return nOT (x > 1).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not (x > 1).\n"
+    },
+    {
+      "name": "not-paren-and/NOT",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return NOT(x > 1) and y > 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not(x > 1) and y > 1.\n"
+    },
+    {
+      "name": "not-paren-and/Not",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return Not(x > 1) and y > 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not(x > 1) and y > 1.\n"
+    },
+    {
+      "name": "not-paren-and/nOT",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return nOT(x > 1) and y > 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not(x > 1) and y > 1.\n"
+    },
+    {
+      "name": "not-paren-plus/NOT",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return NOT (x) + 1 > y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not (x) + 1 > y.\n"
+    },
+    {
+      "name": "not-paren-plus/Not",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return Not (x) + 1 > y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not (x) + 1 > y.\n"
+    },
+    {
+      "name": "not-paren-plus/nOT",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return nOT (x) + 1 > y.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not (x) + 1 > y.\n"
+    },
+    {
+      "name": "not-paren-if/NOT",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If NOT (x > 1):\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If not (x > 1):\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "not-paren-if/Not",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If Not (x > 1):\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If not (x > 1):\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "not-paren-if/nOT",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If nOT (x > 1):\n    Return 1.\n  Return 0.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  If not (x > 1):\n    Return 1.\n  Return 0.\n"
+    },
+    {
+      "name": "not-not-paren/NOT",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return NOT NOT(x > 1).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not not(x > 1).\n"
+    },
+    {
+      "name": "not-not-paren/Not",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return Not Not(x > 1).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not not(x > 1).\n"
+    },
+    {
+      "name": "not-not-paren/nOT",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return nOT nOT(x > 1).\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return not not(x > 1).\n"
+    },
+    {
+      "name": "not-paren-arg/NOT",
+      "source": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get given x as Int, produce Bool:\n  Return f(NOT(x > 1)).\n",
+      "canonical": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get given x as Int, produce Bool:\n  Return f(not(x > 1)).\n"
+    },
+    {
+      "name": "not-paren-arg/Not",
+      "source": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get given x as Int, produce Bool:\n  Return f(Not(x > 1)).\n",
+      "canonical": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get given x as Int, produce Bool:\n  Return f(not(x > 1)).\n"
+    },
+    {
+      "name": "not-paren-arg/nOT",
+      "source": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get given x as Int, produce Bool:\n  Return f(nOT(x > 1)).\n",
+      "canonical": "Module probe.sample.\n\nRule f given b as Bool, produce Bool:\n  Return b.\n\nRule get given x as Int, produce Bool:\n  Return f(not(x > 1)).\n"
+    },
+    {
+      "name": "not-paren-async/NOT",
+      "source": "Module probe.sample.\n\nRule get given x as Bool, produce Int:\n  Start t as async NOT(x).\n  Wait for t.\n  Return 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Bool, produce Int:\n  Start t as async not(x).\n  Wait for t.\n  Return 1.\n"
+    },
+    {
+      "name": "not-paren-async/Not",
+      "source": "Module probe.sample.\n\nRule get given x as Bool, produce Int:\n  Start t as async Not(x).\n  Wait for t.\n  Return 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Bool, produce Int:\n  Start t as async not(x).\n  Wait for t.\n  Return 1.\n"
+    },
+    {
+      "name": "not-paren-async/nOT",
+      "source": "Module probe.sample.\n\nRule get given x as Bool, produce Int:\n  Start t as async nOT(x).\n  Wait for t.\n  Return 1.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Bool, produce Int:\n  Start t as async not(x).\n  Wait for t.\n  Return 1.\n"
+    },
+    {
+      "name": "not-paren-sugar/NOT",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Bool:\n  When NOT(x > 1), deny \"no\".\n  Otherwise allow.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Bool:\n  When not(x > 1), deny \"no\".\n  Otherwise allow.\n"
+    },
+    {
+      "name": "not-paren-sugar/Not",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Bool:\n  When Not(x > 1), deny \"no\".\n  Otherwise allow.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Bool:\n  When not(x > 1), deny \"no\".\n  Otherwise allow.\n"
+    },
+    {
+      "name": "not-paren-sugar/nOT",
+      "source": "Module probe.sample.\n\nRule get given x as Int, produce Bool:\n  When nOT(x > 1), deny \"no\".\n  Otherwise allow.\n",
+      "canonical": "Module probe.sample.\n\nRule get given x as Int, produce Bool:\n  When not(x > 1), deny \"no\".\n  Otherwise allow.\n"
+    },
+    {
+      "name": "times-after-keyword-member/TIMES",
+      "source": "Module probe.sample.\n\nDefine S with tIMES as Int.\n\nRule get given s as S, produce Int:\n  Return s.tIMES TIMES 2.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with tIMES as Int.\n\nRule get given s as S, produce Int:\n  Return s.tIMES times 2.\n"
+    },
+    {
+      "name": "times-after-keyword-member/Times",
+      "source": "Module probe.sample.\n\nDefine S with tIMES as Int.\n\nRule get given s as S, produce Int:\n  Return s.tIMES Times 2.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with tIMES as Int.\n\nRule get given s as S, produce Int:\n  Return s.tIMES times 2.\n"
+    },
+    {
+      "name": "times-after-keyword-member/tIMES",
+      "source": "Module probe.sample.\n\nDefine S with tIMES as Int.\n\nRule get given s as S, produce Int:\n  Return s.tIMES tIMES 2.\n",
+      "canonical": "Module probe.sample.\n\nDefine S with tIMES as Int.\n\nRule get given s as S, produce Int:\n  Return s.tIMES times 2.\n"
+    }
+  ],
+  "names": [
+    {
+      "name": "is-let-compare",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let Is be x.\n  Return Is less than 5.\n",
+      "names": [
+        "Is"
+      ]
+    },
+    {
+      "name": "is-let-under",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let IS be x.\n  Return IS under 5.\n",
+      "names": [
+        "IS"
+      ]
+    },
+    {
+      "name": "plus-set-target",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let Plus be x.\n  Set Plus to 2.\n  Return Plus.\n",
+      "names": [
+        "Plus"
+      ]
+    },
+    {
+      "name": "times-var",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let TIMES be x.\n  Return TIMES.\n",
+      "names": [
+        "TIMES"
+      ]
+    },
+    {
+      "name": "under-var-compare",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let Under be x.\n  Return Under under 5.\n",
+      "names": [
+        "Under"
+      ]
+    },
+    {
+      "name": "not-member-call",
+      "source": "Module probe.sample.\n\nUse io.Http as H.\n\nRule get given x as Bool, produce Bool:\n  Return H.Not(x).\n",
+      "names": [
+        "H.Not"
+      ]
+    },
+    {
+      "name": "not-pattern-ctor",
+      "source": "Module probe.sample.\n\nDefine Not with a as Int.\n\nRule get given s as Not, produce Int:\n  Match s:\n    When Not(a), Return a.\n  Return 0.\n",
+      "names": [
+        "Not"
+      ]
+    },
+    {
+      "name": "not-pattern-nested",
+      "source": "Module probe.sample.\n\nDefine Not with a as Int.\n\nDefine Box with n as Not.\n\nRule get given b as Box, produce Int:\n  Match b:\n    When Box(Not(a)), Return a.\n  Return 0.\n",
+      "names": [
+        "Not"
+      ]
+    },
+    {
+      "name": "not-escaped-call",
+      "source": "Module probe.sample.\n\nRule nOT given b as Bool, produce Bool:\n  Return b.\n\nRule get given x as Bool, produce Bool:\n  Return `nOT`(x).\n",
+      "names": [
+        "nOT"
+      ]
+    },
+    {
+      "name": "not-plus-paren",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let Not be x.\n  Return Not + (x).\n",
+      "names": [
+        "Not"
+      ]
+    },
+    {
+      "name": "not-member",
+      "source": "Module probe.sample.\n\nDefine Not with a as Int.\n\nRule get given n as Not, produce Int:\n  Return n.a.\n",
+      "names": [
+        "Not"
+      ]
+    },
+    {
+      "name": "true-escaped-variant",
+      "source": "Module probe.sample.\n\nDefine Flag as one of `True`, Other.\n\nRule get, produce Flag:\n  Return `True`.\n",
+      "names": [
+        "True"
+      ]
+    },
+    {
+      "name": "true-qualified-member",
+      "source": "Module probe.sample.\n\nUse io.Http as H.\n\nRule get, produce Int:\n  Return H.True.\n",
+      "names": [
+        "H.True"
+      ]
+    },
+    {
+      "name": "null-escaped-let",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let `Null` be x.\n  Return `Null`.\n",
+      "names": [
+        "Null"
+      ]
+    },
+    {
+      "name": "true-pattern-escaped",
+      "source": "Module probe.sample.\n\nDefine Flag as one of `True`, Other.\n\nRule get given f as Flag, produce Int:\n  Match f:\n    When `True`, Return 1.\n    When Other, Return 2.\n  Return 0.\n",
+      "names": [
+        "True"
+      ]
+    }
+  ],
+  "reject": [
+    {
+      "name": "d2-enum-variant",
+      "source": "Module probe.sample.\n\nDefine Flag as one of True, Other.\n\nRule get, produce Flag:\n  Return True.\n",
+      "reject": [
+        "E055",
+        3,
+        23
+      ],
+      "tightened": "D2"
+    },
+    {
+      "name": "d2-enum-null",
+      "source": "Module probe.sample.\n\nDefine Flag as one of NULL, Other.\n",
+      "reject": [
+        "E055",
+        3,
+        23
+      ],
+      "tightened": "D2"
+    },
+    {
+      "name": "d2-enum-qualified",
+      "source": "Module probe.sample.\n\nDefine Flag as one of False, Other.\n\nRule get, produce Flag:\n  Return Flag.False.\n",
+      "reject": [
+        "E055",
+        3,
+        23
+      ],
+      "tightened": "D2"
+    },
+    {
+      "name": "d2-type-name",
+      "source": "Module probe.sample.\n\nDefine True with a as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        8
+      ],
+      "tightened": "D2"
+    },
+    {
+      "name": "d2-alias-name",
+      "source": "Module probe.sample.\n\nType Null as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ],
+      "tightened": "D2"
+    },
+    {
+      "name": "d2-let-name",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let True be x.\n  Return True.\n",
+      "reject": [
+        "E055",
+        4,
+        7
+      ],
+      "tightened": "D2"
+    },
+    {
+      "name": "d2-import-alias",
+      "source": "Module probe.sample.\n\nUse io.Http as FALSE.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ],
+      "tightened": "D2"
+    },
+    {
+      "name": "d2-start-name",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get, produce Int:\n  Start True as async f().\n  Wait for True.\n  Return 1.\n",
+      "reject": [
+        "E055",
+        7,
+        9
+      ],
+      "tightened": "D2"
+    },
+    {
+      "name": "d2-wait-name",
+      "source": "Module probe.sample.\n\nRule get, produce Int:\n  Wait for True.\n  Return 1.\n",
+      "reject": [
+        "E055",
+        4,
+        12
+      ],
+      "tightened": "D2"
+    },
+    {
+      "name": "d2-param-mixed",
+      "source": "Module probe.sample.\n\nRule get given tRUE as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3,
+        16
+      ],
+      "tightened": "D2"
+    },
+    {
+      "name": "d2-field-mixed",
+      "source": "Module probe.sample.\n\nDefine S with nULL as Int.\n",
+      "reject": [
+        "E055",
+        3,
+        15
+      ],
+      "tightened": "D2"
+    },
+    {
+      "name": "d2-rule-mixed",
+      "source": "Module probe.sample.\n\nRule fALSE given x as Int, produce Int:\n  Return x.\n",
+      "reject": [
+        "E055",
+        3,
+        6
+      ],
+      "tightened": "D2"
+    },
+    {
+      "name": "d2-pattern-mixed-true",
+      "source": "Module probe.sample.\n\nRule get given x as Bool, produce Int:\n  Match x:\n    When tRUE, Return 1.\n  Return 0.\n",
+      "reject": [
+        "E055",
+        5,
+        10
+      ],
+      "tightened": "D2"
+    },
+    {
+      "name": "d2-pattern-true",
+      "source": "Module probe.sample.\n\nRule get given x as Bool, produce Int:\n  Match x:\n    When True, Return 1.\n  Return 0.\n",
+      "reject": [
+        "E055",
+        5,
+        10
+      ],
+      "tightened": "D2"
+    },
+    {
+      "name": "escaped-times-operator",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x `Times` y.\n",
+      "reject": [
+        "E060",
+        4,
+        12
+      ]
+    },
+    {
+      "name": "keyword-name-operand-times",
+      "source": "Module probe.sample.\n\nRule get given max as Int, produce Int:\n  Return max Times 2.\n",
+      "reject": [
+        "E060",
+        4,
+        14
+      ]
+    },
+    {
+      "name": "times-at-line-start",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Return x\n    Times y.\n",
+      "reject": [
+        "E063",
+        5,
+        1
+      ]
+    },
+    {
+      "name": "lte-full-cap",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x Less Than Or Equal To y.\n",
+      "reject": [
+        "E060",
+        4,
+        25
+      ]
+    },
+    {
+      "name": "is-under-escaped",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Return x `Is` under y.\n",
+      "reject": [
+        "E060",
+        4,
+        12
+      ]
+    }
+  ]
+}

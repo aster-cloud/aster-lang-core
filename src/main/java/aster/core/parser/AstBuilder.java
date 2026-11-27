@@ -355,6 +355,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     private static void rejectCapitalizedName(AsterParser.NameIdentContext ctx, String expected, String message) {
         if (ctx == null) return;
         rejectKeywordName(ctx);
+        rejectLiteralName(ctx.getStart(), expected, message);
         // 判据按名字文本而不是 token 类型：大写开头的软关键字（Step、Max、Then…，structKeywordName）在这三处
         // 与 TYPE_IDENT 一样是大写名字，ts 词法同样归 TYPE_IDENT 报 E055（ADR 0056 修订 A6 K1）
         Token tok = ctx.getStart();
@@ -400,6 +401,43 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         rejectStructuralKeyword(ctx.getText(), ctx.getStart());
         throw new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED, Map.of("token", "token.typeName"),
             "Expected type name", ctx.getStart());
+    }
+
+    /**
+     * 字面量同形词 true / false / null 的其余大小写拼写（{@code True}、{@code NULL}、{@code tRUE}…，K-c，产品裁决 D2）。
+     * 在表达式、注解值与模式里读作字面量（与小写拼写同义，{@link #literalHomograph}）；在声明名字的位置不能用作名字：
+     * aster-lang-ts 的词法把它们一律读作 BOOL / NULL，在这些位置报 E055，core 同码同位置拒绝。此前 core 收作名字
+     * （{@code Define Flag as one of True, Other.} 之后 {@code Return True.} 是枚举成员），K-c 之后同一个
+     * {@code Return True.} 会读作布尔值，静默改变含义，所以先拒绝声明。名字转义 {@code `True`} 永远是名字（ADR 0064 N3），
+     * 消息建议的正是这种写法；由本地化关键词还原出的标识符不在此列。
+     */
+    private static void rejectLiteralName(Token tok, String expected, String message) {
+        String literal = literalHomograph(tok);
+        if (literal == null) return;
+        throw new ParseDiagnosticException(ErrorCode.PARSE_EXPECTED, Map.of("token", expected),
+            message + "; '" + tok.getText() + "' is the literal " + literal
+                + ", write it in backticks (`" + tok.getText() + "`) to use it as a name", tok);
+    }
+
+    /**
+     * 名字记号是否为字面量 true / false / null 的大小写变体（K-c）：返回小写字面量，否则返回 null。小写拼写在词法上已是
+     * BOOL_LITERAL / NULL_LITERAL，不会以名字记号出现；转义名与本地化还原的标识符不算。
+     */
+    static String literalHomograph(Token tok) {
+        if (tok == null || tok.getText() == null || EscapedToken.isEscaped(tok)
+                || (tok.getType() != AsterParser.IDENT && tok.getType() != AsterParser.TYPE_IDENT)
+                || isRestoredKeywordIdent(tok)) {
+            return null;
+        }
+        String lower = tok.getText().toLowerCase(Locale.ROOT);
+        return lower.equals("true") || lower.equals("false") || lower.equals("null") ? lower : null;
+    }
+
+    /** 表达式位置的名字记号若是字面量同形词（K-c），返回对应的字面量节点，否则返回 null。 */
+    private Expr literalHomographExpr(Token tok, ParserRuleContext ctx) {
+        String literal = literalHomograph(tok);
+        if (literal == null) return null;
+        return literal.equals("null") ? new Expr.Null(spanFrom(ctx)) : new Expr.Bool(literal.equals("true"), spanFrom(ctx));
     }
 
     /** 文本是结构关键词的规范拼写时报 E901；由本地化关键词还原出的标识符（OF 家族私有区标记）不在此列。 */
@@ -450,6 +488,8 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     @Override
     public Decl.Data visitDataDecl(AsterParser.DataDeclContext ctx) {
         rejectKeywordTypeName(ctx.declaredTypeName());
+        rejectLiteralName(ctx.declaredTypeName() != null ? ctx.declaredTypeName().getStart() : ctx.TYPE_IDENT() != null
+            ? ctx.TYPE_IDENT().getSymbol() : null, "token.typeName", "Expected type name");
         String name = dataDeclName(ctx);
         List<Decl.Field> fields = ctx.fieldList().field().stream()
             .map(this::visitField)
@@ -556,6 +596,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         // 直接取文本，避免按 token 类型逐一判空，新增软关键字时无需同步改这里。
         // 名字位置的结构关键词（If/Return/Rule…）在所有声明处都报 E901，与 ts parseIdent 一致
         rejectKeywordName(ctx);
+        rejectLiteralName(ctx.getStart(), "token.identifier", "Expected identifier");
         return ctx.getText();
     }
 
@@ -563,6 +604,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
     public Decl.Enum visitEnumDecl(AsterParser.EnumDeclContext ctx) {
         rejectKeywordTypeName(ctx.declaredTypeName());
         ctx.variantList().declaredTypeName().forEach(AstBuilder::rejectKeywordTypeName);
+        rejectLiteralName(ctx.declaredTypeName().getStart(), "token.typeName", "Expected type name");
+        ctx.variantList().declaredTypeName().forEach(v ->
+            rejectLiteralName(v.getStart(), "token.variantName", "Expected type identifier for variant name"));
         String name = ctx.declaredTypeName().getText();
         List<String> variants = ctx.variantList().declaredTypeName().stream()
             .map(AsterParser.DeclaredTypeNameContext::getText)
@@ -588,6 +632,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         }
         // 名字是 TYPE_IDENT / IDENT，或软关键字（ADR 0019 G1：小写结构词），都是单 token；结构关键词报 E901（修订 A6 K1）
         if (ctx.typeAliasName() != null) rejectStructuralKeyword(ctx.typeAliasName().getText(), ctx.typeAliasName().getStart());
+        if (ctx.typeAliasName() != null) rejectLiteralName(ctx.typeAliasName().getStart(), "token.typeName", "Expected type name");
         String name = ctx.typeAliasName() == null ? null : ctx.typeAliasName().getText();
         if (name == null || name.isEmpty()) {
             throw new IllegalStateException("Type alias 缺失名称");
@@ -661,13 +706,22 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         }
         // ADR 0055 #3：注解参数值只能是 string / Int32 / boolean；浮点、Long 与 null 字面量在解析期拒收（E067，
         // 参数与位置同 ts parseAnnotationValue：value 为字面量原文，位置为该字面量）
+        // 字面量同形词（K-c）：TRUE / False 是布尔值，Null 与小写 null 一样拒收
+        String literal = ctx.getChildCount() == 1 && ctx.getChild(0) instanceof TerminalNode node
+            ? literalHomograph(node.getSymbol()) : null;
+        if ("true".equals(literal) || "false".equals(literal)) {
+            return "true".equals(literal);
+        }
         TerminalNode invalid = ctx.FLOAT_LITERAL() != null ? ctx.FLOAT_LITERAL()
             : ctx.LONG_LITERAL() != null ? ctx.LONG_LITERAL() : ctx.NULL_LITERAL();
+        if (invalid == null && "null".equals(literal)) invalid = (TerminalNode) ctx.getChild(0);
         if (invalid != null) {
+            // 字面量同形词的 value 取小写字面量（与 aster-lang-ts 的 NULL 记号值相同）
+            String value = literal != null ? literal : invalid.getText();
             throw new ParseDiagnosticException(ErrorCode.PARSE_INVALID_VALUE,
-                Map.of("construct", "token.annotationArgumentValue", "value", invalid.getText(),
+                Map.of("construct", "token.annotationArgumentValue", "value", value,
                     "allowed", "string, Int or Bool"),
-                "Annotation argument value must be a string, Int or Bool: " + invalid.getText(), invalid.getSymbol());
+                "Annotation argument value must be a string, Int or Bool: " + value, invalid.getSymbol());
         }
         if (ctx.BOOL_LITERAL() != null) {
             return Boolean.parseBoolean(ctx.BOOL_LITERAL().getText());
@@ -698,6 +752,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         String alias = null;
         if (ctx.importAlias() != null) {
             AsterParser.ImportAliasContext aliasCtx = ctx.importAlias();
+            rejectLiteralName(aliasCtx.getStart(), "token.identifier", "Expected identifier");
             if (aliasCtx.TYPE_IDENT() != null) {
                 alias = aliasCtx.TYPE_IDENT().getText();
             } else if (aliasCtx.IDENT() != null) {
@@ -1044,6 +1099,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
         return new Expr.Call(notName, List.of(operand), spanFrom(ctx));
     }
 
+
     @Override
     public Stmt.Start visitStartStmt(AsterParser.StartStmtContext ctx) {
         String name = nameIdentText(ctx.nameIdent());
@@ -1285,6 +1341,11 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Pattern visitPatternName(AsterParser.PatternNameContext ctx) {
+        // 字面量同形词（K-c）：nULL 是 null 模式，tRUE / fALSE 报 E055（同 visitPatternCtor），不是绑定名
+        if ("null".equals(literalHomograph(ctx.IDENT().getSymbol()))) {
+            return new Pattern.PatternNull(spanFrom(ctx));
+        }
+        rejectLiteralName(ctx.IDENT().getSymbol(), "token.identifier", "Expected identifier");
         String name = ctx.IDENT().getText();
         return new Pattern.PatternName(name, spanFrom(ctx));
     }
@@ -1308,6 +1369,13 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Pattern visitPatternCtor(AsterParser.PatternCtorContext ctx) {
+        // 字面量同形词（K-c）：无参数的 Null / NULL 是 null 模式（与小写 null 同义）；True / False 与带参数的 Null 不是构造器名，
+        // 与 aster-lang-ts 同码同位置报 E055（ts 的词法把它们读作字面量，模式里不收布尔字面量）
+        String literal = literalHomograph(ctx.typeIdent().getStart());
+        if ("null".equals(literal) && ctx.pattern().isEmpty()) {
+            return new Pattern.PatternNull(spanFrom(ctx));
+        }
+        rejectLiteralName(ctx.typeIdent().getStart(), "token.identifier", "Expected identifier");
         String typeName = ctx.typeIdent().getText();
         List<Pattern> args = ctx.pattern().stream()
             .map(this::visitPattern)
@@ -1692,6 +1760,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Expr visitVarExpr(AsterParser.VarExprContext ctx) {
+        // 字面量同形词（K-c）：tRUE / nULL 在表达式位置是字面量，与小写拼写同义
+        Expr literal = literalHomographExpr(ctx.IDENT().getSymbol(), ctx);
+        if (literal != null) return literal;
         String name = ctx.IDENT().getText();
         return new Expr.Name(name, spanFrom(ctx));
     }
@@ -1708,6 +1779,9 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
 
     @Override
     public Expr visitTypeIdentExpr(AsterParser.TypeIdentExprContext ctx) {
+        // 字面量同形词（K-c，产品裁决 D2）：True / FALSE / Null 在表达式位置是字面量，与小写拼写同义
+        Expr literal = literalHomographExpr(ctx.TYPE_IDENT().getSymbol(), ctx);
+        if (literal != null) return literal;
         String name = ctx.TYPE_IDENT().getText();
         return new Expr.Name(name, spanFrom(ctx));
     }
