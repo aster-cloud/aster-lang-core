@@ -1436,6 +1436,76 @@
         3
       ]
     ]
+  },
+  {
+    "name": "E061 `Map of` 后面是类型：of 是多余的记号（aster-lang-ts#396）",
+    "source": "Module m.\n\nRule f given x as Map of Text to Int, produce Int:\n  Return 1.\n",
+    "codes": [
+      [
+        "E061",
+        3
+      ]
+    ]
+  },
+  {
+    "name": "E061 `Map of` 写成单参数泛型（aster-lang-ts#396）",
+    "source": "Module m.\n\nRule f given x as Map of Int, produce Int:\n  Return 1.\n",
+    "codes": [
+      [
+        "E061",
+        3
+      ]
+    ]
+  },
+  {
+    "name": "E061 返回类型里的 `Map of`（aster-lang-ts#396）",
+    "source": "Module m.\n\nRule f given x as Int, produce Map of Int:\n  Return 1.\n",
+    "codes": [
+      [
+        "E061",
+        3
+      ]
+    ]
+  },
+  {
+    "name": "E061 字段类型里的 `Map of`（aster-lang-ts#396）",
+    "source": "Module m.\n\nDefine P has m as Map of Int.\n",
+    "codes": [
+      [
+        "E061",
+        3
+      ]
+    ]
+  },
+  {
+    "name": "E062 `Map of` 之后直接换行（aster-lang-ts#396）",
+    "source": "Module m.\n\nRule f given x as Map of\n  Int, produce Int:\n  Return 1.\n",
+    "codes": [
+      [
+        "E062",
+        3
+      ]
+    ]
+  },
+  {
+    "name": "E062 `Map of` 之后是逗号（aster-lang-ts#396）",
+    "source": "Module m.\n\nRule f given x as Map of, produce Int:\n  Return 1.\n",
+    "codes": [
+      [
+        "E062",
+        3
+      ]
+    ]
+  },
+  {
+    "name": "E062 `Map of` 在文件末（aster-lang-ts#396）",
+    "source": "Module m.\n\nRule f given x as Map of",
+    "codes": [
+      [
+        "E062",
+        3
+      ]
+    ]
   }
   ]
 }
