@@ -50,7 +50,7 @@ public final class TypedReferenceResolver {
 
     /**
      * 无字段结构、点分段只能是动态键的类型名（白名单）：内置标量与 Map / Json / Any。容器类型
-     * （Result / Option / List / Set / Workflow）、类型别名与未声明的类型名均不在其中，按未知处理。
+     * （Result / Option / List / Set / Workflow）与未声明的类型名均不在其中，按未知处理；类型别名按展开后的目标类型判定。
      */
     private static final Set<String> OPAQUE_TYPE_NAMES = Set.of(
         "Text", "Int", "Bool", "Float", "Long", "Double", "Unit", "Decimal", "DateTime", "Map", "Verdict", "Json", "Any");
@@ -98,6 +98,8 @@ public final class TypedReferenceResolver {
     private final VocabularyScopes scopes;
     private final ResolutionChoice choice = new ResolutionChoice();
     private final DiagnosticBuilder diags = new DiagnosticBuilder();
+    /** 类型别名规范名 → 目标类型（别名不产出 Core 声明，由调用方从 R1 的 AST 降级后传入）。 */
+    private final Map<String, CoreModel.Type> aliases;
 
     /** Data 规范名 → 字段规范名 → 字段声明（导入的 Data 与 Verdict 无字段声明，值为 null）。 */
     private final Map<String, Map<String, CoreModel.Field>> datas = new LinkedHashMap<>();
@@ -110,17 +112,29 @@ public final class TypedReferenceResolver {
     /** PatCtor 的 Data 构造器（本模块 Data 与导入类型）。 */
     private final List<Entry> ctorDecls = new ArrayList<>();
 
-    private TypedReferenceResolver(VocabularyScopes scopes) {
+    private TypedReferenceResolver(VocabularyScopes scopes, Map<String, CoreModel.Type> aliases) {
         this.scopes = scopes;
+        this.aliases = Map.copyOf(aliases);
     }
 
     /**
      * R2：解析依赖类型的名字位置。返回新的 Core（只含规范名，原写法记在 origin.written）与诊断
      * （E801/E805 字段、E802 值名、E803/E806 模式、E804 期望枚举下的歧义、W800 遮蔽、W801 无类型采用）。
-     * 任一 error 时调用方不得发出 IR。
+     * 任一 error 时调用方不得发出 IR。只适用于没有类型别名的模块；有别名时用三参数入口传入别名表。
      */
     public static ResolutionResult<CoreModel.Module> resolve(CoreModel.Module core, ResolutionContext ctx) {
-        TypedReferenceResolver r = new TypedReferenceResolver(ctx.scopes());
+        return resolve(core, ctx, Map.of());
+    }
+
+    /**
+     * 同 {@link #resolve(CoreModel.Module, ResolutionContext)}，并按类型别名表把别名类型展开为目标类型
+     * （aster-lang-core#313）：别名类型的接收者、Match 主语与期望类型与直接写目标类型时解析结果相同。
+     *
+     * @param aliases 类型别名规范名 → 目标类型（{@link aster.core.lowering.CoreLowering#lowerTypeAliases}）
+     */
+    public static ResolutionResult<CoreModel.Module> resolve(CoreModel.Module core, ResolutionContext ctx,
+                                                             Map<String, CoreModel.Type> aliases) {
+        TypedReferenceResolver r = new TypedReferenceResolver(ctx.scopes(), aliases);
         r.buildTables(core, ctx.imports());
         List<CoreModel.Decl> decls = core.decls.stream().map(r::resolveDecl).toList();
         return new ResolutionResult<>(CoreCopies.module(core, new ArrayList<>(decls)), r.diags.getDiagnostics());
@@ -229,9 +243,23 @@ public final class TypedReferenceResolver {
         return enums.containsKey(name) || (scopes != null && scopes.enumMembers().containsKey(name));
     }
 
-    /** 已知类型名（TypeName）；类型变量、容器与推断类型均视为未知。 */
-    private static String typeNameOf(Static t) {
-        return t instanceof Known k && k.type() instanceof CoreModel.TypeName tn ? tn.name : null;
+    /**
+     * 类型别名逐层展开为目标类型；别名之间成环（R1 不查，A1 §2.4）时停在环上的别名名，按未声明类型名处理。
+     * 不是别名的类型原样返回。
+     */
+    private Static expand(Static t) {
+        if (!(t instanceof Known k)) return t;
+        CoreModel.Type type = k.type();
+        Set<String> seen = new java.util.HashSet<>();
+        while (type instanceof CoreModel.TypeName tn && aliases.containsKey(tn.name) && seen.add(tn.name)) {
+            type = aliases.get(tn.name);
+        }
+        return type == k.type() ? t : known(type);
+    }
+
+    /** 已知类型名（TypeName，别名先展开）；类型变量、容器与推断类型均视为未知。 */
+    private String typeNameOf(Static t) {
+        return expand(t) instanceof Known k && k.type() instanceof CoreModel.TypeName tn ? tn.name : null;
     }
 
     private String enumOf(Static t) {
@@ -251,8 +279,9 @@ public final class TypedReferenceResolver {
         return f.typeInferred ? DYNAMIC : known(f.type);
     }
 
-    /** 不透明类型（白名单）：动态值、类型变量、Map 及内置标量等。其后的点分段原样保留、不解析。 */
-    private boolean isOpaque(Static t) {
+    /** 不透明类型（白名单，别名先展开）：动态值、类型变量、Map 及内置标量等。其后的点分段原样保留、不解析。 */
+    private boolean isOpaque(Static type) {
+        Static t = expand(type);
         return switch (t) {
             case Dynamic ignored -> true;
             case Unknown ignored -> false;
@@ -265,8 +294,8 @@ public final class TypedReferenceResolver {
         return t instanceof CoreModel.TypeName tn && OPAQUE_TYPE_NAMES.contains(tn.name);
     }
 
-    private static boolean isTypeVar(Static t) {
-        return t instanceof Known k && k.type() instanceof CoreModel.TypeVar;
+    private boolean isTypeVar(Static t) {
+        return expand(t) instanceof Known k && k.type() instanceof CoreModel.TypeVar;
     }
 
     // ---- 作用域 ----

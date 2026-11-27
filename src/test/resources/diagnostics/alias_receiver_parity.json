@@ -1,0 +1,176 @@
+{
+  "description": "类型别名接收者展开（aster-lang-core#313，ADR 0056 修订 A7 D1）的双引擎 parity 夹具。aster-lang-ts shared/alias_receiver_parity.json 与 aster-lang-core src/test/resources/diagnostics/alias_receiver_parity.json 必须 byte-identical。R2 把别名类型逐层展开为目标类型（成环时停在别名名上），点分路径接收者、Match 主语与期望类型与直接写目标类型时解析结果相同。词汇（en-US）：Struct Driver↔Fahrer，Field Driver.age↔alter，EnumValue Level.High↔Hoch、Level.Low↔Niedrig。codes 为 R1 + R2 的全部诊断 [码, 行]（含 warning），按报告顺序；refs（无 error 时）为规范 Core IR 里全部 Func 体内 Name / PatName（kind:name）与 PatCtor（PatCtor:typeName）的出现，按对象键字典序深度优先。",
+  "cases": [
+    {
+      "name": "对照：接收者直接写目标类型，本地化字段名按类型解析",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nRule f given x as Fahrer, produce Int:\n  Return x.alter.\n",
+      "codes": [],
+      "refs": [
+        "Name:x.age"
+      ]
+    },
+    {
+      "name": "别名接收者：本地化字段名按目标类型解析，无 W801",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType Fz as Fahrer.\n\nRule f given x as Fz, produce Int:\n  Return x.alter.\n",
+      "codes": [],
+      "refs": [
+        "Name:x.age"
+      ]
+    },
+    {
+      "name": "别名接收者：规范字段名",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType Fz as Fahrer.\n\nRule f given x as Fz, produce Int:\n  Return x.age.\n",
+      "codes": [],
+      "refs": [
+        "Name:x.age"
+      ]
+    },
+    {
+      "name": "别名链逐层展开",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType A as Fz.\n\nType Fz as Fahrer.\n\nRule f given x as A, produce Int:\n  Return x.alter.\n",
+      "codes": [],
+      "refs": [
+        "Name:x.age"
+      ]
+    },
+    {
+      "name": "字段类型是别名：下一段按目标类型解析",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType Fz as Fahrer.\n\nDefine Halter has fz as Fz.\n\nRule f given h as Halter, produce Int:\n  Return h.fz.alter.\n",
+      "codes": [],
+      "refs": [
+        "Name:h.fz.age"
+      ]
+    },
+    {
+      "name": "被调函数返回别名类型：Let 的字段按目标类型解析",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType Fz as Fahrer.\n\nRule g given x as Fahrer, produce Fz:\n  Return x.\n\nRule f given x as Fahrer, produce Int:\n  Let y be g(x).\n  Return y.alter.\n",
+      "codes": [],
+      "refs": [
+        "Name:x",
+        "Name:x",
+        "Name:g",
+        "Name:y.age"
+      ]
+    },
+    {
+      "name": "E801 别名目标类型没有该字段（字段属于另一个 Data）",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType Fz as Fahrer.\n\nRule f given x as Fz, produce Int:\n  Return x.y.\n",
+      "codes": [
+        [
+          "E801",
+          12
+        ]
+      ]
+    },
+    {
+      "name": "E801 别名目标类型与任何 Data 都没有该字段",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType Fz as Fahrer.\n\nRule f given x as Fz, produce Int:\n  Return x.zzz.\n",
+      "codes": [
+        [
+          "E801",
+          12
+        ]
+      ]
+    },
+    {
+      "name": "别名目标是 Map：点分段是动态键，原样保留",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType M as Map Text to Int.\n\nRule f given m as M, produce Int:\n  Return m.alter.\n",
+      "codes": [],
+      "refs": [
+        "Name:m.alter"
+      ]
+    },
+    {
+      "name": "别名目标是内置标量：点分段原样保留",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType T as Text.\n\nRule f given m as T, produce Int:\n  Return m.foo.\n",
+      "codes": [],
+      "refs": [
+        "Name:m.foo"
+      ]
+    },
+    {
+      "name": "Match 主语为枚举别名：本地化裸名是成员",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType L as Level.\n\nRule f given s as L, produce Int:\n  Match s:\n    When Hoch, Return 1.\n    When Niedrig, Return 2.\n",
+      "codes": [],
+      "refs": [
+        "PatCtor:High",
+        "PatCtor:Low",
+        "Name:s"
+      ]
+    },
+    {
+      "name": "Match 主语为枚举别名：规范裸名是成员",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType L as Level.\n\nRule f given s as L, produce Int:\n  Match s:\n    When High, Return 1.\n    When Low, Return 2.\n",
+      "codes": [],
+      "refs": [
+        "PatCtor:High",
+        "PatCtor:Low",
+        "Name:s"
+      ]
+    },
+    {
+      "name": "Match 主语为 Data 别名：构造器模式按目标类型解析",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType Fz as Fahrer.\n\nRule f given x as Fz, produce Int:\n  Match x:\n    When Fahrer(a), Return a.\n",
+      "codes": [],
+      "refs": [
+        "Name:a",
+        "PatCtor:Driver",
+        "PatName:a",
+        "Name:x"
+      ]
+    },
+    {
+      "name": "返回类型为枚举别名：本地化裸名是成员",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType L as Level.\n\nRule f given x as Int, produce L:\n  Return Hoch.\n",
+      "codes": [],
+      "refs": [
+        "Name:High"
+      ]
+    },
+    {
+      "name": "实参类型为枚举别名：本地化裸名是成员",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType L as Level.\n\nRule g given l as L, produce Int:\n  Return 1.\n\nRule f given x as Int, produce Int:\n  Return g(Hoch).\n",
+      "codes": [],
+      "refs": [
+        "Name:High",
+        "Name:g"
+      ]
+    },
+    {
+      "name": "W801 别名成环：按未知类型名，全局唯一候选采用",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType A as B.\n\nType B as A.\n\nRule f given x as A, produce Int:\n  Return x.alter.\n",
+      "codes": [
+        [
+          "W801",
+          14
+        ]
+      ],
+      "refs": [
+        "Name:x.age"
+      ]
+    },
+    {
+      "name": "W801 别名目标是可空类型：包装类型照旧按未知（ADR 0051 R20）",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType Fz as Fahrer?.\n\nRule f given x as Fz, produce Int:\n  Return x.alter.\n",
+      "codes": [
+        [
+          "W801",
+          12
+        ]
+      ],
+      "refs": [
+        "Name:x.age"
+      ]
+    },
+    {
+      "name": "E801 类型参数与别名同名：类型参数优先，没有字段",
+      "source": "Module m.\n\nDefine Fahrer has alter as Int.\n\nDefine Other has y as Int.\n\nDefine Level as one of Hoch, Niedrig.\n\nType T as Fahrer.\n\nRule f of T given x as T, produce Int:\n  Return x.alter.\n",
+      "codes": [
+        [
+          "E801",
+          12
+        ]
+      ]
+    }
+  ]
+}

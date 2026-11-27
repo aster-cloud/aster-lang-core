@@ -8,6 +8,7 @@ import aster.core.typecheck.model.Diagnostic;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 /**
@@ -44,7 +45,9 @@ public final class NameResolution {
      */
     public static ResolvedCore resolveAndLower(Module ast, ResolutionContext ctx) {
         ResolutionResult<Module> r1 = DeclarationResolver.resolve(ast, ctx);
-        ResolutionResult<CoreModel.Module> r2 = TypedReferenceResolver.resolve(new CoreLowering().lowerModule(r1.value()), ctx);
+        CoreModel.Module lowered = new CoreLowering().lowerModule(r1.value());
+        Map<String, CoreModel.Type> aliases = new CoreLowering().lowerTypeAliases(r1.value());
+        ResolutionResult<CoreModel.Module> r2 = TypedReferenceResolver.resolve(lowered, ctx, aliases);
         List<Diagnostic> diagnostics = Stream.concat(r1.diagnostics().stream(), r2.diagnostics().stream()).toList();
         return new ResolvedCore(r1.value(), withInputRefs(r2.value()), diagnostics);
     }
