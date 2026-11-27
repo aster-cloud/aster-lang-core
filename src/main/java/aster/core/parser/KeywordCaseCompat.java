@@ -122,6 +122,11 @@ public final class KeywordCaseCompat {
         return dfa;
     }
 
+    /** 旧 ATN（只读，供结构校验测试）。 */
+    static ATN oldAtn() {
+        return OLD_ATN;
+    }
+
     /** 旧 ATN 上从 {@code state} 起、在 {@code ctx} 下的期望记号（与 {@link ATN#getExpectedTokens} 同义）。 */
     public static IntervalSet expectedTokens(int state, RuleContext ctx) {
         return OLD_ATN.getExpectedTokens(state, ctx);
