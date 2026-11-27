@@ -1,0 +1,689 @@
+{
+  "description": "ADR 0056 修订 A8 第 3 条（产品裁决 2026-11-28「处处照 core」）的双引擎 parity 夹具。aster-lang-ts shared/follow_core_parity.json 与 aster-lang-core src/test/resources/diagnostics/follow_core_parity.json 必须 byte-identical。覆盖六项：construct-field（构造里首字母大写的字段名，首个字段与 and / 逗号之后）、bare-data（顶层省略 Define 的 `S has x as Int.` / `S with …`）、field-comma-newline（字段列表里换行起头的逗号）、dot-core-token（点之后的 core 大写关键词记号 Set / Use / On / It / Map / Module：点是语句结尾）、bare-expression（裸表达式语句降为 Let _，非名字表达式之后的成员访问与方法调用）、rule-with-params（规则头里 with 引导的形参：E062）。带 pf 的例：两引擎都须编译成功，Core IR 的 positionFreeSha256 恰为 pf。带 reject 的例：两引擎都须编译失败；另带 code / line / column（及 params、message）的，第一条诊断须逐项相同。locale 缺省为 en-US。",
+  "cases": [
+    {
+      "name": "construct-field/and-capitalised",
+      "source": "Module p.\n\nDefine S with p as Int and q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 and Q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "construct-field/And-capitalised",
+      "source": "Module p.\n\nDefine S with p as Int and q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 And Q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "construct-field/comma-capitalised",
+      "source": "Module p.\n\nDefine S with p as Int and q as Int.\n\nRule f, produce S:\n  Return S with p set to 1, Q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "construct-field/first-capitalised",
+      "source": "Module p.\n\nDefine S with p as Int and q as Int.\n\nRule f, produce S:\n  Return S with P set to 1 and q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "construct-field/has-capitalised",
+      "source": "Module p.\n\nDefine S with p as Int and q as Int.\n\nRule f, produce S:\n  Return S has p set to 1 and Q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "construct-field/let-capitalised",
+      "source": "Module p.\n\nDefine S with p as Int and q as Int.\n\nRule f, produce S:\n  Let s be S with p set to 1 and Q set to 2.\n  Return s.\n",
+      "pf": "110a5648e4e7522aebd5beb094243b2c4f75b0130f6557fbae9642742cf33a69"
+    },
+    {
+      "name": "construct-field/arg-capitalised",
+      "source": "Module p.\n\nDefine S with p as Int and q as Int.\n\nRule f, produce Int:\n  Return g(S with p set to 1 and Q set to 2).\n",
+      "pf": "5ca34d4bc954692f80d8df34af1036a47b8fff2174985d841a2271ab373baf9d"
+    },
+    {
+      "name": "construct-field/escaped",
+      "source": "Module p.\n\nDefine S with p as Int and q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 and `Q` set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "construct-field/reject-unknown-soft-keyword-Max",
+      "source": "Module p.\n\nDefine S with p as Int.\n\nRule f, produce S:\n  Return S with p set to 1 and Max set to 2.\n",
+      "reject": true,
+      "code": "E801",
+      "line": 6,
+      "column": 32,
+      "params": {}
+    },
+    {
+      "name": "construct-field/value-and",
+      "source": "Module p.\n\nDefine S with p as Int and q as Int.\n\nRule f given a as Bool, produce S:\n  Return S with p set to a and Q set to 2.\n",
+      "pf": "6a7fc4b7c3b2891df430ac83e12105234d5d9612b35ffb76c3b2724901c373c8"
+    },
+    {
+      "name": "construct-field/reject-core-token-Set",
+      "source": "Module p.\n\nDefine S with p as Int and q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 and Set set to 2.\n",
+      "reject": true,
+      "code": "E057",
+      "line": 6,
+      "column": 32,
+      "params": {
+        "context": "token.construction",
+        "token": "kw.set"
+      }
+    },
+    {
+      "name": "construct-field/reject-core-token-On",
+      "source": "Module p.\n\nDefine S with p as Int and q as Int.\n\nRule f, produce S:\n  Return S with On set to 1.\n",
+      "reject": true,
+      "code": "E057",
+      "line": 6,
+      "column": 17,
+      "params": {
+        "context": "token.construction",
+        "token": "kw.set"
+      }
+    },
+    {
+      "name": "construct-field/reject-structural-Let",
+      "source": "Module p.\n\nDefine S with p as Int and q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 and Let set to 2.\n",
+      "reject": true,
+      "code": "E901",
+      "line": 6,
+      "column": 32,
+      "params": {
+        "kind": "LET",
+        "keyword": "kw.let"
+      },
+      "message": "'Let' is the keyword LET and cannot be used as a name; write it in backticks to use it as a name"
+    },
+    {
+      "name": "construct-field/reject-unknown-field",
+      "source": "Module p.\n\nDefine S with p as Int and q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 and QQ set to 2.\n",
+      "reject": true,
+      "code": "E801",
+      "line": 6,
+      "column": 32,
+      "params": {}
+    },
+    {
+      "name": "bare-data/has",
+      "source": "Module p.\n\nS has x as Int.\n",
+      "pf": "a5d41a10612f1145bff4f06e641269db052bb1cc4d3370491afc276b00b0c971"
+    },
+    {
+      "name": "bare-data/with",
+      "source": "Module p.\n\nS with x as Int.\n",
+      "pf": "a5d41a10612f1145bff4f06e641269db052bb1cc4d3370491afc276b00b0c971"
+    },
+    {
+      "name": "bare-data/HAS",
+      "source": "Module p.\n\nS HAS x as Int.\n",
+      "pf": "a5d41a10612f1145bff4f06e641269db052bb1cc4d3370491afc276b00b0c971"
+    },
+    {
+      "name": "bare-data/With",
+      "source": "Module p.\n\nS With x as Int.\n",
+      "pf": "a5d41a10612f1145bff4f06e641269db052bb1cc4d3370491afc276b00b0c971"
+    },
+    {
+      "name": "bare-data/fields",
+      "source": "Module p.\n\nS has x as Int and y as Text, z as Bool.\n",
+      "pf": "7c1b32d76d7f4b2baf7b20321fad9119e6b5825b982033b153ac5642f86d2db3"
+    },
+    {
+      "name": "bare-data/inferred-constraint",
+      "source": "Module p.\n\nS has age required and score between 1 and 5.\n",
+      "pf": "a57b8273761e661aaec170f190d734d8a49d50ed195fb8a92f5506c0f6c39cc4"
+    },
+    {
+      "name": "bare-data/annotated",
+      "source": "Module p.\n\nS has @pii(L1, email) mail as Text.\n",
+      "pf": "90e240c679206f059f689c363409a019f168ba11c3d13d53548de262b72281a8"
+    },
+    {
+      "name": "bare-data/then-construct",
+      "source": "Module p.\n\nS has x as Int.\n\nRule f, produce S:\n  Return S with x set to 1.\n",
+      "pf": "bbc948b2e6afb105237da3218a681994ae1b5865aa57e1a765d167c6c3f85c0c"
+    },
+    {
+      "name": "bare-data/forward-reference",
+      "source": "Module p.\n\nRule f given s as S, produce Int:\n  Return s.x.\n\nS has x as Int.\n",
+      "pf": "d3db2af97d475a4a6ef6ccdd71d5b0e11845fd24a650ff3dbfd61de7fda151da"
+    },
+    {
+      "name": "bare-data/two",
+      "source": "Module p.\n\nS has x as Int.\nT with y as S.\n",
+      "pf": "a572d62e35d581f9c55b26f1b0b79a75f809978933d6dd062eabe4fc8ac71ccc"
+    },
+    {
+      "name": "bare-data/name-Type",
+      "source": "Module p.\n\nType has x as Int.\n",
+      "pf": "248a228a260465fcca45f5b1956eebc069079b042fd214f9d3b69c1221fc13a0"
+    },
+    {
+      "name": "bare-data/name-Profile",
+      "source": "Module p.\n\nProfile has x as Int.\n",
+      "pf": "2dbee1466cd7130a1054bf04725482310595df8a3d1b8fb5d7f5eac53756dd6c"
+    },
+    {
+      "name": "bare-data/name-Latin-1",
+      "source": "Module p.\n\nÜber has x as Int.\n",
+      "pf": "7aec93c175bc0e35b9434b37d5cfb6ffec118bf780e679d95b8eeb430d903f56"
+    },
+    {
+      "name": "bare-data/zh",
+      "locale": "zh-CN",
+      "source": "模块 p。\n\n用户 包含 年龄 作为 整数。\n",
+      "pf": "f930f04c7347c1db1af01ef2d4dea34f474a2688cefc3d797509fedfb6cc8059"
+    },
+    {
+      "name": "bare-data/de",
+      "locale": "de-DE",
+      "source": "Modul p.\n\nS hat x als Int.\n",
+      "pf": "a5d41a10612f1145bff4f06e641269db052bb1cc4d3370491afc276b00b0c971"
+    },
+    {
+      "name": "bare-data/reject-lowercase",
+      "source": "Module p.\n\ns has x as Int.\n",
+      "reject": true
+    },
+    {
+      "name": "bare-data/reject-keyword-Start",
+      "source": "Module p.\n\nStart has x as Int.\n",
+      "reject": true
+    },
+    {
+      "name": "bare-data/reject-keyword-Let",
+      "source": "Module p.\n\nLet has x as Int.\n",
+      "reject": true
+    },
+    {
+      "name": "bare-data/reject-core-token-On",
+      "source": "Module p.\n\nOn has x as Int.\n",
+      "reject": true
+    },
+    {
+      "name": "bare-data/reject-no-dot",
+      "source": "Module p.\n\nS has x as Int\n",
+      "reject": true
+    },
+    {
+      "name": "bare-data/type-alias-still-alias",
+      "source": "Module p.\n\nType Score as Int.\n\nRule f given s as Score, produce Int:\n  Return s.\n",
+      "pf": "fb3f8e96d0049c7fc52cb64db2fc2776249d92fb97b1328666c85856e3cc0d49"
+    },
+    {
+      "name": "field-comma-newline/define-with",
+      "source": "Module p.\n\nDefine S with a as Int\n, b as Int.\n",
+      "pf": "05c59cd7b14a44cc542c7b6dad071b30c89a1e38a5417e2bd1094b69af3b8100"
+    },
+    {
+      "name": "field-comma-newline/define-has",
+      "source": "Module p.\n\nDefine S has a as Int\n, b as Int.\n",
+      "pf": "05c59cd7b14a44cc542c7b6dad071b30c89a1e38a5417e2bd1094b69af3b8100"
+    },
+    {
+      "name": "field-comma-newline/no-space",
+      "source": "Module p.\n\nDefine S with a as Int\n,b as Int.\n",
+      "pf": "05c59cd7b14a44cc542c7b6dad071b30c89a1e38a5417e2bd1094b69af3b8100"
+    },
+    {
+      "name": "field-comma-newline/blank-line",
+      "source": "Module p.\n\nDefine S with a as Int\n\n, b as Int.\n",
+      "pf": "b754a397d361eec4ddfe4f4070d87d196c7bdd3f735c5eab31e924a50ab2f1b7"
+    },
+    {
+      "name": "field-comma-newline/three",
+      "source": "Module p.\n\nDefine S with a as Int\n, b as Int\n, c as Text.\n",
+      "pf": "a9dc4a64042aa899cdf62ea072aefb13ada31648599218ce5996f0fe0513c05a"
+    },
+    {
+      "name": "field-comma-newline/mixed-and",
+      "source": "Module p.\n\nDefine S with a as Int\nand b as Int\n, c as Text.\n",
+      "pf": "a9dc4a64042aa899cdf62ea072aefb13ada31648599218ce5996f0fe0513c05a"
+    },
+    {
+      "name": "field-comma-newline/constraints",
+      "source": "Module p.\n\nDefine S with a as Int required\n, b as Int between 1 and 3.\n",
+      "pf": "24ff0e55492c66612dc103ccf800431eeb9e56697261bc57c3be4a4ccda1c56c"
+    },
+    {
+      "name": "field-comma-newline/bare-data",
+      "source": "Module p.\n\nS has a as Int\n, b as Int.\n",
+      "pf": "05c59cd7b14a44cc542c7b6dad071b30c89a1e38a5417e2bd1094b69af3b8100"
+    },
+    {
+      "name": "field-comma-newline/zh",
+      "locale": "zh-CN",
+      "source": "模块 p。\n\n定义 S 包含 a 作为 整数\n，b 作为 整数。\n",
+      "pf": "05c59cd7b14a44cc542c7b6dad071b30c89a1e38a5417e2bd1094b69af3b8100"
+    },
+    {
+      "name": "field-comma-newline/reject-indented",
+      "source": "Module p.\n\nDefine S with a as Int\n  , b as Int.\n",
+      "reject": true
+    },
+    {
+      "name": "field-comma-newline/reject-trailing",
+      "source": "Module p.\n\nDefine S with a as Int\n,.\n",
+      "reject": true
+    },
+    {
+      "name": "dot-core-token/Set-statement",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let y be 1.\n  Return v.Set y to 2.\n",
+      "pf": "37b77b3cb3cf19a0e207445b42948a008659db25ed8f1b51fd777dcf5bf38fa6"
+    },
+    {
+      "name": "dot-core-token/Map-call",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let y be 1.\n  Return v.Map(1).\n",
+      "pf": "2106112a93ba76b944583af3c24f2507f052d0cc00cbe9dad8532a9582857a27"
+    },
+    {
+      "name": "dot-core-token/Map-member",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let y be 1.\n  Return v.Map.a.\n",
+      "pf": "a34fc76e8d5bd730bfe48794190809e58a446597b3b7eec34f31dd285d98a312"
+    },
+    {
+      "name": "dot-core-token/reject-type-Map-call",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let y be 1.\n  Return Http.Map(1).\n",
+      "reject": true,
+      "code": "E802",
+      "line": 5,
+      "column": 10,
+      "params": {}
+    },
+    {
+      "name": "dot-core-token/Map-statement",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let y be 1.\n  v.Map(1).\n  Return 1.\n",
+      "pf": "9deb26dacee71db56f871cf137a0a3c270d4f23b8fb685e5f822f6dff873f621"
+    },
+    {
+      "name": "dot-core-token/lowercase-it-member",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let y be 1.\n  Return v.it.\n",
+      "pf": "0a5fdad49f4937300b657300c28af27f8d1fd6a125b829978652f37aac348021"
+    },
+    {
+      "name": "dot-core-token/upper-SET-member",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let y be 1.\n  Return v.SET.\n",
+      "pf": "cce5cfb977e17947392f5ab59627e5e13e0cbe9999245c71d84707e686fa6228"
+    },
+    {
+      "name": "dot-core-token/reject-Set-end",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let y be 1.\n  Return v.Set.\n",
+      "reject": true
+    },
+    {
+      "name": "dot-core-token/reject-Use",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let y be 1.\n  Return v.Use.\n",
+      "reject": true
+    },
+    {
+      "name": "dot-core-token/reject-On-call",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let y be 1.\n  Return v.On(1).\n",
+      "reject": true
+    },
+    {
+      "name": "dot-core-token/reject-It",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let y be 1.\n  Return v.It.\n",
+      "reject": true
+    },
+    {
+      "name": "dot-core-token/reject-Module",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let y be 1.\n  Return v.Module.\n",
+      "reject": true
+    },
+    {
+      "name": "dot-core-token/reject-import-alias-Map",
+      "source": "Module p.\n\nUse io.Http as H.\n\nRule f, produce Int:\n  Return H.Map(1).\n",
+      "reject": true,
+      "code": "E802",
+      "line": 6,
+      "column": 10,
+      "params": {}
+    },
+    {
+      "name": "dot-core-token/reject-expression-On",
+      "source": "Module p.\n\nRule f, produce Int:\n  Return On(1).\n",
+      "reject": true
+    },
+    {
+      "name": "dot-core-token/reject-statement-Use",
+      "source": "Module p.\n\nRule f, produce Int:\n  Use(1).\n  Return 1.\n",
+      "reject": true
+    },
+    {
+      "name": "dot-core-token/escaped-member",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let y be 1.\n  Return v.`On`.\n",
+      "pf": "fb1c70644f7284edb46efbb2ee363edd72560930eaf440d0cc3c66ba79fc5d13"
+    },
+    {
+      "name": "bare-expression/name",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  v.\n  Return v.\n",
+      "pf": "b7a21455e559e81db41e288592c37c062b10cd436a701ec7e80c506b5dcd3bb0"
+    },
+    {
+      "name": "bare-expression/int",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  1.\n  Return v.\n",
+      "pf": "e035230105538774ad30de9b894d56425651d253f3ede173944341ef968078ac"
+    },
+    {
+      "name": "bare-expression/ok-of",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  ok of 1.\n  Return v.\n",
+      "pf": "e867360919f1ae6527ddb2fb519c945ab8996b6672cca81975a44d08b9bafd53"
+    },
+    {
+      "name": "bare-expression/some-call",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Some(1).\n  Return v.\n",
+      "pf": "d56df8ac518abd81e8231a9f17f67cdf6f3f8152a2fe980e36f03a4fd43ac55a"
+    },
+    {
+      "name": "bare-expression/list",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  [1, 2].\n  Return v.\n",
+      "pf": "a8c6af65a364f6db8b6a7c88fe489f747699e42d2a747caf7154229be24ffde5"
+    },
+    {
+      "name": "bare-expression/float",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  1.5.\n  Return v.\n",
+      "pf": "dec4bf6666dc4583a3a217da8dd7e83e4804faf8a46d39ba1cc7903a0f94a06d"
+    },
+    {
+      "name": "bare-expression/decimal",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  1.0m.\n  Return v.\n",
+      "pf": "03a52b7d9a47bd550cb66a1d2af450846cd5bdfbeba1d31fc23b00e77c509334"
+    },
+    {
+      "name": "bare-expression/bool-last",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let a be 1.\n  true.\n",
+      "pf": "43df9698957b0ed37aa7b3937eada44deede407e500ea3ede9d20886cc2c2bfd"
+    },
+    {
+      "name": "bare-expression/none",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  none.\n  Return v.\n",
+      "pf": "9949ec379efb208ddc80cb7ae196cc6af8e1fb6c1e12a30bd466ec683dc2a5a7"
+    },
+    {
+      "name": "bare-expression/prefix-operator",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  <(1, 2).\n  Return v.\n",
+      "pf": "26b619fcabdf337c7e8addf719e2385934e50f2306f648d4f2a9b7427378cb07"
+    },
+    {
+      "name": "bare-expression/construct",
+      "source": "Module p.\n\nDefine S with p as Int.\n\nRule f given v as Int, produce Int:\n  S with p set to 1.\n  Return v.\n",
+      "pf": "ce80849f8890a05c66574514b62ba12666ea24e1bc734ee845dd6ca04a854107"
+    },
+    {
+      "name": "bare-expression/member",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  v.a.\n  Return v.\n",
+      "pf": "7f94b3627a9587464966c6e462aa73cd6f2f45620d63f4525668c342a13234a4"
+    },
+    {
+      "name": "bare-expression/paren-member",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  (v).a.\n  Return v.\n",
+      "pf": "7f94b3627a9587464966c6e462aa73cd6f2f45620d63f4525668c342a13234a4"
+    },
+    {
+      "name": "bare-expression/method-call",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  h.g(1).\n  Return v.\n",
+      "pf": "f572c832d26f16eb6dacc4f366f16cefc3ec931c60f80188ecd81a728cd2e2b1"
+    },
+    {
+      "name": "bare-expression/method-on-call",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  f(1).g(2).\n  Return v.\n",
+      "pf": "3ab791c6d78aafadee4277f64d82263911d3673c10ba61df40d4ceaadcf0340d"
+    },
+    {
+      "name": "bare-expression/method-on-literal",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  1.g(2).\n  Return v.\n",
+      "pf": "c8b9e32bb61e369e0e38ff424a23c28874b9c475dc4903f513209bb99d349c3d"
+    },
+    {
+      "name": "bare-expression/in-if",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  If v > 1:\n    v.\n  Return v.\n",
+      "pf": "09ab049ea989a0ab89c4d530933979519b7ddf6b0bab130d3db98539c234ce77"
+    },
+    {
+      "name": "bare-expression/in-lambda",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let k be function with x as Int, produce Int:\n    x.\n    Return x.\n  Return v.\n",
+      "pf": "1c52e202a33eb36e9b5db0369f2e1b6069e131002604d87b294dbd827a186bd8"
+    },
+    {
+      "name": "bare-expression/same-line",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let a be 1. ok of a.\n  Return v.\n",
+      "pf": "4d1d13c1805fdcf9da63d7160d8076fb9a11b34725c75363471b5e99ef0690c2"
+    },
+    {
+      "name": "bare-expression/zh",
+      "locale": "zh-CN",
+      "source": "模块 p。\n\n规则 f 给定 v 作为 整数，产出 整数：\n  v。\n  返回 v。\n",
+      "pf": "b7a21455e559e81db41e288592c37c062b10cd436a701ec7e80c506b5dcd3bb0"
+    },
+    {
+      "name": "bare-expression/reject-string-line-start",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  \"x\".\n  Return v.\n",
+      "reject": true,
+      "code": "E061",
+      "line": 4,
+      "column": 1,
+      "params": {
+        "token": "'\"x\"'"
+      },
+      "message": "Unexpected '\"x\"'"
+    },
+    {
+      "name": "bare-expression/reject-string-concat",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  \"x\" + \"y\".\n  Return v.\n",
+      "reject": true,
+      "code": "E061",
+      "line": 4,
+      "column": 1,
+      "params": {
+        "token": "'\"x\"'"
+      },
+      "message": "Unexpected '\"x\"'"
+    },
+    {
+      "name": "bare-expression/reject-member-on-literal",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Return true.x.\n",
+      "reject": true,
+      "code": "E064",
+      "line": 4,
+      "column": 10,
+      "params": {
+        "construct": "token.memberAccessOnExpression"
+      },
+      "message": "Unexpected member access on a non-name expression (bind the result to a name first)"
+    },
+    {
+      "name": "bare-expression/reject-member-on-call",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  f(1).x.\n  Return v.\n",
+      "reject": true,
+      "code": "E064",
+      "line": 4,
+      "column": 3
+    },
+    {
+      "name": "bare-expression/reject-unknown-name",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  g.\n  Return v.\n",
+      "reject": true,
+      "code": "E802",
+      "line": 4,
+      "column": 3,
+      "params": {}
+    },
+    {
+      "name": "bare-expression/same-line-return",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let a be 1. Return a.\n",
+      "pf": "9596cddc871f700cb32f1f146bd0b2ca06619550008e5a90aa3dcd2fef93fea4"
+    },
+    {
+      "name": "bare-expression/same-line-method",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let a be 1. g(2).\n  Return v.\n",
+      "pf": "9de032a49fd68bcfcbaa2b085159eafad419e49718956bf5aeab0e5a3348f318"
+    },
+    {
+      "name": "bare-expression/reject-same-line-let",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  Let a be 1. Let x be 2.\n  Return x.\n",
+      "reject": true
+    },
+    {
+      "name": "bare-expression/reject-same-line-if",
+      "source": "Module p.\n\nRule f given v as Int, produce Int:\n  g(1). If v > 1:\n    Return 1.\n  Return v.\n",
+      "reject": true
+    },
+    {
+      "name": "rule-with-params/reject-lowercase",
+      "source": "Module p.\n\nRule f with a as Int and b as Int, produce Int:\n  Return 1.\n",
+      "reject": true,
+      "code": "E062",
+      "line": 3,
+      "column": 8,
+      "params": {
+        "expected": "'.' | ':' | ',' | '<' | kw.given | kw.produce | kw.of",
+        "token": "kw.with"
+      },
+      "message": "Unexpected 'with'; expected '.' or ':' or ',', …"
+    },
+    {
+      "name": "rule-with-params/reject-single",
+      "source": "Module p.\n\nRule f with a as Int, produce Int:\n  Return 1.\n",
+      "reject": true,
+      "code": "E062",
+      "line": 3,
+      "column": 8,
+      "params": {
+        "expected": "'.' | ':' | ',' | '<' | kw.given | kw.produce | kw.of",
+        "token": "kw.with"
+      },
+      "message": "Unexpected 'with'; expected '.' or ':' or ',', …"
+    },
+    {
+      "name": "rule-with-params/reject-untyped",
+      "source": "Module p.\n\nRule f with a, produce Int:\n  Return 1.\n",
+      "reject": true,
+      "code": "E062",
+      "line": 3,
+      "column": 8,
+      "params": {
+        "expected": "'.' | ':' | ',' | '<' | kw.given | kw.produce | kw.of",
+        "token": "kw.with"
+      },
+      "message": "Unexpected 'with'; expected '.' or ':' or ',', …"
+    },
+    {
+      "name": "rule-with-params/reject-capitalised",
+      "source": "Module p.\n\nRule f With a as Int, produce Int:\n  Return 1.\n",
+      "reject": true,
+      "code": "E062",
+      "line": 3,
+      "column": 8,
+      "params": {
+        "expected": "'.' | ':' | ',' | '<' | kw.given | kw.produce | kw.of",
+        "token": "'With'"
+      },
+      "message": "Unexpected 'With'; expected '.' or ':' or ',', …"
+    },
+    {
+      "name": "rule-with-params/reject-upper",
+      "source": "Module p.\n\nRule f WITH a as Int, produce Int:\n  Return 1.\n",
+      "reject": true,
+      "code": "E062",
+      "line": 3,
+      "column": 8,
+      "params": {
+        "expected": "'.' | ':' | ',' | '<' | kw.given | kw.produce | kw.of",
+        "token": "'WITH'"
+      },
+      "message": "Unexpected 'WITH'; expected '.' or ':' or ',', …"
+    },
+    {
+      "name": "rule-with-params/reject-after-type-params",
+      "source": "Module p.\n\nRule f of T with a as T, produce Int:\n  Return 1.\n",
+      "reject": true,
+      "code": "E062",
+      "line": 3,
+      "column": 13,
+      "params": {
+        "expected": "'.' | ':' | ',' | '<' | kw.given | kw.produce",
+        "token": "kw.with"
+      },
+      "message": "Unexpected 'with'; expected '.' or ':' or ',', …"
+    },
+    {
+      "name": "rule-with-params/reject-after-type-params-and",
+      "source": "Module p.\n\nRule f of T and U with a as T, produce Int:\n  Return 1.\n",
+      "reject": true,
+      "code": "E062",
+      "line": 3,
+      "column": 19,
+      "params": {
+        "expected": "'.' | ':' | ',' | '<' | kw.given | kw.produce",
+        "token": "kw.with"
+      },
+      "message": "Unexpected 'with'; expected '.' or ':' or ',', …"
+    },
+    {
+      "name": "rule-with-params/reject-after-type-param-comma",
+      "source": "Module p.\n\nRule f of T, with a as T, produce Int:\n  Return 1.\n",
+      "reject": true,
+      "code": "E062",
+      "line": 3,
+      "column": 14,
+      "params": {
+        "expected": "'.' | ':' | kw.produce",
+        "token": "kw.with"
+      },
+      "message": "Unexpected 'with'; expected '.' or ':' or 'produce'"
+    },
+    {
+      "name": "rule-with-params/reject-after-effect-params",
+      "source": "Module p.\n\nRule f<E> with a as Int, produce Int:\n  Return 1.\n",
+      "reject": true,
+      "code": "E062",
+      "line": 3,
+      "column": 11,
+      "params": {
+        "expected": "'.' | ':' | ',' | kw.given | kw.produce",
+        "token": "kw.with"
+      },
+      "message": "Unexpected 'with'; expected '.' or ':' or ',', …"
+    },
+    {
+      "name": "rule-with-params/reject-colon",
+      "source": "Module p.\n\nRule f with a as Int:\n  Return 1.\n",
+      "reject": true,
+      "code": "E062",
+      "line": 3,
+      "column": 8,
+      "params": {
+        "expected": "'.' | ':' | ',' | '<' | kw.given | kw.produce | kw.of",
+        "token": "kw.with"
+      },
+      "message": "Unexpected 'with'; expected '.' or ':' or ',', …"
+    },
+    {
+      "name": "rule-with-params/reject-annotated-rule",
+      "source": "Module p.\n\n@entry Rule f with a as Int, produce Int:\n  Return 1.\n",
+      "reject": true,
+      "code": "E062",
+      "line": 3,
+      "column": 15,
+      "params": {
+        "expected": "'.' | ':' | ',' | '<' | kw.given | kw.produce | kw.of",
+        "token": "kw.with"
+      },
+      "message": "Unexpected 'with'; expected '.' or ':' or ',', …"
+    },
+    {
+      "name": "rule-with-params/reject-zh",
+      "locale": "zh-CN",
+      "source": "模块 p。\n\n规则 f 包含 a 作为 整数，产出 整数：\n  返回 1。\n",
+      "reject": true
+    },
+    {
+      "name": "rule-with-params/given",
+      "source": "Module p.\n\nRule f given a as Int and b as Int, produce Int:\n  Return 1.\n",
+      "pf": "186e99b32dc51722c37976ece9d4cae91d26a702d24a237e2c10b8e5dc796237"
+    },
+    {
+      "name": "rule-with-params/lambda-with",
+      "source": "Module p.\n\nRule f, produce Int:\n  Let g be function with x as Int, produce Int:\n    Return x.\n  Return 1.\n",
+      "pf": "5ff4257b8acd1f615c0d5db5e53ded835e376395338b4f4523b84c66f11eaa27"
+    }
+  ]
+}
