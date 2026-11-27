@@ -1,0 +1,543 @@
+{
+  "description": "关键词大小写（ADR 0059 A4 §1.1）在列表分隔符与构造位置的双引擎 parity 夹具（aster-lang-ts#411，产品裁决 2026-11-28）。aster-lang-ts shared/keyword_case_position_parity.json 与 aster-lang-core src/test/resources/diagnostics/keyword_case_position_parity.json 必须 byte-identical。覆盖：形参之间的 and（规则头与 lambda）、变体之间的 or / and、apply 的 to、构造里 and 之后的 set、字段列表里换行起头（不缩进）的 and、has 构造（与 with 同义），各按小写、首字母大写、全大写、小写开头的混合拼写与转义写出。带 pf 的例：两引擎都须编译成功，Core IR 的 positionFreeSha256 恰为 pf（两引擎同一 IR）；带 equivalent 的另须与 equivalent 同一 positionFreeSha256（其余拼写与小写同义）。带 reject 的例：两引擎都须编译失败（转义的关键词永远是名字；缩进的换行 and 两引擎都不收）。trap 行：同形词作名字（变体 Or / And、形参类型里 of 之后的 And）与 has / With 构造头照旧同义。",
+  "cases": [
+    {
+      "name": "param-and-given/lower",
+      "source": "Module p.\n\nRule f given a as Int and b as Int, produce Int:\n  Return a.\n",
+      "pf": "fad29735c83efdf00896be91533a294e257fb7e3c808551f76bc351a5bbc048e"
+    },
+    {
+      "name": "param-and-given/cap",
+      "source": "Module p.\n\nRule f given a as Int And b as Int, produce Int:\n  Return a.\n",
+      "equivalent": "Module p.\n\nRule f given a as Int and b as Int, produce Int:\n  Return a.\n",
+      "pf": "fad29735c83efdf00896be91533a294e257fb7e3c808551f76bc351a5bbc048e"
+    },
+    {
+      "name": "param-and-given/upper",
+      "source": "Module p.\n\nRule f given a as Int AND b as Int, produce Int:\n  Return a.\n",
+      "equivalent": "Module p.\n\nRule f given a as Int and b as Int, produce Int:\n  Return a.\n",
+      "pf": "fad29735c83efdf00896be91533a294e257fb7e3c808551f76bc351a5bbc048e"
+    },
+    {
+      "name": "param-and-given/mixed",
+      "source": "Module p.\n\nRule f given a as Int aND b as Int, produce Int:\n  Return a.\n",
+      "equivalent": "Module p.\n\nRule f given a as Int and b as Int, produce Int:\n  Return a.\n",
+      "pf": "fad29735c83efdf00896be91533a294e257fb7e3c808551f76bc351a5bbc048e"
+    },
+    {
+      "name": "param-and-given/esc",
+      "source": "Module p.\n\nRule f given a as Int `and` b as Int, produce Int:\n  Return a.\n",
+      "reject": true
+    },
+    {
+      "name": "param-and-3/lower",
+      "source": "Module p.\n\nRule f given a as Int, b as Int and c as Text, produce Int:\n  Return a.\n",
+      "pf": "70fedb1697977efb77aab6d2b998a94b0f12dff7efe9499e45c70796b7b74c6d"
+    },
+    {
+      "name": "param-and-3/cap",
+      "source": "Module p.\n\nRule f given a as Int, b as Int And c as Text, produce Int:\n  Return a.\n",
+      "equivalent": "Module p.\n\nRule f given a as Int, b as Int and c as Text, produce Int:\n  Return a.\n",
+      "pf": "70fedb1697977efb77aab6d2b998a94b0f12dff7efe9499e45c70796b7b74c6d"
+    },
+    {
+      "name": "param-and-3/upper",
+      "source": "Module p.\n\nRule f given a as Int, b as Int AND c as Text, produce Int:\n  Return a.\n",
+      "equivalent": "Module p.\n\nRule f given a as Int, b as Int and c as Text, produce Int:\n  Return a.\n",
+      "pf": "70fedb1697977efb77aab6d2b998a94b0f12dff7efe9499e45c70796b7b74c6d"
+    },
+    {
+      "name": "param-and-3/mixed",
+      "source": "Module p.\n\nRule f given a as Int, b as Int aND c as Text, produce Int:\n  Return a.\n",
+      "equivalent": "Module p.\n\nRule f given a as Int, b as Int and c as Text, produce Int:\n  Return a.\n",
+      "pf": "70fedb1697977efb77aab6d2b998a94b0f12dff7efe9499e45c70796b7b74c6d"
+    },
+    {
+      "name": "param-and-3/esc",
+      "source": "Module p.\n\nRule f given a as Int, b as Int `and` c as Text, produce Int:\n  Return a.\n",
+      "reject": true
+    },
+    {
+      "name": "variant-or/lower",
+      "source": "Module p.\n\nDefine C as one of Red or Green.\n",
+      "pf": "6e986971cd5cae57ca4204e7222fe860f7022c1eccabbfdc4656cfc031fd0e0c"
+    },
+    {
+      "name": "variant-or/cap",
+      "source": "Module p.\n\nDefine C as one of Red Or Green.\n",
+      "equivalent": "Module p.\n\nDefine C as one of Red or Green.\n",
+      "pf": "6e986971cd5cae57ca4204e7222fe860f7022c1eccabbfdc4656cfc031fd0e0c"
+    },
+    {
+      "name": "variant-or/upper",
+      "source": "Module p.\n\nDefine C as one of Red OR Green.\n",
+      "equivalent": "Module p.\n\nDefine C as one of Red or Green.\n",
+      "pf": "6e986971cd5cae57ca4204e7222fe860f7022c1eccabbfdc4656cfc031fd0e0c"
+    },
+    {
+      "name": "variant-or/mixed",
+      "source": "Module p.\n\nDefine C as one of Red oR Green.\n",
+      "equivalent": "Module p.\n\nDefine C as one of Red or Green.\n",
+      "pf": "6e986971cd5cae57ca4204e7222fe860f7022c1eccabbfdc4656cfc031fd0e0c"
+    },
+    {
+      "name": "variant-or/esc",
+      "source": "Module p.\n\nDefine C as one of Red `or` Green.\n",
+      "reject": true
+    },
+    {
+      "name": "variant-or-3/lower",
+      "source": "Module p.\n\nDefine C as one of Red, Green or Blue.\n",
+      "pf": "65c8b8d879aa18e10b6472088aebcb8bae38c498a2191f736c8ec7e0ec713c8a"
+    },
+    {
+      "name": "variant-or-3/cap",
+      "source": "Module p.\n\nDefine C as one of Red, Green Or Blue.\n",
+      "equivalent": "Module p.\n\nDefine C as one of Red, Green or Blue.\n",
+      "pf": "65c8b8d879aa18e10b6472088aebcb8bae38c498a2191f736c8ec7e0ec713c8a"
+    },
+    {
+      "name": "variant-or-3/upper",
+      "source": "Module p.\n\nDefine C as one of Red, Green OR Blue.\n",
+      "equivalent": "Module p.\n\nDefine C as one of Red, Green or Blue.\n",
+      "pf": "65c8b8d879aa18e10b6472088aebcb8bae38c498a2191f736c8ec7e0ec713c8a"
+    },
+    {
+      "name": "variant-or-3/mixed",
+      "source": "Module p.\n\nDefine C as one of Red, Green oR Blue.\n",
+      "equivalent": "Module p.\n\nDefine C as one of Red, Green or Blue.\n",
+      "pf": "65c8b8d879aa18e10b6472088aebcb8bae38c498a2191f736c8ec7e0ec713c8a"
+    },
+    {
+      "name": "variant-or-3/esc",
+      "source": "Module p.\n\nDefine C as one of Red, Green `or` Blue.\n",
+      "reject": true
+    },
+    {
+      "name": "variant-and/lower",
+      "source": "Module p.\n\nDefine C as one of Red and Green.\n",
+      "pf": "6e986971cd5cae57ca4204e7222fe860f7022c1eccabbfdc4656cfc031fd0e0c"
+    },
+    {
+      "name": "variant-and/cap",
+      "source": "Module p.\n\nDefine C as one of Red And Green.\n",
+      "equivalent": "Module p.\n\nDefine C as one of Red and Green.\n",
+      "pf": "6e986971cd5cae57ca4204e7222fe860f7022c1eccabbfdc4656cfc031fd0e0c"
+    },
+    {
+      "name": "variant-and/upper",
+      "source": "Module p.\n\nDefine C as one of Red AND Green.\n",
+      "equivalent": "Module p.\n\nDefine C as one of Red and Green.\n",
+      "pf": "6e986971cd5cae57ca4204e7222fe860f7022c1eccabbfdc4656cfc031fd0e0c"
+    },
+    {
+      "name": "variant-and/mixed",
+      "source": "Module p.\n\nDefine C as one of Red aND Green.\n",
+      "equivalent": "Module p.\n\nDefine C as one of Red and Green.\n",
+      "pf": "6e986971cd5cae57ca4204e7222fe860f7022c1eccabbfdc4656cfc031fd0e0c"
+    },
+    {
+      "name": "variant-and/esc",
+      "source": "Module p.\n\nDefine C as one of Red `and` Green.\n",
+      "reject": true
+    },
+    {
+      "name": "variant-and-3/lower",
+      "source": "Module p.\n\nDefine C as one of Red, Green and Blue.\n",
+      "pf": "65c8b8d879aa18e10b6472088aebcb8bae38c498a2191f736c8ec7e0ec713c8a"
+    },
+    {
+      "name": "variant-and-3/cap",
+      "source": "Module p.\n\nDefine C as one of Red, Green And Blue.\n",
+      "equivalent": "Module p.\n\nDefine C as one of Red, Green and Blue.\n",
+      "pf": "65c8b8d879aa18e10b6472088aebcb8bae38c498a2191f736c8ec7e0ec713c8a"
+    },
+    {
+      "name": "variant-and-3/upper",
+      "source": "Module p.\n\nDefine C as one of Red, Green AND Blue.\n",
+      "equivalent": "Module p.\n\nDefine C as one of Red, Green and Blue.\n",
+      "pf": "65c8b8d879aa18e10b6472088aebcb8bae38c498a2191f736c8ec7e0ec713c8a"
+    },
+    {
+      "name": "variant-and-3/mixed",
+      "source": "Module p.\n\nDefine C as one of Red, Green aND Blue.\n",
+      "equivalent": "Module p.\n\nDefine C as one of Red, Green and Blue.\n",
+      "pf": "65c8b8d879aa18e10b6472088aebcb8bae38c498a2191f736c8ec7e0ec713c8a"
+    },
+    {
+      "name": "variant-and-3/esc",
+      "source": "Module p.\n\nDefine C as one of Red, Green `and` Blue.\n",
+      "reject": true
+    },
+    {
+      "name": "apply-to/lower",
+      "source": "Module p.\n\nRule g given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Return apply g to x.\n",
+      "pf": "cae1d3ce9dc9992fd4fdad5d256a43bbceae5101e30f1c4d680c262b5d90ed72"
+    },
+    {
+      "name": "apply-to/cap",
+      "source": "Module p.\n\nRule g given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Return apply g To x.\n",
+      "equivalent": "Module p.\n\nRule g given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Return apply g to x.\n",
+      "pf": "cae1d3ce9dc9992fd4fdad5d256a43bbceae5101e30f1c4d680c262b5d90ed72"
+    },
+    {
+      "name": "apply-to/upper",
+      "source": "Module p.\n\nRule g given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Return apply g TO x.\n",
+      "equivalent": "Module p.\n\nRule g given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Return apply g to x.\n",
+      "pf": "cae1d3ce9dc9992fd4fdad5d256a43bbceae5101e30f1c4d680c262b5d90ed72"
+    },
+    {
+      "name": "apply-to/mixed",
+      "source": "Module p.\n\nRule g given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Return apply g tO x.\n",
+      "equivalent": "Module p.\n\nRule g given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Return apply g to x.\n",
+      "pf": "cae1d3ce9dc9992fd4fdad5d256a43bbceae5101e30f1c4d680c262b5d90ed72"
+    },
+    {
+      "name": "apply-to/esc",
+      "source": "Module p.\n\nRule g given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Return apply g `to` x.\n",
+      "reject": true
+    },
+    {
+      "name": "apply-to-let/lower",
+      "source": "Module p.\n\nRule g given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Let y be apply g to x.\n  Return y.\n",
+      "pf": "38a6b576df8675a0ec11839fbf7429fcba07916db995378bdc5f374f078da1f6"
+    },
+    {
+      "name": "apply-to-let/cap",
+      "source": "Module p.\n\nRule g given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Let y be apply g To x.\n  Return y.\n",
+      "equivalent": "Module p.\n\nRule g given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Let y be apply g to x.\n  Return y.\n",
+      "pf": "38a6b576df8675a0ec11839fbf7429fcba07916db995378bdc5f374f078da1f6"
+    },
+    {
+      "name": "apply-to-let/upper",
+      "source": "Module p.\n\nRule g given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Let y be apply g TO x.\n  Return y.\n",
+      "equivalent": "Module p.\n\nRule g given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Let y be apply g to x.\n  Return y.\n",
+      "pf": "38a6b576df8675a0ec11839fbf7429fcba07916db995378bdc5f374f078da1f6"
+    },
+    {
+      "name": "apply-to-let/mixed",
+      "source": "Module p.\n\nRule g given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Let y be apply g tO x.\n  Return y.\n",
+      "equivalent": "Module p.\n\nRule g given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Let y be apply g to x.\n  Return y.\n",
+      "pf": "38a6b576df8675a0ec11839fbf7429fcba07916db995378bdc5f374f078da1f6"
+    },
+    {
+      "name": "apply-to-let/esc",
+      "source": "Module p.\n\nRule g given x as Int, produce Int:\n  Return x.\n\nRule f given x as Int, produce Int:\n  Let y be apply g `to` x.\n  Return y.\n",
+      "reject": true
+    },
+    {
+      "name": "construct-and-set/lower",
+      "source": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 and q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "construct-and-set/cap",
+      "source": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 and q Set to 2.\n",
+      "equivalent": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 and q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "construct-and-set/upper",
+      "source": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 and q SET to 2.\n",
+      "equivalent": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 and q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "construct-and-set/mixed",
+      "source": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 and q sET to 2.\n",
+      "equivalent": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 and q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "construct-and-set/esc",
+      "source": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 and q `set` to 2.\n",
+      "reject": true
+    },
+    {
+      "name": "construct-and-set-AND/lower",
+      "source": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 AND q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "construct-and-set-AND/cap",
+      "source": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 AND q Set to 2.\n",
+      "equivalent": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 AND q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "construct-and-set-AND/upper",
+      "source": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 AND q SET to 2.\n",
+      "equivalent": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 AND q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "construct-and-set-AND/mixed",
+      "source": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 AND q sET to 2.\n",
+      "equivalent": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 AND q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "construct-and-set-AND/esc",
+      "source": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S with p set to 1 AND q `set` to 2.\n",
+      "reject": true
+    },
+    {
+      "name": "lambda-and-given/lower",
+      "source": "Module p.\n\nRule f, produce Int:\n  Let g be function given a as Int and b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "pf": "962ab670d40ab1d6514b62d39bfb2dc2204f06badf1b22a9c84d5211ed5cdde0"
+    },
+    {
+      "name": "lambda-and-given/cap",
+      "source": "Module p.\n\nRule f, produce Int:\n  Let g be function given a as Int And b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "equivalent": "Module p.\n\nRule f, produce Int:\n  Let g be function given a as Int and b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "pf": "962ab670d40ab1d6514b62d39bfb2dc2204f06badf1b22a9c84d5211ed5cdde0"
+    },
+    {
+      "name": "lambda-and-given/upper",
+      "source": "Module p.\n\nRule f, produce Int:\n  Let g be function given a as Int AND b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "equivalent": "Module p.\n\nRule f, produce Int:\n  Let g be function given a as Int and b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "pf": "962ab670d40ab1d6514b62d39bfb2dc2204f06badf1b22a9c84d5211ed5cdde0"
+    },
+    {
+      "name": "lambda-and-given/mixed",
+      "source": "Module p.\n\nRule f, produce Int:\n  Let g be function given a as Int aND b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "equivalent": "Module p.\n\nRule f, produce Int:\n  Let g be function given a as Int and b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "pf": "962ab670d40ab1d6514b62d39bfb2dc2204f06badf1b22a9c84d5211ed5cdde0"
+    },
+    {
+      "name": "lambda-and-given/esc",
+      "source": "Module p.\n\nRule f, produce Int:\n  Let g be function given a as Int `and` b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "reject": true
+    },
+    {
+      "name": "lambda-and-with/lower",
+      "source": "Module p.\n\nRule f, produce Int:\n  Let g be function with a as Int and b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "pf": "962ab670d40ab1d6514b62d39bfb2dc2204f06badf1b22a9c84d5211ed5cdde0"
+    },
+    {
+      "name": "lambda-and-with/cap",
+      "source": "Module p.\n\nRule f, produce Int:\n  Let g be function with a as Int And b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "equivalent": "Module p.\n\nRule f, produce Int:\n  Let g be function with a as Int and b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "pf": "962ab670d40ab1d6514b62d39bfb2dc2204f06badf1b22a9c84d5211ed5cdde0"
+    },
+    {
+      "name": "lambda-and-with/upper",
+      "source": "Module p.\n\nRule f, produce Int:\n  Let g be function with a as Int AND b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "equivalent": "Module p.\n\nRule f, produce Int:\n  Let g be function with a as Int and b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "pf": "962ab670d40ab1d6514b62d39bfb2dc2204f06badf1b22a9c84d5211ed5cdde0"
+    },
+    {
+      "name": "lambda-and-with/mixed",
+      "source": "Module p.\n\nRule f, produce Int:\n  Let g be function with a as Int aND b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "equivalent": "Module p.\n\nRule f, produce Int:\n  Let g be function with a as Int and b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "pf": "962ab670d40ab1d6514b62d39bfb2dc2204f06badf1b22a9c84d5211ed5cdde0"
+    },
+    {
+      "name": "lambda-and-with/esc",
+      "source": "Module p.\n\nRule f, produce Int:\n  Let g be function with a as Int `and` b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "reject": true
+    },
+    {
+      "name": "field-nl-and-noindent/lower",
+      "source": "Module p.\n\nDefine S has a as Int\nand b as Int.\n",
+      "pf": "05c59cd7b14a44cc542c7b6dad071b30c89a1e38a5417e2bd1094b69af3b8100"
+    },
+    {
+      "name": "field-nl-and-noindent/cap",
+      "source": "Module p.\n\nDefine S has a as Int\nAnd b as Int.\n",
+      "equivalent": "Module p.\n\nDefine S has a as Int\nand b as Int.\n",
+      "pf": "05c59cd7b14a44cc542c7b6dad071b30c89a1e38a5417e2bd1094b69af3b8100"
+    },
+    {
+      "name": "field-nl-and-noindent/upper",
+      "source": "Module p.\n\nDefine S has a as Int\nAND b as Int.\n",
+      "equivalent": "Module p.\n\nDefine S has a as Int\nand b as Int.\n",
+      "pf": "05c59cd7b14a44cc542c7b6dad071b30c89a1e38a5417e2bd1094b69af3b8100"
+    },
+    {
+      "name": "field-nl-and-noindent/mixed",
+      "source": "Module p.\n\nDefine S has a as Int\naND b as Int.\n",
+      "equivalent": "Module p.\n\nDefine S has a as Int\nand b as Int.\n",
+      "pf": "05c59cd7b14a44cc542c7b6dad071b30c89a1e38a5417e2bd1094b69af3b8100"
+    },
+    {
+      "name": "field-nl-and-noindent/esc",
+      "source": "Module p.\n\nDefine S has a as Int\n`and` b as Int.\n",
+      "reject": true
+    },
+    {
+      "name": "has-construct/lower",
+      "source": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S has p set to 1 and q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "has-construct/cap",
+      "source": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S Has p set to 1 and q set to 2.\n",
+      "equivalent": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S has p set to 1 and q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "has-construct/upper",
+      "source": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S HAS p set to 1 and q set to 2.\n",
+      "equivalent": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S has p set to 1 and q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "has-construct/mixed",
+      "source": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S hAS p set to 1 and q set to 2.\n",
+      "equivalent": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S has p set to 1 and q set to 2.\n",
+      "pf": "296451db97e552aa902e3e307f2884000e551eb0ed22f32846807d11c05ee71f"
+    },
+    {
+      "name": "has-construct/esc",
+      "source": "Module p.\n\nDefine S has p as Int, q as Int.\n\nRule f, produce S:\n  Return S `has` p set to 1 and q set to 2.\n",
+      "reject": true
+    },
+    {
+      "name": "has-construct-1/lower",
+      "source": "Module p.\n\nDefine S has p as Int.\n\nRule f, produce S:\n  Return S has p set to 1.\n",
+      "pf": "dff1e9cf9ad36de406fdb1fdae3e4cfe0716b1c6daaebf1b92bfb959ba889fec"
+    },
+    {
+      "name": "has-construct-1/cap",
+      "source": "Module p.\n\nDefine S has p as Int.\n\nRule f, produce S:\n  Return S Has p set to 1.\n",
+      "equivalent": "Module p.\n\nDefine S has p as Int.\n\nRule f, produce S:\n  Return S has p set to 1.\n",
+      "pf": "dff1e9cf9ad36de406fdb1fdae3e4cfe0716b1c6daaebf1b92bfb959ba889fec"
+    },
+    {
+      "name": "has-construct-1/upper",
+      "source": "Module p.\n\nDefine S has p as Int.\n\nRule f, produce S:\n  Return S HAS p set to 1.\n",
+      "equivalent": "Module p.\n\nDefine S has p as Int.\n\nRule f, produce S:\n  Return S has p set to 1.\n",
+      "pf": "dff1e9cf9ad36de406fdb1fdae3e4cfe0716b1c6daaebf1b92bfb959ba889fec"
+    },
+    {
+      "name": "has-construct-1/mixed",
+      "source": "Module p.\n\nDefine S has p as Int.\n\nRule f, produce S:\n  Return S hAS p set to 1.\n",
+      "equivalent": "Module p.\n\nDefine S has p as Int.\n\nRule f, produce S:\n  Return S has p set to 1.\n",
+      "pf": "dff1e9cf9ad36de406fdb1fdae3e4cfe0716b1c6daaebf1b92bfb959ba889fec"
+    },
+    {
+      "name": "has-construct-1/esc",
+      "source": "Module p.\n\nDefine S has p as Int.\n\nRule f, produce S:\n  Return S `has` p set to 1.\n",
+      "reject": true
+    },
+    {
+      "name": "has-construct-let/lower",
+      "source": "Module p.\n\nDefine S has p as Int.\n\nRule f, produce Int:\n  Let s be S has p set to 1.\n  Return s.p.\n",
+      "pf": "840e706a2af9217d93cc3e9211e39878e51a99c08bb16debb83762f6a6aee1a5"
+    },
+    {
+      "name": "has-construct-let/cap",
+      "source": "Module p.\n\nDefine S has p as Int.\n\nRule f, produce Int:\n  Let s be S Has p set to 1.\n  Return s.p.\n",
+      "equivalent": "Module p.\n\nDefine S has p as Int.\n\nRule f, produce Int:\n  Let s be S has p set to 1.\n  Return s.p.\n",
+      "pf": "840e706a2af9217d93cc3e9211e39878e51a99c08bb16debb83762f6a6aee1a5"
+    },
+    {
+      "name": "has-construct-let/upper",
+      "source": "Module p.\n\nDefine S has p as Int.\n\nRule f, produce Int:\n  Let s be S HAS p set to 1.\n  Return s.p.\n",
+      "equivalent": "Module p.\n\nDefine S has p as Int.\n\nRule f, produce Int:\n  Let s be S has p set to 1.\n  Return s.p.\n",
+      "pf": "840e706a2af9217d93cc3e9211e39878e51a99c08bb16debb83762f6a6aee1a5"
+    },
+    {
+      "name": "has-construct-let/mixed",
+      "source": "Module p.\n\nDefine S has p as Int.\n\nRule f, produce Int:\n  Let s be S hAS p set to 1.\n  Return s.p.\n",
+      "equivalent": "Module p.\n\nDefine S has p as Int.\n\nRule f, produce Int:\n  Let s be S has p set to 1.\n  Return s.p.\n",
+      "pf": "840e706a2af9217d93cc3e9211e39878e51a99c08bb16debb83762f6a6aee1a5"
+    },
+    {
+      "name": "has-construct-let/esc",
+      "source": "Module p.\n\nDefine S has p as Int.\n\nRule f, produce Int:\n  Let s be S `has` p set to 1.\n  Return s.p.\n",
+      "reject": true
+    },
+    {
+      "name": "trap/variant-name-Or",
+      "source": "Module p.\n\nDefine C as one of Red, Or, Green.\n",
+      "pf": "3d8c60afd17413719aced289a55b9a854e7e19a0f40d9eb91e23dd92ae74c671"
+    },
+    {
+      "name": "trap/variant-name-And",
+      "source": "Module p.\n\nDefine C as one of Red, And.\n",
+      "pf": "3f6068087906139834862598b1bdda3b5e7ac48b8e1a40f9c8b42d74a72f9d1a"
+    },
+    {
+      "name": "trap/variant-Or-Or",
+      "source": "Module p.\n\nDefine C as one of Red Or Or.\n",
+      "pf": "34a6a97ebc80c3d3d3a97cb274febf4e2cf422ae03fdd141027ed253620fa198"
+    },
+    {
+      "name": "trap/variant-and-And",
+      "source": "Module p.\n\nDefine C as one of Red and And.\n",
+      "pf": "3f6068087906139834862598b1bdda3b5e7ac48b8e1a40f9c8b42d74a72f9d1a"
+    },
+    {
+      "name": "trap/ident-With",
+      "source": "Module p.\n\nDefine S has p as Int.\n\nRule f given s as S, produce Int:\n  Return s With p set to 1.\n",
+      "pf": "875381026d9da8bfefa92ba2b15d1c952eae37e7b1c70318819d87da265a5672"
+    },
+    {
+      "name": "trap/ident-Has",
+      "source": "Module p.\n\nDefine S has p as Int.\n\nRule f given s as S, produce Int:\n  Return s Has p set to 1.\n",
+      "pf": "875381026d9da8bfefa92ba2b15d1c952eae37e7b1c70318819d87da265a5672"
+    },
+    {
+      "name": "trap/has-ident-has",
+      "source": "Module p.\n\nDefine S has p as Int.\n\nRule f given s as S, produce Int:\n  Return s has p set to 1.\n",
+      "pf": "875381026d9da8bfefa92ba2b15d1c952eae37e7b1c70318819d87da265a5672"
+    },
+    {
+      "name": "trap/has-in-if",
+      "source": "Module p.\n\nDefine S has p as Int.\n\nRule f given x as Int, produce S:\n  If x greater than 1:\n    Return S has p set to x.\n  Return S with p set to 0.\n",
+      "pf": "b6cbbee09a40211f39f6feba30c4773873c9996409f8d9ca252d3f38683f816f"
+    },
+    {
+      "name": "trap/field-nl-and-then-rule",
+      "source": "Module p.\n\nDefine S has a as Int\nand b as Int.\n\nRule f given x as Int, produce Int:\n  Return x.\n",
+      "pf": "437e8d80020fe3cf7a9b59c25c908036b0cdfb5551a698779ba2d0c09c9e5303"
+    },
+    {
+      "name": "trap/param-result-of-And",
+      "source": "Module p.\n\nRule f given r as Result of Int And e as Text, produce Int:\n  Return 1.\n",
+      "pf": "1673893696bf307ace8d489e4418d2a346d61e7e6651246f21cad1a11badc5e5"
+    },
+    {
+      "name": "trap/param-list-of-And",
+      "source": "Module p.\n\nRule f given r as List of Int And e as Text, produce Int:\n  Return 1.\n",
+      "pf": "058afdf43081520a953894112e7eccae8456238fafcbfb352082265429bbe04a"
+    },
+    {
+      "name": "trap/param-map-to-And",
+      "source": "Module p.\n\nRule f given m as Map Text To Int And e as Text, produce Int:\n  Return 1.\n",
+      "pf": "2134b5453ce91537bec85fb796e610d84b7c25c154ce717dcb3092e3a8b5c0af"
+    },
+    {
+      "name": "trap/param-result-of-and",
+      "source": "Module p.\n\nRule f given r as Result of Int and e as Text, produce Int:\n  Return 1.\n",
+      "pf": "1673893696bf307ace8d489e4418d2a346d61e7e6651246f21cad1a11badc5e5"
+    },
+    {
+      "name": "trap/param-list-of-and",
+      "source": "Module p.\n\nRule f given r as List of Int and e as Text, produce Int:\n  Return 1.\n",
+      "pf": "058afdf43081520a953894112e7eccae8456238fafcbfb352082265429bbe04a"
+    },
+    {
+      "name": "field-nl-and/lower",
+      "source": "Module p.\n\nDefine S has a as Int\n  and b as Int.\n",
+      "reject": true
+    },
+    {
+      "name": "field-nl-and/cap",
+      "source": "Module p.\n\nDefine S has a as Int\n  And b as Int.\n",
+      "reject": true
+    },
+    {
+      "name": "trap/field-nl-and-two",
+      "source": "Module p.\n\nDefine S has a as Int\n  and b as Int\n  and c as Text.\n",
+      "reject": true
+    },
+    {
+      "name": "trap/lambda-and-comma",
+      "source": "Module p.\n\nRule f, produce Int:\n  Let g be function given a as Int, b as Int, produce Int: Return a.\n  Return g(1, 2).\n",
+      "pf": "962ab670d40ab1d6514b62d39bfb2dc2204f06badf1b22a9c84d5211ed5cdde0"
+    }
+  ]
+}

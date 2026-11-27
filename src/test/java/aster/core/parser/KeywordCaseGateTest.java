@@ -66,6 +66,7 @@ class KeywordCaseGateTest {
         "and 续行 | Return a AND b. | 2 | true",
         "and 续行 | Return a aND b. | 2 | true",
         "and 续行（构造的下一个字段） | Return S with p set to 1 and q sET to 2. | 7 | false",
+        "and 续行（构造的下一个字段） | Return S with p set to 1 and q SET to 2. | 7 | false",
         "比较分支（软比较） | Return a aND b. | 2 | false",
         "比较分支（软比较） | Return a oR b. | 2 | false",
         "Let | Let x BE 1. | 0 | true",
@@ -80,7 +81,9 @@ class KeywordCaseGateTest {
         "构造首个字段 | Return S with p sET to 1. | 3 | true",
         "构造首个字段 | Return S with p = 1. | 3 | false",
         "构造后续字段（and） | Return S with p set to 1 and q Set to 2. | 7 | true",
-        "构造后续字段（and） | Return S with p set to 1 and q SET to 2. | 7 | false",
+        "构造后续字段（and） | Return S with p set to 1 and q SET to 2. | 7 | true",
+        "构造后续字段（and） | Return S with p set to 1 AND q sET to 2. | 7 | true",
+        "构造后续字段（and） | Return S with p set to 1 and q `set` to 2. | 7 | false",
         "构造后续字段（逗号） | Return S with p set to 1, q SET to 2. | 7 | true",
     })
     void gatesOnOtherSpellings(String gate, String body, int at, boolean expected) {
@@ -110,7 +113,7 @@ class KeywordCaseGateTest {
     void wordsAfterNameCoverEveryKeywordRule() {
         Arrays.stream(AsterParser.ruleNames)
             .filter(n -> n.matches("kw[A-Z].*") && !n.startsWith("kwGate"))
-            .map(n -> n.substring(2).replaceAll("Lower$", "").toLowerCase(Locale.ROOT))
+            .map(n -> n.substring(2).toLowerCase(Locale.ROOT))
             .forEach(word -> assertThat(AsterCustomLexer.WORDS_AFTER_NAME).as(word).contains(word));
     }
 
