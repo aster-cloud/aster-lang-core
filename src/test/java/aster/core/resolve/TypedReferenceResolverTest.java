@@ -92,7 +92,8 @@ class TypedReferenceResolverTest {
     private static Run run(String source, List<IdentifierMapping> mappings, UnaryOperator<Module> edit) {
         ResolutionContext ctx = ctxOf(mappings);
         ResolutionResult<Module> r1 = DeclarationResolver.resolve(edit.apply(DeclarationResolverTest.parse(source)), ctx);
-        ResolutionResult<CoreModel.Module> r2 = TypedReferenceResolver.resolve(new CoreLowering().lowerModule(r1.value()), ctx);
+        ResolutionResult<CoreModel.Module> r2 = TypedReferenceResolver.resolve(new CoreLowering().lowerModule(r1.value()), ctx,
+            new CoreLowering().lowerTypeAliases(r1.value()));
         return new Run(r2.value(), r1.diagnostics(), r2.diagnostics());
     }
 
@@ -735,7 +736,6 @@ class TypedReferenceResolverTest {
 
         @ParameterizedTest(name = "接收者类型为{0} → 不透传，按全局候选采用 + W801")
         @CsvSource(delimiter = '|', value = {
-            "类型别名|type Fz as Fahrer.\\n\\nRule f given x as Fz, produce Int:\\n  Return x.alter.\\n",
             "Option of|Rule f given x as Option of Fahrer, produce Int:\\n  Return x.alter.\\n",
             "可空 ?|Rule f given x as Fahrer?, produce Int:\\n  Return x.alter.\\n",
             "未声明类型名（Data 字段）|Define Halter has fz as Unbekannt.\\n\\nRule f given x as Halter, produce Int:\\n  Return x.fz.alter.\\n",
@@ -744,6 +744,25 @@ class TypedReferenceResolverTest {
             Run r = run(EN_DRIVER + body.replace("\\n", "\n"), DRIVER);
             assertEquals(List.of(ErrorCode.RESOLVED_WITHOUT_TYPE), r.r2Codes(), label);
             assertTrue(nameOf(returned(func(r.module(), "f"), 0)).name.endsWith(".age"));
+        }
+
+        @ParameterizedTest(name = "接收者类型为{0} → 按别名目标类型解析，无 W801（aster-lang-core#313）")
+        @CsvSource(delimiter = '|', value = {
+            "类型别名|type Fz as Fahrer.\\n\\nRule f given x as Fz, produce Int:\\n  Return x.alter.\\n",
+            "别名链|type A as Fz.\\n\\ntype Fz as Fahrer.\\n\\nRule f given x as A, produce Int:\\n  Return x.alter.\\n",
+            "别名类型的字段|type Fz as Fahrer.\\n\\nDefine Halter has fz as Fz.\\n\\nRule f given x as Halter, produce Int:\\n  Return x.fz.alter.\\n",
+        })
+        void aliasReceiverResolvesAgainstTarget(String label, String body) {
+            Run r = run(EN_DRIVER + body.replace("\\n", "\n"), DRIVER);
+            assertEquals(List.of(), r.r2Codes(), label);
+            assertTrue(nameOf(returned(func(r.module(), "f"), 0)).name.endsWith(".age"));
+        }
+
+        @Test
+        void aliasCycleStaysUnknownWithW801() {
+            Run r = run(EN_DRIVER + "type A as B.\n\ntype B as A.\n\nRule f given x as A, produce Int:\n  Return x.alter.\n", DRIVER);
+            assertEquals(List.of(ErrorCode.RESOLVED_WITHOUT_TYPE), r.r2Codes());
+            assertEquals("x.age", nameOf(returned(func(r.module(), "f"), 0)).name);
         }
 
         @Test

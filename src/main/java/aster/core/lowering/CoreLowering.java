@@ -81,6 +81,26 @@ public final class CoreLowering {
   }
 
   /**
+   * 类型别名表：别名规范名 → 降级后的目标类型（按源码顺序，同名取第一条；重名已由 R1 报 E807）。别名不产出 Core
+   * 声明，R2 用这张表把别名类型的接收者展开为目标类型（aster-lang-core#313）。
+   *
+   * @param ast R1 输出的模块 AST（别名名与右侧类型名已写回规范名）
+   * @return 别名规范名 → 目标类型；无别名时为空表
+   */
+  public Map<String, CoreModel.Type> lowerTypeAliases(aster.core.ast.Module ast) {
+    Objects.requireNonNull(ast, "ast");
+    Map<String, CoreModel.Type> out = new java.util.LinkedHashMap<>();
+    if (ast.decls() != null) {
+      for (Decl decl : ast.decls()) {
+        if (decl instanceof Decl.TypeAlias alias) {
+          out.putIfAbsent(canonicalOf(alias.name(), alias.resolved()), lowerType(alias.type()));
+        }
+      }
+    }
+    return out;
+  }
+
+  /**
    * 降级单个声明节点。
    *
    * @param decl AST 声明
