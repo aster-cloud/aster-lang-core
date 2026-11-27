@@ -1,0 +1,1803 @@
+{
+  "description": "关键词大小写 K-d 的诊断兼容层回归夹具：变异自 aster-lang-test 语料里含 workflow / 约束关键词的错误源码（en-US），再把 K-d 的词（workflow、step、retry、timeout、depends、on、compensate、max、attempts、backoff、seconds、second、required、between、matching）换成首字母大写、全大写或小写开头的混合拼写，首条诊断所在行含这些拼写；ParseDiagnostics 给出的全部诊断（码、行、列、参数），期望值取自 K-d 之前的 core（aster-lang-core 85f891f）。这些源码里的同形词在 K-d 之后照旧不是关键词（名字位置，或约束词前后的记号不成立），诊断与错误恢复必须逐条相同。",
+  "cases": [
+    {
+      "name": "mut/tier1-equivalence/policies/workflow-step-scope.aster/9/del|Cap",
+      "source": "Module demo.workflowstepscope.\n\nRule runSteps given n as Int, produce Int. It performs io:\n  Let x be n.\n  Workflow:\n    Step first:\n      Let x be n plus 1.\n      Let y be x times 2.\n      Return ok of y.\n    Compensate:\n      Let x be n minus 1.\n      Return ok of x.\n\n     Second:\n      Let y be n plus 10.\n      Return ok of y.\n\n    Step third:\n      Set x to n plus 100.\n      Return ok of x.\n  .\n  Return x.\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 14,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E062",
+          "line": 14,
+          "column": 12,
+          "params": {
+            "expected": "kw.step | kw.retry | kw.timeout | token.newline | token.dedent",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 15,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 16,
+          "column": 7,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 18,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 19,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 20,
+          "column": 7,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 21,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 22,
+          "column": 3,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 23,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/workflow/workflow-compensate.aster/9/del|Cap",
+      "source": "Module parity.workflow.compensate.\n\nRule runSaga, produce. It performs io:\n  Workflow:\n    Step reserve:\n      Return ok of 1.\n    Compensate:\n      Return ok of 10.\n\n     charge Depends On [\"reserve\"]:\n      Return ok of 2.\n    Compensate:\n      Return ok of 20.\n\n    Step ship Depends On [\"charge\"]:\n      Return ok of 3.\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 10,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E060",
+          "line": 10,
+          "column": 13,
+          "params": {
+            "before": "kw.depends",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 10,
+          "column": 21,
+          "params": {
+            "expected": "kw.step | kw.retry | kw.timeout | token.newline | token.dedent",
+            "token": "kw.on"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 10,
+          "column": 35,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 11,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 12,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 13,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 15,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 16,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 17,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 18,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/workflow/workflow-multistep.aster/0/del|Cap",
+      "source": "Module parity.workflow.multistep.\n\nRule runFlow, produce. It performs io:\n  Workflow:\n    Step prepare:\n      Return ok of 1.\n\n     charge Depends On [\"prepare\"]:\n      Return ok of 2.\n\n    Step notify Depends On [\"charge\"]:\n      Return ok of 3.\n\n    Retry:\n      Max Attempts: 3.\n      Backoff: linear.\n\n    Timeout: 30 Seconds.\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 8,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E060",
+          "line": 8,
+          "column": 13,
+          "params": {
+            "before": "kw.depends",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 8,
+          "column": 21,
+          "params": {
+            "expected": "kw.step | kw.retry | kw.timeout | kw.compensate | token.newline | token.dedent",
+            "token": "kw.on"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 8,
+          "column": 35,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 9,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 11,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 12,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 14,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 15,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 16,
+          "column": 7,
+          "params": {
+            "token": "kw.backoff"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 18,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 19,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 20,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-equivalence/policies/comparison_operators.aster/1/ins|Cap",
+      "source": "Module demo.comparison.\n\nRule testGreaterThanOrEqual given x, y, produce:\n  Return x is at least y.\nRule testLessThanOrEqual given x, y, produce:\n  Return x is at most yx .\nRule testNotEqual given x, y, produce:\n  Return x not equal to y.\nRule testInRange given value, min, Max, produce:\n  Return value is at least min and value is at most Max.\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 9,
+          "column": 36,
+          "params": {
+            "token": "token.identifier"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-equivalence/policies/workflow-step-scope.aster/8/rep|Cap",
+      "source": "Module demo.workflowstepscope.\n\nRule runSteps given n as Int, produce Int. It performs io:\n  Let x be n.\n  Workflow:\n    Step first:\n      Let x be n plus 1.\n      Let y be x times 2.\n      Return ok of y.\n    Compensate)\n      Let x be n minus 1.\n      Return ok of x.\n\n    Step Second:\n      Let y be n plus 10.\n      Return ok of y.\n\n    Step third:\n      Set x to n plus 100.\n      Return ok of x.\n  .\n  Return x.\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 10,
+          "column": 15,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 11,
+          "column": 1,
+          "params": {
+            "expected": "token.newline | token.dedent",
+            "token": "token.indent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 14,
+          "column": 5,
+          "params": {
+            "token": "kw.step"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 14,
+          "column": 16,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 15,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 16,
+          "column": 7,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 18,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 19,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 20,
+          "column": 7,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 21,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 22,
+          "column": 3,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 23,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/syntax/keyword-name-declaration-words.aster/5/rep|Cap",
+      "source": "Module sample.keywordNames.\n\nDefine Software with version as Int, type as Int, given as Int, module as Int, be as Int, Required as Int, Between as Int.\n\nRule total given s as Software, type as Int, produce Int:\n  Return s.version + s.type + s.given + s.module + s.x + s.required + s.between + type.\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 3,
+          "column": 91,
+          "params": {
+            "token": "token.fieldName"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/workflow/workflow-bare-io-capability.aster/5/rep|Cap",
+      "source": "Module parity.workflow.bare_io_capability.\n\nRule syncBare given endpoint as Text, produce Text. It Step io:\n  Workflow:\n    Step fetch:\n      Return Http.get(endpoint).\n  .\n\nRule syncExplicit given endpoint as Text, produce Text. It performs io [Http]:\n  Workflow:\n    Step fetch:\n      Return Http.get(endpoint).\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 3,
+          "column": 56,
+          "params": {
+            "token": "kw.performs"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/workflow/workflow-blank-line-before-block.aster/5/rep|Cap",
+      "source": "Module parity.workflow.blankLineBeforeBlock.\n\nRule runSaga, produce. It performs io:\n  Workflow:\n\n    Step reserve:\n\n      Return ok of 1.\n    Compensate[\n\n      Return ok of 10.\n\n    Step charge Depends On [\"reserve\"]:\n      Return ok of 2.\n\n    Retry:\n\n      Max Attempts: 3.\n      Backoff: linear.\n\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 9,
+          "column": 15,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 9,
+          "column": 16,
+          "params": {
+            "expected": "'(' | '[' | ']' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | token.string | token.boolean | 'null' | token.number | token.integer | kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.not | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | kw.function | kw.map | token.typeName | token.identifier",
+            "token": "token.newline"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 11,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 13,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 14,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 16,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 18,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 19,
+          "column": 7,
+          "params": {
+            "token": "kw.backoff"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 21,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 22,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/workflow/workflow-multistep.aster/11/rep|Cap",
+      "source": "Module parity.workflow.multistep.\n\nRule runFlow, produce. It performs io:\n  Workflow:\n    Step prepare:\n      Return ok of 1.\n\n    Step charge Depends On [\"prepare\"]:\n      Return ok of 2.\n\n    Step notify Depends On [\"charge\"]:\n      Return ok of 3.\n\n    Retry)\n      Max Attempts: 3.\n      Backoff: linear.\n\n    Timeout: 30 Seconds.\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 14,
+          "column": 10,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 15,
+          "column": 1,
+          "params": {
+            "expected": "token.newline | token.dedent",
+            "token": "token.indent"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 15,
+          "column": 11,
+          "params": {
+            "before": "kw.attempts",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 15,
+          "column": 19,
+          "params": {
+            "expected": "token.newline | token.dedent",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 16,
+          "column": 14,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 18,
+          "column": 5,
+          "params": {
+            "expected": "token.eof | '@' | kw.rule | kw.define | kw.type | kw.use | token.typeName | token.identifier | token.newline",
+            "token": "kw.timeout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/runtime-retry/retry_max_attempts.aster/4/ins|Cap",
+      "source": "Module tests.runtime.retry.max_attempts.\n\nRule retryMaxAttempts, produce. It performs io:\n\n  Workflow:\n    Step processPayment:\n      Return ok of \"processed\".\n\n    Retry:\n      Max attemptsas : 5.\n      Backoff: linear.\n\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 10,
+          "column": 11,
+          "params": {
+            "token": "kw.attempts"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 10,
+          "column": 21,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 11,
+          "column": 14,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 13,
+          "column": 1,
+          "params": {
+            "expected": "token.eof | '@' | kw.rule | kw.define | kw.type | kw.use | token.typeName | token.identifier | token.newline",
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/type-checker/workflow_retry_many_attempts.aster/2/rep|Cap",
+      "source": "Module tests.typecheck.workflow.retry_many.\n\nRule retryManyTimes, produce. It performs io:\n  \n  Workflow:\n    Step only:\n      Return ok of \"ok\".\n  \n    Retry,\n      Max Attempts: 20.\n      Backoff: linear.\n  \n  .\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 9,
+          "column": 10,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 10,
+          "column": 1,
+          "params": {
+            "expected": "token.newline | token.dedent",
+            "token": "token.indent"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 10,
+          "column": 11,
+          "params": {
+            "before": "kw.attempts",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 10,
+          "column": 19,
+          "params": {
+            "expected": "token.newline | token.dedent",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 11,
+          "column": 14,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 13,
+          "column": 1,
+          "params": {
+            "expected": "token.eof | '@' | kw.rule | kw.define | kw.type | kw.use | token.typeName | token.identifier | token.newline",
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/type-checker/workflow_retry_timeout_conflict.aster/11/rep|Cap",
+      "source": "Module tests.typecheck.workflow.retry_timeout.\n\nRule retryTimeoutConflict, produce. It performs io:\n  \n  Workflow:\n    Step only:\n      Return ok of \"ok\".\n  \n    Retry:\n      Max x: 5.\n      Backoff: linear.\n  \n    Timeout: 3 Seconds.\n  \n  .\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 10,
+          "column": 11,
+          "params": {
+            "token": "kw.attempts"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 10,
+          "column": 12,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 11,
+          "column": 14,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 13,
+          "column": 5,
+          "params": {
+            "expected": "token.eof | '@' | kw.rule | kw.define | kw.type | kw.use | token.typeName | token.identifier | token.newline",
+            "token": "kw.timeout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/type-checker/workflow_timeout_too_short.aster/8/rep|Cap",
+      "source": "Module tests.typecheck.workflow.timeout_short.\n\nRule quickTimeout, produce. It performs io:\n  \n  Workflow:\n    Step only:\n      Return ok of \"ok\".\n  \n    Timeout) 1 Seconds.\n  \n  .\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 9,
+          "column": 12,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 9,
+          "column": 16,
+          "params": {
+            "token": "'Seconds'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 11,
+          "column": 3,
+          "params": {
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 12,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/workflow/workflow-single-step.aster/6/del|UP",
+      "source": "Module parity.workflow.single.\n\nRule runOnce, produce. It performs io:\n  WORKFLOW\n    STEP only:\n      Return ok of 1.\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E059",
+          "line": 4,
+          "column": 11,
+          "params": {
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 5,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 6,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 7,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 8,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/type-checker/workflow-missing-compensate.aster/3/del|UP",
+      "source": "Module tests.workflow.missing.\n\nRule missingComp, produce. It performs io:\n  \n  WORKFLOW\n    STEP fetch:\n      Return ok of Http.get(\"/orders\").\n  \n  .\n",
+      "diagnostics": [
+        {
+          "code": "E059",
+          "line": 5,
+          "column": 11,
+          "params": {
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 6,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 7,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 9,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 10,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/type-checker/workflow-type-mismatch.aster/9/del|UP",
+      "source": "Module tests.workflow.type_error.\n\nRule brokenWorkflow, produce. It performs io:\n  \n  WORKFLOW\n    STEP danger:\n      Return err of \"boom\".\n    COMPENSATE:\n      Return ok of \"still wrong\".\n  \n  .\n",
+      "diagnostics": [
+        {
+          "code": "E059",
+          "line": 5,
+          "column": 11,
+          "params": {
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 6,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 7,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 8,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 9,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 11,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 12,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-equivalence/policies/constraint-single-sided-range.aster/3/del|Cap",
+      "source": "Module demo.constraints.singlesided.\n\nDefine Loan has amount as Int at least 1, rate  Double at most 0.25, termMonths as Int Between 6 and 360.\n\nRule clampTerm given months as Int at least 6, produce Int:\n  If months greater than 360:\n    Return 360.\n  Return months.\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 3,
+          "column": 48,
+          "params": {
+            "before": "'Double'",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/syntax/keyword-name-declaration-words.aster/11/rep|Cap",
+      "source": "Module sample.keywordNames.\n\nDefine Software with version as Int1 type as Int, given as Int, module as Int, be as Int, Required as Int, Between as Int.\n\nRule total given s as Software, type as Int, produce Int:\n  Return s.version + s.type + s.given + s.module + s.be + s.required + s.between + type.\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 3,
+          "column": 38,
+          "params": {
+            "before": "kw.type",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 3,
+          "column": 43,
+          "params": {
+            "token": "kw.as"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 49,
+          "params": {
+            "expected": "'.' | ',' | '?' | kw.less than or equal word | kw.greater than or equal word | kw.and | kw.required | kw.between | kw.matching | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 63,
+          "params": {
+            "expected": "'.' | ',' | '?' | kw.less than or equal word | kw.greater than or equal word | kw.and | kw.required | kw.between | kw.matching | token.newline",
+            "token": "','"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/workflow/workflow-blank-line-before-block.aster/10/ins|Cap",
+      "source": "Module parity.workflow.blankLineBeforeBlock.\n\nRule runSaga, produce. It performs io:\n  Workflow:\n\n    Step reserve:\n\n      Return ok of 1.\n    Compensate:\n\n      Return ok of 10.\n\n    Step charge Depends On [\"reserve\"]:\n      Return ok of 2.\n\n    . Retry:\n\n      Max Attempts: 3.\n      Backoff: linear.\n\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 16,
+          "column": 5,
+          "params": {
+            "before": "'.'",
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 16,
+          "column": 12,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 18,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 19,
+          "column": 7,
+          "params": {
+            "token": "kw.backoff"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 21,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 22,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/workflow/workflow-compensate.aster/2/rep|Cap",
+      "source": "Module parity.workflow.compensate.\n\nRule runSaga, produce. It performs io:\n  Workflow:\n    Step reserve:\n      Return ok of 1.\n    Compensate:\n      Return ok of 10.\n\n    Step charge Depends On [\"reserve\"]:\n      Return ok of 2.\n    Compensate:\n      Return ok of 20.\n\n    Step ship Depends On [\"charge\"]:\n      Return ok of 3.\n  REQUIRED\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 17,
+          "column": 3,
+          "params": {
+            "before": "'REQUIRED'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E059",
+          "line": 17,
+          "column": 11,
+          "params": {
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/workflow/workflow-multistep.aster/7/ins|UP",
+      "source": "Module parity.workflow.multistep.\n\nRule runFlow, produce. It performs io:\n  DEPENDS WORKFLOW:\n    STEP prepare:\n      Return ok of 1.\n\n    STEP charge DEPENDS ON [\"prepare\"]:\n      Return ok of 2.\n\n    STEP notify DEPENDS ON [\"charge\"]:\n      Return ok of 3.\n\n    RETRY:\n      MAX ATTEMPTS: 3.\n      BACKOFF: linear.\n\n    TIMEOUT: 30 SECONDS.\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 11,
+          "params": {
+            "before": "'WORKFLOW'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 4,
+          "column": 19,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 5,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 6,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 8,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 9,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 11,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 12,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 14,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 15,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E063",
+          "line": 16,
+          "column": 14,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 18,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 19,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 20,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/fixtures/capability-violations.aster/7/ins|Cap",
+      "source": "Module tests.cross.capability_violations.\n\nRule missingCapability, produce. It performs io [Http]:\n  REQUIRED Let token be Secrets.get(\"api-key\").\n  Let status be Http.get(\"/status\").\n  Return status.\n\nRule redundantCapability, produce. It performs io [Sql]:\n  Return \"ok\".\n\nRule workflowMissingCapability, produce. It performs io [Sql]:\n  Workflow:\n    Step fetch:\n      Return ok of Secrets.rotate(\"session\").\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 12,
+          "params": {
+            "before": "kw.let",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/runtime-retry/retry_max_attempts.aster/9/del|Cap",
+      "source": "Module tests.runtime.retry.max_attempts.\n\nRule retryMaxAttempts, produce. It performs io:\n\n  Workflow:\n    Step processPayment:\n      Return ok of \"processed\".\n\n    Retry:\n      Max Attempts: .\n      Backoff: linear.\n\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 10,
+          "column": 20,
+          "params": {
+            "before": "'.'",
+            "token": "token.integer"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/runtime-retry/retry_success.aster/6/del|Cap",
+      "source": "Module tests.runtime.retry.success.\n\nRule retrySuccess, produce. It performs io:\n\n  Workflow:\n    Step fetchData:\n      Return ok of \"data\".\n\n    Retry:\n      Max Attempts: 3.\n      Backoff exponential.\n\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 11,
+          "column": 15,
+          "params": {
+            "before": "'exponential'",
+            "token": "':'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/type-checker/workflow-missing-compensate.aster/11/rep|Cap",
+      "source": "Module tests.workflow.missing.\n\nRule missingComp, produce. It performs io:\n  \n  Workflow:\n    Step fetch:\n      Return ok of Http.get(\"/orders\")Depends\n  \n  .\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 7,
+          "column": 39,
+          "params": {
+            "before": "kw.depends",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E059",
+          "line": 7,
+          "column": 46,
+          "params": {
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/type-checker/workflow-undeclared-capability.aster/11/rep|Cap",
+      "source": "Module tests.workflow.undeclared_capability.\n\nRule undeclaredCapWorkflow, produce. It performs io [Sql]:\n  \n  Workflow:\n    Step rotate:\n      Return ok of Secrets.rotate(\"token\")Step\n  \n  .\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 7,
+          "column": 43,
+          "params": {
+            "before": "kw.step",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E059",
+          "line": 7,
+          "column": 47,
+          "params": {
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/type-checker/workflow_retry_exponential.aster/2/rep|Cap",
+      "source": "Module tests.typecheck.workflow.retry_exponential.\n\nRule retryExponential, produce. It performs io:\n  \n  Workflow:\n    Step only:\n      Return ok of \"ok\".\n  \n    Retry:\n      Max Attempts: 3.\n      Backoff: ..\n  \n  .\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 11,
+          "column": 15,
+          "params": {
+            "before": "'.'",
+            "token": "'{TYPE_IDENT, IDENT}'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 11,
+          "column": 16,
+          "params": {
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/type-checker/workflow_retry_many_attempts.aster/5/rep|Cap",
+      "source": "Module tests.typecheck.workflow.retry_many.\n\nRule retryManyTimes, produce. It Between io:\n  \n  Workflow:\n    Step only:\n      Return ok of \"ok\".\n  \n    Retry:\n      Max Attempts: 20.\n      Backoff: linear.\n  \n  .\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 3,
+          "column": 34,
+          "params": {
+            "before": "'Between'",
+            "token": "kw.performs"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 3,
+          "column": 42,
+          "params": {
+            "token": "'io'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/type-checker/workflow_timeout_too_long.aster/0/del|Cap",
+      "source": "Module tests.typecheck.workflow.timeout_long.\n\nRule longTimeout, produce. It performs io:\n  \n  Workflow:\n    Step only:\n      Return ok of \"ok\".\n  \n    Timeout: 7200 .\n  \n  .\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 9,
+          "column": 18,
+          "params": {
+            "before": "'.'",
+            "token": "kw.seconds"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-equivalence/policies/comparison_operators.aster/4/ins|Cap",
+      "source": "Module demo.comparison.\n\nRule testGreaterThanOrEqual given x, y, produce:\n  Return x is at least y.\nRule testLessThanOrEqual given x, y, produce:\n  Return x is at most y.\nRule testNotEqual Step given x, y, produce:\n  Return x not equal to y.\nRule testInRange given value, min, Max, produce:\n  Return value is at least min and value is at most Max.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 7,
+          "column": 19,
+          "params": {
+            "token": "kw.step"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-equivalence/policies/workflow-step-scope.aster/1/ins|Cap",
+      "source": "Module demo.workflowstepscope.\n\nRule runSteps given n as Int, produce Int. It performs io:\n  Let x be n.\n  Workflow:\n    Step first:\n      Let x be n plus 1.\n      Let y be x times Between 2.\n      Return ok of y.\n    Compensate:\n      Let x be n minus 1.\n      Return ok of x.\n\n    Step Second:\n      Let y be n plus 10.\n      Return ok of y.\n\n    Step third:\n      Set x to n plus 100.\n      Return ok of x.\n  .\n  Return x.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 8,
+          "column": 32,
+          "params": {
+            "token": "'2'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/syntax/keyword-name-declaration-words.aster/10/ins|Cap",
+      "source": "Module sample.keywordNames.\n\nDefine Software with version as Int, type as Int, given as Int, module as \"s\" Int, be as Int, Required as Int, Between as Int.\n\nRule total given s as Software, type as Int, produce Int:\n  Return s.version + s.type + s.given + s.module + s.be + s.required + s.between + type.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 3,
+          "column": 75,
+          "params": {
+            "token": "'\"s\"'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/workflow/workflow-blank-line-before-block.aster/1/ins|Cap",
+      "source": "Module parity.workflow.blankLineBeforeBlock.\n\nRule runSaga, produce. It performs io:\n  Workflow:\n\n    Step reserve:\n\n      Return ok of 1.\n    Compensate:\n\n      Return ok of 10.\n\n    Step charge Depends On [\"reserve\"]( :\n      Return ok of 2.\n\n    Retry:\n\n      Max Attempts: 3.\n      Backoff: linear.\n\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 13,
+          "column": 39,
+          "params": {
+            "token": "'('"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/workflow/workflow-compensate.aster/10/ins|Cap",
+      "source": "Module parity.workflow.compensate.\n\nRule runSaga, produce. It performs io:\n  Workflow:\n    Step reserve:\n      Return ok of 1.\n    Compensate:\n      Return ok of 10.\n\n    Step charge Depends Depends On [\"reserve\"]:\n      Return ok of 2.\n    Compensate:\n      Return ok of 20.\n\n    Step ship Depends On [\"charge\"]:\n      Return ok of 3.\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 10,
+          "column": 25,
+          "params": {
+            "token": "kw.depends"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/workflow/workflow-single-step.aster/10/ins|Cap",
+      "source": "Module parity.workflow.single.\n\nRule Depends runOnce, produce. It performs io:\n  Workflow:\n    Step only:\n      Return ok of 1.\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 3,
+          "column": 14,
+          "params": {
+            "token": "'runOnce'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/fixtures/capability-violations.aster/5/rep|Cap",
+      "source": "Module tests.cross.capability_violations.\n\nRule missingCapability, produce. It performs io [Http]:\n  Let token be Secrets.get(\"api-key\").\n  Let status be Http.get(\"/status\").\n  Return status.\n\nRule redundantCapability, produce. It performs io [Sql]:\n  Return \"ok\".\n\nRule workflowMissingCapability, REQUIRED. It performs io [Sql]:\n  Workflow:\n    Step fetch:\n      Return ok of Secrets.rotate(\"session\").\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 11,
+          "column": 33,
+          "params": {
+            "token": "'REQUIRED'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/golden-core/inventory_workflow.aster/2/rep|Cap",
+      "source": "Module test.golden.inventory.\n\n// Inventory capability Workflow test\n// Tests Inventory.reserve and Inventory.release with compensation\n\nRule manageInventory given orderId, items, produce with IO. It REQUIRED io [Inventory]:\n\n  Workflow:\n    Step reserve_inventory:\n      Return ok of Inventory.reserve(orderId, items).\n\n    Compensate:\n      Inventory.release(\"reservation-id\").\n      Return ok of \"inventory released\".\n\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 6,
+          "column": 52,
+          "params": {
+            "token": "kw.with"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 6,
+          "column": 64,
+          "params": {
+            "before": "'REQUIRED'",
+            "token": "kw.performs"
+          }
+        },
+        {
+          "code": "E055",
+          "line": 6,
+          "column": 73,
+          "params": {
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 8,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 9,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 10,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 12,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 13,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 14,
+          "column": 7,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 16,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 17,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/golden-core/workflow-diamond.aster/10/ins|Cap",
+      "source": "Module demo.workflow.core.diamond.\n\nRule runDiamond, produce. It performs io:\n  \n  Workflow:\n    Step Step prepare:\n      Let baseline be Time.now().\n      Return ok of baseline.\n  \n    Step branchA:\n      Return ok of Ai.summarize(\"payload\").\n  \n    Step branchB:\n      Return ok of Files.read(\"/tmp/data\").\n  \n    Step finalize:\n      Return ok of 42.\n  \n  .\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 6,
+          "column": 15,
+          "params": {
+            "token": "'prepare'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/runtime-retry/retry_max_attempts.aster/7/ins|Cap",
+      "source": "Module tests.runtime.retry.max_attempts.\n\nRule retryMaxAttempts, produce. It performs io:\n\n  Workflow:\n    Step processPayment:\n      Return ok of \"processed\".\n\n    Retry:\n      Max Depends Attempts: 5.\n      Backoff: linear.\n\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 10,
+          "column": 11,
+          "params": {
+            "token": "kw.depends"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/runtime-retry/retry_success.aster/1/ins|Cap",
+      "source": "Module tests.runtime.depends Retry.success.\n\nRule retrySuccess, produce. It performs io:\n\n  Workflow:\n    Step fetchData:\n      Return ok of \"data\".\n\n    Retry:\n      Max Attempts: 3.\n      Backoff: exponential.\n\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 1,
+          "column": 30,
+          "params": {
+            "token": "kw.retry"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 1,
+          "column": 43,
+          "params": {
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/type-checker/workflow-missing-compensate.aster/1/ins|Cap",
+      "source": "Module tests.workflow.missing.\n\nRule missingComp, produce. It performs io:\n  \n  Workflow:\n    Step [ fetch:\n      Return ok of Http.get(\"/orders\").\n  \n  .\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 6,
+          "column": 10,
+          "params": {
+            "token": "'['"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/type-checker/workflow-type-mismatch.aster/1/ins|Cap",
+      "source": "Module tests.workflow.type_error.\n\nRule brokenWorkflow, produce. It performs io:\n  \n  Workflow:\n    Step x danger:\n      Return err of \"boom\".\n    Compensate:\n      Return ok of \"still wrong\".\n  \n  .\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 6,
+          "column": 12,
+          "params": {
+            "token": "'danger'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier3-fixtures/type-checker/workflow_retry_many_attempts.aster/7/ins|Cap",
+      "source": "Module tests.typecheck.workflow.retry_many.\n\nRule retryManyTimes, produce. It performs io:\n  \n  Workflow:\n    Step only:\n      Return ok of \"ok\".\n  \n    Retry:\n      Max Retry Attempts: 20.\n      Backoff: linear.\n  \n  .\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 10,
+          "column": 11,
+          "params": {
+            "token": "kw.retry"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-equivalence/policies/comparison_operators.aster/2/rep|Cap",
+      "source": "Module demo.comparison.\n\nRule testGreaterThanOrEqual given x, y, produce:\n  Return x is at least y.\nRule testLessThanOrEqual given x, y, produce:\n  Return x is at most y.\nRule testNotEqual given x, y, produce:\n  Return x not equal to y.\nRule testInRange given value, min, Max, produce:\n  Return value is at least min and value ) at most Max.\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 10,
+          "column": 42,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "')'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-equivalence/policies/constraint-single-sided-range.aster/10/ins|Cap",
+      "source": "Module demo.constraints.singlesided.\n\nDefine Loan has amount given as Int at least 1, rate as Double at most 0.25, termMonths as Int Between 6 and 360.\n\nRule clampTerm given months as Int at least 6, produce Int:\n  If months greater than 360:\n    Return 360.\n  Return months.\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 24,
+          "params": {
+            "expected": "'.' | ',' | kw.less than or equal word | kw.greater than or equal word | kw.and | kw.as | kw.required | kw.between | kw.matching | token.newline",
+            "token": "kw.given"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/syntax/keyword-name-declaration-words.aster/6/del|Cap",
+      "source": "Module sample.keywordNames.\n\nDefine Software with version as Int, type as Int, given as Int, module as Int, be as Int, Required as Int, Between as .\n\nRule total given s as Software, type as Int, produce Int:\n  Return s.version + s.type + s.given + s.module + s.be + s.required + s.between + type.\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 118,
+          "params": {
+            "expected": "'(' | '@' | kw.map | token.typeName | token.identifier",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/workflow/workflow-bare-io-capability.aster/7/ins|Cap",
+      "source": "Module parity.workflow.bare_io_capability.\n\nRule syncBare given endpoint as Text, produce Text. It performs io:\n  Workflow:\n    Step fetch:\n      Return Http.get(endpoint).\n  .\n\nRule syncExplicit given endpoint as Text, produce Text. Step It performs io [Http]:\n  Workflow:\n    Step fetch:\n      Return Http.get(endpoint).\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 9,
+          "column": 57,
+          "params": {
+            "expected": "token.eof | '@' | kw.rule | kw.define | kw.type | kw.use | token.typeName | token.identifier | token.newline",
+            "token": "kw.step"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/workflow/workflow-blank-line-before-block.aster/0/del|Cap",
+      "source": "Module parity.workflow.blankLineBeforeBlock.\n\nRule runSaga, produce. It performs io:\n  Workflow:\n\n    Step reserve:\n\n      Return ok of 1.\n    Compensate:\n\n      Return ok of 10.\n\n    Step charge  On [\"reserve\"]:\n      Return ok of 2.\n\n    Retry:\n\n      Max Attempts: 3.\n      Backoff: linear.\n\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 13,
+          "column": 17,
+          "params": {
+            "expected": "':' | kw.depends",
+            "token": "kw.on"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 13,
+          "column": 31,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 14,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 16,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 18,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 19,
+          "column": 7,
+          "params": {
+            "token": "kw.backoff"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 21,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 22,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/workflow/workflow-compensate.aster/11/rep|Cap",
+      "source": "Module parity.workflow.compensate.\n\nRule runSaga, produce. Depends performs io:\n  Workflow:\n    Step reserve:\n      Return ok of 1.\n    Compensate:\n      Return ok of 10.\n\n    Step charge Depends On [\"reserve\"]:\n      Return ok of 2.\n    Compensate:\n      Return ok of 20.\n\n    Step ship Depends On [\"charge\"]:\n      Return ok of 3.\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 3,
+          "column": 24,
+          "params": {
+            "expected": "token.eof | '@' | kw.rule | kw.define | kw.type | kw.use | token.typeName | token.identifier | token.newline",
+            "token": "kw.depends"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/tier1-parity/workflow/workflow-multistep.aster/2/rep|Cap",
+      "source": "Module parity.workflow.multistep.\n\nRule runFlow, produce. It performs io:\n  Workflow:\n    Step prepare:\n      Return ok of 1.\n\n    On charge Depends On [\"prepare\"]:\n      Return ok of 2.\n\n    Step notify Depends On [\"charge\"]:\n      Return ok of 3.\n\n    Retry:\n      Max Attempts: 3.\n      Backoff: linear.\n\n    Timeout: 30 Seconds.\n  .\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 8,
+          "column": 5,
+          "params": {
+            "expected": "kw.step | kw.retry | kw.timeout | kw.compensate | token.newline | token.dedent",
+            "token": "kw.on"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 8,
+          "column": 15,
+          "params": {
+            "before": "kw.depends",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 8,
+          "column": 23,
+          "params": {
+            "expected": "kw.step | kw.retry | kw.timeout | kw.compensate | token.newline | token.dedent",
+            "token": "kw.on"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 8,
+          "column": 37,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "':'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 9,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 11,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 12,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 14,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 15,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 16,
+          "column": 7,
+          "params": {
+            "token": "kw.backoff"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 18,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 19,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 20,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    }
+  ]
+}

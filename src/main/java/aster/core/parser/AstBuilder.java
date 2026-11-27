@@ -1191,7 +1191,7 @@ public class AstBuilder extends AsterParserBaseVisitor<Object> {
                         "Retry `max attempts` 必须大于 0", directive);
                 }
                 maxAttempts = attempts;
-            } else if (directive.BACKOFF() != null) {
+            } else if (directive.kwBackoff() != null) {
                 String raw = directive.IDENT() != null
                     ? directive.IDENT().getText()
                     : directive.TYPE_IDENT().getText();

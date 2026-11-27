@@ -28,6 +28,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  *   <li>{@code keyword_case_ops.json}：K-c 的运算符与字面量（times、plus、minus、modulo、比较词前的 is、not equal to、
  *       under / over、true / false / null），结构同上；Not(x) 读作 not（产品裁决 D3），True / Null 在表达式里是字面量、
  *       在声明名字的位置报 E055（产品裁决 D2，reject 里带 tightened 的行）。</li>
+ *   <li>{@code keyword_case_workflow.json}：K-d 的 workflow 与约束关键词（workflow、step、depends on、compensate、retry、backoff、
+ *       timeout、seconds / second、required、between、matching），结构同上；max attempts 本来就由 Canonicalizer 归一成小写。</li>
  *   <li>{@code name_position_matrix.json}：名字位置回归矩阵。期望值取自 K 之前的 core，K-a..K-d 每个 PR 原样重跑：
  *       名字位置的结论（位置无关哈希，或第一条诊断的码与位置）必须逐例不变；唯一的例外是标了 {@code "tightened": "D2"}
  *       的行（true / false / null 的其余大小写拼写），期望值是 K-c 之后的结论，{@code before} 记录 K-c 之前的结论。</li>
@@ -50,6 +52,11 @@ class KeywordCaseTest {
     @TestFactory
     Stream<DynamicTest> operatorAndLiteralKeywords() throws IOException {
         return keywordFixture("/keyword-case/keyword_case_ops.json", 219);
+    }
+
+    @TestFactory
+    Stream<DynamicTest> workflowAndConstraintKeywords() throws IOException {
+        return keywordFixture("/keyword-case/keyword_case_workflow.json", 81);
     }
 
     private static Stream<DynamicTest> keywordFixture(String path, int acceptCount) throws IOException {
@@ -87,7 +94,7 @@ class KeywordCaseTest {
                 }
             }));
         }
-        assertThat(fixture.get("cases")).hasSize(2695);
+        assertThat(fixture.get("cases")).hasSize(4073);
         // D2 的刻意收紧只落在 true / false / null 上，每行都记着 K-c 之前的结论
         List<JsonNode> tightened = new ArrayList<>();
         fixture.get("cases").forEach(c -> { if (c.has("tightened")) tightened.add(c); });

@@ -1,5 +1,5 @@
 {
-  "description": "关键词大小写 K-b 的诊断兼容层回归夹具：变异自 aster-lang-test tier1 语料的错误源码（en-US），首条诊断所在行含 K-b 的关键词（be、set、to、not、and、or、for、function、map、async），ParseDiagnostics 给出的全部诊断（码、行、列、参数），期望值取自 K-b 之前的 core（aster-lang-core f995b84）。K-b 只放宽关键词位置，这些错误源码的诊断与错误恢复必须逐条相同。",
+  "description": "关键词大小写 K-b 的诊断兼容层回归夹具：变异自 aster-lang-test tier1 语料的错误源码（en-US），首条诊断所在行含 K-b 的关键词（be、set、to、not、and、or、for、function、map、async），ParseDiagnostics 给出的全部诊断（码、行、列、参数），期望值取自 K-b 之前的 core（aster-lang-core f995b84）。K-b 只放宽关键词位置，这些错误源码的诊断与错误恢复必须逐条相同。（K-d 起 mut/constraints-v2.aster/5/case 不再出错：其首条诊断落在约束词 Matching 上，K-d 把它读作约束，与 aster-lang-ts 相同；换成同为 E060 的 mut/eff_valid_exact_match.aster/3/del，期望值同样取自 f995b84，K-c、K-d 之前与之后都不变。）",
   "cases": [
     {
       "name": "mut/hipaa-validation-demo.aster/1/del",
@@ -353,16 +353,24 @@
       ]
     },
     {
-      "name": "mut/constraints-v2.aster/5/case",
-      "source": "Module demo.constraints.v2.\n\nDefine Applicant has name as Text required, age as Int required between 18 and 120, email as Text Matching \"^.+@.+$\", code as Text required matching pattern \"^[A-Z]{2}[0-9]{4}$\".\n\nRule screen given age as Int required between 18 and 120, code as Text required matching pattern \"^[A-Z]{2}[0-9]{4}$\", produce Bool:\n  Return age greater than 20.\n",
+      "name": "mut/eff_valid_exact_match.aster/3/del",
+      "source": "Module test.eff.valid.exact_match.\n\nRule exact, produce. It performs io [Http, Sql]:\n  Let resp be Http.get\"/users\").\n  Return Db.insert(\"cache\", resp).\n",
       "diagnostics": [
         {
           "code": "E060",
-          "line": 3,
-          "column": 99,
+          "line": 4,
+          "column": 23,
           "params": {
-            "before": "'Matching'",
+            "before": "'\"/users\"'",
             "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 31,
+          "params": {
+            "token": "')'"
           }
         }
       ]

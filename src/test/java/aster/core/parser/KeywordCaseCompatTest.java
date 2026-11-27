@@ -63,8 +63,8 @@ class KeywordCaseCompatTest {
                 }
             }
         }
-        // 22 条关键词辅助规则（K-a 11 条、K-b 11 条），各有一条谓词分支；K-b 的 9 条门控规则各有一个谓词
-        assertThat(removed).isEqualTo(22);
+        // 31 条关键词辅助规则（K-a 11 条、K-b 11 条、K-d 9 条），各有一条谓词分支；K-b 的 9 条门控规则各有一个谓词
+        assertThat(removed).isEqualTo(31);
         assertThat(gates).isEqualTo(9);
     }
 
@@ -145,6 +145,15 @@ class KeywordCaseCompatTest {
     @TestFactory
     Stream<DynamicTest> mutatedSourcesKeepPreOperatorKeywordCaseDiagnostics() throws IOException {
         return mutatedSources("/keyword-case/compat_diagnostics_kc.json", 50);
+    }
+
+    /**
+     * K-d：首条诊断所在行含 workflow / 约束关键词非小写拼写的 50 份变异错误源码，全部诊断连同参数与 K-d 之前（85f891f）逐条相同。
+     * K-d 新增 9 条 workflow 关键词辅助规则（旧 ATN 删去其谓词分支）；约束词在词法器里判定，不进文法。
+     */
+    @TestFactory
+    Stream<DynamicTest> mutatedSourcesKeepPreWorkflowKeywordCaseDiagnostics() throws IOException {
+        return mutatedSources("/keyword-case/compat_diagnostics_kd.json", 50);
     }
 
     private static Stream<DynamicTest> mutatedSources(String path, int count) throws IOException {

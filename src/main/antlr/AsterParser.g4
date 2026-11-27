@@ -600,6 +600,8 @@ field
  * 都降级为 Core IR 的 Field / Param.constraints。at least / at most 复用比较运算的多词 token，
  * 其中只有 at least / at most 两种写法是约束，AstBuilder 拒收其它写法（如 greater than or equal to）。
  */
+// required / between / matching 的其余大小写拼写读作约束时，词法器已改成 REQUIRED / BETWEEN / MATCHING 记号
+// （AsterCustomLexer.retypeConstraintKeyword，K-d）。pattern 只认小写（aster-lang-ts parseMatchingConstraint 同样只认小写）。
 fieldConstraint
     : REQUIRED
     | BETWEEN rangeBound kwAnd rangeBound
@@ -929,7 +931,7 @@ waitStmt
     ;
 
 workflowStmt
-    : WORKFLOW COLON NEWLINE+ INDENT workflowBody DEDENT DOT
+    : kwWorkflow COLON NEWLINE+ INDENT workflowBody DEDENT DOT
     ;
 
 /**
@@ -945,11 +947,11 @@ workflowBody
     ;
 
 workflowStep
-    : STEP nameIdent stepDependencies? COLON NEWLINE+ block (NEWLINE* compensateSection)?
+    : kwStep nameIdent stepDependencies? COLON NEWLINE+ block (NEWLINE* compensateSection)?
     ;
 
 stepDependencies
-    : DEPENDS ON LBRACKET stringList? RBRACKET
+    : kwDepends kwOn LBRACKET stringList? RBRACKET
     ;
 
 stringList
@@ -957,20 +959,21 @@ stringList
     ;
 
 compensateSection
-    : COMPENSATE COLON NEWLINE+ block
+    : kwCompensate COLON NEWLINE+ block
     ;
 
 retrySection
-    : RETRY COLON NEWLINE+ INDENT retryDirective (NEWLINE+ retryDirective)* NEWLINE* DEDENT
+    : kwRetry COLON NEWLINE+ INDENT retryDirective (NEWLINE+ retryDirective)* NEWLINE* DEDENT
     ;
 
+// max attempts 不需要辅助规则：Canonicalizer 按词法表把多词短语 max attempts 大小写不敏感地归一成小写（MAX ATTEMPTS 记号）
 retryDirective
     : MAX ATTEMPTS COLON INT_LITERAL DOT
-    | BACKOFF COLON (IDENT | TYPE_IDENT) DOT
+    | kwBackoff COLON (IDENT | TYPE_IDENT) DOT
     ;
 
 timeoutSection
-    : TIMEOUT COLON INT_LITERAL SECONDS DOT
+    : kwTimeout COLON INT_LITERAL kwSeconds DOT
     ;
 
 /**
@@ -1493,6 +1496,58 @@ kwFunction
 kwMap
     : MAP
     | {isKwAt(1, "map")}? (TYPE_IDENT | IDENT)
+    ;
+
+// K-d（workflow 关键词）。workflow / step / retry / timeout / depends / on / compensate / backoff 的小写与首字母大写拼写是
+// 词法记号，seconds / second 只有小写拼写是记号；其余大小写拼写在这些位置按文本读作关键词。这些位置之后的记号（冒号、步骤名
+// 之后的冒号或 depends、方括号、整数之后的句点）都与名字读法不同，名字位置照旧（structKeywordName）。max attempts 由
+// Canonicalizer 归一成小写，不需要辅助规则。约束词 required / between / matching 在词法器里判定（retypeConstraintKeyword）：
+// 用辅助规则时，类型之后的名字在外层决策的预测里也能读成约束，`Type With AS Int.` 会被误读成省略 Define 的数据类型。
+
+kwWorkflow
+    : WORKFLOW
+    | {isKwAt(1, "workflow")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwStep
+    : STEP
+    | {isKwAt(1, "step")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwDepends
+    : DEPENDS
+    | {isKwAt(1, "depends")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwOn
+    : ON
+    | {isKwAt(1, "on")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwCompensate
+    : COMPENSATE
+    | {isKwAt(1, "compensate")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwRetry
+    : RETRY
+    | {isKwAt(1, "retry")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwBackoff
+    : BACKOFF
+    | {isKwAt(1, "backoff")}? (TYPE_IDENT | IDENT)
+    ;
+
+kwTimeout
+    : TIMEOUT
+    | {isKwAt(1, "timeout")}? (TYPE_IDENT | IDENT)
+    ;
+
+/** SECONDS 记号含单数 second（AsterLexer.g4），其余大小写拼写两种都收。 */
+kwSeconds
+    : SECONDS
+    | {isKwAt(1, "seconds") || isKwAt(1, "second")}? (TYPE_IDENT | IDENT)
     ;
 
 // ------------------------------------------------------------
