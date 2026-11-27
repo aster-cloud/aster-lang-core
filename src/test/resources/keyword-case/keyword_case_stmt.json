@@ -1,5 +1,5 @@
 {
-  "description": "关键词大小写 K-b（语句、表达式与类型的关键词：be、set、to、not、and、or、for、function、map、async；aster-lang-ts#338 第 1 部分，ADR 0056 修订 A4 §1.1 / §1.3、修订 A7 D1）的 core 夹具。accept：source 能解析，且与把关键词改回规范拼写的 canonical Core IR 位置无关哈希相同，每例 aster-lang-ts 同样接受且同义（小写 map 在类型位置是 Map 类型，aster-lang-core#314）。names：关键词同形词作名字照常解析，Core IR 含 names 中的每个名字；其中 `nOT(x)` / `aSYNC(x)` 这类名字读法也成立的写法仍是调用（读作 not 是 D3，属于 K-c）。reject：第一条诊断恰为 [码, 行, 列]，与 K-b 之前的 core（f995b84）相同：转义的关键词永远是名字；aster-lang-ts 只在小写开头拼写上认关键词的位置（形参与变体之间的 and / or、apply 的 to、构造里 and 之后的 set、lambda 形参之间的 and），首字母大写的拼写两引擎都拒。",
+  "description": "关键词大小写 K-b（语句、表达式与类型的关键词：be、set、to、not、and、or、for、function、map、async；aster-lang-ts#338 第 1 部分，ADR 0056 修订 A4 §1.1 / §1.3、修订 A7 D1）的 core 夹具。accept：source 能解析，且与把关键词改回规范拼写的 canonical Core IR 位置无关哈希相同，每例 aster-lang-ts 同样接受且同义（小写 map 在类型位置是 Map 类型，aster-lang-core#314）。names：关键词同形词作名字照常解析，Core IR 含 names 中的每个名字；其中 `aSYNC(x)` 这类名字读法也成立的写法仍是调用（`nOT(x)` 自 K-c 起读作 not，产品裁决 D3，见 keyword_case_ops.json）。reject：第一条诊断恰为 [码, 行, 列]，与 K-b 之前的 core（f995b84）相同：转义的关键词永远是名字；aster-lang-ts 只在小写开头拼写上认关键词的位置（形参与变体之间的 and / or、apply 的 to、构造里 and 之后的 set、lambda 形参之间的 and），首字母大写的拼写两引擎都拒。",
   "accept": [
     {
       "name": "be/BE",
@@ -1033,20 +1033,6 @@
     }
   ],
   "names": [
-    {
-      "name": "not-call",
-      "source": "Module probe.sample.\n\nRule nOT given b as Bool, produce Bool:\n  Return b.\n\nRule get given x as Bool, produce Bool:\n  Return nOT(x).\n",
-      "names": [
-        "nOT"
-      ]
-    },
-    {
-      "name": "not-call-space",
-      "source": "Module probe.sample.\n\nRule nOT given b as Bool, produce Bool:\n  Return b.\n\nRule get given x as Bool, produce Bool:\n  Return nOT (x).\n",
-      "names": [
-        "nOT"
-      ]
-    },
     {
       "name": "not-var",
       "source": "Module probe.sample.\n\nRule get given nOT as Bool, produce Bool:\n  Return nOT.\n",

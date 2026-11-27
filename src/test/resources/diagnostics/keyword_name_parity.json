@@ -1,5 +1,5 @@
 {
-  "description": "关键词当名字的双引擎 parity 夹具（ADR 0056 修订 A6 K1–K3，产品裁决 2026-11-22）。aster-lang-ts shared/keyword_name_parity.json 与 aster-lang-core src/test/resources/diagnostics/keyword_name_parity.json 必须 byte-identical。collisionWords：各语言包的 W802 判据集合 W（升序），两引擎按各自的词法表算出的集合须与此相同。带 reject 的例：解析失败，[码, 行] 为第一条解析错误（core 取第一条非 E063 的诊断）；E901 另须参数恰为 params，en-US 例的英文消息恰为 message。其余例：两引擎都须编译成功，Core IR 原样含 names 中的每个名字，W802 警告按行排序后恰为 warnings（只比较 W802 的 [码, 行]；名字所在源码行里有该英文拼写的整词出现时不报）。",
+  "description": "关键词当名字的双引擎 parity 夹具（ADR 0056 修订 A6 K1–K3，产品裁决 2026-11-22）。aster-lang-ts shared/keyword_name_parity.json 与 aster-lang-core src/test/resources/diagnostics/keyword_name_parity.json 必须 byte-identical。collisionWords：各语言包的 W802 判据集合 W（升序），两引擎按各自的词法表算出的集合须与此相同。带 reject 的例：解析失败，[码, 行] 为第一条解析错误（core 取第一条非 E063 的诊断）；带 params 的例另须第一条错误的参数恰为 params（E901 与 K-c 的 E055），带 message 的 en-US 例英文消息恰为 message。其余例：两引擎都须编译成功，Core IR 原样含 names 中的每个名字，W802 警告按行排序后恰为 warnings（只比较 W802 的 [码, 行]；名字所在源码行里有该英文拼写的整词出现时不报）。各轮新增的行：K-a / K-b 的关键词同形词作名字；K-c（ADR 0056 修订 A4 §1.1，产品裁决 D2 / D3）：true / false / null 的其余大小写拼写（True、NULL、tRUE…）在声明名字的位置两引擎都报 E055（params 为该位置的 token），转义 `True` 照旧是名字；运算符同形词（Is、TIMES、Under）在名字位置照旧是名字；`H.Not(x)`、`When Not(a)` 与转义 `nOT`(x) 不读作 not（D3）。",
   "collisionWords": {
     "de-DE": [
       "Bool",
@@ -1009,6 +1009,183 @@
         "tO"
       ],
       "warnings": []
+    },
+    {
+      "name": "en-US Let 名 Is 作比较的左操作数（K-c）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let Is be x.\n  Return Is less than 5.\n",
+      "names": [
+        "Is"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "en-US Let 名 IS 在软比较词 under 之前（K-c）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let IS be x.\n  Return IS under 5.\n",
+      "names": [
+        "IS"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "en-US Let 名 TIMES（K-c）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let TIMES be x.\n  Return TIMES.\n",
+      "names": [
+        "TIMES"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "en-US Let 名 Under 作软比较的左操作数（K-c）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Bool:\n  Let Under be x.\n  Return Under under 5.\n",
+      "names": [
+        "Under"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "en-US 成员调用 H.Not(x)（K-c，D3 不改）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nUse io.Http as H.\n\nRule get given x as Bool, produce Bool:\n  Return H.Not(x).\n",
+      "names": [
+        "H.Not"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "en-US Match 分支的构造器模式 When Not(a)（K-c，D3 不改）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Not with a as Int.\n\nRule get given s as Not, produce Int:\n  Match s:\n    When Not(a), Return a.\n  Return 0.\n",
+      "names": [
+        "Not"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "en-US 转义调用 `nOT`(x)（K-c，D3）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule nOT given b as Bool, produce Bool:\n  Return b.\n\nRule get given x as Bool, produce Bool:\n  Return `nOT`(x).\n",
+      "names": [
+        "nOT"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "en-US 转义的枚举成员 `True`（K-c，D2）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Flag as one of `True`, Other.\n\nRule get, produce Flag:\n  Return `True`.\n",
+      "names": [
+        "True"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "en-US 转义的 Let 名 `Null`（K-c，D2）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let `Null` be x.\n  Return `Null`.\n",
+      "names": [
+        "Null"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "en-US 枚举成员 True（K-c，D2）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine Flag as one of True, Other.\n\nRule get, produce Flag:\n  Return True.\n",
+      "reject": [
+        "E055",
+        3
+      ],
+      "params": {
+        "token": "token.variantName"
+      }
+    },
+    {
+      "name": "en-US 数据类型名 True（K-c，D2）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine True with a as Int.\n",
+      "reject": [
+        "E055",
+        3
+      ],
+      "params": {
+        "token": "token.typeName"
+      }
+    },
+    {
+      "name": "en-US Let 名 True（K-c，D2）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given x as Int, y as Int, produce Int:\n  Let True be x.\n  Return True.\n",
+      "reject": [
+        "E055",
+        4
+      ],
+      "params": {
+        "token": "token.identifier"
+      }
+    },
+    {
+      "name": "en-US 导入别名 FALSE（K-c，D2）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nUse io.Http as FALSE.\n",
+      "reject": [
+        "E055",
+        3
+      ],
+      "params": {
+        "token": "token.identifier"
+      }
+    },
+    {
+      "name": "en-US 形参 tRUE（K-c，D2）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given tRUE as Int, produce Int:\n  Return 1.\n",
+      "reject": [
+        "E055",
+        3
+      ],
+      "params": {
+        "token": "token.identifier"
+      }
+    },
+    {
+      "name": "en-US 字段名 nULL（K-c，D2）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nDefine S with nULL as Int.\n",
+      "reject": [
+        "E055",
+        3
+      ],
+      "params": {
+        "token": "token.fieldName"
+      }
+    },
+    {
+      "name": "en-US 模式 When True（K-c，D2）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule get given x as Bool, produce Int:\n  Match x:\n    When True, Return 1.\n  Return 0.\n",
+      "reject": [
+        "E055",
+        5
+      ],
+      "params": {
+        "token": "token.identifier"
+      }
+    },
+    {
+      "name": "en-US Start 的任务名 True（K-c，D2）",
+      "lexicon": "en-US",
+      "source": "Module probe.sample.\n\nRule f, produce Int:\n  Return 1.\n\nRule get, produce Int:\n  Start True as async f().\n  Wait for True.\n  Return 1.\n",
+      "reject": [
+        "E055",
+        7
+      ],
+      "params": {
+        "token": "token.identifier"
+      }
     }
   ]
 }

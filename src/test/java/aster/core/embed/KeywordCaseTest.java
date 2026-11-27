@@ -25,8 +25,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  *       永远是名字；非关键词名字的诊断与 K 之前相同。</li>
  *   <li>{@code keyword_case_stmt.json}：K-b 的语句、表达式与类型关键词（be、set、to、not、and、or、for、function、map、async），
  *       结构同上；小写 map 在类型位置是 Map 类型（aster-lang-core#314）。</li>
+ *   <li>{@code keyword_case_ops.json}：K-c 的运算符与字面量（times、plus、minus、modulo、比较词前的 is、not equal to、
+ *       under / over、true / false / null），结构同上；Not(x) 读作 not（产品裁决 D3），True / Null 在表达式里是字面量、
+ *       在声明名字的位置报 E055（产品裁决 D2，reject 里带 tightened 的行）。</li>
  *   <li>{@code name_position_matrix.json}：名字位置回归矩阵。期望值取自 K 之前的 core，K-a..K-d 每个 PR 原样重跑：
- *       名字位置的结论（位置无关哈希，或第一条诊断的码与位置）必须逐例不变。</li>
+ *       名字位置的结论（位置无关哈希，或第一条诊断的码与位置）必须逐例不变；唯一的例外是标了 {@code "tightened": "D2"}
+ *       的行（true / false / null 的其余大小写拼写），期望值是 K-c 之后的结论，{@code before} 记录 K-c 之前的结论。</li>
  * </ul>
  */
 class KeywordCaseTest {
@@ -41,6 +45,11 @@ class KeywordCaseTest {
     @TestFactory
     Stream<DynamicTest> statementExpressionTypeKeywords() throws IOException {
         return keywordFixture("/keyword-case/keyword_case_stmt.json", 206);
+    }
+
+    @TestFactory
+    Stream<DynamicTest> operatorAndLiteralKeywords() throws IOException {
+        return keywordFixture("/keyword-case/keyword_case_ops.json", 219);
     }
 
     private static Stream<DynamicTest> keywordFixture(String path, int acceptCount) throws IOException {
@@ -78,7 +87,15 @@ class KeywordCaseTest {
                 }
             }));
         }
-        assertThat(fixture.get("cases")).hasSize(1099);
+        assertThat(fixture.get("cases")).hasSize(2695);
+        // D2 的刻意收紧只落在 true / false / null 上，每行都记着 K-c 之前的结论
+        List<JsonNode> tightened = new ArrayList<>();
+        fixture.get("cases").forEach(c -> { if (c.has("tightened")) tightened.add(c); });
+        assertThat(tightened).hasSize(117).allSatisfy(c -> {
+            assertThat(c.get("tightened").asText()).isEqualTo("D2");
+            assertThat(c.get("name").asText()).matches("[a-z]+/(true|false|null)/[A-Za-z]+");
+            assertThat(c.has("before")).isTrue();
+        });
         return tests.stream();
     }
 

@@ -138,6 +138,15 @@ class KeywordCaseCompatTest {
         return mutatedSources("/keyword-case/compat_diagnostics_kb.json", 50);
     }
 
+    /**
+     * K-c：首条诊断所在行含 K-c 运算符 / 字面量词非小写拼写的 50 份变异错误源码，全部诊断连同参数与 K-c 之前（7004a26）逐条相同。
+     * K-c 不改文法（运算符在词法器里改记号，字面量与 D2 在 AstBuilder 里判定），旧 ATN 与 K-b 相同。
+     */
+    @TestFactory
+    Stream<DynamicTest> mutatedSourcesKeepPreOperatorKeywordCaseDiagnostics() throws IOException {
+        return mutatedSources("/keyword-case/compat_diagnostics_kc.json", 50);
+    }
+
     private static Stream<DynamicTest> mutatedSources(String path, int count) throws IOException {
         JsonNode fixture;
         try (InputStream in = KeywordCaseCompatTest.class.getResourceAsStream(path)) {

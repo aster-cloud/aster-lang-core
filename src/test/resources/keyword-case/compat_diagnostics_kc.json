@@ -1,0 +1,1982 @@
+{
+  "description": "关键词大小写 K-c 的诊断兼容层回归夹具：变异自 aster-lang-test tier1 语料的错误源码（en-US），再把 K-c 的运算符与字面量词（times、plus、minus、modulo、true、false、null、under、over、is … than、not equal to、Not(）换成首字母大写、全大写或小写开头的混合拼写，首条诊断所在行含这些拼写；ParseDiagnostics 给出的全部诊断（码、行、列、参数），期望值取自 K-c 之前的 core（aster-lang-core 7004a26）。这些源码里的运算符同形词在名字读法下照旧报错，诊断与错误恢复必须逐条相同。",
+  "cases": [
+    {
+      "name": "mut/07-arithmetic-subtract.aster/1/del|minus|Cap",
+      "source": "Module dual.engine.arithmetic.subtract.\n\nRule subtract given x, y, produce:\n  Return  Minus y.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 17,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/21-comparison-is-prefix.aster/5/ins|over|UP",
+      "source": "Module dual.engine.comparison.isprefix.\n\nRule at_least_check given score, produce:\n  Return score is at least 700.\n\nRule at_most_check given score, produce:\n  Return score is at most 700.\n\nRule greater_check given score, produce:\n  Return score is greater than 700.\n\nRule less_check given score, produce:\n  Return score is less than 700.\n\nRule more_check given score, produce:\n  Return score is more than 700.\n\nRule under_check given score, produce:\n  Return score is under 700.\n\nRule over_check given score, produce:\n  Return score is under OVER 700.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 22,
+          "column": 19,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'under'"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 22,
+          "column": 25,
+          "params": {
+            "before": "'OVER'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 22,
+          "column": 30,
+          "params": {
+            "token": "'700'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/and-or-short-circuit.aster/0/rep|under|Cap",
+      "source": "Module demo.logic.shortcircuit.\n\nRule isWheel given xs, produce:\n  Return List.length(xs) equals to 5 and List.get(xs, 4) Under to 14.\n\nRule hasNoFifthOrPositive given xs, produce:\n  Return List.length(xs) less than 5 or List.get(xs, 4) greater than 0.\n\nRule guardedAnd given flag, xs, produce:\n  Return flag and List.get(xs, 4) equals to 14.\n\nRule guardedOr given flag, xs, produce:\n  Return flag or List.get(xs, 4) equals to 14.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 58,
+          "params": {
+            "token": "'Under'"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 58,
+          "params": {
+            "token": "'Under'"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 58,
+          "params": {
+            "before": "'Under'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 4,
+          "column": 64,
+          "params": {
+            "expected": "'.' | ',' | '(' | ')' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "kw.to"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/bad_generic_return_type.aster/4/rep|under|UP",
+      "source": "Module demo.bad_generic.\n\nRule id, produce:\n  UNDER 1.\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 9,
+          "params": {
+            "token": "'1'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/builtin-name-shadowing.aster/4/ins|under|Cap",
+      "source": "Module demo.builtinnameshadowing.\n\nRule lessThan given a as Int, b as Int, produce Bool:\n  Return a less than b.\n\nRule ap given gt as (Int, Int) -> Bool, produce Bool:\n  Return gt(1, 2).\n\nRule viaParam given n as Int, produce Bool:\n  Return ap(lessThan).\n\nRule viaClosure given Under n as Int, produce Int:\n  Let add be function with a as Int, b as Int, produce Int:\n    Return a times b.\n  Return add(n, 3).\n\nRule viaUnary given n as Int, produce Int:\n  Let add be function with a as Int, produce Int:\n    Return a plus 10.\n  Return add(n).\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 12,
+          "column": 29,
+          "params": {
+            "expected": "'.' | ':' | ',' | kw.produce",
+            "token": "'n'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 13,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 14,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 15,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 17,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/context-map-access.aster/2/ins|under|lf",
+      "source": "Module guard.context.access.\n\nDefine GuardRequest has principal_id, action, context, agent_model.\n\n@id(\"CTX-001\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let large be req.context.amount at uNDER least 10000.\n  If req.action equals to \"refund\" and large:\n    Return Verdict.escalate(\"large refund\").\n  Return Verdict.allow().\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 7,
+          "column": 38,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'uNDER'"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 7,
+          "column": 44,
+          "params": {
+            "before": "'least'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 7,
+          "column": 50,
+          "params": {
+            "token": "'10000'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_violation_cpu_calls_io.aster/1/ins|under|UP",
+      "source": "UNDER Module test.eff.violation.cpu_calls_io.\n\nRule fetch_data, produce. It performs io [Http]:\n  Return Http.get(\"/api/data\").\n\nRule process, produce. It performs cpu:\n  Return fetch_data().\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 1,
+          "column": 7,
+          "params": {
+            "token": "kw.module"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/eff_violation_cpu_calls_io.aster/1/ins|under|lf",
+      "source": "uNDER Module test.eff.violation.cpu_calls_io.\n\nRule fetch_data, produce. It performs io [Http]:\n  Return Http.get(\"/api/data\").\n\nRule process, produce. It performs cpu:\n  Return fetch_data().\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 1,
+          "column": 7,
+          "params": {
+            "token": "kw.module"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/entry_annotation.aster/0/ins|plus|UP",
+      "source": "Module demo.entry.\n\n@entry Rule main given x, produce:\n  Return x given PLUS 1.\n\nRule helper given y, produce:\n  Return y times 2.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 3,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 12,
+          "params": {
+            "before": "kw.given",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 18,
+          "params": {
+            "before": "'PLUS'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 23,
+          "params": {
+            "token": "'1'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/entry_annotation.aster/0/ins|plus|lf",
+      "source": "Module demo.entry.\n\n@entry Rule main given x, produce:\n  Return x given pLUS 1.\n\nRule helper given y, produce:\n  Return y times 2.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 3,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 4,
+          "column": 12,
+          "params": {
+            "before": "kw.given",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 23,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'1'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/entry_annotation.aster/4/rep|plus|Cap",
+      "source": "Module demo.entry.\n\n@entry Rule main given x, produce:\n  Return Module Plus 1.\n\nRule helper given y, produce:\n  Return y times 2.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 10,
+          "params": {
+            "token": "kw.module"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 4,
+          "column": 22,
+          "params": {
+            "token": "'1'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-adr-12-limit-for.aster/3/ins|under|Cap",
+      "source": "Module governance.input.refs.case12.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule limitFor given t as Text, produce Decimal:\n  If t equals to \"gold\":\n    Return 100000.\n  Return 10000.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as Under GuardRequest, produce Verdict:\n  Let c be req.context.\n  Let lim be limitFor(c.tier).\n  If c.amount greater than lim:\n    Return Verdict.escalate(\"over\").\n  Return Verdict.allow().\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 14,
+          "column": 26,
+          "params": {
+            "token": "'Under'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 15,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 16,
+          "column": 3,
+          "params": {
+            "token": "kw.let"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 17,
+          "column": 3,
+          "params": {
+            "token": "kw.if"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 18,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 19,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 20,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-adr-12-limit-for.aster/3/ins|under|UP",
+      "source": "Module governance.input.refs.case12.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule limitFor given t as Text, produce Decimal:\n  If t equals to \"gold\":\n    Return 100000.\n  Return 10000.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as UNDER GuardRequest, produce Verdict:\n  Let c be req.context.\n  Let lim be limitFor(c.tier).\n  If c.amount greater than lim:\n    Return Verdict.escalate(\"over\").\n  Return Verdict.allow().\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 14,
+          "column": 26,
+          "params": {
+            "token": "'UNDER'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 15,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 16,
+          "column": 3,
+          "params": {
+            "token": "kw.let"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 17,
+          "column": 3,
+          "params": {
+            "token": "kw.if"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 18,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 19,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 20,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-adr-12-limit-for.aster/3/ins|under|lf",
+      "source": "Module governance.input.refs.case12.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule limitFor given t as Text, produce Decimal:\n  If t equals to \"gold\":\n    Return 100000.\n  Return 10000.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as uNDER GuardRequest, produce Verdict:\n  Let c be req.context.\n  Let lim be limitFor(c.tier).\n  If c.amount greater than lim:\n    Return Verdict.escalate(\"over\").\n  Return Verdict.allow().\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 14,
+          "column": 26,
+          "params": {
+            "token": "'uNDER'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 15,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 16,
+          "column": 3,
+          "params": {
+            "token": "kw.let"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 17,
+          "column": 3,
+          "params": {
+            "token": "kw.if"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 18,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 19,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 20,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-adr-15-mutual-recursion.aster/0/rep|true|UP",
+      "source": "Module governance.input.refs.case15.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule isOk given c as GuardContext, produce Bool:\n  If c.amount at least 1:\n    Return isBad(c).\n  Given TRUE.\n\nRule isBad given c as GuardContext, produce Bool:\n  Return isOk(c).\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  If isOk(req.context):\n    Return Verdict.allow().\n  Return Verdict.deny(\"bad\").\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 10,
+          "column": 9,
+          "params": {
+            "token": "'TRUE'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-function-value-passed-to-builtin.aster/5/del|true|UP",
+      "source": "Module governance.input.refs.case43.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nDefine GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule isOps given r as Text, produce Bool:\n  Return r equals to \"ops\".\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let marks be List.map(req.principal_roles, isOps).\n   List.contains(marks, TRUE):\n    Return Verdict.allow().\n  Return Verdict.deny(\"role\").\n",
+      "diagnostics": [
+        {
+          "code": "E052",
+          "line": 14,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 14,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E052",
+          "line": 15,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 16,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 17,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-lambda-returned-from-callee.aster/0/rep|under|UP",
+      "source": "Module governance.input.refs.case36.\nProfile \"eu-ai-act-high-risk\".\n\nDefine GuardContext has amount as Decimal, tier as Text, band as Text, meta as Map Text to Text.\nUNDER GuardRequest has principal_roles as List of Text, action as Text, context as GuardContext.\n\nRule mk given c as GuardContext, produce:\n  Let g be function with x, produce:\n    Return c.amount greater than x.\n  Return g.\n\n@id(\"R-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as GuardRequest, produce Verdict:\n  Let f be mk(req.context).\n  Return Verdict.allow().\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 5,
+          "column": 20,
+          "params": {
+            "token": "kw.has"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-path-8-segments-ok.aster/0/ins|under|Cap",
+      "source": "Module governance.input.refs.case23.\nProfile \"eu-ai-act-high-risk\".\n\nDefine Deep has s1.\n\n@id(\"D-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as Deep, produce Verdict:\n  If req.s1.s2.s3.s4.s5.s6.s7.s8 equals to \"x\":\n    Return Verdict.deny(\"deep\").\n  Return Verdict.allow()Under .\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 11,
+          "column": 25,
+          "params": {
+            "token": "'Under'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/governance-input-refs-path-8-segments-ok.aster/0/ins|under|UP",
+      "source": "Module governance.input.refs.case23.\nProfile \"eu-ai-act-high-risk\".\n\nDefine Deep has s1.\n\n@id(\"D-1\")\n@control(\"EU_AI_ACT:ART14\")\nRule decide given req as Deep, produce Verdict:\n  If req.s1.s2.s3.s4.s5.s6.s7.s8 equals to \"x\":\n    Return Verdict.deny(\"deep\").\n  Return Verdict.allow()UNDER .\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 11,
+          "column": 25,
+          "params": {
+            "token": "'UNDER'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/greet.aster/1/ins|null|Cap",
+      "source": "Module app.\n\nDefine User has id, name.\n\nRule greet given user, produce:\n  Match user:\n    When Null, and Return \"Hi, guest\".\n    When User(id, name), Return \"Welcome, {name}\".\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 7,
+          "column": 16,
+          "params": {
+            "token": "kw.and"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/greet.aster/1/ins|null|UP",
+      "source": "Module app.\n\nDefine User has id, name.\n\nRule greet given user, produce:\n  Match user:\n    When NULL, and Return \"Hi, guest\".\n    When User(id, name), Return \"Welcome, {name}\".\n",
+      "diagnostics": [
+        {
+          "code": "E061",
+          "line": 7,
+          "column": 16,
+          "params": {
+            "token": "kw.and"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/hipaa-validation-demo.aster/4/rep|false|Cap",
+      "source": "# ========================================\n# HIPAA Compliance Demo: PHI Validation & Access Control\n# §164.312 - Access Control & Audit Controls\n# ========================================\n\nModule examples.compliance.hipaa_validation_demo.\n\n# HIPAA 访问控制级别（服务端定义，不可客户端伪造）\nDefine AccessLevel has\n  level_name,\n  can_view_demographics,\n  can_view_medical,\n  can_view_financial,\n  can_modify.\n\n# PHI 数据分类\nDefine PHICategory has\n  category,\n  sensitivity,\n  requires_consent,\n  retention_years.\n\n# 访问请求\nDefine PHIAccessRequest has\n  user_id,\n  user_role,\n  phi_category_name,\n  purpose,\n  has_consent.\n\n# HIPAA 验证结果\nDefine HIPAAValidation has\n  is_compliant,\n  passed_count,\n  failed_count,\n  message.\n\n# 定义访问级别（服务端权威函数）\nRule get_access_level given role, produce:\n  If role equals to \"physician\"\n    Return AccessLevel with level_name set to \"FULL\", can_view_demographics set to true, can_view_medical set to true, can_view_financial set to False, can_modify set to true.\n  If role equals to \"nurse\"\n    Return AccessLevel with level_name set to \"CLINICAL\", can_view_demographics set to true, can_view_medical set to true, can_view_financial set to False, can_modify with to False.\n  If role equals to \"billing\"\n    Return AccessLevel with level_name set to \"BILLING\", can_view_demographics set to true, can_view_medical set to False, can_view_financial set to true, can_modify set to False.\n  If role equals to \"admin\"\n    Return AccessLevel with level_name set to \"ADMIN\", can_view_demographics set to true, can_view_medical set to False, can_view_financial set to False, can_modify set to False.\n  Return AccessLevel with level_name set to \"NONE\", can_view_demographics set to False, can_view_medical set to False, can_view_financial set to False, can_modify set to False.\n\n# 定义 PHI 类别\nRule get_phi_category given category_name, produce:\n  If category_name equals to \"demographics\"\n    Return PHICategory with category set to \"DEMOGRAPHICS\", sensitivity set to \"L2\", requires_consent set to False, retention_years set to 6.\n  If category_name equals to \"medical\"\n    Return PHICategory with category set to \"MEDICAL\", sensitivity set to \"L3\", requires_consent set to true, retention_years set to 10.\n  If category_name equals to \"financial\"\n    Return PHICategory with category set to \"FINANCIAL\", sensitivity set to \"L2\", requires_consent set to False, retention_years set to 7.\n  If category_name equals to \"psychotherapy\"\n    Return PHICategory with category set to \"PSYCHOTHERAPY\", sensitivity set to \"L3\", requires_consent set to true, retention_years set to 10.\n  Return PHICategory with category set to \"UNKNOWN\", sensitivity set to \"L3\", requires_consent set to true, retention_years set to 10.\n\n# HIPAA §164.312(a) - 访问控制验证\nRule validate_access_control given request, produce:\n  Let level be get_access_level(request.user_role).\n  Let category be get_phi_category(request.phi_category_name).\n  If category.category equals to \"MEDICAL\"\n    If level.can_view_medical equals to False\n      Return err of \"HIPAA: Role \" plus request.user_role plus \" cannot access medical records\".\n  If category.category equals to \"FINANCIAL\"\n    If level.can_view_financial equals to False\n      Return err of \"HIPAA: Role \" plus request.user_role plus \" cannot access financial records\".\n  If category.category equals to \"PSYCHOTHERAPY\"\n    If level.can_view_medical equals to False\n      Return err of \"HIPAA: Role \" plus request.user_role plus \" cannot access psychotherapy notes\".\n  Return ok of Text.concat(\"Access validated for role: \", request.user_role).\n\n# HIPAA §164.508 - 同意验证\nRule validate_consent given request, produce:\n  Let category be get_phi_category(request.phi_category_name).\n  If category.requires_consent\n    If request.has_consent equals to False\n      Return err of Text.concat(\"HIPAA: Consent required for \", category.category).\n  Return ok of \"Consent validated\".\n\n# HIPAA §164.512 - 使用目的验证\nRule validate_purpose given request, produce:\n  If request.purpose equals to \"treatment\"\n    Return ok of \"Purpose validated\".\n  If request.purpose equals to \"payment\"\n    Return ok of \"Purpose validated\".\n  If request.purpose equals to \"healthcare_operations\"\n    Return ok of \"Purpose validated\".\n  Return err of \"HIPAA: Purpose \" plus request.purpose plus \" is not permitted\".\n\n# 完整 HIPAA 合规验证（简化版 - 仅检查访问控制）\nRule validate_hipaa_compliance given request, produce:\n  Let access_result be validate_access_control(request).\n  Let consent_result be validate_consent(request).\n  Let purpose_result be validate_purpose(request).\n  If Result.isOk(access_result)\n    If Result.isOk(consent_result)\n      If Result.isOk(purpose_result)\n        Return HIPAAValidation with is_compliant set to true, passed_count set to 3, failed_count set to 0, message set to \"All HIPAA checks passed\".\n  Return HIPAAValidation with is_compliant set to False, passed_count set to 0, failed_count set to 1, message set to \"HIPAA compliance failed\".\n\n# 生成 HIPAA 合规报告\nRule generate_hipaa_report given user_id, validation, produce:\n  If validation.is_compliant\n    Return Text.concat(\"HIPAA COMPLIANCE: PASSED for \", user_id).\n  Otherwise\n    Return \"HIPAA COMPLIANCE: FAILED for \" plus user_id plus \". Failed checks: \" plus validation.failed_count.\n\n# 示例：医生访问医疗记录（合规）\nRule demo_compliant_access, produce:\n  Let request be PHIAccessRequest with user_id set to \"DR-001\", user_role set to \"physician\", phi_category_name set to \"medical\", purpose set to \"treatment\", has_consent set to true.\n  Return validate_hipaa_compliance(request).\n\n# 示例：账单人员访问医疗记录（不合规）\nRule demo_non_compliant_access, produce:\n  Let request be PHIAccessRequest with user_id set to \"BILL-001\", user_role set to \"billing\", phi_category_name set to \"medical\", purpose set to \"payment\", has_consent set to False.\n  Return validate_hipaa_compliance(request).\n\n# 示例：攻击者尝试伪造权限\nRule demo_spoofed_access_blocked, produce:\n  Let request be PHIAccessRequest with user_id set to \"ATTACKER-001\", user_role set to \"admin\", phi_category_name set to \"medical\", purpose set to \"curiosity\", has_consent set to False.\n  Return validate_hipaa_compliance(request).\n",
+      "diagnostics": [
+        {
+          "code": "E057",
+          "line": 43,
+          "column": 168,
+          "params": {
+            "context": "token.construction",
+            "token": "kw.set"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/hipaa-validation-demo.aster/4/rep|false|UP",
+      "source": "# ========================================\n# HIPAA Compliance Demo: PHI Validation & Access Control\n# §164.312 - Access Control & Audit Controls\n# ========================================\n\nModule examples.compliance.hipaa_validation_demo.\n\n# HIPAA 访问控制级别（服务端定义，不可客户端伪造）\nDefine AccessLevel has\n  level_name,\n  can_view_demographics,\n  can_view_medical,\n  can_view_financial,\n  can_modify.\n\n# PHI 数据分类\nDefine PHICategory has\n  category,\n  sensitivity,\n  requires_consent,\n  retention_years.\n\n# 访问请求\nDefine PHIAccessRequest has\n  user_id,\n  user_role,\n  phi_category_name,\n  purpose,\n  has_consent.\n\n# HIPAA 验证结果\nDefine HIPAAValidation has\n  is_compliant,\n  passed_count,\n  failed_count,\n  message.\n\n# 定义访问级别（服务端权威函数）\nRule get_access_level given role, produce:\n  If role equals to \"physician\"\n    Return AccessLevel with level_name set to \"FULL\", can_view_demographics set to true, can_view_medical set to true, can_view_financial set to FALSE, can_modify set to true.\n  If role equals to \"nurse\"\n    Return AccessLevel with level_name set to \"CLINICAL\", can_view_demographics set to true, can_view_medical set to true, can_view_financial set to FALSE, can_modify with to FALSE.\n  If role equals to \"billing\"\n    Return AccessLevel with level_name set to \"BILLING\", can_view_demographics set to true, can_view_medical set to FALSE, can_view_financial set to true, can_modify set to FALSE.\n  If role equals to \"admin\"\n    Return AccessLevel with level_name set to \"ADMIN\", can_view_demographics set to true, can_view_medical set to FALSE, can_view_financial set to FALSE, can_modify set to FALSE.\n  Return AccessLevel with level_name set to \"NONE\", can_view_demographics set to FALSE, can_view_medical set to FALSE, can_view_financial set to FALSE, can_modify set to FALSE.\n\n# 定义 PHI 类别\nRule get_phi_category given category_name, produce:\n  If category_name equals to \"demographics\"\n    Return PHICategory with category set to \"DEMOGRAPHICS\", sensitivity set to \"L2\", requires_consent set to FALSE, retention_years set to 6.\n  If category_name equals to \"medical\"\n    Return PHICategory with category set to \"MEDICAL\", sensitivity set to \"L3\", requires_consent set to true, retention_years set to 10.\n  If category_name equals to \"financial\"\n    Return PHICategory with category set to \"FINANCIAL\", sensitivity set to \"L2\", requires_consent set to FALSE, retention_years set to 7.\n  If category_name equals to \"psychotherapy\"\n    Return PHICategory with category set to \"PSYCHOTHERAPY\", sensitivity set to \"L3\", requires_consent set to true, retention_years set to 10.\n  Return PHICategory with category set to \"UNKNOWN\", sensitivity set to \"L3\", requires_consent set to true, retention_years set to 10.\n\n# HIPAA §164.312(a) - 访问控制验证\nRule validate_access_control given request, produce:\n  Let level be get_access_level(request.user_role).\n  Let category be get_phi_category(request.phi_category_name).\n  If category.category equals to \"MEDICAL\"\n    If level.can_view_medical equals to FALSE\n      Return err of \"HIPAA: Role \" plus request.user_role plus \" cannot access medical records\".\n  If category.category equals to \"FINANCIAL\"\n    If level.can_view_financial equals to FALSE\n      Return err of \"HIPAA: Role \" plus request.user_role plus \" cannot access financial records\".\n  If category.category equals to \"PSYCHOTHERAPY\"\n    If level.can_view_medical equals to FALSE\n      Return err of \"HIPAA: Role \" plus request.user_role plus \" cannot access psychotherapy notes\".\n  Return ok of Text.concat(\"Access validated for role: \", request.user_role).\n\n# HIPAA §164.508 - 同意验证\nRule validate_consent given request, produce:\n  Let category be get_phi_category(request.phi_category_name).\n  If category.requires_consent\n    If request.has_consent equals to FALSE\n      Return err of Text.concat(\"HIPAA: Consent required for \", category.category).\n  Return ok of \"Consent validated\".\n\n# HIPAA §164.512 - 使用目的验证\nRule validate_purpose given request, produce:\n  If request.purpose equals to \"treatment\"\n    Return ok of \"Purpose validated\".\n  If request.purpose equals to \"payment\"\n    Return ok of \"Purpose validated\".\n  If request.purpose equals to \"healthcare_operations\"\n    Return ok of \"Purpose validated\".\n  Return err of \"HIPAA: Purpose \" plus request.purpose plus \" is not permitted\".\n\n# 完整 HIPAA 合规验证（简化版 - 仅检查访问控制）\nRule validate_hipaa_compliance given request, produce:\n  Let access_result be validate_access_control(request).\n  Let consent_result be validate_consent(request).\n  Let purpose_result be validate_purpose(request).\n  If Result.isOk(access_result)\n    If Result.isOk(consent_result)\n      If Result.isOk(purpose_result)\n        Return HIPAAValidation with is_compliant set to true, passed_count set to 3, failed_count set to 0, message set to \"All HIPAA checks passed\".\n  Return HIPAAValidation with is_compliant set to FALSE, passed_count set to 0, failed_count set to 1, message set to \"HIPAA compliance failed\".\n\n# 生成 HIPAA 合规报告\nRule generate_hipaa_report given user_id, validation, produce:\n  If validation.is_compliant\n    Return Text.concat(\"HIPAA COMPLIANCE: PASSED for \", user_id).\n  Otherwise\n    Return \"HIPAA COMPLIANCE: FAILED for \" plus user_id plus \". Failed checks: \" plus validation.failed_count.\n\n# 示例：医生访问医疗记录（合规）\nRule demo_compliant_access, produce:\n  Let request be PHIAccessRequest with user_id set to \"DR-001\", user_role set to \"physician\", phi_category_name set to \"medical\", purpose set to \"treatment\", has_consent set to true.\n  Return validate_hipaa_compliance(request).\n\n# 示例：账单人员访问医疗记录（不合规）\nRule demo_non_compliant_access, produce:\n  Let request be PHIAccessRequest with user_id set to \"BILL-001\", user_role set to \"billing\", phi_category_name set to \"medical\", purpose set to \"payment\", has_consent set to FALSE.\n  Return validate_hipaa_compliance(request).\n\n# 示例：攻击者尝试伪造权限\nRule demo_spoofed_access_blocked, produce:\n  Let request be PHIAccessRequest with user_id set to \"ATTACKER-001\", user_role set to \"admin\", phi_category_name set to \"medical\", purpose set to \"curiosity\", has_consent set to FALSE.\n  Return validate_hipaa_compliance(request).\n",
+      "diagnostics": [
+        {
+          "code": "E057",
+          "line": 43,
+          "column": 168,
+          "params": {
+            "context": "token.construction",
+            "token": "kw.set"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/hipaa-validation-demo.aster/4/rep|false|lf",
+      "source": "# ========================================\n# HIPAA Compliance Demo: PHI Validation & Access Control\n# §164.312 - Access Control & Audit Controls\n# ========================================\n\nModule examples.compliance.hipaa_validation_demo.\n\n# HIPAA 访问控制级别（服务端定义，不可客户端伪造）\nDefine AccessLevel has\n  level_name,\n  can_view_demographics,\n  can_view_medical,\n  can_view_financial,\n  can_modify.\n\n# PHI 数据分类\nDefine PHICategory has\n  category,\n  sensitivity,\n  requires_consent,\n  retention_years.\n\n# 访问请求\nDefine PHIAccessRequest has\n  user_id,\n  user_role,\n  phi_category_name,\n  purpose,\n  has_consent.\n\n# HIPAA 验证结果\nDefine HIPAAValidation has\n  is_compliant,\n  passed_count,\n  failed_count,\n  message.\n\n# 定义访问级别（服务端权威函数）\nRule get_access_level given role, produce:\n  If role equals to \"physician\"\n    Return AccessLevel with level_name set to \"FULL\", can_view_demographics set to true, can_view_medical set to true, can_view_financial set to fALSE, can_modify set to true.\n  If role equals to \"nurse\"\n    Return AccessLevel with level_name set to \"CLINICAL\", can_view_demographics set to true, can_view_medical set to true, can_view_financial set to fALSE, can_modify with to fALSE.\n  If role equals to \"billing\"\n    Return AccessLevel with level_name set to \"BILLING\", can_view_demographics set to true, can_view_medical set to fALSE, can_view_financial set to true, can_modify set to fALSE.\n  If role equals to \"admin\"\n    Return AccessLevel with level_name set to \"ADMIN\", can_view_demographics set to true, can_view_medical set to fALSE, can_view_financial set to fALSE, can_modify set to fALSE.\n  Return AccessLevel with level_name set to \"NONE\", can_view_demographics set to fALSE, can_view_medical set to fALSE, can_view_financial set to fALSE, can_modify set to fALSE.\n\n# 定义 PHI 类别\nRule get_phi_category given category_name, produce:\n  If category_name equals to \"demographics\"\n    Return PHICategory with category set to \"DEMOGRAPHICS\", sensitivity set to \"L2\", requires_consent set to fALSE, retention_years set to 6.\n  If category_name equals to \"medical\"\n    Return PHICategory with category set to \"MEDICAL\", sensitivity set to \"L3\", requires_consent set to true, retention_years set to 10.\n  If category_name equals to \"financial\"\n    Return PHICategory with category set to \"FINANCIAL\", sensitivity set to \"L2\", requires_consent set to fALSE, retention_years set to 7.\n  If category_name equals to \"psychotherapy\"\n    Return PHICategory with category set to \"PSYCHOTHERAPY\", sensitivity set to \"L3\", requires_consent set to true, retention_years set to 10.\n  Return PHICategory with category set to \"UNKNOWN\", sensitivity set to \"L3\", requires_consent set to true, retention_years set to 10.\n\n# HIPAA §164.312(a) - 访问控制验证\nRule validate_access_control given request, produce:\n  Let level be get_access_level(request.user_role).\n  Let category be get_phi_category(request.phi_category_name).\n  If category.category equals to \"MEDICAL\"\n    If level.can_view_medical equals to fALSE\n      Return err of \"HIPAA: Role \" plus request.user_role plus \" cannot access medical records\".\n  If category.category equals to \"FINANCIAL\"\n    If level.can_view_financial equals to fALSE\n      Return err of \"HIPAA: Role \" plus request.user_role plus \" cannot access financial records\".\n  If category.category equals to \"PSYCHOTHERAPY\"\n    If level.can_view_medical equals to fALSE\n      Return err of \"HIPAA: Role \" plus request.user_role plus \" cannot access psychotherapy notes\".\n  Return ok of Text.concat(\"Access validated for role: \", request.user_role).\n\n# HIPAA §164.508 - 同意验证\nRule validate_consent given request, produce:\n  Let category be get_phi_category(request.phi_category_name).\n  If category.requires_consent\n    If request.has_consent equals to fALSE\n      Return err of Text.concat(\"HIPAA: Consent required for \", category.category).\n  Return ok of \"Consent validated\".\n\n# HIPAA §164.512 - 使用目的验证\nRule validate_purpose given request, produce:\n  If request.purpose equals to \"treatment\"\n    Return ok of \"Purpose validated\".\n  If request.purpose equals to \"payment\"\n    Return ok of \"Purpose validated\".\n  If request.purpose equals to \"healthcare_operations\"\n    Return ok of \"Purpose validated\".\n  Return err of \"HIPAA: Purpose \" plus request.purpose plus \" is not permitted\".\n\n# 完整 HIPAA 合规验证（简化版 - 仅检查访问控制）\nRule validate_hipaa_compliance given request, produce:\n  Let access_result be validate_access_control(request).\n  Let consent_result be validate_consent(request).\n  Let purpose_result be validate_purpose(request).\n  If Result.isOk(access_result)\n    If Result.isOk(consent_result)\n      If Result.isOk(purpose_result)\n        Return HIPAAValidation with is_compliant set to true, passed_count set to 3, failed_count set to 0, message set to \"All HIPAA checks passed\".\n  Return HIPAAValidation with is_compliant set to fALSE, passed_count set to 0, failed_count set to 1, message set to \"HIPAA compliance failed\".\n\n# 生成 HIPAA 合规报告\nRule generate_hipaa_report given user_id, validation, produce:\n  If validation.is_compliant\n    Return Text.concat(\"HIPAA COMPLIANCE: PASSED for \", user_id).\n  Otherwise\n    Return \"HIPAA COMPLIANCE: FAILED for \" plus user_id plus \". Failed checks: \" plus validation.failed_count.\n\n# 示例：医生访问医疗记录（合规）\nRule demo_compliant_access, produce:\n  Let request be PHIAccessRequest with user_id set to \"DR-001\", user_role set to \"physician\", phi_category_name set to \"medical\", purpose set to \"treatment\", has_consent set to true.\n  Return validate_hipaa_compliance(request).\n\n# 示例：账单人员访问医疗记录（不合规）\nRule demo_non_compliant_access, produce:\n  Let request be PHIAccessRequest with user_id set to \"BILL-001\", user_role set to \"billing\", phi_category_name set to \"medical\", purpose set to \"payment\", has_consent set to fALSE.\n  Return validate_hipaa_compliance(request).\n\n# 示例：攻击者尝试伪造权限\nRule demo_spoofed_access_blocked, produce:\n  Let request be PHIAccessRequest with user_id set to \"ATTACKER-001\", user_role set to \"admin\", phi_category_name set to \"medical\", purpose set to \"curiosity\", has_consent set to fALSE.\n  Return validate_hipaa_compliance(request).\n",
+      "diagnostics": [
+        {
+          "code": "E057",
+          "line": 43,
+          "column": 168,
+          "params": {
+            "context": "token.construction",
+            "token": "kw.set"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/lambda_capture_module_rule.aster/1/rep|under|Cap",
+      "source": "Module demo.lambdacapturemodulerule.\n\nRule bump given x as Int, produce Int:\n  Return x plus 1.\n\nRule applyBump given Under as Int, produce Int:\n  Let k be 5.\n  Let f be function with y as Int, produce Int:\n    Return bump(y) plus k.\n  Return f(n).\n",
+      "diagnostics": [
+        {
+          "code": "E055",
+          "line": 6,
+          "column": 22,
+          "params": {
+            "token": "token.identifier"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/list-get-eager-let.aster/2/ins|under|Cap",
+      "source": "Module demo.list.eagerlet.\n\nRule fifthEager given xs, produce:\n  Let fifth be List.get(xs, 4).\n  Under If List.length(xs) equals to 5:\n    Return fifth.\n  Return 0.\n\nRule highSafe given xs, produce:\n  Let high be List.max(xs).\n  If List.length(xs) equals to 5:\n    Return high.\n  Return 0.\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 5,
+          "column": 9,
+          "params": {
+            "before": "kw.if",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/list-get-eager-let.aster/2/ins|under|UP",
+      "source": "Module demo.list.eagerlet.\n\nRule fifthEager given xs, produce:\n  Let fifth be List.get(xs, 4).\n  UNDER If List.length(xs) equals to 5:\n    Return fifth.\n  Return 0.\n\nRule highSafe given xs, produce:\n  Let high be List.max(xs).\n  If List.length(xs) equals to 5:\n    Return high.\n  Return 0.\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 5,
+          "column": 9,
+          "params": {
+            "before": "kw.if",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/match_multi.aster/1/rep|null|lf",
+      "source": "Module app.match.\n\nDefine Color has name.\n\nRule pick given k, produce:\n  Match kmodule\n    When nULL, Return \"none\".\n    When Color(name), Return \"has color\".\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 7,
+          "column": 1,
+          "params": {
+            "token": "token.indent"
+          }
+        },
+        {
+          "code": "E059",
+          "line": 6,
+          "column": 16,
+          "params": {
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 7,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 8,
+          "column": 5,
+          "params": {
+            "token": "kw.when"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 9,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/patient-record.aster/2/ins|false|lf",
+      "source": "# ========================================\n# Healthcare Demo: Patient Record Management\n# HIPAA Compliant PHI Handling\n# ========================================\n\nModule examples.healthcare.patient_record.\n\n# PHI (Protected Health Information) 数据结构\n# 注意：实际生产环境中应使用 @pii 注解标记敏感字段\n# 此处简化以便演示编译和验证流程\nDefine PatientPHI has\n  patient_id,\n  name,\n  ssn,\n  date_of_birth,\n  diagnosis,\n  treatment_plan,\n  insurance_id.\n\nDefine AccessRequest has\n  requester_id,\n  requester_role,\n  purpose,\n  patient_id,\n  has_consent.\n\nDefine ConsentResult has\n  is_valid,\n  reason.\n\nDefine PatientSummary has\n  patient_id,\n  display_info.\n\n# 同意验证函数（HIPAA §164.508）\nRule verify_consent given request, produce:\n  If request.has_consent equals to fALSE\n    Return ConsentResult with is_valid set to fALSE, reason set to \"Patient consent not obtained\".\n  If request.purpose equals to \"\"\n    Return ConsentResult with is_valid set to fALSE, reason set to \"Purpose of access not specified\".\n  Return ConsentResult with is_valid set to true, reason set to \"Consent verified\".\n\n# HIPAA 最小必要原则：根据角色返回不同字段\nRule get_patient_summary given request, patient_phi, produce:\n  Let consent be verify_consent(request).\n  If consent.is_valid equals to fALSE\n    Return err of consent.reason.\n  If request.requester_role equals to \"physician\"\n    Return ok of PatientSummary with patient_id set to patient_phi.patient_id, display_info set to (patient_phi.name plus \" - \" plus patient_phi.diagnosis).\n  If request.requester_role equals to \"billing\"\n    Return ok of PatientSummary with patient_id set to patient_phi.patient_id, display_info set to (patient_phi.patient_id plus \" - \" plus patient_phi.insurance_id).\n  If request.requester_role equals to \"nurse\"\n    Return ok of PatientSummary with patient_id set to patient_phi.patient_id, display_info set to (patient_phi.name plus \" - \" plus patient_phi.treatment_plan).\n  Return err of \"Access denied: insufficient role\".\n\n# PHI 脱敏（HIPAA §164.514 去标识化）\n# ★全掩码而非部分保留：本规则同时用于姓名与 SSN 等不同格式的 PHI，\n#   任何「保留末 N 位」的策略对某些字段就是欠脱敏（如短姓名会整体泄露）。\n#   全掩码是**不可能欠脱敏**的那个选择——脱敏策略出错的代价是不对称的。\nRule redact given value, produce:\n  Return \"[REDACTED]\".\n\n# 安全的 PHI 显示：自动脱敏\nRule display_patient_safe given patient_phi, produce:\n  Return \"Patient: \" plus redact(patient_phi.name) plus \", SSN: \" plus redact(patient_phi.ssn).\n\n# 示例：合规访问（医生有同意）\nRule demo_compliant_access, produce:\n  Let patient_phi be PatientPHI with patient_id set to \"P-001\", name set to \"John Doe\", ssn set to \"123-45-6789\", date_of_birth set to \"1990-01-01\", diagnosis set to \"Hypertension\", treatment_plan set to \"Medication daily\", insurance_id set to \"INS-12345\".\n  Let request be AccessRequest with requester_id set to \"DR-001\", requester_role set to \"physician\", purpose set to \"treatment\", patient_id set to \"P-001\", has_consent set to true.\n  Return get_patient_summary(request, patient_phi).\n\n# 示例：不合规访问（无同意）\nRule demo_non_compliant_access, produce:\n  Let patient_phi be PatientPHI with patient_id set to \"P-001\", name set to \"John Doe\", ssn set to \"123-45-6789\", date_of_birth set to \"1990-01-01\", diagnosis set to \"Hypertension\", treatment_plan set to \"Medication daily\", insurance_id set to \"INS-12345\".\n  Let request be AccessRequest with requester_id set to \"ADMIN-001\", requester_role set to \"admin\"Has , purpose set to \"curiosity\", patient_id set to \"P-001\", has_consent set to fALSE.\n  Return get_patient_summary(request, patient_phi).\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 76,
+          "column": 99,
+          "params": {
+            "before": "'Has'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 102,
+          "params": {
+            "expected": "'.' | ',' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 76,
+          "column": 112,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 116,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 130,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 76,
+          "column": 143,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 147,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 157,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 76,
+          "column": 171,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 76,
+          "column": 175,
+          "params": {
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 183,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/patient-record.aster/3/del|false|Cap",
+      "source": "# ========================================\n# Healthcare Demo: Patient Record Management\n# HIPAA Compliant PHI Handling\n# ========================================\n\nModule examples.healthcare.patient_record.\n\n# PHI (Protected Health Information) 数据结构\n# 注意：实际生产环境中应使用 @pii 注解标记敏感字段\n# 此处简化以便演示编译和验证流程\nDefine PatientPHI has\n  patient_id,\n  name,\n  ssn,\n  date_of_birth,\n  diagnosis,\n  treatment_plan,\n  insurance_id.\n\nDefine AccessRequest has\n  requester_id,\n  requester_role,\n  purpose,\n  patient_id,\n  has_consent.\n\nDefine ConsentResult has\n  is_valid,\n  reason.\n\nDefine PatientSummary has\n  patient_id,\n  display_info.\n\n# 同意验证函数（HIPAA §164.508）\nRule verify_consent given request, produce:\n  If request.has_consent equals to False\n    Return ConsentResult with is_valid set to False, reason set to \"Patient consent not obtained\".\n  If request.purpose equals to \"\"\n    Return ConsentResult with is_valid set to False, reason set to \"Purpose of access not specified\".\n  Return ConsentResult with is_valid set to true, reason set to \"Consent verified\".\n\n# HIPAA 最小必要原则：根据角色返回不同字段\nRule get_patient_summary given request, patient_phi, produce:\n  Let consent be verify_consent(request).\n  If consent.is_valid equals to False\n    Return err of consent.reason.\n  If request.requester_role equals to \"physician\"\n    Return ok of PatientSummary with patient_id set to patient_phi.patient_id, display_info set to (patient_phi.name plus \" - \" plus patient_phi.diagnosis).\n  If request.requester_role equals to \"billing\"\n    Return ok of PatientSummary with patient_id set to patient_phi.patient_id, display_info set to (patient_phi.patient_id plus \" - \" plus patient_phi.insurance_id).\n  If request.requester_role equals to \"nurse\"\n    Return ok of PatientSummary with patient_id set to patient_phi.patient_id, display_info set to (patient_phi.name plus \" - \" plus patient_phi.treatment_plan).\n  Return err of \"Access denied: insufficient role\".\n\n# PHI 脱敏（HIPAA §164.514 去标识化）\n# ★全掩码而非部分保留：本规则同时用于姓名与 SSN 等不同格式的 PHI，\n#   任何「保留末 N 位」的策略对某些字段就是欠脱敏（如短姓名会整体泄露）。\n#   全掩码是**不可能欠脱敏**的那个选择——脱敏策略出错的代价是不对称的。\nRule redact given value, produce:\n  Return \"[REDACTED]\".\n\n# 安全的 PHI 显示：自动脱敏\nRule display_patient_safe given patient_phi, produce:\n  Return \"Patient: \" plus redact(patient_phi.name) plus \", SSN: \" plus redact(patient_phi.ssn).\n\n# 示例：合规访问（医生有同意）\nRule demo_compliant_access, produce:\n  Let patient_phi be PatientPHI with patient_id set to \"P-001\", name set to \"John Doe\", ssn set to \"123-45-6789\", date_of_birth set to \"1990-01-01\", diagnosis set to \"Hypertension\", treatment_plan set to \"Medication daily\", insurance_id set to \"INS-12345\".\n  Let request be AccessRequest with requester_id set to \"DR-001\", requester_role set to \"physician\", purpose set to \"treatment\", patient_id set to \"P-001\", has_consent set to true.\n  Return get_patient_summary(request, patient_phi).\n\n# 示例：不合规访问（无同意）\nRule demo_non_compliant_access, produce:\n  Let patient_phi be PatientPHI with patient_id set to \"P-001\", name set to \"John Doe\", ssn set to \"123-45-6789\", date_of_birth set to \"1990-01-01\", diagnosis set to \"Hypertension\", treatment_plan set to \"Medication daily\", insurance_id set to \"INS-12345\".\n  Let request be AccessRequest  requester_id set to \"ADMIN-001\", requester_role set to \"admin\", purpose set to \"curiosity\", patient_id set to \"P-001\", has_consent set to False.\n  Return get_patient_summary(request, patient_phi).\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 76,
+          "column": 45,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "kw.set"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 49,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 63,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 76,
+          "column": 80,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 84,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 94,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 76,
+          "column": 104,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 108,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 122,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 76,
+          "column": 135,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 139,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 149,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 76,
+          "column": 163,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 76,
+          "column": 167,
+          "params": {
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 175,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/patient-record.aster/3/del|false|UP",
+      "source": "# ========================================\n# Healthcare Demo: Patient Record Management\n# HIPAA Compliant PHI Handling\n# ========================================\n\nModule examples.healthcare.patient_record.\n\n# PHI (Protected Health Information) 数据结构\n# 注意：实际生产环境中应使用 @pii 注解标记敏感字段\n# 此处简化以便演示编译和验证流程\nDefine PatientPHI has\n  patient_id,\n  name,\n  ssn,\n  date_of_birth,\n  diagnosis,\n  treatment_plan,\n  insurance_id.\n\nDefine AccessRequest has\n  requester_id,\n  requester_role,\n  purpose,\n  patient_id,\n  has_consent.\n\nDefine ConsentResult has\n  is_valid,\n  reason.\n\nDefine PatientSummary has\n  patient_id,\n  display_info.\n\n# 同意验证函数（HIPAA §164.508）\nRule verify_consent given request, produce:\n  If request.has_consent equals to FALSE\n    Return ConsentResult with is_valid set to FALSE, reason set to \"Patient consent not obtained\".\n  If request.purpose equals to \"\"\n    Return ConsentResult with is_valid set to FALSE, reason set to \"Purpose of access not specified\".\n  Return ConsentResult with is_valid set to true, reason set to \"Consent verified\".\n\n# HIPAA 最小必要原则：根据角色返回不同字段\nRule get_patient_summary given request, patient_phi, produce:\n  Let consent be verify_consent(request).\n  If consent.is_valid equals to FALSE\n    Return err of consent.reason.\n  If request.requester_role equals to \"physician\"\n    Return ok of PatientSummary with patient_id set to patient_phi.patient_id, display_info set to (patient_phi.name plus \" - \" plus patient_phi.diagnosis).\n  If request.requester_role equals to \"billing\"\n    Return ok of PatientSummary with patient_id set to patient_phi.patient_id, display_info set to (patient_phi.patient_id plus \" - \" plus patient_phi.insurance_id).\n  If request.requester_role equals to \"nurse\"\n    Return ok of PatientSummary with patient_id set to patient_phi.patient_id, display_info set to (patient_phi.name plus \" - \" plus patient_phi.treatment_plan).\n  Return err of \"Access denied: insufficient role\".\n\n# PHI 脱敏（HIPAA §164.514 去标识化）\n# ★全掩码而非部分保留：本规则同时用于姓名与 SSN 等不同格式的 PHI，\n#   任何「保留末 N 位」的策略对某些字段就是欠脱敏（如短姓名会整体泄露）。\n#   全掩码是**不可能欠脱敏**的那个选择——脱敏策略出错的代价是不对称的。\nRule redact given value, produce:\n  Return \"[REDACTED]\".\n\n# 安全的 PHI 显示：自动脱敏\nRule display_patient_safe given patient_phi, produce:\n  Return \"Patient: \" plus redact(patient_phi.name) plus \", SSN: \" plus redact(patient_phi.ssn).\n\n# 示例：合规访问（医生有同意）\nRule demo_compliant_access, produce:\n  Let patient_phi be PatientPHI with patient_id set to \"P-001\", name set to \"John Doe\", ssn set to \"123-45-6789\", date_of_birth set to \"1990-01-01\", diagnosis set to \"Hypertension\", treatment_plan set to \"Medication daily\", insurance_id set to \"INS-12345\".\n  Let request be AccessRequest with requester_id set to \"DR-001\", requester_role set to \"physician\", purpose set to \"treatment\", patient_id set to \"P-001\", has_consent set to true.\n  Return get_patient_summary(request, patient_phi).\n\n# 示例：不合规访问（无同意）\nRule demo_non_compliant_access, produce:\n  Let patient_phi be PatientPHI with patient_id set to \"P-001\", name set to \"John Doe\", ssn set to \"123-45-6789\", date_of_birth set to \"1990-01-01\", diagnosis set to \"Hypertension\", treatment_plan set to \"Medication daily\", insurance_id set to \"INS-12345\".\n  Let request be AccessRequest  requester_id set to \"ADMIN-001\", requester_role set to \"admin\", purpose set to \"curiosity\", patient_id set to \"P-001\", has_consent set to FALSE.\n  Return get_patient_summary(request, patient_phi).\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 76,
+          "column": 45,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "kw.set"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 49,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 63,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 76,
+          "column": 80,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 84,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 94,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 76,
+          "column": 104,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 108,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 122,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 76,
+          "column": 135,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 139,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 149,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 76,
+          "column": 163,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 76,
+          "column": 167,
+          "params": {
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 76,
+          "column": 175,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/soc2-audit-demo.aster/0/del|true|Cap",
+      "source": "# ========================================\n# SOC2 Compliance Demo: Audit Trail Verification\n# CC7.2 - System Operations Monitoring\n# ========================================\n\nModule examples.compliance.soc2_audit_demo.\n\n# 审计记录结构（防篡改哈希链）\nDefine AuditRecord has\n  record_number,\n  tenant_id,\n  event_type,\n  timestamp as Text,\n  policy_module,\n  policy_function,\n  success,\n  prev_hash,\n  current_hash.\n\nDefine ChainVerificationResult has\n  is_valid,\n  records_count,\n  broken_index,\n  reason.\n\nDefine ChainState has\n  is_valid,\n  records_count,\n  broken_index,\n  reason,\n  last_hash.\n\n# 计算审计记录哈希\n# @cpu 因为调用 Crypto.hash 属于 CPU 类能力（本地哈希计算）\nRule compute_hash given record as AuditRecord, produce. It performs cpu:\n  Let content be record.prev_hash plus record.event_type plus record.timestamp plus record.tenant_id plus record.policy_module plus record.policy_function plus record.success.\n  Return Crypto.hash(content, \"SHA-256\").\n\n# 验证单条记录完整性\n# @cpu 通过 compute_hash 间接传播\nRule verify_record_integrity given record as AuditRecord, produce. It performs cpu:\n  Let expected be compute_hash(record).\n  Return expected equals to record.current_hash.\n\n# 验证链接\nRule verify_chain_link given record as AuditRecord, expected_prev_hash as Text, produce:\n  If expected_prev_hash equals to \"\"\n    Return record.prev_hash equals to \"\".\n  Return record.prev_hash equals to expected_prev_hash.\n\n# 验证单条记录并更新链状态\nRule verify_one_record given state as ChainState, record as AuditRecord, produce. It performs cpu:\n  If state.is_valid equals to false\n    Return state.\n  If verify_record_integrity(record) equals to false\n    Let msg be \"Hash integrity failed at record \" plus record.record_number.\n    Return ChainState with is_valid set to false, records_count set to state.records_count plus 1, broken_index set to record.record_number, reason set to msg, last_hash set to state.last_hash.\n  If verify_chain_link(record, state.last_hash) equals to false\n    Let linkMsg be \"Chain link broken at record \" plus record.record_number.\n    Return ChainState with is_valid set to false, records_count set to state.records_count plus 1, broken_index set to record.record_number, reason set to linkMsg, last_hash set to state.last_hash.\n  Return ChainState with is_valid set to True, records_count set to state.records_count plus 1, broken_index set to 0, reason set to \"\", last_hash set to record.current_hash.\n\n# 验证三条记录的链（简化版，避免使用 List.reduce）\nRule verify_three_records given r1 as AuditRecord, r2 as AuditRecord, r3 as AuditRecord, produce. It performs cpu:\n  Let 0 be ChainState with is_valid set to True, records_count set to 0, broken_index set to 0, reason set to \"\", last_hash set to \"\".\n  Let s1 be verify_one_record(s0, r1).\n  Let s2 be verify_one_record(s1, r2).\n  Let s3 be verify_one_record(s2, r3).\n  Return ChainVerificationResult with is_valid set to s3.is_valid, records_count set to s3.records_count, broken_index set to s3.broken_index, reason set to s3.reason.\n\n# 验证两条记录的链（简化版，避免使用 List.reduce）\nRule verify_two_records given r1 as AuditRecord, r2 as AuditRecord, produce. It performs cpu:\n  Let s0 be ChainState with is_valid set to True, records_count set to 0, broken_index set to 0, reason set to \"\", last_hash set to \"\".\n  Let s1 be verify_one_record(s0, r1).\n  Let s2 be verify_one_record(s1, r2).\n  Return ChainVerificationResult with is_valid set to s2.is_valid, records_count set to s2.records_count, broken_index set to s2.broken_index, reason set to s2.reason.\n\n# 验证审计链完整性（SOC2 CC7.2）- 简化版验证单条\nRule verify_audit_chain given record as AuditRecord, produce. It performs cpu:\n  Let s0 be ChainState with is_valid set to True, records_count set to 0, broken_index set to 0, reason set to \"\", last_hash set to \"\".\n  Let s1 be verify_one_record(s0, record).\n  Return ChainVerificationResult with is_valid set to s1.is_valid, records_count set to s1.records_count, broken_index set to s1.broken_index, reason set to s1.reason.\n\n# 生成 SOC2 合规报告\nRule generate_soc2_report given tenant_id as Text, verification as ChainVerificationResult, produce:\n  If verification.is_valid\n    Return \"SOC2 CC7.2 PASSED: Audit chain verified for tenant \" plus tenant_id plus \". Records checked: \" plus verification.records_count.\n  Otherwise\n    Return \"SOC2 CC7.2 FAILED: Audit chain broken at record \" plus verification.broken_index plus \". Reason: \" plus verification.reason.\n\n# 创建 Genesis 记录\n# @cpu 通过 compute_hash 间接传播\nRule create_genesis_record given tenant_id as Text, produce. It performs cpu:\n  Let record be AuditRecord with record_number set to 1, tenant_id set to tenant_id, event_type set to \"POLICY_EXECUTED\", timestamp set to \"2025-11-27T10:00:00Z\", policy_module set to \"examples.compliance\", policy_function set to \"verify_audit_chain\", success set to True, prev_hash set to \"\", current_hash set to \"\".\n  Let hash be compute_hash(record).\n  Return AuditRecord with record_number set to record.record_number, tenant_id set to record.tenant_id, event_type set to record.event_type, timestamp set to record.timestamp, policy_module set to record.policy_module, policy_function set to record.policy_function, success set to record.success, prev_hash set to \"\", current_hash set to hash.\n\n# 追加审计记录\n# @cpu 通过 compute_hash 间接传播\nRule append_audit_record given prev as AuditRecord, event_type as Text, policy_func as Text, success as Bool, produce. It performs cpu:\n  Let record be AuditRecord with record_number set to prev.record_number plus 1, tenant_id set to prev.tenant_id, event_type set to event_type, timestamp set to \"2025-11-27T10:01:00Z\", policy_module set to \"examples.compliance\", policy_function set to policy_func, success set to success, prev_hash set to prev.current_hash, current_hash set to \"\".\n  Let hash be compute_hash(record).\n  Return AuditRecord with record_number set to record.record_number, tenant_id set to record.tenant_id, event_type set to record.event_type, timestamp set to record.timestamp, policy_module set to record.policy_module, policy_function set to record.policy_function, success set to record.success, prev_hash set to record.prev_hash, current_hash set to hash.\n\n# 示例：验证有效链\nRule demo_valid_chain, produce. It performs cpu:\n  Let genesis be create_genesis_record(\"tenant-001\").\n  Let record2 be append_audit_record(genesis, \"DATA_ACCESS\", \"get_patient\", True).\n  Let record3 be append_audit_record(record2, \"DATA_MODIFY\", \"update_record\", True).\n  Return verify_three_records(genesis, record2, record3).\n\n# 示例：检测篡改链\nRule demo_tampered_chain, produce. It performs cpu:\n  Let genesis be create_genesis_record(\"tenant-001\").\n  Let record2 be append_audit_record(genesis, \"DATA_ACCESS\", \"get_patient\", True).\n  Let tampered_record2 be AuditRecord with record_number set to record2.record_number, tenant_id set to record2.tenant_id, event_type set to record2.event_type, timestamp set to record2.timestamp, policy_module set to record2.policy_module, policy_function set to record2.policy_function, success set to record2.success, prev_hash set to \"tampered_hash_value\", current_hash set to record2.current_hash.\n  Return verify_two_records(genesis, tampered_record2).\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 65,
+          "column": 7,
+          "params": {
+            "token": "'0'"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 65,
+          "column": 9,
+          "params": {
+            "before": "kw.be",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 65,
+          "column": 12,
+          "params": {
+            "before": "'ChainState'",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/soc2-audit-demo.aster/2/del|true|Cap",
+      "source": "# ========================================\n# SOC2 Compliance Demo: Audit Trail Verification\n# CC7.2 - System Operations Monitoring\n# ========================================\n\nModule examples.compliance.soc2_audit_demo.\n\n# 审计记录结构（防篡改哈希链）\nDefine AuditRecord has\n  record_number,\n  tenant_id,\n  event_type,\n  timestamp as Text,\n  policy_module,\n  policy_function,\n  success,\n  prev_hash,\n  current_hash.\n\nDefine ChainVerificationResult has\n  is_valid,\n  records_count,\n  broken_index,\n  reason.\n\nDefine ChainState has\n  is_valid,\n  records_count,\n  broken_index,\n  reason,\n  last_hash.\n\n# 计算审计记录哈希\n# @cpu 因为调用 Crypto.hash 属于 CPU 类能力（本地哈希计算）\nRule compute_hash given record as AuditRecord, produce. It performs cpu:\n  Let content be record.prev_hash plus record.event_type plus record.timestamp plus record.tenant_id plus record.policy_module plus record.policy_function plus record.success.\n  Return Crypto.hash(content, \"SHA-256\").\n\n# 验证单条记录完整性\n# @cpu 通过 compute_hash 间接传播\nRule verify_record_integrity given record as AuditRecord, produce. It performs cpu:\n  Let expected be compute_hash(record).\n  Return expected equals to record.current_hash.\n\n# 验证链接\nRule verify_chain_link given record as AuditRecord, expected_prev_hash as Text, produce:\n  If expected_prev_hash equals to \"\"\n    Return record.prev_hash equals to \"\".\n  Return record.prev_hash equals to expected_prev_hash.\n\n# 验证单条记录并更新链状态\nRule verify_one_record given state as ChainState, record as AuditRecord, produce. It performs cpu:\n  If state.is_valid equals to false\n    Return state.\n  If verify_record_integrity(record) equals to false\n    Let msg be \"Hash integrity failed at record \" plus record.record_number.\n    Return ChainState with is_valid set to false, records_count set to state.records_count plus 1, broken_index set to record.record_number, reason set to msg, last_hash set to state.last_hash.\n  If verify_chain_link(record, state.last_hash) equals to false\n    Let linkMsg be \"Chain link broken at record \" plus record.record_number.\n    Return ChainState with is_valid set to false, records_count set to state.records_count plus 1, broken_index set to record.record_number, reason set to linkMsg, last_hash set to state.last_hash.\n  Return ChainState with is_valid set to True, records_count set to state.records_count plus 1, broken_index set to 0, reason set to \"\", last_hash set to record.current_hash.\n\n# 验证三条记录的链（简化版，避免使用 List.reduce）\nRule verify_three_records given r1 as AuditRecord, r2 as AuditRecord, r3 as AuditRecord, produce. It performs cpu:\n  Let s0 be ChainState with is_valid set to True,  set to 0, broken_index set to 0, reason set to \"\", last_hash set to \"\".\n  Let s1 be verify_one_record(s0, r1).\n  Let s2 be verify_one_record(s1, r2).\n  Let s3 be verify_one_record(s2, r3).\n  Return ChainVerificationResult with is_valid set to s3.is_valid, records_count set to s3.records_count, broken_index set to s3.broken_index, reason set to s3.reason.\n\n# 验证两条记录的链（简化版，避免使用 List.reduce）\nRule verify_two_records given r1 as AuditRecord, r2 as AuditRecord, produce. It performs cpu:\n  Let s0 be ChainState with is_valid set to True, records_count set to 0, broken_index set to 0, reason set to \"\", last_hash set to \"\".\n  Let s1 be verify_one_record(s0, r1).\n  Let s2 be verify_one_record(s1, r2).\n  Return ChainVerificationResult with is_valid set to s2.is_valid, records_count set to s2.records_count, broken_index set to s2.broken_index, reason set to s2.reason.\n\n# 验证审计链完整性（SOC2 CC7.2）- 简化版验证单条\nRule verify_audit_chain given record as AuditRecord, produce. It performs cpu:\n  Let s0 be ChainState with is_valid set to True, records_count set to 0, broken_index set to 0, reason set to \"\", last_hash set to \"\".\n  Let s1 be verify_one_record(s0, record).\n  Return ChainVerificationResult with is_valid set to s1.is_valid, records_count set to s1.records_count, broken_index set to s1.broken_index, reason set to s1.reason.\n\n# 生成 SOC2 合规报告\nRule generate_soc2_report given tenant_id as Text, verification as ChainVerificationResult, produce:\n  If verification.is_valid\n    Return \"SOC2 CC7.2 PASSED: Audit chain verified for tenant \" plus tenant_id plus \". Records checked: \" plus verification.records_count.\n  Otherwise\n    Return \"SOC2 CC7.2 FAILED: Audit chain broken at record \" plus verification.broken_index plus \". Reason: \" plus verification.reason.\n\n# 创建 Genesis 记录\n# @cpu 通过 compute_hash 间接传播\nRule create_genesis_record given tenant_id as Text, produce. It performs cpu:\n  Let record be AuditRecord with record_number set to 1, tenant_id set to tenant_id, event_type set to \"POLICY_EXECUTED\", timestamp set to \"2025-11-27T10:00:00Z\", policy_module set to \"examples.compliance\", policy_function set to \"verify_audit_chain\", success set to True, prev_hash set to \"\", current_hash set to \"\".\n  Let hash be compute_hash(record).\n  Return AuditRecord with record_number set to record.record_number, tenant_id set to record.tenant_id, event_type set to record.event_type, timestamp set to record.timestamp, policy_module set to record.policy_module, policy_function set to record.policy_function, success set to record.success, prev_hash set to \"\", current_hash set to hash.\n\n# 追加审计记录\n# @cpu 通过 compute_hash 间接传播\nRule append_audit_record given prev as AuditRecord, event_type as Text, policy_func as Text, success as Bool, produce. It performs cpu:\n  Let record be AuditRecord with record_number set to prev.record_number plus 1, tenant_id set to prev.tenant_id, event_type set to event_type, timestamp set to \"2025-11-27T10:01:00Z\", policy_module set to \"examples.compliance\", policy_function set to policy_func, success set to success, prev_hash set to prev.current_hash, current_hash set to \"\".\n  Let hash be compute_hash(record).\n  Return AuditRecord with record_number set to record.record_number, tenant_id set to record.tenant_id, event_type set to record.event_type, timestamp set to record.timestamp, policy_module set to record.policy_module, policy_function set to record.policy_function, success set to record.success, prev_hash set to record.prev_hash, current_hash set to hash.\n\n# 示例：验证有效链\nRule demo_valid_chain, produce. It performs cpu:\n  Let genesis be create_genesis_record(\"tenant-001\").\n  Let record2 be append_audit_record(genesis, \"DATA_ACCESS\", \"get_patient\", True).\n  Let record3 be append_audit_record(record2, \"DATA_MODIFY\", \"update_record\", True).\n  Return verify_three_records(genesis, record2, record3).\n\n# 示例：检测篡改链\nRule demo_tampered_chain, produce. It performs cpu:\n  Let genesis be create_genesis_record(\"tenant-001\").\n  Let record2 be append_audit_record(genesis, \"DATA_ACCESS\", \"get_patient\", True).\n  Let tampered_record2 be AuditRecord with record_number set to record2.record_number, tenant_id set to record2.tenant_id, event_type set to record2.event_type, timestamp set to record2.timestamp, policy_module set to record2.policy_module, policy_function set to record2.policy_function, success set to record2.success, prev_hash set to \"tampered_hash_value\", current_hash set to record2.current_hash.\n  Return verify_two_records(genesis, tampered_record2).\n",
+      "diagnostics": [
+        {
+          "code": "E057",
+          "line": 65,
+          "column": 51,
+          "params": {
+            "context": "token.construction",
+            "token": "kw.set"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/soc2-audit-demo.aster/2/del|true|lf",
+      "source": "# ========================================\n# SOC2 Compliance Demo: Audit Trail Verification\n# CC7.2 - System Operations Monitoring\n# ========================================\n\nModule examples.compliance.soc2_audit_demo.\n\n# 审计记录结构（防篡改哈希链）\nDefine AuditRecord has\n  record_number,\n  tenant_id,\n  event_type,\n  timestamp as Text,\n  policy_module,\n  policy_function,\n  success,\n  prev_hash,\n  current_hash.\n\nDefine ChainVerificationResult has\n  is_valid,\n  records_count,\n  broken_index,\n  reason.\n\nDefine ChainState has\n  is_valid,\n  records_count,\n  broken_index,\n  reason,\n  last_hash.\n\n# 计算审计记录哈希\n# @cpu 因为调用 Crypto.hash 属于 CPU 类能力（本地哈希计算）\nRule compute_hash given record as AuditRecord, produce. It performs cpu:\n  Let content be record.prev_hash plus record.event_type plus record.timestamp plus record.tenant_id plus record.policy_module plus record.policy_function plus record.success.\n  Return Crypto.hash(content, \"SHA-256\").\n\n# 验证单条记录完整性\n# @cpu 通过 compute_hash 间接传播\nRule verify_record_integrity given record as AuditRecord, produce. It performs cpu:\n  Let expected be compute_hash(record).\n  Return expected equals to record.current_hash.\n\n# 验证链接\nRule verify_chain_link given record as AuditRecord, expected_prev_hash as Text, produce:\n  If expected_prev_hash equals to \"\"\n    Return record.prev_hash equals to \"\".\n  Return record.prev_hash equals to expected_prev_hash.\n\n# 验证单条记录并更新链状态\nRule verify_one_record given state as ChainState, record as AuditRecord, produce. It performs cpu:\n  If state.is_valid equals to false\n    Return state.\n  If verify_record_integrity(record) equals to false\n    Let msg be \"Hash integrity failed at record \" plus record.record_number.\n    Return ChainState with is_valid set to false, records_count set to state.records_count plus 1, broken_index set to record.record_number, reason set to msg, last_hash set to state.last_hash.\n  If verify_chain_link(record, state.last_hash) equals to false\n    Let linkMsg be \"Chain link broken at record \" plus record.record_number.\n    Return ChainState with is_valid set to false, records_count set to state.records_count plus 1, broken_index set to record.record_number, reason set to linkMsg, last_hash set to state.last_hash.\n  Return ChainState with is_valid set to tRUE, records_count set to state.records_count plus 1, broken_index set to 0, reason set to \"\", last_hash set to record.current_hash.\n\n# 验证三条记录的链（简化版，避免使用 List.reduce）\nRule verify_three_records given r1 as AuditRecord, r2 as AuditRecord, r3 as AuditRecord, produce. It performs cpu:\n  Let s0 be ChainState with is_valid set to tRUE,  set to 0, broken_index set to 0, reason set to \"\", last_hash set to \"\".\n  Let s1 be verify_one_record(s0, r1).\n  Let s2 be verify_one_record(s1, r2).\n  Let s3 be verify_one_record(s2, r3).\n  Return ChainVerificationResult with is_valid set to s3.is_valid, records_count set to s3.records_count, broken_index set to s3.broken_index, reason set to s3.reason.\n\n# 验证两条记录的链（简化版，避免使用 List.reduce）\nRule verify_two_records given r1 as AuditRecord, r2 as AuditRecord, produce. It performs cpu:\n  Let s0 be ChainState with is_valid set to tRUE, records_count set to 0, broken_index set to 0, reason set to \"\", last_hash set to \"\".\n  Let s1 be verify_one_record(s0, r1).\n  Let s2 be verify_one_record(s1, r2).\n  Return ChainVerificationResult with is_valid set to s2.is_valid, records_count set to s2.records_count, broken_index set to s2.broken_index, reason set to s2.reason.\n\n# 验证审计链完整性（SOC2 CC7.2）- 简化版验证单条\nRule verify_audit_chain given record as AuditRecord, produce. It performs cpu:\n  Let s0 be ChainState with is_valid set to tRUE, records_count set to 0, broken_index set to 0, reason set to \"\", last_hash set to \"\".\n  Let s1 be verify_one_record(s0, record).\n  Return ChainVerificationResult with is_valid set to s1.is_valid, records_count set to s1.records_count, broken_index set to s1.broken_index, reason set to s1.reason.\n\n# 生成 SOC2 合规报告\nRule generate_soc2_report given tenant_id as Text, verification as ChainVerificationResult, produce:\n  If verification.is_valid\n    Return \"SOC2 CC7.2 PASSED: Audit chain verified for tenant \" plus tenant_id plus \". Records checked: \" plus verification.records_count.\n  Otherwise\n    Return \"SOC2 CC7.2 FAILED: Audit chain broken at record \" plus verification.broken_index plus \". Reason: \" plus verification.reason.\n\n# 创建 Genesis 记录\n# @cpu 通过 compute_hash 间接传播\nRule create_genesis_record given tenant_id as Text, produce. It performs cpu:\n  Let record be AuditRecord with record_number set to 1, tenant_id set to tenant_id, event_type set to \"POLICY_EXECUTED\", timestamp set to \"2025-11-27T10:00:00Z\", policy_module set to \"examples.compliance\", policy_function set to \"verify_audit_chain\", success set to tRUE, prev_hash set to \"\", current_hash set to \"\".\n  Let hash be compute_hash(record).\n  Return AuditRecord with record_number set to record.record_number, tenant_id set to record.tenant_id, event_type set to record.event_type, timestamp set to record.timestamp, policy_module set to record.policy_module, policy_function set to record.policy_function, success set to record.success, prev_hash set to \"\", current_hash set to hash.\n\n# 追加审计记录\n# @cpu 通过 compute_hash 间接传播\nRule append_audit_record given prev as AuditRecord, event_type as Text, policy_func as Text, success as Bool, produce. It performs cpu:\n  Let record be AuditRecord with record_number set to prev.record_number plus 1, tenant_id set to prev.tenant_id, event_type set to event_type, timestamp set to \"2025-11-27T10:01:00Z\", policy_module set to \"examples.compliance\", policy_function set to policy_func, success set to success, prev_hash set to prev.current_hash, current_hash set to \"\".\n  Let hash be compute_hash(record).\n  Return AuditRecord with record_number set to record.record_number, tenant_id set to record.tenant_id, event_type set to record.event_type, timestamp set to record.timestamp, policy_module set to record.policy_module, policy_function set to record.policy_function, success set to record.success, prev_hash set to record.prev_hash, current_hash set to hash.\n\n# 示例：验证有效链\nRule demo_valid_chain, produce. It performs cpu:\n  Let genesis be create_genesis_record(\"tenant-001\").\n  Let record2 be append_audit_record(genesis, \"DATA_ACCESS\", \"get_patient\", tRUE).\n  Let record3 be append_audit_record(record2, \"DATA_MODIFY\", \"update_record\", tRUE).\n  Return verify_three_records(genesis, record2, record3).\n\n# 示例：检测篡改链\nRule demo_tampered_chain, produce. It performs cpu:\n  Let genesis be create_genesis_record(\"tenant-001\").\n  Let record2 be append_audit_record(genesis, \"DATA_ACCESS\", \"get_patient\", tRUE).\n  Let tampered_record2 be AuditRecord with record_number set to record2.record_number, tenant_id set to record2.tenant_id, event_type set to record2.event_type, timestamp set to record2.timestamp, policy_module set to record2.policy_module, policy_function set to record2.policy_function, success set to record2.success, prev_hash set to \"tampered_hash_value\", current_hash set to record2.current_hash.\n  Return verify_two_records(genesis, tampered_record2).\n",
+      "diagnostics": [
+        {
+          "code": "E057",
+          "line": 65,
+          "column": 51,
+          "params": {
+            "context": "token.construction",
+            "token": "kw.set"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_all_comparisons.aster/3/ins|under|Cap",
+      "source": "Module test.allcomparisons.\n\nRule testFirst given x as Text, y as Text, produce Text:\n  Let result be Under x.\n  Return result.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 4,
+          "column": 24,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_arithmetic.aster/4/ins|under|UP",
+      "source": "UNDER Module test.arithmetic.\n\nRule testAdd given x, y, produce:\n  Return x plus y.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 1,
+          "column": 7,
+          "params": {
+            "token": "kw.module"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_claims.aster/1/del|true|Cap",
+      "source": "Module test.healthcare.claims.\n\n# 合成示例策略——数值取自公开权威来源（2026-08 检索），非真实保险产品条款。\n#   · 网内/网外：KFF《ACA Marketplace 2024 拒付分析》网内拒付 19%、网外 37%\n#   · coinsurance 80%：KFF 2025 雇主健康福利调查（住院 20% coinsurance）\n#   · 提供者质量评分沿用 CMS Medicare Advantage Star Ratings 的 1-5 星量纲。\n#     ★但**拒付门槛是本策略自设的 `< 3`（3.0 星通过），不是 CMS 的 3.5 星\n#     质量奖金线**——奖金线决定的是「计划能否拿奖金」，与「理赔是否受理」\n#     是两回事，不可混为一谈。此处只借量纲，门槛值无权威出处。\n#   · 预授权金额阈值 1000：★KFF 明示预授权按服务类型而非金额触发，\n#     此阈值是为让样本可执行而做的工程简化，无权威出处。\n#   · 拒付理由枚举参考 KFF 2024 六分类（缺预授权/转诊占 9%）\n#   · ★`divided by` 是**真除法**（非取整）：金额不整除时会产生小数\n#     （如 333×80% = 266.4）。这是金额该有的语义（有分位），故保留；\n#     但既有 case 全都恰好整除属**侥幸**，一旦有人加个不整除的金额，\n#     golden 就会是浮点数。testCalculateClaimApprovalFractional 专门\n#     钉住这条路径，让「会产生小数」成为被断言的性质而非意外。\n#   · ★自动裁定金额上限 $100,000：**无权威出处**。KFF 只统计「高额理赔\n#     （>$10万/年）占成员 1.2%、占支出约 33%」（全国医保采购联盟 2024），\n#     那是**年度累计**口径，不是单笔自动裁定阈值。此处借其量级设为单笔阈值，\n#     属工程取值。\n#   · ★专科/手术各降 5/10 个百分点：**无权威出处**。KFF 按服务类型统计的\n#     coinsurance（初级保健 19%、专科 19%、住院 20%）**并未**显示专科比初级\n#     保健报销更低——实测两者都是 19%。此处的递减是为制造可区分的分支，\n#     不反映真实报销结构。\n\nDefine Claim has claimId, patientId, providerId, serviceDate, amount, diagnosisCode.\n\nDefine Provider has providerId, inNetwork, specialtyType, qualityScore.\n\nDefine ClaimDecision has approved, reason, approvedAmount, denialCode, requiresReview.\n\nRule calculateClaimApproval given claimAmount, coverage, specialty, produce:\n  If specialty equals to \"surgery\"\n    Return (claimAmount times (coverage minus 10)) divided by 100.\n  If specialty equals to \"specialist\"\n    Return (claimAmount times (coverage minus 5)) divided by 100.\n  Return (claimAmount times coverage) divided by 100.\nRule validateClaimDocumentation given claim, hasPreAuth, hasReferral, produce:\n  If claim.amount at least 1000\n    If hasPreAuth equals to false\n      Return false.\n  If hasReferral equals to false\n    Return false.\n  Return True.\nRule processClaim given claim, provider, patientCoverage, produce:\n  If provider.inNetwork equals to false\n    Return ClaimDecision with approved set to false, reason set to \"Out-of-network provider\", approvedAmount set to 0, denialCode set to \"OON\", requiresReview set to True.\n  If claim.amount at least 100000\n    Return ClaimDecision with approved set to false, reason set to \"Amount exceeds automatic adjudication limit\", approvedAmount set to 0, denialCode set to \"LIMIT\", requiresReview set to True.\n  If provider.qualityScore less than 3\n    Return ClaimDecision with approved set to false, reason set to \"Provider below quality threshold\", denialCode set to \"QUALITY\", approvedAmount set to 0, requiresReview set to True.\n  Let paid be calculateClaimApproval(claim.amount, patientCoverage, provider.specialtyType).\n  Return ClaimDecision with approved set to True, reason set to \"Approved\", approvedAmount set to paid, denialCode set to \"NONE\", requiresReview set to false.\nRule testOutOfNetworkProvider, produce:\n  Let claim be Claim with claimId set to \"C1\", patientId set to \"P1\", providerId set to \"PR1\", serviceDate set to \"2026-01-15\", amount set to 500, diagnosisCode set to \"J06\".\n  Let provider be Provider with providerId set to \"PR1\", inNetwork set to false, specialtyType set to \"general\", qualityScore set to 4.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.denialCode.\nRule testAmountExceedsLimit, produce:\n  Let claim be Claim with claimId set to \"C2\", patientId set to \"P1\", providerId set to \"PR2\", serviceDate set to \"2026-01-15\", amount set to 120000, diagnosisCode set to \"I21\".\n  Let provider be Provider with providerId set to \"PR2\", inNetwork set to True, specialtyType set to \"surgery\", qualityScore set to 5.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.denialCode.\nRule testLowQualityProvider, produce:\n  Let claim be Claim with claimId set to \"C3\", patientId set to \"P1\", providerId set to \"PR3\", serviceDate set to \"2026-01-15\", amount set to 500, diagnosisCode set to \"J06\".\n  Let provider be Provider with providerId set to \"PR3\", inNetwork set to True, specialtyType set to \"general\", qualityScore set to 2.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.denialCode.\nRule testGeneralProviderNormalClaim, produce:\n  Let claim be Claim with claimId set to \"C4\", patientId set to \"P1\", providerId set to \"PR4\", serviceDate set to \"2026-01-15\", amount set to 500, diagnosisCode set to \"J06\".\n  Let provider be Provider with providerId set to \"PR4\", inNetwork set to True, specialtyType set to \"general\", qualityScore set to 4.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.approvedAmount.\nRule testSpecialistProvider, produce:\n  Let claim be Claim with claimId set to \"C5\", patientId set to \"P1\", providerId set to \"PR5\", serviceDate set to \"2026-01-15\", amount set to 500, diagnosisCode set to \"M54\".\n  Let provider be Provider with providerId set to \"PR5\", inNetwork set to True, specialtyType set to \"specialist\", qualityScore set to 4.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.approvedAmount.\nRule testSurgeryProvider, produce:\n  Let claim be Claim with claimId set to \"C6\", patientId set to \"P1\", providerId set to \"PR6\", serviceDate set to \"2026-01-15\", amount set to 500, diagnosisCode set to \"K35\".\n  Let provider be Provider with providerId set to \"PR6\", inNetwork set to True, specialtyType set to \"surgery\", qualityScore set to 5.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.approvedAmount.\nRule testHighAmountInNetworkClaim, produce:\n  Let claim be Claim with claimId set to \"C7\", patientId set to \"P1\", providerId set to \"PR7\", serviceDate set to \"2026-01-15\", amount set to 99000, diagnosisCode set to \"K35\".\n  Let provider be Provider with providerId set to \"PR7\",  set to True, specialtyType set to \"surgery\", qualityScore set to 5.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.approvedAmount.\nRule testMinimalAmountClaim, produce:\n  Let claim be Claim with claimId set to \"C8\", patientId set to \"P1\", providerId set to \"PR8\", serviceDate set to \"2026-01-15\", amount set to 100, diagnosisCode set to \"Z00\".\n  Let provider be Provider with providerId set to \"PR8\", inNetwork set to True, specialtyType set to \"general\", qualityScore set to 4.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.approvedAmount.\nRule testValidDocumentationWithPreAuth, produce:\n  Let claim be Claim with claimId set to \"C9\", patientId set to \"P1\", providerId set to \"PR9\", serviceDate set to \"2026-01-15\", amount set to 5000, diagnosisCode set to \"K35\".\n  Return validateClaimDocumentation(claim, True, True).\nRule testInvalidDocumentationNoPreAuth, produce:\n  Let claim be Claim with claimId set to \"C10\", patientId set to \"P1\", providerId set to \"PR10\", serviceDate set to \"2026-01-15\", amount set to 5000, diagnosisCode set to \"K35\".\n  Return validateClaimDocumentation(claim, false, True).\nRule testInvalidDocumentationNoReferral, produce:\n  Let claim be Claim with claimId set to \"C11\", patientId set to \"P1\", providerId set to \"PR11\", serviceDate set to \"2026-01-15\", amount set to 5000, diagnosisCode set to \"K35\".\n  Return validateClaimDocumentation(claim, True, false).\nRule testLowAmountNoPreAuthRequired, produce:\n  Let claim be Claim with claimId set to \"C12\", patientId set to \"P1\", providerId set to \"PR12\", serviceDate set to \"2026-01-15\", amount set to 200, diagnosisCode set to \"Z00\".\n  Return validateClaimDocumentation(claim, false, True).\nRule testCalculateClaimApprovalFractional, produce:\n  Return calculateClaimApproval(333, 80, \"general\").\nRule testCalculateClaimApprovalGeneral, produce:\n  Return calculateClaimApproval(1000, 80, \"general\").\nRule testCalculateClaimApprovalSpecialist, produce:\n  Return calculateClaimApproval(1000, 80, \"specialist\").\nRule testCalculateClaimApprovalSurgery, produce:\n  Return calculateClaimApproval(1000, 80, \"surgery\").\n",
+      "diagnostics": [
+        {
+          "code": "E057",
+          "line": 87,
+          "column": 58,
+          "params": {
+            "context": "token.construction",
+            "token": "kw.set"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_claims.aster/1/del|true|UP",
+      "source": "Module test.healthcare.claims.\n\n# 合成示例策略——数值取自公开权威来源（2026-08 检索），非真实保险产品条款。\n#   · 网内/网外：KFF《ACA Marketplace 2024 拒付分析》网内拒付 19%、网外 37%\n#   · coinsurance 80%：KFF 2025 雇主健康福利调查（住院 20% coinsurance）\n#   · 提供者质量评分沿用 CMS Medicare Advantage Star Ratings 的 1-5 星量纲。\n#     ★但**拒付门槛是本策略自设的 `< 3`（3.0 星通过），不是 CMS 的 3.5 星\n#     质量奖金线**——奖金线决定的是「计划能否拿奖金」，与「理赔是否受理」\n#     是两回事，不可混为一谈。此处只借量纲，门槛值无权威出处。\n#   · 预授权金额阈值 1000：★KFF 明示预授权按服务类型而非金额触发，\n#     此阈值是为让样本可执行而做的工程简化，无权威出处。\n#   · 拒付理由枚举参考 KFF 2024 六分类（缺预授权/转诊占 9%）\n#   · ★`divided by` 是**真除法**（非取整）：金额不整除时会产生小数\n#     （如 333×80% = 266.4）。这是金额该有的语义（有分位），故保留；\n#     但既有 case 全都恰好整除属**侥幸**，一旦有人加个不整除的金额，\n#     golden 就会是浮点数。testCalculateClaimApprovalFractional 专门\n#     钉住这条路径，让「会产生小数」成为被断言的性质而非意外。\n#   · ★自动裁定金额上限 $100,000：**无权威出处**。KFF 只统计「高额理赔\n#     （>$10万/年）占成员 1.2%、占支出约 33%」（全国医保采购联盟 2024），\n#     那是**年度累计**口径，不是单笔自动裁定阈值。此处借其量级设为单笔阈值，\n#     属工程取值。\n#   · ★专科/手术各降 5/10 个百分点：**无权威出处**。KFF 按服务类型统计的\n#     coinsurance（初级保健 19%、专科 19%、住院 20%）**并未**显示专科比初级\n#     保健报销更低——实测两者都是 19%。此处的递减是为制造可区分的分支，\n#     不反映真实报销结构。\n\nDefine Claim has claimId, patientId, providerId, serviceDate, amount, diagnosisCode.\n\nDefine Provider has providerId, inNetwork, specialtyType, qualityScore.\n\nDefine ClaimDecision has approved, reason, approvedAmount, denialCode, requiresReview.\n\nRule calculateClaimApproval given claimAmount, coverage, specialty, produce:\n  If specialty equals to \"surgery\"\n    Return (claimAmount times (coverage minus 10)) divided by 100.\n  If specialty equals to \"specialist\"\n    Return (claimAmount times (coverage minus 5)) divided by 100.\n  Return (claimAmount times coverage) divided by 100.\nRule validateClaimDocumentation given claim, hasPreAuth, hasReferral, produce:\n  If claim.amount at least 1000\n    If hasPreAuth equals to false\n      Return false.\n  If hasReferral equals to false\n    Return false.\n  Return TRUE.\nRule processClaim given claim, provider, patientCoverage, produce:\n  If provider.inNetwork equals to false\n    Return ClaimDecision with approved set to false, reason set to \"Out-of-network provider\", approvedAmount set to 0, denialCode set to \"OON\", requiresReview set to TRUE.\n  If claim.amount at least 100000\n    Return ClaimDecision with approved set to false, reason set to \"Amount exceeds automatic adjudication limit\", approvedAmount set to 0, denialCode set to \"LIMIT\", requiresReview set to TRUE.\n  If provider.qualityScore less than 3\n    Return ClaimDecision with approved set to false, reason set to \"Provider below quality threshold\", denialCode set to \"QUALITY\", approvedAmount set to 0, requiresReview set to TRUE.\n  Let paid be calculateClaimApproval(claim.amount, patientCoverage, provider.specialtyType).\n  Return ClaimDecision with approved set to TRUE, reason set to \"Approved\", approvedAmount set to paid, denialCode set to \"NONE\", requiresReview set to false.\nRule testOutOfNetworkProvider, produce:\n  Let claim be Claim with claimId set to \"C1\", patientId set to \"P1\", providerId set to \"PR1\", serviceDate set to \"2026-01-15\", amount set to 500, diagnosisCode set to \"J06\".\n  Let provider be Provider with providerId set to \"PR1\", inNetwork set to false, specialtyType set to \"general\", qualityScore set to 4.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.denialCode.\nRule testAmountExceedsLimit, produce:\n  Let claim be Claim with claimId set to \"C2\", patientId set to \"P1\", providerId set to \"PR2\", serviceDate set to \"2026-01-15\", amount set to 120000, diagnosisCode set to \"I21\".\n  Let provider be Provider with providerId set to \"PR2\", inNetwork set to TRUE, specialtyType set to \"surgery\", qualityScore set to 5.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.denialCode.\nRule testLowQualityProvider, produce:\n  Let claim be Claim with claimId set to \"C3\", patientId set to \"P1\", providerId set to \"PR3\", serviceDate set to \"2026-01-15\", amount set to 500, diagnosisCode set to \"J06\".\n  Let provider be Provider with providerId set to \"PR3\", inNetwork set to TRUE, specialtyType set to \"general\", qualityScore set to 2.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.denialCode.\nRule testGeneralProviderNormalClaim, produce:\n  Let claim be Claim with claimId set to \"C4\", patientId set to \"P1\", providerId set to \"PR4\", serviceDate set to \"2026-01-15\", amount set to 500, diagnosisCode set to \"J06\".\n  Let provider be Provider with providerId set to \"PR4\", inNetwork set to TRUE, specialtyType set to \"general\", qualityScore set to 4.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.approvedAmount.\nRule testSpecialistProvider, produce:\n  Let claim be Claim with claimId set to \"C5\", patientId set to \"P1\", providerId set to \"PR5\", serviceDate set to \"2026-01-15\", amount set to 500, diagnosisCode set to \"M54\".\n  Let provider be Provider with providerId set to \"PR5\", inNetwork set to TRUE, specialtyType set to \"specialist\", qualityScore set to 4.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.approvedAmount.\nRule testSurgeryProvider, produce:\n  Let claim be Claim with claimId set to \"C6\", patientId set to \"P1\", providerId set to \"PR6\", serviceDate set to \"2026-01-15\", amount set to 500, diagnosisCode set to \"K35\".\n  Let provider be Provider with providerId set to \"PR6\", inNetwork set to TRUE, specialtyType set to \"surgery\", qualityScore set to 5.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.approvedAmount.\nRule testHighAmountInNetworkClaim, produce:\n  Let claim be Claim with claimId set to \"C7\", patientId set to \"P1\", providerId set to \"PR7\", serviceDate set to \"2026-01-15\", amount set to 99000, diagnosisCode set to \"K35\".\n  Let provider be Provider with providerId set to \"PR7\",  set to TRUE, specialtyType set to \"surgery\", qualityScore set to 5.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.approvedAmount.\nRule testMinimalAmountClaim, produce:\n  Let claim be Claim with claimId set to \"C8\", patientId set to \"P1\", providerId set to \"PR8\", serviceDate set to \"2026-01-15\", amount set to 100, diagnosisCode set to \"Z00\".\n  Let provider be Provider with providerId set to \"PR8\", inNetwork set to TRUE, specialtyType set to \"general\", qualityScore set to 4.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.approvedAmount.\nRule testValidDocumentationWithPreAuth, produce:\n  Let claim be Claim with claimId set to \"C9\", patientId set to \"P1\", providerId set to \"PR9\", serviceDate set to \"2026-01-15\", amount set to 5000, diagnosisCode set to \"K35\".\n  Return validateClaimDocumentation(claim, TRUE, TRUE).\nRule testInvalidDocumentationNoPreAuth, produce:\n  Let claim be Claim with claimId set to \"C10\", patientId set to \"P1\", providerId set to \"PR10\", serviceDate set to \"2026-01-15\", amount set to 5000, diagnosisCode set to \"K35\".\n  Return validateClaimDocumentation(claim, false, TRUE).\nRule testInvalidDocumentationNoReferral, produce:\n  Let claim be Claim with claimId set to \"C11\", patientId set to \"P1\", providerId set to \"PR11\", serviceDate set to \"2026-01-15\", amount set to 5000, diagnosisCode set to \"K35\".\n  Return validateClaimDocumentation(claim, TRUE, false).\nRule testLowAmountNoPreAuthRequired, produce:\n  Let claim be Claim with claimId set to \"C12\", patientId set to \"P1\", providerId set to \"PR12\", serviceDate set to \"2026-01-15\", amount set to 200, diagnosisCode set to \"Z00\".\n  Return validateClaimDocumentation(claim, false, TRUE).\nRule testCalculateClaimApprovalFractional, produce:\n  Return calculateClaimApproval(333, 80, \"general\").\nRule testCalculateClaimApprovalGeneral, produce:\n  Return calculateClaimApproval(1000, 80, \"general\").\nRule testCalculateClaimApprovalSpecialist, produce:\n  Return calculateClaimApproval(1000, 80, \"specialist\").\nRule testCalculateClaimApprovalSurgery, produce:\n  Return calculateClaimApproval(1000, 80, \"surgery\").\n",
+      "diagnostics": [
+        {
+          "code": "E057",
+          "line": 87,
+          "column": 58,
+          "params": {
+            "context": "token.construction",
+            "token": "kw.set"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_claims.aster/2/ins|true|lf",
+      "source": "Module test.healthcare.claims.\n\n# 合成示例策略——数值取自公开权威来源（2026-08 检索），非真实保险产品条款。\n#   · 网内/网外：KFF《ACA Marketplace 2024 拒付分析》网内拒付 19%、网外 37%\n#   · coinsurance 80%：KFF 2025 雇主健康福利调查（住院 20% coinsurance）\n#   · 提供者质量评分沿用 CMS Medicare Advantage Star Ratings 的 1-5 星量纲。\n#     ★但**拒付门槛是本策略自设的 `< 3`（3.0 星通过），不是 CMS 的 3.5 星\n#     质量奖金线**——奖金线决定的是「计划能否拿奖金」，与「理赔是否受理」\n#     是两回事，不可混为一谈。此处只借量纲，门槛值无权威出处。\n#   · 预授权金额阈值 1000：★KFF 明示预授权按服务类型而非金额触发，\n#     此阈值是为让样本可执行而做的工程简化，无权威出处。\n#   · 拒付理由枚举参考 KFF 2024 六分类（缺预授权/转诊占 9%）\n#   · ★`divided by` 是**真除法**（非取整）：金额不整除时会产生小数\n#     （如 333×80% = 266.4）。这是金额该有的语义（有分位），故保留；\n#     但既有 case 全都恰好整除属**侥幸**，一旦有人加个不整除的金额，\n#     golden 就会是浮点数。testCalculateClaimApprovalFractional 专门\n#     钉住这条路径，让「会产生小数」成为被断言的性质而非意外。\n#   · ★自动裁定金额上限 $100,000：**无权威出处**。KFF 只统计「高额理赔\n#     （>$10万/年）占成员 1.2%、占支出约 33%」（全国医保采购联盟 2024），\n#     那是**年度累计**口径，不是单笔自动裁定阈值。此处借其量级设为单笔阈值，\n#     属工程取值。\n#   · ★专科/手术各降 5/10 个百分点：**无权威出处**。KFF 按服务类型统计的\n#     coinsurance（初级保健 19%、专科 19%、住院 20%）**并未**显示专科比初级\n#     保健报销更低——实测两者都是 19%。此处的递减是为制造可区分的分支，\n#     不反映真实报销结构。\n\nDefine Claim has claimId, patientId, providerId, serviceDate, amount, diagnosisCode.\n\nDefine Provider has providerId, inNetwork, specialtyType, qualityScore.\n\nDefine ClaimDecision has approved, reason, approvedAmount, denialCode, requiresReview.\n\nRule calculateClaimApproval given claimAmount, coverage, specialty, produce:\n  If specialty equals to \"surgery\"\n    Return (claimAmount times (coverage minus 10)) divided by 100.\n  If specialty equals to \"specialist\"\n    Return (claimAmount times (coverage minus 5)) divided by 100.\n  Return (claimAmount times coverage) divided by 100.\nRule validateClaimDocumentation given claim, hasPreAuth, hasReferral, produce:\n  If claim.amount at least 1000\n    If hasPreAuth equals to false\n      Return false.\n  If hasReferral equals to false\n    Return false.\n  Return tRUE.\nRule processClaim given claim, provider, patientCoverage, produce:\n  If provider.inNetwork equals to false\n    Return ClaimDecision with approved set to false, reason set to \"Out-of-network provider\", approvedAmount set to 0, denialCode set to \"OON\", requiresReview set to tRUE.\n  If claim.amount at least 100000\n    Return ClaimDecision with approved set to false, reason set to \"Amount exceeds automatic adjudication limit\", approvedAmount set to 0, denialCode set to \"LIMIT\", requiresReview set to tRUE.\n  If provider.qualityScore less than 3\n    Return ClaimDecision with approved set to false, reason set to \"Provider below quality threshold\", denialCode set to \"QUALITY\", approvedAmount set to 0, requiresReview set to tRUE.\n  Let paid be calculateClaimApproval(claim.amount, patientCoverage, provider.specialtyType).\n  Return ClaimDecision with approved set to tRUE, reason set to \"Approved\", approvedAmount set to paid, denialCode set to \"NONE\", requiresReview set to false.\nRule testOutOfNetworkProvider, produce:\n  Let claim be Claim with claimId set to \"C1\", patientId set to \"P1\", providerId set to \"PR1\", serviceDate set to \"2026-01-15\", amount set to 500, diagnosisCode set to \"J06\".\n  Let provider be Provider with providerId set to \"PR1\", inNetwork set to false, specialtyType set to \"general\", qualityScore set to 4.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.denialCode.\nRule testAmountExceedsLimit, produce:\n  Let claim be Claim with claimId set to \"C2\", patientId set to \"P1\", providerId set to \"PR2\", serviceDate set to \"2026-01-15\", amount set to 120000, diagnosisCode set to \"I21\".\n  Let provider be Provider with providerId set to \"PR2\", inNetwork set to tRUE, specialtyType set to \"surgery\", qualityScore set to 5.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.denialCode.\nRule testLowQualityProvider, produce:\n  Let claim be Claim with claimId set to \"C3\", patientId set to \"P1\", providerId set to \"PR3\", serviceDate set to \"2026-01-15\", amount set to 500, diagnosisCode set to \"J06\".\n  Let provider be Provider with providerId set to \"PR3\", inNetwork set to tRUE, specialtyType set to \"general\", qualityScore set to 2.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.denialCode.\nRule testGeneralProviderNormalClaim, produce:\n  Let claim be Claim with claimId set to \"C4\", patientId set to \"P1\", providerId set to \"PR4\", serviceDate set to \"2026-01-15\", amount set to 500, diagnosisCode set to \"J06\".\n  Let provider be Provider with providerId set to \"PR4\", inNetwork set to tRUE, specialtyType set to \"general\", qualityScore set to 4.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.approvedAmount.\nRule testSpecialistProvider, produce:\n  Let claim be Claim with claimId set to \"C5\", patientId set to \"P1\", providerId set to \"PR5\", serviceDate set to \"2026-01-15\", amount set to 500, diagnosisCode set to \"M54\".\n  Let provider be Provider with providerId set to \"PR5\", inNetwork set to tRUE, specialtyType set to \"specialist\"it , qualityScore set to 4.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.approvedAmount.\nRule testSurgeryProvider, produce:\n  Let claim be Claim with claimId set to \"C6\", patientId set to \"P1\", providerId set to \"PR6\", serviceDate set to \"2026-01-15\", amount set to 500, diagnosisCode set to \"K35\".\n  Let provider be Provider with providerId set to \"PR6\", inNetwork set to tRUE, specialtyType set to \"surgery\", qualityScore set to 5.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.approvedAmount.\nRule testHighAmountInNetworkClaim, produce:\n  Let claim be Claim with claimId set to \"C7\", patientId set to \"P1\", providerId set to \"PR7\", serviceDate set to \"2026-01-15\", amount set to 99000, diagnosisCode set to \"K35\".\n  Let provider be Provider with providerId set to \"PR7\", inNetwork set to tRUE, specialtyType set to \"surgery\", qualityScore set to 5.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.approvedAmount.\nRule testMinimalAmountClaim, produce:\n  Let claim be Claim with claimId set to \"C8\", patientId set to \"P1\", providerId set to \"PR8\", serviceDate set to \"2026-01-15\", amount set to 100, diagnosisCode set to \"Z00\".\n  Let provider be Provider with providerId set to \"PR8\", inNetwork set to tRUE, specialtyType set to \"general\", qualityScore set to 4.\n  Let decision be processClaim(claim, provider, 80).\n  Return decision.approvedAmount.\nRule testValidDocumentationWithPreAuth, produce:\n  Let claim be Claim with claimId set to \"C9\", patientId set to \"P1\", providerId set to \"PR9\", serviceDate set to \"2026-01-15\", amount set to 5000, diagnosisCode set to \"K35\".\n  Return validateClaimDocumentation(claim, tRUE, tRUE).\nRule testInvalidDocumentationNoPreAuth, produce:\n  Let claim be Claim with claimId set to \"C10\", patientId set to \"P1\", providerId set to \"PR10\", serviceDate set to \"2026-01-15\", amount set to 5000, diagnosisCode set to \"K35\".\n  Return validateClaimDocumentation(claim, false, tRUE).\nRule testInvalidDocumentationNoReferral, produce:\n  Let claim be Claim with claimId set to \"C11\", patientId set to \"P1\", providerId set to \"PR11\", serviceDate set to \"2026-01-15\", amount set to 5000, diagnosisCode set to \"K35\".\n  Return validateClaimDocumentation(claim, tRUE, false).\nRule testLowAmountNoPreAuthRequired, produce:\n  Let claim be Claim with claimId set to \"C12\", patientId set to \"P1\", providerId set to \"PR12\", serviceDate set to \"2026-01-15\", amount set to 200, diagnosisCode set to \"Z00\".\n  Return validateClaimDocumentation(claim, false, tRUE).\nRule testCalculateClaimApprovalFractional, produce:\n  Return calculateClaimApproval(333, 80, \"general\").\nRule testCalculateClaimApprovalGeneral, produce:\n  Return calculateClaimApproval(1000, 80, \"general\").\nRule testCalculateClaimApprovalSpecialist, produce:\n  Return calculateClaimApproval(1000, 80, \"specialist\").\nRule testCalculateClaimApprovalSurgery, produce:\n  Return calculateClaimApproval(1000, 80, \"surgery\").\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 77,
+          "column": 116,
+          "params": {
+            "token": "','"
+          }
+        },
+        {
+          "code": "E063",
+          "line": 77,
+          "column": 116,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 77,
+          "column": 131,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 77,
+          "column": 135,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_copy.aster/0/rep|under|lf",
+      "source": "uNDER app.math.\n\nRule cmp given x, y, produce:\n  Return x less than y.\n\nRule add given x, y, produce:\n  Return x plus y.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 1,
+          "column": 1,
+          "params": {
+            "token": "'uNDER'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_division.aster/4/del|times|UP",
+      "source": "Module test.division.\n\nRule divide given x, y, produce:\n  Return x divided by y.\n\nRule multiplyAndDivide given x, y, z, produce:\n  Let product be  TIMES y.\n  Let result be product divided by z.\n  Return result.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 7,
+          "column": 25,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_division.aster/4/del|times|lf",
+      "source": "Module test.division.\n\nRule divide given x, y, produce:\n  Return x divided by y.\n\nRule multiplyAndDivide given x, y, z, produce:\n  Let product be  tIMES y.\n  Let result be product divided by z.\n  Return result.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 7,
+          "column": 25,
+          "params": {
+            "hint": "hint.unknownOperator",
+            "token": "'.'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_eligibility.aster/2/del|false|UP",
+      "source": "Module test.healthcare.eligibility.\n\nDefine Patient has patientId, age, hasInsurance, insuranceType, chronicConditions.\n\nDefine Service has serviceCode, serviceName, basePrice, requiresPreAuth.\n\nDefine EligibilityCheck has eligible, reason, coveragePercent, estimatedCost, requiresPreAuth.\n\nRule determineMinorCoverage given insuranceType, service, produce:\n  If insuranceType equals to \"premium\"\n    Return 100.\n  If insuranceType equals to \"standard\"\n    Return 90.\n  Return 80.\nRule determineSeniorCoverage given insuranceType, service, produce:\n  If insuranceType equals to \"medicare\"\n    Return 95.\n  If insuranceType equals to \"premium\"\n    Return 90.\n  If insuranceType equals to \"standard\"\n    Return 80.\n  Return 70.\nRule determineStandardCoverage given insuranceType, service, chronicConditions, produce:\n  If insuranceType equals to \"premium\"\n    If chronicConditions at least 2\n      Return 90.\n    Return 85.\n  If insuranceType equals to \"standard\"\n    If chronicConditions at least 2\n      Return 80.\n    Return 70.\n  If insuranceType equals to \"basic\"\n    Return 60.\n  Return 50.\nRule calculatePatientCost given basePrice, coveragePercent, produce:\n  Return basePrice minus ((basePrice times coveragePercent) divided by 100).\nRule checkServiceEligibility given patient, service, produce:\n  If patient.hasInsurance  to FALSE\n    Return EligibilityCheck with eligible set to FALSE, reason set to \"No insurance on file\", coveragePercent set to 0, estimatedCost set to service.basePrice, requiresPreAuth set to service.requiresPreAuth.\n  If patient.age less than 18\n    Let minorPct be determineMinorCoverage(patient.insuranceType, service).\n    Return EligibilityCheck with eligible set to true, reason set to \"Minor coverage\", coveragePercent set to minorPct, estimatedCost set to calculatePatientCost(service.basePrice, minorPct), requiresPreAuth set to service.requiresPreAuth.\n  If patient.age at least 65\n    Let seniorPct be determineSeniorCoverage(patient.insuranceType, service).\n    Return EligibilityCheck with eligible set to true, reason set to \"Senior coverage\", coveragePercent set to seniorPct, estimatedCost set to calculatePatientCost(service.basePrice, seniorPct), requiresPreAuth set to service.requiresPreAuth.\n  Let stdPct be determineStandardCoverage(patient.insuranceType, service, patient.chronicConditions).\n  Return EligibilityCheck with eligible set to true, reason set to \"Standard coverage\", coveragePercent set to stdPct, estimatedCost set to calculatePatientCost(service.basePrice, stdPct), requiresPreAuth set to service.requiresPreAuth.\nRule testNoInsurance, produce:\n  Let p be Patient with patientId set to \"P-1\", age set to 40, hasInsurance set to FALSE, insuranceType set to \"none\", chronicConditions set to 0.\n  Let s be Service with serviceCode set to \"S-1\", serviceName set to \"Consult\", basePrice set to 200, requiresPreAuth set to FALSE.\n  Return checkServiceEligibility(p, s).\nRule testMinorPremiumCoverage, produce:\n  Return determineMinorCoverage(\"premium\", 0).\nRule testMinorStandardCoverage, produce:\n  Return determineMinorCoverage(\"standard\", 0).\nRule testMinorBasicCoverage, produce:\n  Return determineMinorCoverage(\"basic\", 0).\nRule testSeniorMedicareCoverage, produce:\n  Return determineSeniorCoverage(\"medicare\", 0).\nRule testSeniorPremiumCoverage, produce:\n  Return determineSeniorCoverage(\"premium\", 0).\nRule testSeniorStandardCoverage, produce:\n  Return determineSeniorCoverage(\"standard\", 0).\nRule testStandardPremiumHighChronic, produce:\n  Return determineStandardCoverage(\"premium\", 0, 3).\nRule testStandardPremiumLowChronic, produce:\n  Return determineStandardCoverage(\"premium\", 0, 0).\nRule testStandardStandardHighChronic, produce:\n  Return determineStandardCoverage(\"standard\", 0, 2).\nRule testStandardStandardLowChronic, produce:\n  Return determineStandardCoverage(\"standard\", 0, 1).\nRule testStandardBasicCoverage, produce:\n  Return determineStandardCoverage(\"basic\", 0, 0).\nRule testStandardUnknownInsurance, produce:\n  Return determineStandardCoverage(\"gold\", 0, 0).\nRule testCalculatePatientCost, produce:\n  Return calculatePatientCost(200, 80).\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 38,
+          "column": 27,
+          "params": {
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 38,
+          "column": 27,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E059",
+          "line": 38,
+          "column": 35,
+          "params": {
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 39,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E062",
+          "line": 39,
+          "column": 43,
+          "params": {
+            "expected": "'.' | ',' | kw.less than or equal word | kw.greater than or equal word | kw.and | kw.as | kw.required | kw.between | kw.matching | token.newline",
+            "token": "kw.set"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 40,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 41,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 42,
+          "column": 5,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 42,
+          "column": 43,
+          "params": {
+            "expected": "'.' | ',' | kw.less than or equal word | kw.greater than or equal word | kw.and | kw.as | kw.required | kw.between | kw.matching | token.newline",
+            "token": "kw.set"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 43,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 44,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 45,
+          "column": 5,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 45,
+          "column": 43,
+          "params": {
+            "expected": "'.' | ',' | kw.less than or equal word | kw.greater than or equal word | kw.and | kw.as | kw.required | kw.between | kw.matching | token.newline",
+            "token": "kw.set"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 46,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 47,
+          "column": 3,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 47,
+          "column": 41,
+          "params": {
+            "expected": "'.' | ',' | kw.less than or equal word | kw.greater than or equal word | kw.and | kw.as | kw.required | kw.between | kw.matching | token.newline",
+            "token": "kw.set"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 48,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_eligibility.aster/2/del|false|lf",
+      "source": "Module test.healthcare.eligibility.\n\nDefine Patient has patientId, age, hasInsurance, insuranceType, chronicConditions.\n\nDefine Service has serviceCode, serviceName, basePrice, requiresPreAuth.\n\nDefine EligibilityCheck has eligible, reason, coveragePercent, estimatedCost, requiresPreAuth.\n\nRule determineMinorCoverage given insuranceType, service, produce:\n  If insuranceType equals to \"premium\"\n    Return 100.\n  If insuranceType equals to \"standard\"\n    Return 90.\n  Return 80.\nRule determineSeniorCoverage given insuranceType, service, produce:\n  If insuranceType equals to \"medicare\"\n    Return 95.\n  If insuranceType equals to \"premium\"\n    Return 90.\n  If insuranceType equals to \"standard\"\n    Return 80.\n  Return 70.\nRule determineStandardCoverage given insuranceType, service, chronicConditions, produce:\n  If insuranceType equals to \"premium\"\n    If chronicConditions at least 2\n      Return 90.\n    Return 85.\n  If insuranceType equals to \"standard\"\n    If chronicConditions at least 2\n      Return 80.\n    Return 70.\n  If insuranceType equals to \"basic\"\n    Return 60.\n  Return 50.\nRule calculatePatientCost given basePrice, coveragePercent, produce:\n  Return basePrice minus ((basePrice times coveragePercent) divided by 100).\nRule checkServiceEligibility given patient, service, produce:\n  If patient.hasInsurance  to fALSE\n    Return EligibilityCheck with eligible set to fALSE, reason set to \"No insurance on file\", coveragePercent set to 0, estimatedCost set to service.basePrice, requiresPreAuth set to service.requiresPreAuth.\n  If patient.age less than 18\n    Let minorPct be determineMinorCoverage(patient.insuranceType, service).\n    Return EligibilityCheck with eligible set to true, reason set to \"Minor coverage\", coveragePercent set to minorPct, estimatedCost set to calculatePatientCost(service.basePrice, minorPct), requiresPreAuth set to service.requiresPreAuth.\n  If patient.age at least 65\n    Let seniorPct be determineSeniorCoverage(patient.insuranceType, service).\n    Return EligibilityCheck with eligible set to true, reason set to \"Senior coverage\", coveragePercent set to seniorPct, estimatedCost set to calculatePatientCost(service.basePrice, seniorPct), requiresPreAuth set to service.requiresPreAuth.\n  Let stdPct be determineStandardCoverage(patient.insuranceType, service, patient.chronicConditions).\n  Return EligibilityCheck with eligible set to true, reason set to \"Standard coverage\", coveragePercent set to stdPct, estimatedCost set to calculatePatientCost(service.basePrice, stdPct), requiresPreAuth set to service.requiresPreAuth.\nRule testNoInsurance, produce:\n  Let p be Patient with patientId set to \"P-1\", age set to 40, hasInsurance set to fALSE, insuranceType set to \"none\", chronicConditions set to 0.\n  Let s be Service with serviceCode set to \"S-1\", serviceName set to \"Consult\", basePrice set to 200, requiresPreAuth set to fALSE.\n  Return checkServiceEligibility(p, s).\nRule testMinorPremiumCoverage, produce:\n  Return determineMinorCoverage(\"premium\", 0).\nRule testMinorStandardCoverage, produce:\n  Return determineMinorCoverage(\"standard\", 0).\nRule testMinorBasicCoverage, produce:\n  Return determineMinorCoverage(\"basic\", 0).\nRule testSeniorMedicareCoverage, produce:\n  Return determineSeniorCoverage(\"medicare\", 0).\nRule testSeniorPremiumCoverage, produce:\n  Return determineSeniorCoverage(\"premium\", 0).\nRule testSeniorStandardCoverage, produce:\n  Return determineSeniorCoverage(\"standard\", 0).\nRule testStandardPremiumHighChronic, produce:\n  Return determineStandardCoverage(\"premium\", 0, 3).\nRule testStandardPremiumLowChronic, produce:\n  Return determineStandardCoverage(\"premium\", 0, 0).\nRule testStandardStandardHighChronic, produce:\n  Return determineStandardCoverage(\"standard\", 0, 2).\nRule testStandardStandardLowChronic, produce:\n  Return determineStandardCoverage(\"standard\", 0, 1).\nRule testStandardBasicCoverage, produce:\n  Return determineStandardCoverage(\"basic\", 0, 0).\nRule testStandardUnknownInsurance, produce:\n  Return determineStandardCoverage(\"gold\", 0, 0).\nRule testCalculatePatientCost, produce:\n  Return calculatePatientCost(200, 80).\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 38,
+          "column": 27,
+          "params": {
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 38,
+          "column": 27,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E059",
+          "line": 38,
+          "column": 35,
+          "params": {
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 39,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E062",
+          "line": 39,
+          "column": 43,
+          "params": {
+            "expected": "'.' | ',' | kw.less than or equal word | kw.greater than or equal word | kw.and | kw.as | kw.required | kw.between | kw.matching | token.newline",
+            "token": "kw.set"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 40,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 41,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 42,
+          "column": 5,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 42,
+          "column": 43,
+          "params": {
+            "expected": "'.' | ',' | kw.less than or equal word | kw.greater than or equal word | kw.and | kw.as | kw.required | kw.between | kw.matching | token.newline",
+            "token": "kw.set"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 43,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E052",
+          "line": 44,
+          "column": 1,
+          "params": {}
+        },
+        {
+          "code": "E061",
+          "line": 45,
+          "column": 5,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 45,
+          "column": 43,
+          "params": {
+            "expected": "'.' | ',' | kw.less than or equal word | kw.greater than or equal word | kw.and | kw.as | kw.required | kw.between | kw.matching | token.newline",
+            "token": "kw.set"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 46,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 47,
+          "column": 3,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 47,
+          "column": 41,
+          "params": {
+            "expected": "'.' | ',' | kw.less than or equal word | kw.greater than or equal word | kw.and | kw.as | kw.required | kw.between | kw.matching | token.newline",
+            "token": "kw.set"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 48,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_eligibility.aster/4/ins|false|UP",
+      "source": "Module test.healthcare.eligibility.\n\nDefine Patient has patientId, age, hasInsurance, insuranceType, chronicConditions.\n\nDefine Service has serviceCode, serviceName, basePrice, requiresPreAuth.\n\nDefine EligibilityCheck has eligible, reason, coveragePercent, estimatedCost, requiresPreAuth.\n\nRule determineMinorCoverage given insuranceType, service, produce:\n  If insuranceType equals to \"premium\"\n    Return 100.\n  If insuranceType equals to \"standard\"\n    Return 90.\n  Return 80.\nRule determineSeniorCoverage given insuranceType, service, produce:\n  If insuranceType equals to \"medicare\"\n    Return 95.\n  If insuranceType equals to \"premium\"\n    Return 90.\n  If insuranceType equals to \"standard\"\n    Return 80.\n  Return 70.\nRule determineStandardCoverage given insuranceType, service, chronicConditions, produce:\n  If insuranceType equals to \"premium\"\n    If chronicConditions at least 2\n      Return 90.\n    Return 85.\n  If insuranceType equals to \"standard\"\n    If chronicConditions at least 2\n      Return 80.\n    Return 70.\n  If insuranceType equals to \"basic\"\n    Return 60.\n  Return 50.\nRule calculatePatientCost given basePrice, coveragePercent, produce:\n  Return basePrice minus ((basePrice times coveragePercent) divided by 100).\nRule checkServiceEligibility given patient, service, produce:\n  If patient.hasInsurance equals to FALSE\n    Return EligibilityCheck with eligible set to FALSE, reason set to \"No insurance on file\", coveragePercent set to 0, estimatedCost set to service.basePrice, requiresPreAuth set to service.requiresPreAuth.\n  If patient.age less than 18\n    Let minorPct be determineMinorCoverage(patient.insuranceType, service).\n    Return EligibilityCheck with eligible set to true, reason set to \"Minor coverage\", coveragePercent set to minorPct, estimatedCost set to calculatePatientCost(service.basePrice, minorPct), requiresPreAuth set to service.requiresPreAuth.\n  If patient.age at least 65\n    Let seniorPct be determineSeniorCoverage(patient.insuranceType, service).\n    Return EligibilityCheck with eligible set to true, reason set to \"Senior coverage\", coveragePercent set to seniorPct, estimatedCost set to calculatePatientCost(service.basePrice, seniorPct), requiresPreAuth set to service.requiresPreAuth.\n  Let stdPct be determineStandardCoverage(patient.insuranceType, service, patient.chronicConditions).\n  Return EligibilityCheck with eligible set to true, reason set to \"Standard coverage\", coveragePercent set to stdPct, estimatedCost set to calculatePatientCost(service.basePrice, stdPct), requiresPreAuth set to service.requiresPreAuth.\nRule testNoInsurance, produce:\n  Let p be Patient with patientId set to \"P-1\", age set to 40, hasInsurance set to FALSE, insuranceType set to \"none\", chronicConditions set to 0.\n  and Let s be Service with serviceCode set to \"S-1\", serviceName set to \"Consult\", basePrice set to 200, requiresPreAuth set to FALSE.\n  Return checkServiceEligibility(p, s).\nRule testMinorPremiumCoverage, produce:\n  Return determineMinorCoverage(\"premium\", 0).\nRule testMinorStandardCoverage, produce:\n  Return determineMinorCoverage(\"standard\", 0).\nRule testMinorBasicCoverage, produce:\n  Return determineMinorCoverage(\"basic\", 0).\nRule testSeniorMedicareCoverage, produce:\n  Return determineSeniorCoverage(\"medicare\", 0).\nRule testSeniorPremiumCoverage, produce:\n  Return determineSeniorCoverage(\"premium\", 0).\nRule testSeniorStandardCoverage, produce:\n  Return determineSeniorCoverage(\"standard\", 0).\nRule testStandardPremiumHighChronic, produce:\n  Return determineStandardCoverage(\"premium\", 0, 3).\nRule testStandardPremiumLowChronic, produce:\n  Return determineStandardCoverage(\"premium\", 0, 0).\nRule testStandardStandardHighChronic, produce:\n  Return determineStandardCoverage(\"standard\", 0, 2).\nRule testStandardStandardLowChronic, produce:\n  Return determineStandardCoverage(\"standard\", 0, 1).\nRule testStandardBasicCoverage, produce:\n  Return determineStandardCoverage(\"basic\", 0, 0).\nRule testStandardUnknownInsurance, produce:\n  Return determineStandardCoverage(\"gold\", 0, 0).\nRule testCalculatePatientCost, produce:\n  Return calculatePatientCost(200, 80).\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 50,
+          "column": 3,
+          "params": {
+            "token": "kw.and"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 50,
+          "column": 3,
+          "params": {
+            "token": "kw.and"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 50,
+          "column": 41,
+          "params": {
+            "expected": "'.' | ',' | kw.less than or equal word | kw.greater than or equal word | kw.and | kw.as | kw.required | kw.between | kw.matching | token.newline",
+            "token": "kw.set"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 51,
+          "column": 3,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 52,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_eligibility_simple.aster/2/rep|minus|lf",
+      "source": "Module test.eligibility.simple.\n\nRule calculatePatientCost given basePrice, coveragePercent, produce:\n  Let coverageAmount be basePrice times coveragePercent.\n  It patientPercent be 100 mINUS coveragePercent.\n  Let patientCost be basePrice times patientPercent.\n  Return patientCost.\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 5,
+          "column": 3,
+          "params": {
+            "token": "kw.it"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 5,
+          "column": 3,
+          "params": {
+            "token": "kw.it"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 6,
+          "column": 3,
+          "params": {
+            "token": "kw.let"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 7,
+          "column": 3,
+          "params": {
+            "token": "kw.return"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 8,
+          "column": 1,
+          "params": {
+            "token": "token.dedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_let_with_call.aster/4/rep|plus|UP",
+      "source": "Module test.let.with.call.\n\nRule helper given x, produce:\n  Return x times 2.\nRule testLetWithCall given x, produce:\n  Let doubled be helper(x).\n  Return Given PLUS 1.\n",
+      "diagnostics": [
+        {
+          "code": "E060",
+          "line": 7,
+          "column": 16,
+          "params": {
+            "before": "'PLUS'",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E061",
+          "line": 7,
+          "column": 21,
+          "params": {
+            "token": "'1'"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_life.aster/4/ins|false|Cap",
+      "source": "Module test.insurance.life.\n\n# 合成示例策略——数值取自公开权威来源（2026-08 检索），非真实保险公司费率表。\n#   · 基准费率：NerdWallet（费率由 LifeStein 提供，数据截至 2026-08-01）\n#     $500k/20 年期/Preferred/男性非吸烟：20 岁 $210、30 岁 $213、40 岁 $321、\n#     50 岁 $810、60 岁 $2331、70 岁 $9702（年保费）\n#     ★保费随年龄非线性：20→30 仅 +1.4%，40→50 +152%，60→70 +316%\n#   · 吸烟倍数 3.62x：由上表实算（60 岁 8435/2331）；ValuePenguin +215%、\n#     U.S.News +146%、Policygenius +217%——行业区间 2.5-4.5x，无单一权威值\n#   · BMI 分档：InsuranceGeek（Preferred Plus ≤25 / Preferred 26-28 /\n#     Standard Plus 29-30 / Standard 31-35 / Table Rating 36-40 / >40-42 拒保）\n#     ★该表为「典型 carrier 代表性限值」，未指名具体公司，各家 build chart 差异可达数十磅\n#   · 健康倍数按 **BMI 档**取值（88/100/121/177/250），★注意它**不等于**\n#     LifeStein 的核保等级费率差（40 岁男 Pref+ $321 / Pref $405 / Std $631\n#     = 100/126/197）——真实核保里 BMI 只是决定等级的因素之一，此处为让样本\n#     可执行而把两者合并成单一维度。121/177 取自等级差 126/197 的量级但**经过\n#     人为调整**以拉开与 BMI 档的对应关系，不是可直接引用的费率。\n#   · 职业倍数：BLS《2024 年致命职业伤害普查》（2026-02-19 发布）\n#     全国基准 3.3/10万 FTE；伐木 110.4(33.5x)、渔猎 88.8(26.9x)、屋顶 48.7(14.8x)、\n#     飞行员 36.7(11.1x)、卡车司机 25.7(7.8x，绝对死亡数 950 全美最高)、建筑 15.8(4.8x)\n#     ★真实核保用 flat extra（每千保额加 $2.50-5.00）而非乘数，此处简化为乘数\n#   · 最高投保年龄 75：★无行业统一上限，按产品条款而定，此为示例产品设定\n#   · ★期限系数（10 年 62% / 15 年 80% / 20 年 100% / 30 年 138%）：**无权威出处**。\n#     检索到的费率表都以 20 年期为口径，未找到公开的跨期限系数表。\n#     这四个数是为让样本覆盖期限维度而设的工程取值，仅保证单调递增，\n#     不可引用为费率。若接入真实费率表，改这四个数即可，case 断言的\n#     是「期限越长越贵」这个关系，不是具体百分比。\n\nDefine Applicant has applicantId, age, gender, smoker, bmi, occupation, healthScore.\n\nDefine PolicyRequest has coverageAmount, termYears, policyType.\n\nDefine LifeQuote has approved, reason, monthlyPremium, coverageAmount, termYears.\n\nRule calculateBaseRate given age, termYears, produce:\n  Let rate be 210.\n  If age at least 30\n    Let rate be 213.\n  If age at least 40\n    Let rate be 321.\n  If age at least 50\n    Let rate be 810.\n  If age at least 60\n    Let rate be 2331.\n  If age at least 70\n    Let rate be 9702.\n  If termYears at most 10\n    Return (rate times 62) integer divided by 100.\n  If termYears at most 15\n    Return (rate times 80) integer divided by 100.\n  If termYears at most 20\n    Return rate.\n  Return (rate times 138) integer divided by 100.\nRule calculateHealthMultiplier given applicant, produce:\n  Let multiplier be 100.\n  If applicant.bmi at least 29\n    Let multiplier be 121.\n  If applicant.bmi at least 31\n    Let multiplier be 177.\n  If applicant.bmi at least 36\n    Let multiplier be 250.\n  If applicant.healthScore at least 90\n    If applicant.bmi less than 29\n      Let multiplier be 88.\n  If applicant.smoker equals to true\n    Return (multiplier times 362) integer divided by 100.\n  Return multiplier.\nRule calculateOccupationMultiplier given occupation, produce:\n  If occupation equals to \"logging\"\n    Return 3350.\n  If occupation equals to \"fishing\"\n    Return 2690.\n  If occupation equals to \"roofing\"\n    Return 1480.\n  If occupation equals to \"pilot\"\n    Return 1110.\n  If occupation equals to \"truck-driver\"\n    Return 780.\n  If occupation equals to \"construction\"\n    Return 480.\n  If occupation equals to \"office\"\n    Return 100.\n  Return 100.\nRule calculateRiskScore given applicant, produce:\n  Let score be 100.\n  If applicant.smoker equals to true\n    Let score be score minus 30.\n  If applicant.bmi at least 31\n    Let score be score minus 20.\n  If applicant.bmi at least 36\n    Let score be score minus 15.\n  If applicant.healthScore at least 90\n    Let score be score plus 10.\n  If applicant.age at least 60\n    Let score be score minus 15.\n  Return score.\nRule generateLifeQuote given applicant, request, produce:\n  If applicant.age less than 18\n    Return LifeQuote with approved set to False, reason set to \"Applicant below minimum issue age\", monthlyPremium set to 0, coverageAmount set to 0, termYears set to 0.\n  If applicant.age at least 76\n    Return LifeQuote with approved set to False, reason set to \"Applicant above maximum issue age\", monthlyPremium set to 0, coverageAmount set to 0, termYears set to 0.\n  If applicant.healthScore less than 40\n    Return LifeQuote with approved set to False, reason set to \"Health score below underwriting threshold\", monthlyPremium set to 0, coverageAmount set to 0, termYears set to 0.\n  If applicant.bmi at least 41\n    Return LifeQuote with approved set to False, reason set to \"Build outside underwriting limits\"module , monthlyPremium set to 0, coverageAmount set to 0, termYears set to 0.\n  If request.coverageAmount at least 5000001\n    Return LifeQuote with approved set to False, reason set to \"Coverage exceeds maximum\", monthlyPremium set to 0, coverageAmount set to 0, termYears set to 0.\n  Let baseRate be calculateBaseRate(applicant.age, request.termYears).\n  Let healthMult be calculateHealthMultiplier(applicant).\n  Let occMult be calculateOccupationMultiplier(applicant.occupation).\n  Let scaled be (baseRate times request.coverageAmount) integer divided by 500000.\n  Let withHealth be (scaled times healthMult) integer divided by 100.\n  Let annual be (withHealth times occMult) integer divided by 100.\n  Let monthly be annual integer divided by 12.\n  Return LifeQuote with approved set to true, reason set to \"Approved\", monthlyPremium set to monthly, coverageAmount set to request.coverageAmount, termYears set to request.termYears.\nRule testApplicantTooYoung, produce:\n  Let applicant be Applicant with applicantId set to \"L1\", age set to 17, gender set to \"M\", smoker set to False, bmi set to 22, occupation set to \"office\", healthScore set to 90.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.reason.\nRule testApplicantTooOld, produce:\n  Let applicant be Applicant with applicantId set to \"L2\", age set to 80, gender set to \"M\", smoker set to False, bmi set to 24, occupation set to \"office\", healthScore set to 80.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.reason.\nRule testHealthScoreTooLow, produce:\n  Let applicant be Applicant with applicantId set to \"L3\", age set to 45, gender set to \"M\", smoker set to False, bmi set to 24, occupation set to \"office\", healthScore set to 30.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.reason.\nRule testCoverageExceedsMaximum, produce:\n  Let applicant be Applicant with applicantId set to \"L4\", age set to 40, gender set to \"M\", smoker set to False, bmi set to 24, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 6000000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.reason.\nRule testYoungHealthyNonSmokerShortTerm, produce:\n  Let applicant be Applicant with applicantId set to \"L5\", age set to 25, gender set to \"M\", smoker set to False, bmi set to 23, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 10, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testYoungHealthyNonSmokerLongTerm, produce:\n  Let applicant be Applicant with applicantId set to \"L6\", age set to 30, gender set to \"M\", smoker set to False, bmi set to 23, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testMiddleAgedSmokerHighBMI, produce:\n  Let applicant be Applicant with applicantId set to \"L7\", age set to 45, gender set to \"M\", smoker set to true, bmi set to 32, occupation set to \"office\", healthScore set to 60.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testMiddleAgedNonSmokerLowBMI, produce:\n  Let applicant be Applicant with applicantId set to \"L8\", age set to 45, gender set to \"M\", smoker set to False, bmi set to 23, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testOlderApplicantHealthy, produce:\n  Let applicant be Applicant with applicantId set to \"L9\", age set to 60, gender set to \"M\", smoker set to False, bmi set to 24, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testHighRiskOccupation, produce:\n  Let applicant be Applicant with applicantId set to \"L10\", age set to 40, gender set to \"M\", smoker set to False, bmi set to 24, occupation set to \"logging\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testModerateRiskOccupation, produce:\n  Let applicant be Applicant with applicantId set to \"L11\", age set to 40, gender set to \"M\", smoker set to False, bmi set to 24, occupation set to \"construction\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testOfficeWorkerLowRisk, produce:\n  Let applicant be Applicant with applicantId set to \"L12\", age set to 40, gender set to \"M\", smoker set to False, bmi set to 24, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testSmokerVeryHighBMI, produce:\n  Let applicant be Applicant with applicantId set to \"L13\", age set to 50, gender set to \"M\", smoker set to true, bmi set to 37, occupation set to \"office\", healthScore set to 50.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testExcellentHealthHighScore, produce:\n  Let applicant be Applicant with applicantId set to \"L14\", age set to 40, gender set to \"F\", smoker set to False, bmi set to 22, occupation set to \"office\", healthScore set to 95.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testCalculateBaseRateYoungShort, produce:\n  Return calculateBaseRate(25, 10).\nRule testCalculateBaseRateYoungLong, produce:\n  Return calculateBaseRate(25, 30).\nRule testCalculateBaseRateMiddleShort, produce:\n  Return calculateBaseRate(40, 10).\nRule testCalculateBaseRateMiddleLong, produce:\n  Return calculateBaseRate(40, 30).\nRule testCalculateBaseRateOlderShort, produce:\n  Return calculateBaseRate(50, 10).\nRule testCalculateBaseRateOlderLong, produce:\n  Return calculateBaseRate(50, 30).\nRule testCalculateBaseRateSeniorShort, produce:\n  Return calculateBaseRate(60, 10).\nRule testCalculateHealthMultiplierClean, produce:\n  Let applicant be Applicant with applicantId set to \"L15\", age set to 40, gender set to \"M\", smoker set to False, bmi set to 23, occupation set to \"office\", healthScore set to 75.\n  Return calculateHealthMultiplier(applicant).\nRule testCalculateHealthMultiplierSmoker, produce:\n  Let applicant be Applicant with applicantId set to \"L16\", age set to 40, gender set to \"M\", smoker set to true, bmi set to 23, occupation set to \"office\", healthScore set to 75.\n  Return calculateHealthMultiplier(applicant).\nRule testCalculateHealthMultiplierHighBMI, produce:\n  Let applicant be Applicant with applicantId set to \"L17\", age set to 40, gender set to \"M\", smoker set to False, bmi set to 32, occupation set to \"office\", healthScore set to 75.\n  Return calculateHealthMultiplier(applicant).\nRule testCalculateHealthMultiplierExcellent, produce:\n  Let applicant be Applicant with applicantId set to \"L18\", age set to 40, gender set to \"F\", smoker set to False, bmi set to 22, occupation set to \"office\", healthScore set to 95.\n  Return calculateHealthMultiplier(applicant).\nRule testCalculateOccupationMultiplierHighRisk, produce:\n  Return calculateOccupationMultiplier(\"logging\").\nRule testCalculateOccupationMultiplierModerate, produce:\n  Return calculateOccupationMultiplier(\"construction\").\nRule testCalculateOccupationMultiplierOffice, produce:\n  Return calculateOccupationMultiplier(\"office\").\nRule testCalculateOccupationMultiplierUnknown, produce:\n  Return calculateOccupationMultiplier(\"librarian\").\nRule testCalculateRiskScoreLowRisk, produce:\n  Let applicant be Applicant with applicantId set to \"L19\", age set to 35, gender set to \"F\", smoker set to False, bmi set to 22, occupation set to \"office\", healthScore set to 95.\n  Return calculateRiskScore(applicant).\nRule testCalculateRiskScoreHighRisk, produce:\n  Let applicant be Applicant with applicantId set to \"L20\", age set to 62, gender set to \"M\", smoker set to true, bmi set to 37, occupation set to \"roofing\", healthScore set to 45.\n  Return calculateRiskScore(applicant).\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 105,
+          "column": 48,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 105,
+          "column": 57,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 105,
+          "column": 61,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 105,
+          "column": 99,
+          "params": {
+            "before": "kw.module",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 105,
+          "column": 105,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 105,
+          "column": 122,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 105,
+          "column": 126,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 105,
+          "column": 130,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 105,
+          "column": 147,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 105,
+          "column": 151,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 105,
+          "column": 155,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 105,
+          "column": 167,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 105,
+          "column": 171,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_life.aster/4/ins|false|lf",
+      "source": "Module test.insurance.life.\n\n# 合成示例策略——数值取自公开权威来源（2026-08 检索），非真实保险公司费率表。\n#   · 基准费率：NerdWallet（费率由 LifeStein 提供，数据截至 2026-08-01）\n#     $500k/20 年期/Preferred/男性非吸烟：20 岁 $210、30 岁 $213、40 岁 $321、\n#     50 岁 $810、60 岁 $2331、70 岁 $9702（年保费）\n#     ★保费随年龄非线性：20→30 仅 +1.4%，40→50 +152%，60→70 +316%\n#   · 吸烟倍数 3.62x：由上表实算（60 岁 8435/2331）；ValuePenguin +215%、\n#     U.S.News +146%、Policygenius +217%——行业区间 2.5-4.5x，无单一权威值\n#   · BMI 分档：InsuranceGeek（Preferred Plus ≤25 / Preferred 26-28 /\n#     Standard Plus 29-30 / Standard 31-35 / Table Rating 36-40 / >40-42 拒保）\n#     ★该表为「典型 carrier 代表性限值」，未指名具体公司，各家 build chart 差异可达数十磅\n#   · 健康倍数按 **BMI 档**取值（88/100/121/177/250），★注意它**不等于**\n#     LifeStein 的核保等级费率差（40 岁男 Pref+ $321 / Pref $405 / Std $631\n#     = 100/126/197）——真实核保里 BMI 只是决定等级的因素之一，此处为让样本\n#     可执行而把两者合并成单一维度。121/177 取自等级差 126/197 的量级但**经过\n#     人为调整**以拉开与 BMI 档的对应关系，不是可直接引用的费率。\n#   · 职业倍数：BLS《2024 年致命职业伤害普查》（2026-02-19 发布）\n#     全国基准 3.3/10万 FTE；伐木 110.4(33.5x)、渔猎 88.8(26.9x)、屋顶 48.7(14.8x)、\n#     飞行员 36.7(11.1x)、卡车司机 25.7(7.8x，绝对死亡数 950 全美最高)、建筑 15.8(4.8x)\n#     ★真实核保用 flat extra（每千保额加 $2.50-5.00）而非乘数，此处简化为乘数\n#   · 最高投保年龄 75：★无行业统一上限，按产品条款而定，此为示例产品设定\n#   · ★期限系数（10 年 62% / 15 年 80% / 20 年 100% / 30 年 138%）：**无权威出处**。\n#     检索到的费率表都以 20 年期为口径，未找到公开的跨期限系数表。\n#     这四个数是为让样本覆盖期限维度而设的工程取值，仅保证单调递增，\n#     不可引用为费率。若接入真实费率表，改这四个数即可，case 断言的\n#     是「期限越长越贵」这个关系，不是具体百分比。\n\nDefine Applicant has applicantId, age, gender, smoker, bmi, occupation, healthScore.\n\nDefine PolicyRequest has coverageAmount, termYears, policyType.\n\nDefine LifeQuote has approved, reason, monthlyPremium, coverageAmount, termYears.\n\nRule calculateBaseRate given age, termYears, produce:\n  Let rate be 210.\n  If age at least 30\n    Let rate be 213.\n  If age at least 40\n    Let rate be 321.\n  If age at least 50\n    Let rate be 810.\n  If age at least 60\n    Let rate be 2331.\n  If age at least 70\n    Let rate be 9702.\n  If termYears at most 10\n    Return (rate times 62) integer divided by 100.\n  If termYears at most 15\n    Return (rate times 80) integer divided by 100.\n  If termYears at most 20\n    Return rate.\n  Return (rate times 138) integer divided by 100.\nRule calculateHealthMultiplier given applicant, produce:\n  Let multiplier be 100.\n  If applicant.bmi at least 29\n    Let multiplier be 121.\n  If applicant.bmi at least 31\n    Let multiplier be 177.\n  If applicant.bmi at least 36\n    Let multiplier be 250.\n  If applicant.healthScore at least 90\n    If applicant.bmi less than 29\n      Let multiplier be 88.\n  If applicant.smoker equals to true\n    Return (multiplier times 362) integer divided by 100.\n  Return multiplier.\nRule calculateOccupationMultiplier given occupation, produce:\n  If occupation equals to \"logging\"\n    Return 3350.\n  If occupation equals to \"fishing\"\n    Return 2690.\n  If occupation equals to \"roofing\"\n    Return 1480.\n  If occupation equals to \"pilot\"\n    Return 1110.\n  If occupation equals to \"truck-driver\"\n    Return 780.\n  If occupation equals to \"construction\"\n    Return 480.\n  If occupation equals to \"office\"\n    Return 100.\n  Return 100.\nRule calculateRiskScore given applicant, produce:\n  Let score be 100.\n  If applicant.smoker equals to true\n    Let score be score minus 30.\n  If applicant.bmi at least 31\n    Let score be score minus 20.\n  If applicant.bmi at least 36\n    Let score be score minus 15.\n  If applicant.healthScore at least 90\n    Let score be score plus 10.\n  If applicant.age at least 60\n    Let score be score minus 15.\n  Return score.\nRule generateLifeQuote given applicant, request, produce:\n  If applicant.age less than 18\n    Return LifeQuote with approved set to fALSE, reason set to \"Applicant below minimum issue age\", monthlyPremium set to 0, coverageAmount set to 0, termYears set to 0.\n  If applicant.age at least 76\n    Return LifeQuote with approved set to fALSE, reason set to \"Applicant above maximum issue age\", monthlyPremium set to 0, coverageAmount set to 0, termYears set to 0.\n  If applicant.healthScore less than 40\n    Return LifeQuote with approved set to fALSE, reason set to \"Health score below underwriting threshold\", monthlyPremium set to 0, coverageAmount set to 0, termYears set to 0.\n  If applicant.bmi at least 41\n    Return LifeQuote with approved set to fALSE, reason set to \"Build outside underwriting limits\"module , monthlyPremium set to 0, coverageAmount set to 0, termYears set to 0.\n  If request.coverageAmount at least 5000001\n    Return LifeQuote with approved set to fALSE, reason set to \"Coverage exceeds maximum\", monthlyPremium set to 0, coverageAmount set to 0, termYears set to 0.\n  Let baseRate be calculateBaseRate(applicant.age, request.termYears).\n  Let healthMult be calculateHealthMultiplier(applicant).\n  Let occMult be calculateOccupationMultiplier(applicant.occupation).\n  Let scaled be (baseRate times request.coverageAmount) integer divided by 500000.\n  Let withHealth be (scaled times healthMult) integer divided by 100.\n  Let annual be (withHealth times occMult) integer divided by 100.\n  Let monthly be annual integer divided by 12.\n  Return LifeQuote with approved set to true, reason set to \"Approved\", monthlyPremium set to monthly, coverageAmount set to request.coverageAmount, termYears set to request.termYears.\nRule testApplicantTooYoung, produce:\n  Let applicant be Applicant with applicantId set to \"L1\", age set to 17, gender set to \"M\", smoker set to fALSE, bmi set to 22, occupation set to \"office\", healthScore set to 90.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.reason.\nRule testApplicantTooOld, produce:\n  Let applicant be Applicant with applicantId set to \"L2\", age set to 80, gender set to \"M\", smoker set to fALSE, bmi set to 24, occupation set to \"office\", healthScore set to 80.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.reason.\nRule testHealthScoreTooLow, produce:\n  Let applicant be Applicant with applicantId set to \"L3\", age set to 45, gender set to \"M\", smoker set to fALSE, bmi set to 24, occupation set to \"office\", healthScore set to 30.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.reason.\nRule testCoverageExceedsMaximum, produce:\n  Let applicant be Applicant with applicantId set to \"L4\", age set to 40, gender set to \"M\", smoker set to fALSE, bmi set to 24, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 6000000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.reason.\nRule testYoungHealthyNonSmokerShortTerm, produce:\n  Let applicant be Applicant with applicantId set to \"L5\", age set to 25, gender set to \"M\", smoker set to fALSE, bmi set to 23, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 10, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testYoungHealthyNonSmokerLongTerm, produce:\n  Let applicant be Applicant with applicantId set to \"L6\", age set to 30, gender set to \"M\", smoker set to fALSE, bmi set to 23, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testMiddleAgedSmokerHighBMI, produce:\n  Let applicant be Applicant with applicantId set to \"L7\", age set to 45, gender set to \"M\", smoker set to true, bmi set to 32, occupation set to \"office\", healthScore set to 60.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testMiddleAgedNonSmokerLowBMI, produce:\n  Let applicant be Applicant with applicantId set to \"L8\", age set to 45, gender set to \"M\", smoker set to fALSE, bmi set to 23, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testOlderApplicantHealthy, produce:\n  Let applicant be Applicant with applicantId set to \"L9\", age set to 60, gender set to \"M\", smoker set to fALSE, bmi set to 24, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testHighRiskOccupation, produce:\n  Let applicant be Applicant with applicantId set to \"L10\", age set to 40, gender set to \"M\", smoker set to fALSE, bmi set to 24, occupation set to \"logging\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testModerateRiskOccupation, produce:\n  Let applicant be Applicant with applicantId set to \"L11\", age set to 40, gender set to \"M\", smoker set to fALSE, bmi set to 24, occupation set to \"construction\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testOfficeWorkerLowRisk, produce:\n  Let applicant be Applicant with applicantId set to \"L12\", age set to 40, gender set to \"M\", smoker set to fALSE, bmi set to 24, occupation set to \"office\", healthScore set to 85.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testSmokerVeryHighBMI, produce:\n  Let applicant be Applicant with applicantId set to \"L13\", age set to 50, gender set to \"M\", smoker set to true, bmi set to 37, occupation set to \"office\", healthScore set to 50.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testExcellentHealthHighScore, produce:\n  Let applicant be Applicant with applicantId set to \"L14\", age set to 40, gender set to \"F\", smoker set to fALSE, bmi set to 22, occupation set to \"office\", healthScore set to 95.\n  Let request be PolicyRequest with coverageAmount set to 500000, termYears set to 20, policyType set to \"term\".\n  Let quote be generateLifeQuote(applicant, request).\n  Return quote.monthlyPremium.\nRule testCalculateBaseRateYoungShort, produce:\n  Return calculateBaseRate(25, 10).\nRule testCalculateBaseRateYoungLong, produce:\n  Return calculateBaseRate(25, 30).\nRule testCalculateBaseRateMiddleShort, produce:\n  Return calculateBaseRate(40, 10).\nRule testCalculateBaseRateMiddleLong, produce:\n  Return calculateBaseRate(40, 30).\nRule testCalculateBaseRateOlderShort, produce:\n  Return calculateBaseRate(50, 10).\nRule testCalculateBaseRateOlderLong, produce:\n  Return calculateBaseRate(50, 30).\nRule testCalculateBaseRateSeniorShort, produce:\n  Return calculateBaseRate(60, 10).\nRule testCalculateHealthMultiplierClean, produce:\n  Let applicant be Applicant with applicantId set to \"L15\", age set to 40, gender set to \"M\", smoker set to fALSE, bmi set to 23, occupation set to \"office\", healthScore set to 75.\n  Return calculateHealthMultiplier(applicant).\nRule testCalculateHealthMultiplierSmoker, produce:\n  Let applicant be Applicant with applicantId set to \"L16\", age set to 40, gender set to \"M\", smoker set to true, bmi set to 23, occupation set to \"office\", healthScore set to 75.\n  Return calculateHealthMultiplier(applicant).\nRule testCalculateHealthMultiplierHighBMI, produce:\n  Let applicant be Applicant with applicantId set to \"L17\", age set to 40, gender set to \"M\", smoker set to fALSE, bmi set to 32, occupation set to \"office\", healthScore set to 75.\n  Return calculateHealthMultiplier(applicant).\nRule testCalculateHealthMultiplierExcellent, produce:\n  Let applicant be Applicant with applicantId set to \"L18\", age set to 40, gender set to \"F\", smoker set to fALSE, bmi set to 22, occupation set to \"office\", healthScore set to 95.\n  Return calculateHealthMultiplier(applicant).\nRule testCalculateOccupationMultiplierHighRisk, produce:\n  Return calculateOccupationMultiplier(\"logging\").\nRule testCalculateOccupationMultiplierModerate, produce:\n  Return calculateOccupationMultiplier(\"construction\").\nRule testCalculateOccupationMultiplierOffice, produce:\n  Return calculateOccupationMultiplier(\"office\").\nRule testCalculateOccupationMultiplierUnknown, produce:\n  Return calculateOccupationMultiplier(\"librarian\").\nRule testCalculateRiskScoreLowRisk, produce:\n  Let applicant be Applicant with applicantId set to \"L19\", age set to 35, gender set to \"F\", smoker set to fALSE, bmi set to 22, occupation set to \"office\", healthScore set to 95.\n  Return calculateRiskScore(applicant).\nRule testCalculateRiskScoreHighRisk, produce:\n  Let applicant be Applicant with applicantId set to \"L20\", age set to 62, gender set to \"M\", smoker set to true, bmi set to 37, occupation set to \"roofing\", healthScore set to 45.\n  Return calculateRiskScore(applicant).\n",
+      "diagnostics": [
+        {
+          "code": "E062",
+          "line": 105,
+          "column": 48,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 105,
+          "column": 57,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 105,
+          "column": 61,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 105,
+          "column": 99,
+          "params": {
+            "before": "kw.module",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 105,
+          "column": 105,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 105,
+          "column": 122,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 105,
+          "column": 126,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 105,
+          "column": 130,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 105,
+          "column": 147,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 105,
+          "column": 151,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 105,
+          "column": 155,
+          "params": {
+            "expected": "'.' | '(' | '==' | '<=' | '>=' | '!=' | '=' | '+' | '*' | '-' | '/' | '<' | '>' | kw.less than word | kw.greater than word | kw.less than or equal word | kw.greater than or equal word | kw.equals to word | kw.not equal to word | kw.times word | kw.integer divided by word | kw.divided by word | kw.modulo word | kw.plus word | kw.minus word | kw.and | kw.or | token.identifier | token.newline",
+            "token": "','"
+          }
+        },
+        {
+          "code": "E060",
+          "line": 105,
+          "column": 167,
+          "params": {
+            "before": "kw.set",
+            "token": "'.'"
+          }
+        },
+        {
+          "code": "E062",
+          "line": 105,
+          "column": 171,
+          "params": {
+            "expected": "kw.module | kw.rule | kw.given | kw.define | kw.type | kw.version | kw.let | kw.be | kw.return | kw.apply | kw.if | kw.then | kw.else | kw.match | kw.when | kw.start | kw.wait | kw.workflow | kw.step | kw.retry | kw.timeout | kw.depends | kw.compensate | kw.max | kw.attempts | kw.backoff | kw.seconds | kw.required | kw.between | kw.matching | token.typeName | token.identifier",
+            "token": "kw.to"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mut/test_return_with.aster/4/ins|under|UP",
+      "source": "Module test.loan.\n\nDefine Decision has approved as UNDER Bool, reason as Text.\n\nRule check given age as Int, produce Text:\n  Return \"approved\".\n",
+      "diagnostics": [
+        {
+          "code": "E063",
+          "line": 3,
+          "column": 33,
+          "params": {
+            "token": "'UNDER'"
+          }
+        }
+      ]
+    }
+  ]
+}

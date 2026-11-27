@@ -7,8 +7,11 @@ import aster.core.typecheck.ErrorCode;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 自定义 Lexer 类，扩展 ANTLR4 生成的 AsterLexer，添加缩进敏感语法支持。
@@ -63,6 +66,30 @@ public class AsterCustomLexer extends AsterLexer {
      * 用于"关键词当标识符"标记的位置判定（前驱是否为结构关键词）。
      */
     private String prevMeaningfulLower = null;
+
+    /** 上一个返回的有意义 token（同 {@link #prevMeaningfulLower}），供运算符短语判定前一个记号能否结束操作数（K-c）。 */
+    private Token prevMeaningful = null;
+
+    /** {@link #prevMeaningful} 是否紧跟在点之后（成员名，K-c）：`s.tIMES Times 2`、`s.type Plus 1` 的成员名是操作数。 */
+    private boolean prevIsMember = false;
+
+    /** 上一个有意义 token 之后是否出现过换行 / 缩进记号（K-c）：语句末尾的句点之后换行，下一行的名字不是成员名。 */
+    private boolean lineBreakSincePrev = false;
+
+    /** 刚见过 Match：其后的第一个 INDENT 开启 Match 分支块（K-c，D3 判定模式位置用）。 */
+    private boolean matchHeaderPending = false;
+
+    /** 各层 Match 分支块的缩进（空格数），栈顶是最内层（K-c）。 */
+    private final Deque<Integer> matchCaseIndents = new ArrayDeque<>();
+
+    /** 是否处在 Match 分支的模式里（`When` 之后、括号外的第一个逗号之前，K-c）：模式里的 `Not(a)` 是构造器名，不读作 not。 */
+    private boolean inPattern = false;
+
+    /** 模式里未闭合的左括号数（K-c）。 */
+    private int patternParens = 0;
+
+    /** 下一个软比较词（under / over）的起点：`Is under` 的 is 已按短语改写时，其后的 under 同样改成小写文本（K-c）。 */
+    private int pendingSoftWordStart = -1;
 
     /**
      * 是否正处于【标识符声明列表】内（见过结构关键词,经逗号/and 延续,直到 `.`/`:`/换行结束）。
@@ -205,9 +232,12 @@ public class AsterCustomLexer extends AsterLexer {
         // 如果遇到 NEWLINE，标记需要检查缩进
         if (t.getType() == NEWLINE) {
             checkIndent = true;
+            inPattern = false;
+            lineBreakSincePrev = true;
             return t;
         }
 
+        t = mergeOperatorPhrase(t);
         retypePrefixKeyword(t);
         recordMeaningful(t);
         return t;
@@ -246,9 +276,175 @@ public class AsterCustomLexer extends AsterLexer {
     }
 
     /**
+     * 运算符短语的首词（K-c，小写）：比较词前的连接词 is、not equal to 的 not、单词算术运算符与软比较词。less than、at least、
+     * divided by 等不带 is 的多词运算符由 Canonicalizer 按词法表大小写不敏感地归一成小写，到这里已是运算符记号。
+     */
+    private static final Set<String> PHRASE_FIRST_WORDS = Set.of("is", "not", "times", "plus", "minus", "modulo", "under", "over");
+
+    /**
+     * K-c 新增读法的运算符短语（大小写不敏感，词间只能是水平空白，与 AsterLexer.g4 多词运算符一致），按 aster-lang-ts
+     * parseComparison / parseAdditive / parseMultiplicative 接受的写法列出。分组序号见 {@link #PHRASE_TYPES}。
+     * {@code less than or equal to} / {@code greater than or equal to} 不在其中：aster-lang-ts 连小写也不收。
+     */
+    private static final Pattern OPERATOR_PHRASE = Pattern.compile(
+        "(?i)(?:((?:is[ \\t]+)?not[ \\t]+equal[ \\t]+to)|(is[ \\t]+equal[ \\t]+to)|(is[ \\t]+less[ \\t]+than)"
+            + "|(is[ \\t]+(?:greater|more)[ \\t]+than)|(is[ \\t]+at[ \\t]+least)|(is[ \\t]+at[ \\t]+most)"
+            + "|(times)|(plus)|(minus)|(modulo)|(is[ \\t]+)?(under|over))(?![\\p{L}\\p{M}\\p{N}_])");
+
+    /** {@link #OPERATOR_PHRASE} 各分组对应的运算符记号；最后两组（软比较词）另行处理。 */
+    private static final int[] PHRASE_TYPES = {
+        AsterParser.NOT_EQUAL_TO_WORD, AsterParser.EQUALS_TO_WORD, AsterParser.LESS_THAN_WORD,
+        AsterParser.GREATER_THAN_WORD, AsterParser.GREATER_THAN_OR_EQUAL_WORD, AsterParser.LESS_THAN_OR_EQUAL_WORD,
+        AsterParser.TIMES_WORD, AsterParser.PLUS_WORD, AsterParser.MINUS_WORD, AsterParser.MODULO_WORD,
+    };
+
+    /**
+     * 运算符短语的其余大小写拼写（K-c，ADR 0056 修订 A4 §1.1）：{@code x Times 2}、{@code x Is Less Than y}、
+     * {@code x NOT EQUAL TO y}、{@code x Under 5} 改写成与小写拼写相同的运算符记号（软比较词 under / over / is 改成小写文本的
+     * IDENT，由 softComparator 照旧按文本识别）。解析器看到的与小写拼写逐记号相同，文法不变。
+     *
+     * <p>只在名字读法走不通时改写：前一个有意义的记号能结束一个操作数（{@link #endsOperand}，或是成员名；可隔着续行换行，
+     * 语句以句点结束，句点之后的记号不算），短语之后的记号能起一个操作数
+     * （{@link #startsOperand}）。名字后面直接跟名字在文法里不成立，所以 {@code Let Is be x.} 之后的 {@code Return Is less than 5.}、
+     * {@code Set Plus to 1.} 里的 Is / Plus 照旧是名字。短语必须恰好落在记号边界上（{@code Is less than or equal to} 的
+     * {@code less than or equal to} 是一个记号，不拆）。名字转义永远是名字（ADR 0064 N3），由本地化关键词还原的标识符不参与。
+     */
+    private Token mergeOperatorPhrase(Token t) {
+        if (pendingSoftWordStart >= 0 && t.getStartIndex() == pendingSoftWordStart) {
+            pendingSoftWordStart = -1;
+            return lowercaseIdent(t);
+        }
+        int type = t.getType();
+        if ((type != AsterParser.IDENT && type != AsterParser.TYPE_IDENT && type != AsterParser.NOT)
+                || EscapedToken.isEscaped(t) || t.getText() == null
+                || !PHRASE_FIRST_WORDS.contains(t.getText().toLowerCase(Locale.ROOT))
+                || !(prevIsMember || endsOperand(prevMeaningful))) {
+            return t;
+        }
+        String line = restOfLine(t.getStartIndex());
+        Matcher m = OPERATOR_PHRASE.matcher(line);
+        if (!m.lookingAt() || m.group().equals(m.group().toLowerCase(Locale.ROOT))) {
+            return t;
+        }
+        int end = m.end();
+        if (!phraseOnTokenBoundary(line, end)) {
+            return t;
+        }
+        if (m.group(12) != null) {
+            // 软比较词：is 与 under / over 各自保留为一个记号，文本改成小写
+            if (m.group(11) != null) pendingSoftWordStart = t.getStartIndex() + m.start(12);
+            return lowercaseIdent(t);
+        }
+        int group = 1;
+        while (m.group(group) == null) group++;
+        CommonToken merged = new CommonToken(t);
+        merged.setType(PHRASE_TYPES[group - 1]);
+        merged.setStopIndex(t.getStartIndex() + end - 1);
+        merged.setText(m.group());
+        // 消费短语里其余的词（同一行、无隐藏记号，见 phraseOnTokenBoundary）
+        int stop = t.getStopIndex();
+        while (stop < merged.getStopIndex()) {
+            Token n = bufferedNext != null ? bufferedNext : super.nextToken();
+            bufferedNext = null;
+            stop = n.getStopIndex();
+        }
+        return merged;
+    }
+
+    /** 同一记号改成小写文本的 IDENT（软比较词，K-c）。 */
+    private static Token lowercaseIdent(Token t) {
+        CommonToken c = new CommonToken(t);
+        c.setType(AsterParser.IDENT);
+        c.setText(t.getText().toLowerCase(Locale.ROOT));
+        return c;
+    }
+
+    /**
+     * 短语判定看的原文窗口（K-c）：最长的短语 {@code is not equal to} 加上其后的一个记号足够落在窗口里；窗口按行截断。
+     * 窗口有界，每个候选记号的开销与行长无关（长行里大量 Plus / Is 时不退化成平方）。
+     * 短语之后的字符串操作数只看起始引号，越出窗口的长字符串照样识别（phraseOnTokenBoundary）。
+     */
+    private static final int PHRASE_WINDOW = 256;
+
+    /** 从 {@code start} 起、至多 {@link #PHRASE_WINDOW} 个字符、到行尾为止的原文。 */
+    private String restOfLine(int start) {
+        CharStream in = getInputStream();
+        int last = Math.min(in.size() - 1, start + PHRASE_WINDOW - 1);
+        if (last < start) {
+            return "";
+        }
+        String text = in.getText(org.antlr.v4.runtime.misc.Interval.of(start, last));
+        int nl = indexOfLineBreak(text);
+        return nl < 0 ? text : text.substring(0, nl);
+    }
+
+    private static int indexOfLineBreak(String text) {
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '\n' || c == '\r') return i;
+        }
+        return -1;
+    }
+
+    /**
+     * 用生成的词法器（不经本类的改写）重新切分这一行：短语的结尾须是某个记号的结尾、中间没有隐藏记号（注释），且其后的记号
+     * 能起一个操作数。
+     */
+    private static boolean phraseOnTokenBoundary(String line, int end) {
+        if (line.indexOf('\uE000') >= 0) {
+            return false;
+        }
+        AsterLexer sub = new AsterLexer(CharStreams.fromString(line));
+        sub.removeErrorListeners();
+        // 只切到短语之后的第一个记号为止
+        for (Token tok = sub.nextToken(); tok.getType() != Token.EOF; tok = sub.nextToken()) {
+            if (tok.getStopIndex() < end - 1) {
+                if (tok.getChannel() != Token.DEFAULT_CHANNEL) return false;
+                continue;
+            }
+            if (tok.getStopIndex() != end - 1) return false;
+            // 字符串字面量可能越出窗口：只看起始的引号（字符串总能起一个操作数）
+            int i = end;
+            while (i < line.length() && (line.charAt(i) == ' ' || line.charAt(i) == '\t')) i++;
+            if (i < line.length() && line.charAt(i) == '"') return true;
+            Token next = sub.nextToken();
+            return next.getType() != Token.EOF && startsOperand(next);
+        }
+        return false;
+    }
+
+    /**
+     * 记号能结束一个操作数（K-c 运算符短语之前）：名字（文本不是 {@link #WORDS_AFTER_NAME} 里的关键词，也不是 not）、字面量、
+     * 右括号、右方括号；成员名（点之后的名字）另见 {@link #mergeOperatorPhrase}。保守取舍：以关键词同形词为名的变量
+     * （{@code max Times 2}）不改写，照旧报错。
+     */
+    static boolean endsOperand(Token p) {
+        if (p == null) {
+            return false;
+        }
+        int type = p.getType();
+        if (type == AsterParser.IDENT || type == AsterParser.TYPE_IDENT) {
+            if (EscapedToken.isEscaped(p)) return true;
+            String lower = p.getText() == null ? "" : p.getText().toLowerCase(Locale.ROOT);
+            return !WORDS_AFTER_NAME.contains(lower) && !lower.equals("not");
+        }
+        return type == AsterParser.INT_LITERAL || type == AsterParser.FLOAT_LITERAL
+            || type == AsterParser.DECIMAL_LITERAL || type == AsterParser.LONG_LITERAL
+            || type == AsterParser.STRING_LITERAL || type == AsterParser.BOOL_LITERAL
+            || type == AsterParser.NULL_LITERAL || type == AsterParser.RPAREN || type == AsterParser.RBRACKET;
+    }
+
+    /** 记号（生成的词法器切出的）能起一个操作数（K-c 运算符短语之后）。 */
+    private static boolean startsOperand(Token n) {
+        int type = n.getType();
+        return type == AsterLexer.ESCAPED_NAME || type == AsterParser.MINUS || type == AsterParser.DECIMAL_LITERAL
+            || type == AsterParser.APPLY || startsExpression(n);
+    }
+
+    /**
      * 前缀关键词 not / async 的其余大小写拼写（Not、NOT、nOT、Async…，K-b）在词法上是名字记号；名字读法走不通、关键词读法
      * 走得通时（下一个记号能起操作数、又不能接在名字之后，{@link #startsOperandOnly}）改成 NOT / ASYNC 记号，文本与位置不变。
-     * async 另外只在 as 之后（`Start t as Async f().`）。
+     * async 另外只在 as 之后（`Start t as Async f().`）。not 后接左括号另见 {@link #isNotCall}（K-c，D3）。
      *
      * <p>为什么在词法器里判定：not 能接在任何操作数之前，若用关键词辅助规则，其名字分支在预测深处一律当作成立，任何
      * 「名字 操作数」（`Return x y.`）都会被预测读成 `not y`，出错源码的诊断随之漂移。这里只看下一个记号，与解析器上下文无关，
@@ -263,9 +459,26 @@ public class AsterCustomLexer extends AsterLexer {
         String lower = t.getText().toLowerCase(java.util.Locale.ROOT);
         boolean not = "not".equals(lower);
         boolean async = "async".equals(lower) && "as".equals(prevMeaningfulLower);
-        if ((not || async) && startsOperandOnly(peekNextRealToken())) {
+        if (!not && !async) {
+            return;
+        }
+        Token next = peekNextRealToken();
+        if (startsOperandOnly(next) || (not && isNotCall(next))) {
             w.setType(not ? AsterParser.NOT : AsterParser.ASYNC);
         }
+    }
+
+    /**
+     * {@code Not(x)} / {@code NOT (x > 1)}（K-c，产品裁决 D3）：not 后接左括号读作 not，与 aster-lang-ts 一致，此前 core 读作
+     * 调用名为 Not 的函数。名字读法照旧的位置：成员调用 {@code x.Not(y)}（前一个记号是点）、注解 {@code @Not(…)}、Match 分支的
+     * 构造器模式 {@code When Not(a),}（{@link #inPattern}）。要调用名为 Not 的函数请写 {@code `Not`(x)}（名字转义）。
+     */
+    private boolean isNotCall(Token next) {
+        if (next == null || next.getType() != AsterParser.LPAREN || inPattern) {
+            return false;
+        }
+        int prev = prevMeaningful == null ? Token.INVALID_TYPE : prevMeaningful.getType();
+        return prev != AsterParser.DOT && prev != AsterParser.AT;
     }
 
     /**
@@ -459,8 +672,14 @@ public class AsterCustomLexer extends AsterLexer {
         trackNestingDepth(nestingGuardType(t, type), t.getText());
         if (type == NEWLINE || type == AsterParser.INDENT || type == AsterParser.DEDENT
                 || type == Token.EOF || t.getChannel() == Token.HIDDEN_CHANNEL) {
+            if (type == NEWLINE || type == AsterParser.INDENT || type == AsterParser.DEDENT) lineBreakSincePrev = true;
+            trackMatchBlocks(type);
             return;
         }
+        trackPattern(type);
+        prevIsMember = prevMeaningful != null && prevMeaningful.getType() == AsterParser.DOT && !lineBreakSincePrev;
+        prevMeaningful = t;
+        lineBreakSincePrev = false;
         String txt = t.getText();
         // 转义名永远是名字（ADR 0064 N3）：不让 `define` / `given` 这样的转义名开启标识符声明列表
         prevMeaningfulLower = txt == null || EscapedToken.isEscaped(t) ? null : txt.toLowerCase(java.util.Locale.ROOT);
@@ -481,6 +700,41 @@ public class AsterCustomLexer extends AsterLexer {
         }
         // 其余 token（字段名 IDENT、逗号、and）保持 inIdentifierList 不变，使
         // `包含 年龄，结果` 里逗号后的 结果 仍判为标识符位置。
+    }
+
+    /**
+     * Match 分支块的进出（K-c）：Match 之后的第一个 INDENT 记下分支块的缩进；DEDENT 退到更浅的缩进时出块。
+     * 只服务于 {@link #inPattern}：词法器不知道解析上下文，`When Not(a),` 在 Match 分支里是构造器模式，在规则体里
+     * （判定糖 `When 条件, 结论.`）是表达式，按所在的块区分。
+     */
+    private void trackMatchBlocks(int type) {
+        if (type == AsterParser.INDENT && matchHeaderPending) {
+            matchHeaderPending = false;
+            matchCaseIndents.push(indentStack.peek());
+        } else if (type == AsterParser.DEDENT) {
+            while (!matchCaseIndents.isEmpty() && matchCaseIndents.peek() > indentStack.peek()) {
+                matchCaseIndents.pop();
+            }
+        }
+    }
+
+    /** 模式位置的进出（K-c）：Match 分支块里的 When 开启模式，括号外的逗号结束（换行另在 nextToken 里结束）。 */
+    private void trackPattern(int type) {
+        if (type == AsterParser.MATCH) {
+            matchHeaderPending = true;
+        } else if (type == AsterParser.DOT) {
+            matchHeaderPending = false;
+        }
+        if (type == AsterParser.WHEN && !matchCaseIndents.isEmpty() && matchCaseIndents.peek().equals(indentStack.peek())) {
+            inPattern = true;
+            patternParens = 0;
+        } else if (inPattern && type == AsterParser.LPAREN) {
+            patternParens++;
+        } else if (inPattern && type == AsterParser.RPAREN) {
+            patternParens--;
+        } else if (inPattern && type == AsterParser.COMMA && patternParens <= 0) {
+            inPattern = false;
+        }
     }
 
     /**
